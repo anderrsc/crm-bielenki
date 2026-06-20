@@ -135,3 +135,33 @@ export async function moveLeadStage(leadId:string,stageId:string) {
   const db=await createClient(); const {data:stage,error:stageError}=await db.from("pipeline_stages").select("is_won,is_lost").eq("id",stageId).single(); if(stageError) throw new Error(stageError.message);
   const status=stage.is_won?"ganho":stage.is_lost?"perdido":"aberto"; const {error}=await db.from("leads").update({stage_id:stageId,status}).eq("id",leadId); if(error)throw new Error(error.message); revalidatePath("/pipeline");
 }
+
+export async function receivePurchaseItem(formData:FormData) {
+  const db=await createClient();const itemId=String(formData.get("item_id"));const locationId=String(formData.get("location_id"));const quantity=Number(String(formData.get("quantity")||"0").replace(",","."));
+  if(!itemId||!locationId||!Number.isFinite(quantity)||quantity<=0)redirect("/producao/materiais-do-pedido?erro=Informe quantidade e local de estoque");
+  const {error}=await db.rpc("receive_purchase_item",{p_item_id:itemId,p_quantity:quantity,p_location_id:locationId,p_unit_cost:null,p_notes:String(formData.get("notes")||"")});
+  if(error)redirect(`/producao/materiais-do-pedido?erro=${encodeURIComponent(error.message)}`);revalidatePath("/producao/materiais-do-pedido");revalidatePath("/compras");revalidatePath("/estoque");redirect("/producao/materiais-do-pedido?recebido=1");
+}
+
+export async function updateInstallationChecklist(formData:FormData) {
+  const db=await createClient();const id=String(formData.get("item_id"));const installationId=String(formData.get("installation_id"));const completed=formData.get("completed")==="on";const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+  const {error}=await db.from("installation_checklists").update({completed,completed_at:completed?new Date().toISOString():null,completed_by:completed?user.id:null,notes:String(formData.get("notes")||"").trim(),updated_at:new Date().toISOString()}).eq("id",id);
+  if(error)redirect(`/instalacoes/${installationId}?erro=${encodeURIComponent(error.message)}`);revalidatePath(`/instalacoes/${installationId}`);revalidatePath("/instalacoes");redirect(`/instalacoes/${installationId}?salvo=1`);
+}
+
+export async function updateInstallationStatus(formData:FormData) {
+  const db=await createClient();const id=String(formData.get("installation_id"));const status=String(formData.get("status"));if(!["agendada","em_andamento","cancelada"].includes(status))redirect(`/instalacoes/${id}?erro=Status inválido`);
+  const {error}=await db.from("installations").update({status}).eq("id",id);if(error)redirect(`/instalacoes/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath(`/instalacoes/${id}`);redirect(`/instalacoes/${id}`);
+}
+
+export async function saveGutterPrice(formData:FormData) {
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/tabela-calhas?erro=Empresa não encontrada");
+  const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=Number(String(formData.get("unit_price")||"0").replace(",","."));
+  if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect("/configuracoes/tabela-calhas?erro=Revise produto, espessura, corte e preço");
+  const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
+  const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(result.error.message)}`);revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect("/configuracoes/tabela-calhas?salvo=1");
+}
+
+export async function deleteGutterPrice(formData:FormData) {
+  const db=await createClient();const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(error.message)}`);revalidatePath("/configuracoes/tabela-calhas");redirect("/configuracoes/tabela-calhas");
+}

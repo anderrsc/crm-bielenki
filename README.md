@@ -41,6 +41,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 - Os relatórios aceitam período e consolidam vendas, recebimentos, pagamentos, ticket médio, pipeline, orçamentos e alertas operacionais.
 - Execute a migração `007_search_and_reports.sql` para habilitar as consultas agregadas.
 
+## Recebimento, instalação e preços de calhas
+
+- **Produção → Materiais do pedido** permite receber quantidades totais ou parciais, escolher o local e registrar observações. A confirmação movimenta estoque e atualiza compra e produção.
+- A página individual da instalação possui checklist mobile, progresso e observações por etapa. Ao concluir todos os itens obrigatórios, a instalação é finalizada e o pós-venda é iniciado.
+- **Configurações → Tabela de preços de calhas** mantém preços por produto, espessura e corte. A calculadora aplica automaticamente a combinação cadastrada.
+- Execute a migração `008_operations_installation_gutter_prices.sql` para habilitar os três fluxos.
+
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
 ## Validação

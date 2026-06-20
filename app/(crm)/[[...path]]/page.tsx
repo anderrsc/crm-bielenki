@@ -12,18 +12,29 @@ import { AutomationSettings } from "@/components/automation-settings";
 import { GlobalSearch } from "@/components/global-search";
 import { PipelinePage } from "@/components/pipeline-page";
 import { ReportsPage } from "@/components/reports-page";
+import { OrderMaterialsPage } from "@/components/order-materials-page";
+import { InstallationChecklistPage } from "@/components/installation-checklist-page";
+import { GutterPricesPage } from "@/components/gutter-prices-page";
+import type { GutterPrice, QuoteClient } from "@/lib/gutters";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   const search = await searchParams;
+  if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;
+  if (path[0] === "producao" && path[1] === "materiais-do-pedido") return <OrderMaterialsPage error={search.erro} received={(search as { recebido?: string }).recebido === "1"} />;
+  if (path[0] === "instalacoes" && path[1]) return <InstallationChecklistPage id={path[1]} error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") return <ClientForm error={search.erro} />;
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
-  if (path[0] === "orcamentos" && path[1] === "calhas") return <GutterQuote />;
+  if (path[0] === "orcamentos" && path[1] === "calhas") {
+    let prices:GutterPrice[]=[];let clients:QuoteClient[]=[];
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [priceResult,clientResult]=await Promise.all([db.from("gutter_prices").select("id,product,thickness,cut_mm,unit_price,notes,active").eq("active",true),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);prices=(priceResult.data as GutterPrice[])??[];clients=(clientResult.data as QuoteClient[])??[];}
+    return <GutterQuote prices={prices} clients={clients}/>;
+  }
   if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0] === "financeiro" ? "financeiro" : path[0];
   const config = modules[key];
