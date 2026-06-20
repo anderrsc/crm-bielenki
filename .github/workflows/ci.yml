@@ -1,0 +1,42 @@
+name: Validar CRM Bielenki
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-bielenki-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Tipos, segurança e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar TypeScript
+        run: npm run typecheck
+
+      - name: Auditar dependências
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Compilar para produção
+        run: npm run build

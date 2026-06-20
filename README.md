@@ -44,3 +44,15 @@ npm run build
 ```
 
 O sistema não inclui dados fictícios permanentes. Sem conexão Supabase, as telas mostram estados vazios e orientação de configuração.
+
+## Automações
+
+### Operação do CRM
+
+As automações de orçamento aprovado, contas a pagar e receber, pagamentos parciais, recebimento de materiais, estoque, liberação de produção, checklist, instalação e pós-venda são executadas de forma transacional pelas funções e gatilhos das migrações Supabase.
+
+### GitHub
+
+- O workflow **Validar CRM Bielenki** executa TypeScript, auditoria de segurança e build em todo push ou pull request para `main`.
+- O Dependabot verifica semanalmente as dependências npm e mensalmente as GitHub Actions.
+- O workflow também pode ser iniciado manualmente pela aba **Actions** do repositório.
