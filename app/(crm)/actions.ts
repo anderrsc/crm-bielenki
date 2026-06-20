@@ -68,6 +68,7 @@ export async function updateCompanyIdentity(formData: FormData) {
     primary_color: String(formData.get("primary_color") ?? "#234d3c"),
     accent_color: String(formData.get("accent_color") ?? "#b9d349"),
     quote_footer: String(formData.get("quote_footer") ?? "").trim(),
+    whatsapp_phone_number_id: String(formData.get("whatsapp_phone_number_id") ?? "").trim() || null,
   };
   if (!values.name) redirect("/configuracoes?erro=Informe a razão social");
 
@@ -96,4 +97,26 @@ export async function approveQuote(formData: FormData) {
   const { data, error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate });
   if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
+}
+
+export async function saveAutomationRule(formData: FormData) {
+  const db = await createClient();
+  const ruleId = String(formData.get("rule_id")); const templateId = String(formData.get("template_id"));
+  const daysBefore = Math.max(0, Math.min(30, Number(formData.get("days_before") || 0))); const body = String(formData.get("body") || "").trim();
+  if (!body) redirect("/automacoes?erro=O texto da mensagem é obrigatório");
+  const { error: templateError } = await db.from("message_templates").update({ body }).eq("id", templateId);
+  if (templateError) redirect(`/automacoes?erro=${encodeURIComponent(templateError.message)}`);
+  const { error } = await db.from("automation_rules").update({ enabled: formData.get("enabled") === "on", days_before: daysBefore, send_time: String(formData.get("send_time") || "09:00") }).eq("id", ruleId);
+  if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/automacoes"); redirect("/automacoes?salvo=1");
+}
+
+export async function queueTestMessage(formData: FormData) {
+  const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  const phone = String(formData.get("phone") || "").replace(/\D/g, ""); const body = String(formData.get("body") || "").trim();
+  if (!profile?.company_id || phone.length < 10 || !body) redirect("/automacoes?erro=Informe telefone e mensagem para o teste");
+  const { error } = await db.from("outbound_messages").insert({ company_id: profile.company_id, automation_type: "manual_test", phone, body, dedupe_key: `manual-${crypto.randomUUID()}` });
+  if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/automacoes"); redirect("/automacoes?teste=1");
 }

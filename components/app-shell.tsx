@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Factory, FileText, HandCoins, LayoutDashboard, Menu, PackageSearch, Search, Settings, ShoppingCart, Users, X } from "lucide-react";
+import { BarChart3, Bot, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Factory, FileText, HandCoins, LayoutDashboard, Menu, PackageSearch, Search, Settings, ShoppingCart, Users, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ const groups = [
   { title: "Visão geral", items: [["Dashboard", "/dashboard", LayoutDashboard], ["Pipeline", "/pipeline", BarChart3], ["Busca global", "/busca", Search]] },
   { title: "Comercial", items: [["Clientes", "/clientes", Users], ["Orçamentos", "/orcamentos", FileText], ["Vendas", "/vendas", HandCoins], ["Pedidos", "/pedidos", ClipboardCheck]] },
   { title: "Operação", items: [["Compras", "/compras", ShoppingCart], ["Fornecedores", "/fornecedores", Building2], ["Estoque", "/estoque", Boxes], ["Produção", "/producao", Factory], ["Materiais do pedido", "/producao/materiais-do-pedido", PackageSearch], ["Instalações", "/instalacoes", CalendarCheck]] },
-  { title: "Gestão", items: [["Financeiro", "/financeiro", CircleDollarSign], ["Relatórios", "/relatorios", BarChart3], ["Configurações", "/configuracoes", Settings]] },
+  { title: "Gestão", items: [["Financeiro", "/financeiro", CircleDollarSign], ["Automações", "/automacoes", Bot], ["Relatórios", "/relatorios", BarChart3], ["Configurações", "/configuracoes", Settings]] },
 ] as const;
 
 export function AppShell({ children, userName, companyName }: { children: React.ReactNode; userName: string; companyName: string }) {

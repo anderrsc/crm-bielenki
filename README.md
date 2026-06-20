@@ -51,6 +51,31 @@ O sistema não inclui dados fictícios permanentes. Sem conexão Supabase, as te
 
 As automações de orçamento aprovado, contas a pagar e receber, pagamentos parciais, recebimento de materiais, estoque, liberação de produção, checklist, instalação e pós-venda são executadas de forma transacional pelas funções e gatilhos das migrações Supabase.
 
+### WhatsApp, cobranças e agendamentos
+
+1. Execute as migrações `005_whatsapp_automations.sql` e `006_automation_cron.sql`.
+2. Crie/configure um aplicativo na Meta com o produto WhatsApp Cloud API.
+3. Na página **Configurações**, informe o **ID do número no WhatsApp Cloud**.
+4. Cadastre os segredos e publique as funções:
+
+```bash
+supabase secrets set WHATSAPP_ACCESS_TOKEN=... WHATSAPP_APP_SECRET=... WHATSAPP_VERIFY_TOKEN=... AUTOMATION_SECRET=...
+supabase functions deploy automation-dispatcher --no-verify-jwt
+supabase functions deploy whatsapp-webhook --no-verify-jwt
+```
+
+5. Na Meta, use `https://SEU-PROJETO.supabase.co/functions/v1/whatsapp-webhook` como callback e o mesmo `WHATSAPP_VERIFY_TOKEN` como token de verificação.
+6. Ative o processamento a cada cinco minutos no SQL Editor, usando o mesmo valor de `AUTOMATION_SECRET`:
+
+```sql
+select configure_automation_cron(
+  'https://SEU-PROJETO.supabase.co/functions/v1/automation-dispatcher',
+  'SEU_AUTOMATION_SECRET_COM_24_OU_MAIS_CARACTERES'
+);
+```
+
+As regras e os textos podem ser alterados na página **Automações**. O sistema mantém fila, deduplicação, tentativas, erros e histórico de envio. O chatbot recebe mensagens, registra a conversa e cria tarefas de retorno para financeiro, agendamento ou atendimento humano.
+
 ### GitHub
 
 - O workflow **Validar CRM Bielenki** executa TypeScript, auditoria de segurança e build em todo push ou pull request para `main`.

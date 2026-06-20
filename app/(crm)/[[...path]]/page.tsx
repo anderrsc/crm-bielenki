@@ -8,11 +8,13 @@ import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
 import { VisitSheet } from "@/components/visit-sheet";
+import { AutomationSettings } from "@/components/automation-settings";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   const search = await searchParams;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") return <ClientForm error={search.erro} />;
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
   if (path[0] === "orcamentos" && path[1] === "calhas") return <GutterQuote />;
