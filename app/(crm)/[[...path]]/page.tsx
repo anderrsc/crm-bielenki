@@ -29,7 +29,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
   const financialFilter = path[0] === "financeiro" && ["receber", "pagar"].includes(path[1]);
-  if (path[1] && path[1] !== "novo" && !financialFilter) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
+    const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
+    if (path[1] && path[1] !== "novo" && !financialFilter && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
   let rows: Record<string, unknown>[] = []; let error: string | undefined;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
