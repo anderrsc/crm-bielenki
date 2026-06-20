@@ -27,6 +27,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 - Checklist obrigatório completo finaliza o pedido.
 - Instalação concluída agenda pós-venda e atualiza a cobrança do saldo.
 
+## Identidade e documentos
+
+- Em **Configurações → Identidade da empresa**, cadastre a logo, dados da Marquinhos Calhas e Esquadrias, cores e rodapé comercial.
+- Os orçamentos usam automaticamente essa identidade e podem ser impressos ou salvos em PDF pelo navegador.
+- Na página do cliente, **Emitir ficha de visita** gera uma folha A4 compacta, com cliente e bairro em destaque e ampla área livre para medições e croquis.
+- Execute também a migração `004_company_branding.sql` para habilitar esses recursos e o bucket de logos.
+
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
 ## Validação

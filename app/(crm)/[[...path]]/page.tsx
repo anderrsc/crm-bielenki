@@ -5,12 +5,18 @@ import { notFound } from "next/navigation";
 import { ClientForm } from "@/components/client-form";
 import { GutterQuote } from "@/components/gutter-quote";
 import { DetailPage } from "@/components/detail-page";
+import { CompanySettings } from "@/components/company-settings";
+import { QuoteDocument } from "@/components/quote-document";
+import { VisitSheet } from "@/components/visit-sheet";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   const search = await searchParams;
+  if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") return <ClientForm error={search.erro} />;
+  if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
   if (path[0] === "orcamentos" && path[1] === "calhas") return <GutterQuote />;
+  if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0] === "financeiro" ? "financeiro" : path[0];
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;

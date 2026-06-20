@@ -45,3 +45,55 @@ export async function saveGutterQuote(formData: FormData) {
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
+
+export async function updateCompanyIdentity(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) redirect("/configuracoes?erro=Empresa não encontrada");
+
+  const values = {
+    name: String(formData.get("name") ?? "").trim(),
+    trade_name: String(formData.get("trade_name") ?? "").trim(),
+    tax_id: String(formData.get("tax_id") ?? "").trim(),
+    phone: String(formData.get("phone") ?? "").trim(),
+    whatsapp: String(formData.get("whatsapp") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    address: String(formData.get("address") ?? "").trim(),
+    neighborhood: String(formData.get("neighborhood") ?? "").trim(),
+    city: String(formData.get("city") ?? "").trim(),
+    state: String(formData.get("state") ?? "").trim().slice(0, 2).toUpperCase(),
+    website: String(formData.get("website") ?? "").trim(),
+    primary_color: String(formData.get("primary_color") ?? "#234d3c"),
+    accent_color: String(formData.get("accent_color") ?? "#b9d349"),
+    quote_footer: String(formData.get("quote_footer") ?? "").trim(),
+  };
+  if (!values.name) redirect("/configuracoes?erro=Informe a razão social");
+
+  let logoUrl: string | undefined;
+  const logo = formData.get("logo");
+  if (logo instanceof File && logo.size > 0) {
+    if (logo.size > 2 * 1024 * 1024) redirect("/configuracoes?erro=A logo deve ter no máximo 2 MB");
+    if (!logo.type.startsWith("image/")) redirect("/configuracoes?erro=Envie um arquivo de imagem");
+    const extension = logo.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
+    const path = `${profile.company_id}/logo-${Date.now()}.${extension}`;
+    const { error: uploadError } = await db.storage.from("company-assets").upload(path, logo, { contentType: logo.type, upsert: true });
+    if (uploadError) redirect(`/configuracoes?erro=${encodeURIComponent(uploadError.message)}`);
+    logoUrl = db.storage.from("company-assets").getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await db.from("companies").update({ ...values, ...(logoUrl ? { logo_url: logoUrl } : {}) }).eq("id", profile.company_id);
+  if (error) redirect(`/configuracoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes"); revalidatePath("/orcamentos", "layout"); revalidatePath("/clientes", "layout");
+  redirect("/configuracoes?salvo=1");
+}
+
+export async function approveQuote(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id"));
+  const dueDate = String(formData.get("due_date") || "") || null;
+  const { data, error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate });
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
+}
