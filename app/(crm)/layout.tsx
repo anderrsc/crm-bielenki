@@ -8,6 +8,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const { data: profile } = await supabase.from("profiles").select("full_name, companies(name)").eq("id", user.id).single();
+  const { data: roleValues } = await supabase.rpc("current_user_roles");
   const company = profile?.companies as unknown as { name?: string } | null;
-  return <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "CRM Bielenki"}>{children}</AppShell>;
+  return <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "CRM Bielenki"} roles={(roleValues as string[]|null)??[]}>{children}</AppShell>;
 }

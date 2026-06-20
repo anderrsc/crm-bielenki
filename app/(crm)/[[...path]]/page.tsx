@@ -16,10 +16,13 @@ import { OrderMaterialsPage } from "@/components/order-materials-page";
 import { InstallationChecklistPage } from "@/components/installation-checklist-page";
 import { GutterPricesPage } from "@/components/gutter-prices-page";
 import type { GutterPrice, QuoteClient } from "@/lib/gutters";
+import { ManualSaleForm } from "@/components/manual-sale-form";
+import { ManualPurchaseForm } from "@/components/manual-purchase-form";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   const search = await searchParams;
+  if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
@@ -29,6 +32,16 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "producao" && path[1] === "materiais-do-pedido") return <OrderMaterialsPage error={search.erro} received={(search as { recebido?: string }).recebido === "1"} />;
   if (path[0] === "instalacoes" && path[1]) return <InstallationChecklistPage id={path[1]} error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") return <ClientForm error={search.erro} />;
+  if (path[0] === "vendas" && path[1] === "nova") {
+    let clients:{id:string;name:string}[]=[];let saleTypes:{id:string;name:string}[]=[];
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [clientResult,typeResult]=await Promise.all([db.from("clients").select("id,name").eq("status","ativo").order("name"),db.from("sale_types").select("id,name").eq("active",true).order("name")]);clients=clientResult.data??[];saleTypes=typeResult.data??[];}
+    return <ManualSaleForm clients={clients} saleTypes={saleTypes} error={search.erro}/>;
+  }
+  if (path[0] === "compras" && path[1] === "nova") {
+    let suppliers:{id:string;name:string}[]=[];let materials:{id:string;name:string;unit:string}[]=[];
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [supplierResult,materialResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("materials").select("id,name,unit").eq("active",true).order("name")]);suppliers=supplierResult.data??[];materials=materialResult.data??[];}
+    return <ManualPurchaseForm suppliers={suppliers} materials={materials} error={search.erro}/>;
+  }
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
   if (path[0] === "orcamentos" && path[1] === "calhas") {
     let prices:GutterPrice[]=[];let clients:QuoteClient[]=[];

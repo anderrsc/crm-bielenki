@@ -165,3 +165,13 @@ export async function saveGutterPrice(formData:FormData) {
 export async function deleteGutterPrice(formData:FormData) {
   const db=await createClient();const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(error.message)}`);revalidatePath("/configuracoes/tabela-calhas");redirect("/configuracoes/tabela-calhas");
 }
+
+export async function createManualSale(formData:FormData) {
+  const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/vendas/nova?erro=Dados da venda inválidos");}
+  const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}`);
+}
+
+export async function createManualPurchase(formData:FormData) {
+  const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/compras/nova?erro=Dados da compra inválidos");}
+  const {data,error}=await db.rpc("create_manual_purchase",{p_payload:payload});if(error)redirect(`/compras/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/compras");revalidatePath("/financeiro");redirect(`/compras/${data}`);
+}

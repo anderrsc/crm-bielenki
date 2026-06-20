@@ -48,6 +48,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 - **Configurações → Tabela de preços de calhas** mantém preços por produto, espessura e corte. A calculadora aplica automaticamente a combinação cadastrada.
 - Execute a migração `008_operations_installation_gutter_prices.sql` para habilitar os três fluxos.
 
+## Compras e vendas manuais
+
+- **Vendas → Nova venda** cadastra venda avulsa com vários itens, cliente, tipo, valor recebido e vencimento. A conta a receber e o pagamento inicial são gerados automaticamente.
+- **Compras → Nova compra** cadastra vários materiais, como perfis, parafusos, vedantes, tintas, borrachas, acessórios e ferramentas. Materiais ainda inexistentes são criados no estoque e a conta a pagar é gerada.
+- **Preços de calhas** aparece no menu somente para funções autorizadas. Vendedor e Financeiro visualizam; Compras, Gerente e Administrador podem editar.
+- Execute a migração `009_manual_sales_purchases_permissions.sql` para habilitar esses recursos.
+
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
 ## Validação
