@@ -25,7 +25,7 @@ export function AppShell({ children, userName, companyName }: { children: React.
       <button onClick={() => setCollapsed(!collapsed)} className="hidden border-t border-white/10 p-4 text-white/50 hover:text-white lg:block">{collapsed ? <ChevronRight className="mx-auto" /> : <ChevronLeft className="mx-auto" />}</button>
     </aside>
     <div className="min-w-0 flex-1">
-      <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b bg-cream/90 px-5 backdrop-blur-xl lg:px-8"><div className="flex items-center gap-3"><button className="lg:hidden" onClick={() => setOpen(true)}><Menu /></button><div><p className="text-xs text-ink/45">{companyName}</p><p className="text-sm font-bold">Olá, {userName}</p></div></div><Link href="/busca" className="button-ghost h-10 text-ink/50"><Search className="h-4 w-4" /><span className="hidden sm:inline">Buscar cliente, pedido, compra...</span></Link></header>
+      <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b bg-cream/90 px-5 backdrop-blur-xl lg:px-8"><div className="flex items-center gap-3"><button className="lg:hidden" onClick={() => setOpen(true)}><Menu /></button><div><p className="text-xs text-ink/45">{companyName}</p><p className="text-sm font-bold">Olá, {userName}</p></div></div><form action="/busca" className="relative hidden w-full max-w-md sm:block"><Search className="absolute left-3 top-3 h-4 w-4 text-ink/35"/><input name="q" className="field h-10 bg-white/80 pl-9" placeholder="Buscar cliente, pedido, compra..."/></form><Link href="/busca" aria-label="Busca global" className="button-ghost h-10 px-3 sm:hidden"><Search className="h-4 w-4"/></Link></header>
       <main className="p-5 lg:p-8">{children}</main>
     </div>
   </div>;

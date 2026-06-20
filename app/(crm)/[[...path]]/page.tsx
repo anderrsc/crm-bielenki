@@ -9,12 +9,18 @@ import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
 import { VisitSheet } from "@/components/visit-sheet";
 import { AutomationSettings } from "@/components/automation-settings";
+import { GlobalSearch } from "@/components/global-search";
+import { PipelinePage } from "@/components/pipeline-page";
+import { ReportsPage } from "@/components/reports-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   const search = await searchParams;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
+  if (path[0] === "busca") return <GlobalSearch query={search.q} />;
+  if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
+  if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;
   if (path[0] === "clientes" && path[1] === "novo") return <ClientForm error={search.erro} />;
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
   if (path[0] === "orcamentos" && path[1] === "calhas") return <GutterQuote />;

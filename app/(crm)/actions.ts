@@ -120,3 +120,18 @@ export async function queueTestMessage(formData: FormData) {
   if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/automacoes"); redirect("/automacoes?teste=1");
 }
+
+export async function createLead(formData: FormData) {
+  const db=await createClient(); const {data:{user}}=await db.auth.getUser(); if(!user) redirect("/login");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single(); if(!profile?.company_id) redirect("/pipeline?erro=Empresa não encontrada");
+  let stageId=String(formData.get("stage_id")||""); if(!stageId){const {data:stage}=await db.from("pipeline_stages").select("id").eq("company_id",profile.company_id).order("sort_order").limit(1).single();stageId=stage?.id??"";}
+  const name=String(formData.get("name")||"").trim(); if(!name||!stageId) redirect("/pipeline?erro=Informe o nome e configure as etapas do pipeline");
+  const estimated=Number(String(formData.get("estimated_value")||"0").replace(",","."));
+  const {error}=await db.from("leads").insert({company_id:profile.company_id,name,phone:String(formData.get("phone")||"").trim(),source:String(formData.get("source")||"Manual"),stage_id:stageId,owner_id:user.id,estimated_value:Number.isFinite(estimated)?estimated:0,next_action:String(formData.get("next_action")||"").trim(),next_action_date:String(formData.get("next_action_date")||"")||null,status:"aberto"});
+  if(error) redirect(`/pipeline?erro=${encodeURIComponent(error.message)}`); revalidatePath("/pipeline"); redirect("/pipeline?criado=1");
+}
+
+export async function moveLeadStage(leadId:string,stageId:string) {
+  const db=await createClient(); const {data:stage,error:stageError}=await db.from("pipeline_stages").select("is_won,is_lost").eq("id",stageId).single(); if(stageError) throw new Error(stageError.message);
+  const status=stage.is_won?"ganho":stage.is_lost?"perdido":"aberto"; const {error}=await db.from("leads").update({stage_id:stageId,status}).eq("id",leadId); if(error)throw new Error(error.message); revalidatePath("/pipeline");
+}

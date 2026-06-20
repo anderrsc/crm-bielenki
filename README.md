@@ -34,6 +34,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 - Na página do cliente, **Emitir ficha de visita** gera uma folha A4 compacta, com cliente e bairro em destaque e ampla área livre para medições e croquis.
 - Execute também a migração `004_company_branding.sql` para habilitar esses recursos e o bucket de logos.
 
+## Busca, pipeline e relatórios
+
+- A busca global consulta clientes, pedidos, orçamentos, vendas, compras, fornecedores e materiais respeitando o RLS.
+- O pipeline comercial permite criar oportunidades, acompanhar valor e próxima ação e mover cartões entre etapas por arrastar ou selecionar.
+- Os relatórios aceitam período e consolidam vendas, recebimentos, pagamentos, ticket médio, pipeline, orçamentos e alertas operacionais.
+- Execute a migração `007_search_and_reports.sql` para habilitar as consultas agregadas.
+
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
 ## Validação
