@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { border-color: #ded7c7; }
+body { background: #f4f1e9; color: #18221e; }
+input, select, textarea { outline: none; }
+input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0 0 0 3px rgba(35,77,60,.1); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #c8c1b2; border-radius: 99px; }
+
+@layer components {
+  .card { @apply rounded-2xl border border-sand/80 bg-white shadow-soft; }
+  .button { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50; }
+  .button-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold transition hover:bg-cream; }
+  .field { @apply w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm; }
+  .label { @apply mb-1.5 block text-xs font-bold uppercase tracking-wider text-ink/55; }
+}

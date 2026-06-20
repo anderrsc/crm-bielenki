@@ -1,0 +1,18 @@
+import Link from "next/link";
+import { ArrowUpRight, Plus, Search } from "lucide-react";
+import { ModuleConfig } from "@/lib/modules";
+import { money, shortDate } from "@/lib/utils";
+
+const get = (row: Record<string, unknown>, path: string) => path.split(".").reduce<unknown>((v, key) => (v && typeof v === "object" ? (v as Record<string, unknown>)[key] : undefined), row);
+
+export function ModuleTable({ config, rows, base, query, error }: { config: ModuleConfig; rows: Record<string, unknown>[]; base: string; query?: string; error?: string }) {
+  const Icon = config.icon;
+  return <div className="mx-auto max-w-[1500px]">
+    <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-forest text-white"><Icon className="h-5 w-5" /></div><h1 className="text-3xl font-black tracking-tight">{config.title}</h1><p className="mt-1 text-sm text-ink/50">{config.description}</p></div>{config.create && <Link className="button" href={config.create}><Plus className="h-4 w-4" /> Novo {config.singular}</Link>}</div>
+    <div className="card overflow-hidden"><div className="border-b p-4"><form className="relative max-w-md"><Search className="absolute left-3 top-3 h-4 w-4 text-ink/35"/><input className="field pl-10" name="q" defaultValue={query} placeholder={`Buscar ${config.singular}...`} /></form></div>
+      {error ? <div className="m-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">Falha ao consultar os dados: {error}</div> : rows.length ? <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45"><tr>{config.columns.map(c => <th className="px-5 py-3 font-bold" key={c.key}>{c.label}</th>)}<th /></tr></thead><tbody className="divide-y">{rows.map((row, index) => <tr className="transition hover:bg-cream/35" key={String(row.id ?? index)}>{config.columns.map(c => { const value = get(row, c.key); return <td className="max-w-xs px-5 py-4" key={c.key}>{c.kind === "money" ? <b>{money(value as number)}</b> : c.kind === "date" ? shortDate(value as string) : c.kind === "status" ? <Status value={String(value ?? "-")} /> : <span className={c.key.includes("name") || c.key.includes("number") ? "font-semibold" : "text-ink/65"}>{String(value ?? "-")}</span>}</td>})}<td className="px-5"><Link aria-label="Abrir" href={`/${base}/${row.id}`}><ArrowUpRight className="h-4 w-4 text-ink/35" /></Link></td></tr>)}</tbody></table></div> : <div className="flex min-h-64 flex-col items-center justify-center p-8 text-center"><div className="rounded-full bg-cream p-4"><Icon className="h-6 w-6 text-forest" /></div><h3 className="mt-4 font-bold">Nenhum registro encontrado</h3><p className="mt-1 max-w-sm text-sm text-ink/45">Os registros salvos no Supabase aparecerão aqui. Ajuste a busca ou crie o primeiro {config.singular}.</p></div>}
+    </div>
+  </div>;
+}
+
+function Status({ value }: { value: string }) { const normalized = value.toLowerCase(); const color = normalized.includes("atras") || normalized.includes("venc") || normalized.includes("bloq") ? "bg-red-50 text-red-700" : normalized.includes("pago") || normalized.includes("concl") || normalized.includes("recebido completo") || normalized.includes("ativo") ? "bg-emerald-50 text-emerald-700" : normalized.includes("parcial") ? "bg-orange-50 text-orange-700" : "bg-amber-50 text-amber-800"; return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>{value.replaceAll("_", " ")}</span> }

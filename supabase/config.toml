@@ -1,0 +1,15 @@
+project_id = "crm-bielenki"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://*.vercel.app"]
+
+[storage]
+enabled = true
+file_size_limit = "25MiB"
