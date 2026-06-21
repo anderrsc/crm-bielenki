@@ -184,6 +184,46 @@ export async function saveLeadSource(formData:FormData) {
 }
 
 
+export async function saveSupplier(formData:FormData) {
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/fornecedores?erro=Empresa não encontrada");
+  const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();if(!name)redirect("/configuracoes/fornecedores?erro=Informe o nome do fornecedor");
+  const values={company_id:profile.company_id,name,tax_id:String(formData.get("tax_id")||"").trim()||null,phone:String(formData.get("phone")||"").trim()||null,whatsapp:String(formData.get("whatsapp")||"").trim()||null,email:String(formData.get("email")||"").trim()||null,city:String(formData.get("city")||"").trim()||null,state:String(formData.get("state")||"").trim()||null,payment_terms:String(formData.get("payment_terms")||"").trim()||null,notes:String(formData.get("notes")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
+  const result=id?await db.from("suppliers").update(values).eq("id",id):await db.from("suppliers").insert(values);if(result.error)redirect(`/configuracoes/fornecedores?erro=${encodeURIComponent(result.error.message)}`);
+  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect("/configuracoes/fornecedores?salvo=1");
+}
+
+export async function deleteSupplier(formData:FormData) {
+  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/fornecedores");
+  const {error}=await db.from("suppliers").delete().eq("id",id);if(error)redirect(`/configuracoes/fornecedores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect("/configuracoes/fornecedores");
+}
+
+export async function saveEmployee(formData:FormData) {
+  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
+  const full_name=String(formData.get("full_name")||"").trim();if(!full_name)redirect("/configuracoes/funcionarios?erro=Informe o nome");
+  const values={full_name,phone:String(formData.get("phone")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
+  const {error}=await db.from("profiles").update(values).eq("id",id);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes/funcionarios");redirect("/configuracoes/funcionarios?salvo=1");
+}
+
+export async function saveUserRoles(formData:FormData) {
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+  const {data:myProfile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!myProfile?.company_id)redirect("/configuracoes/funcionarios?erro=Empresa não encontrada");
+  const profileId=String(formData.get("profile_id")||"");if(!profileId)redirect("/configuracoes/funcionarios?erro=Funcionário inválido");
+  const roles=formData.getAll("roles").map(String);
+  await db.from("user_roles").delete().eq("profile_id",profileId);
+  if(roles.length){const inserts=roles.map(role=>({company_id:myProfile.company_id,profile_id:profileId,role}));const {error}=await db.from("user_roles").insert(inserts);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);}
+  revalidatePath("/configuracoes/funcionarios");redirect("/configuracoes/funcionarios?salvo=1");
+}
+
+export async function savePermission(formData:FormData) {
+  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/cargos?erro=ID inválido");
+  const values={can_view:formData.get("can_view")==="on",can_create:formData.get("can_create")==="on",can_update:formData.get("can_update")==="on",can_delete:formData.get("can_delete")==="on"};
+  const {error}=await db.from("permissions").update(values).eq("id",id);if(error)redirect(`/configuracoes/cargos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes/cargos");redirect("/configuracoes/cargos?salvo=1");
+}
+
 export async function updateQuoteSeller(formData: FormData) {
   const db = await createClient();
   const quoteId = String(formData.get("quote_id") || "");

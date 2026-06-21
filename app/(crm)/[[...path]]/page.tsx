@@ -19,6 +19,9 @@ import type { GutterPrice, QuoteClient } from "@/lib/gutters";
 import { ManualSaleForm } from "@/components/manual-sale-form";
 import { ManualPurchaseForm } from "@/components/manual-purchase-form";
 import { LeadSourcesPage } from "@/components/lead-sources-page";
+import { SuppliersPage } from "@/components/suppliers-page";
+import { EmployeesPage } from "@/components/employees-page";
+import { RolesPage } from "@/components/roles-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -26,6 +29,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "configuracoes" && path[1] === "fornecedores") return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "configuracoes" && path[1] === "funcionarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "configuracoes" && path[1] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
