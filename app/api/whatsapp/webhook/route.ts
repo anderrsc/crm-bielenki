@@ -467,6 +467,7 @@ async function createOrUpdateLead(
   dados: Record<string, unknown>,
   aiResult: { score: number | null; prioridade: string | null; proxima_acao: string | null }
 ) {
+  const supabase = getSupabase();
   // Busca a primeira etapa do pipeline
   const { data: stage } = await supabase
     .from("pipeline_stages")
