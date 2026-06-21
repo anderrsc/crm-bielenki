@@ -39,7 +39,7 @@ export async function toggleChecklistItem(formData: FormData) {
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
   const payload = JSON.parse(String(formData.get("payload")));
-  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1) }).safeParse(payload);
+  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1) }).safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
   const { data, error } = await db.rpc("create_gutter_quote", { p_payload: parsed.data });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
@@ -158,7 +158,8 @@ export async function saveGutterPrice(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/tabela-calhas?erro=Empresa não encontrada");
   const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=Number(String(formData.get("unit_price")||"0").replace(",","."));
   if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect("/configuracoes/tabela-calhas?erro=Revise produto, espessura, corte e preço");
-  const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
+  const color=String(formData.get("color")||"").trim()||null;
+  const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,color,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
   const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(result.error.message)}`);revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect("/configuracoes/tabela-calhas?salvo=1");
 }
 
