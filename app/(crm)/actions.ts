@@ -181,3 +181,30 @@ export async function saveLeadSource(formData:FormData) {
   const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();const channel=String(formData.get("channel")||"outros");const sortOrder=Number(formData.get("sort_order")||0);if(!name)redirect("/configuracoes/origens-lead?erro=Informe o nome da origem");
   const values={company_id:profile.company_id,name,channel,sort_order:sortOrder,active:formData.get("active")==="on",updated_at:new Date().toISOString()};const result=id?await db.from("lead_sources").update(values).eq("id",id):await db.from("lead_sources").insert(values);if(result.error)redirect(`/configuracoes/origens-lead?erro=${encodeURIComponent(result.error.message)}`);revalidatePath("/configuracoes/origens-lead");revalidatePath("/clientes/novo");revalidatePath("/pipeline");redirect("/configuracoes/origens-lead?salvo=1");
 }
+
+
+export async function updateQuoteSeller(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  const sellerName = String(formData.get("seller_name") || "").trim();
+  if (!quoteId) redirect("/orcamentos?erro=Orçamento inválido");
+  const { error } = await db.from("quotes").update({ seller_name: sellerName || null }).eq("id", quoteId);
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/orcamentos/${quoteId}`);
+}
+
+export async function updateQuotePaymentMethods(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  if (!quoteId) redirect("/orcamentos?erro=Orçamento inválido");
+  let methods: string[] = [];
+  try {
+    const parsed = JSON.parse(String(formData.get("payment_methods") || "[]"));
+    if (Array.isArray(parsed)) methods = parsed.filter((m) => typeof m === "string");
+  } catch {
+    redirect(`/orcamentos/${quoteId}?erro=Formas de pagamento inválidas`);
+  }
+  const { error } = await db.from("quotes").update({ payment_methods: methods }).eq("id", quoteId);
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/orcamentos/${quoteId}`);
+}
