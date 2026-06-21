@@ -1,0 +1,32 @@
+name: Smoke test do CRM em producao
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Verificar todas as rotas do menu
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rodar smoke test
+        env:
+          SMOKE_TEST_BASE_URL: https://crm-bielenki.vercel.app
+          SMOKE_TEST_SUPABASE_URL: ${{ secrets.SMOKE_TEST_SUPABASE_URL }}
+          SMOKE_TEST_SUPABASE_ANON_KEY: ${{ secrets.SMOKE_TEST_SUPABASE_ANON_KEY }}
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+        run: node scripts/smoke-test.mjs          
