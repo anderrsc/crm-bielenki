@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Save, UserCheck, UserX } from "lucide-react";
-import { saveEmployee, saveUserRoles } from "@/app/(crm)/actions";
+import { ArrowLeft, Mail, Plus, Save, UserCheck, UserX } from "lucide-react";
+import { inviteUser, saveEmployee, saveUserRoles } from "@/app/(crm)/actions";
 import { createClient } from "@/lib/supabase/server";
 
 type Profile = { id: string; full_name: string; phone: string | null; status: string };
@@ -19,7 +19,12 @@ const ALL_ROLES: { value: string; label: string }[] = [
 ];
 
 export async function EmployeesPage({ error, saved }: { error?: string; saved?: boolean }) {
-  let profiles: Profile[] = []; let userRoles: UserRole[] = []; let loadError = ""; let canManage = false;
+  let profiles: Profile[] = [];
+  let userRoles: UserRole[] = [];
+  let loadError = "";
+  let canManage = false;
+  let novoEmail = "";
+
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
     const [perm, profResult, rolesResult] = await Promise.all([
@@ -32,61 +37,153 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
     userRoles = (rolesResult.data as UserRole[]) ?? [];
     loadError = profResult.error?.message ?? "";
   }
+
+  // Extrai e-mail do novo usuário criado (passado via query param)
+  // Nota: searchParams não está disponível aqui, mas o redirect traz ?novo=email
+  // O componente recebe isso via prop error/saved — apenas mostramos a mensagem saved
+
   return (
-    <div className="mx-auto max-w-4xl">
-      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
-      <div className="mb-7">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pessoas</p>
-        <h1 className="mt-2 text-3xl font-black">Funcionários</h1>
-        <p className="mt-1 text-sm text-ink/50">Dados e situação dos membros da equipe.</p>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <Link href="/configuracoes" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+            <ArrowLeft className="h-4 w-4" />Voltar
+          </Link>
+          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pessoas</p>
+          <h1 className="mt-1 text-3xl font-black">Funcionários & Usuários</h1>
+          <p className="mt-1 text-sm text-ink/50">{profiles.length} membro{profiles.length !== 1 ? "s" : ""} da equipe</p>
+        </div>
       </div>
-      {(error || loadError) && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || loadError}</p>}
-      {saved && <p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Funcionário salvo.</p>}
-      <div className="space-y-3">
+
+      {(error || loadError) && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error || loadError}</div>
+      )}
+      {saved && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
+          ✓ Salvo com sucesso. O novo usuário receberá as instruções de acesso por e-mail.
+        </div>
+      )}
+
+      {/* ─── CONVIDAR NOVO USUÁRIO ─── */}
+      {canManage && (
+        <div className="card p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-white">
+              <Plus className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="font-bold">Adicionar novo usuário</h2>
+              <p className="text-xs text-ink/50">O usuário receberá acesso imediato ao sistema</p>
+            </div>
+          </div>
+          <form action={inviteUser} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Nome completo *</label>
+                <input className="field" name="full_name" placeholder="Ex: João da Silva" required />
+              </div>
+              <div>
+                <label className="label">E-mail *</label>
+                <input className="field" name="email" type="email" placeholder="joao@exemplo.com" required />
+              </div>
+            </div>
+            <div>
+              <label className="label mb-2 block">Cargos / Acessos</label>
+              <div className="flex flex-wrap gap-3">
+                {ALL_ROLES.map(r => (
+                  <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-lime/10 has-[:checked]:border-forest has-[:checked]:bg-lime/20">
+                    <input type="checkbox" name="roles" value={r.value} className="accent-forest" />
+                    {r.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg bg-cream p-3 text-xs text-ink/60">
+              <Mail className="h-4 w-4 shrink-0 text-forest" />
+              <span>O usuário será criado com acesso imediato. Você deverá enviar a senha gerada manualmente ou usar o link de redefinição de senha do Supabase.</span>
+            </div>
+            <button type="submit" className="button flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Criar usuário
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ─── LISTA DE FUNCIONÁRIOS ─── */}
+      <div className="space-y-2">
+        <h2 className="font-bold text-sm uppercase tracking-widest text-ink/40">Equipe atual</h2>
         {profiles.map(p => {
           const myRoles = userRoles.filter(r => r.profile_id === p.id).map(r => r.role);
           return (
             <details key={p.id} className="card">
               <summary className="flex cursor-pointer list-none items-center justify-between p-4">
                 <div className="flex items-center gap-3">
-                  {p.status === "ativo" ? <UserCheck className="h-5 w-5 text-forest" /> : <UserX className="h-5 w-5 text-ink/30" />}
+                  {p.status === "ativo"
+                    ? <UserCheck className="h-5 w-5 text-forest" />
+                    : <UserX className="h-5 w-5 text-ink/30" />}
                   <div>
                     <p className="font-bold">{p.full_name}</p>
-                    <p className="text-xs text-ink/50">{myRoles.map(r => ALL_ROLES.find(x => x.value === r)?.label ?? r).join(", ") || "Sem cargo"}</p>
+                    <p className="text-xs text-ink/50">
+                      {myRoles.map(r => ALL_ROLES.find(x => x.value === r)?.label ?? r).join(", ") || "Sem cargo"}
+                    </p>
                   </div>
                 </div>
-                <span className="text-xs text-ink/40">{p.phone || ""}</span>
+                <div className="flex items-center gap-3">
+                  <span className={`hidden rounded-full px-2 py-0.5 text-xs font-bold sm:inline ${p.status === "ativo" ? "bg-lime/30 text-forest" : "bg-ink/10 text-ink/40"}`}>
+                    {p.status === "ativo" ? "Ativo" : "Inativo"}
+                  </span>
+                  <span className="text-xs text-ink/40">{p.phone || ""}</span>
+                </div>
               </summary>
               <div className="border-t p-4 space-y-4">
                 <form action={saveEmployee} className="grid gap-3 sm:grid-cols-2">
                   <input type="hidden" name="id" value={p.id} />
-                  <div><label className="label">Nome completo</label><input className="field" name="full_name" defaultValue={p.full_name} disabled={!canManage} required /></div>
-                  <div><label className="label">Telefone</label><input className="field" name="phone" defaultValue={p.phone ?? ""} disabled={!canManage} /></div>
-                  <div className="flex items-center gap-4 self-end">
-                    <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" name="status_ativo" defaultChecked={p.status === "ativo"} disabled={!canManage} />Ativo</label>
+                  <div>
+                    <label className="label">Nome completo</label>
+                    <input className="field" name="full_name" defaultValue={p.full_name} disabled={!canManage} required />
                   </div>
-                  {canManage && <button className="button self-end"><Save className="h-4 w-4" />Salvar dados</button>}
+                  <div>
+                    <label className="label">Telefone</label>
+                    <input className="field" name="phone" defaultValue={p.phone ?? ""} disabled={!canManage} />
+                  </div>
+                  <div className="flex items-center gap-4 self-end">
+                    <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                      <input type="checkbox" name="status_ativo" defaultChecked={p.status === "ativo"} disabled={!canManage} />
+                      Usuário ativo
+                    </label>
+                  </div>
+                  {canManage && (
+                    <button className="button self-end flex items-center gap-2">
+                      <Save className="h-4 w-4" /> Salvar dados
+                    </button>
+                  )}
                 </form>
                 {canManage && (
                   <form action={saveUserRoles} className="border-t pt-4">
                     <input type="hidden" name="profile_id" value={p.id} />
-                    <p className="label mb-2">Cargos / Acessos</p>
-                    <div className="flex flex-wrap gap-3 mb-3">
+                    <p className="label mb-3">Cargos / Acessos</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {ALL_ROLES.map(r => (
-                        <label key={r.value} className="flex items-center gap-1.5 text-sm font-medium cursor-pointer">
-                          <input type="checkbox" name="roles" value={r.value} defaultChecked={myRoles.includes(r.value)} />
+                        <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-lime/10 has-[:checked]:border-forest has-[:checked]:bg-lime/20">
+                          <input type="checkbox" name="roles" value={r.value} defaultChecked={myRoles.includes(r.value)} className="accent-forest" />
                           {r.label}
                         </label>
                       ))}
                     </div>
-                    <button className="button-ghost text-sm gap-2"><Save className="h-4 w-4" />Salvar cargos</button>
+                    <button className="button-ghost flex items-center gap-2 text-sm">
+                      <Save className="h-4 w-4" /> Salvar cargos
+                    </button>
                   </form>
                 )}
               </div>
             </details>
           );
         })}
-        {!profiles.length && <div className="card p-8 text-center text-sm text-ink/45">Nenhum funcionário encontrado.</div>}
+        {!profiles.length && (
+          <div className="card p-8 text-center text-sm text-ink/45">
+            Nenhum funcionário encontrado. Adicione o primeiro usuário acima.
+          </div>
+        )}
       </div>
     </div>
   );

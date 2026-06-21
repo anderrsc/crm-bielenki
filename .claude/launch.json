@@ -5,7 +5,8 @@
       "name": "crm-dev",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "node_modules\\.bin\\next.cmd", "dev", "--turbopack"],
-      "port": 3000
+      "port": 3000,
+      "autoPort": false
     }
   ]
 }

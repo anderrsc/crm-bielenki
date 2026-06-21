@@ -9,6 +9,8 @@ import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
 import { VisitSheet } from "@/components/visit-sheet";
 import { AutomationSettings } from "@/components/automation-settings";
+import { AutomationsHub } from "@/components/automations-hub";
+import { WorkflowBuilder } from "@/components/workflow-builder";
 import { GlobalSearch } from "@/components/global-search";
 import { PipelinePage } from "@/components/pipeline-page";
 import { ReportsPage } from "@/components/reports-page";
@@ -22,11 +24,14 @@ import { LeadSourcesPage } from "@/components/lead-sources-page";
 import { SuppliersPage } from "@/components/suppliers-page";
 import { EmployeesPage } from "@/components/employees-page";
 import { RolesPage } from "@/components/roles-page";
+import { AiTriagePage } from "@/components/ai-triage-page";
+import { AiControlPanel } from "@/components/ai-control-panel";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
+  if (path[0] === "dashboard") { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
@@ -35,7 +40,51 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "configuracoes" && path[1] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if (path[0] === "automacoes") return <AutomationSettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} test={(search as { teste?: string }).teste === "1"} />;
+  if (path[0] === "central-ia") {
+    const tab = (search as { aba?: string }).aba ?? "dashboard";
+    return <AiControlPanel tab={tab} />;
+  }
+  if (path[0] === "agente-ia") {
+    const tab = (search as { aba?: string }).aba ?? "triagens";
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const { data: { user } } = await db.auth.getUser();
+      const { data: profile } = user ? await db.from("profiles").select("company_id").eq("id", user.id).single() : { data: null };
+      const companyId = profile?.company_id;
+      const [configRes, sessionsRes] = await Promise.all([
+        companyId ? db.from("ai_agent_config").select("*").eq("company_id", companyId).single() : Promise.resolve({ data: null }),
+        companyId ? db.from("triage_sessions").select("id,phone,nome,status,produto,tipo_servico,score,prioridade,probabilidade,prazo,necessita_visita,possui_projeto,possui_fotos,eh_manutencao,resumo_executivo,created_at,completed_at,messages").eq("company_id", companyId).order("created_at", { ascending: false }).limit(50) : Promise.resolve({ data: [] }),
+      ]);
+      return <AiTriagePage config={configRes.data as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
+    }
+    return <AiTriagePage config={null} sessions={[]} tab={tab} />;
+  }
+  if (path[0] === "automacoes" && path[1] === "novo") {
+    let templates: { id: string; name: string; channel: string }[] = [];
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const { data } = await db.from("message_templates").select("id,name,channel").eq("active", true).order("name");
+      templates = data ?? [];
+    }
+    return <WorkflowBuilder templates={templates} />;
+  }
+  if (path[0] === "automacoes" && path[1] && path[2] === "editar") {
+    let wf = null; let templates: { id: string; name: string; channel: string }[] = [];
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const [wfRes, tplRes] = await Promise.all([
+        db.from("workflows").select("id,name,description,status,trigger_type,trigger_config,conditions,steps").eq("id", path[1]).single(),
+        db.from("message_templates").select("id,name,channel").eq("active", true).order("name"),
+      ]);
+      wf = wfRes.data; templates = tplRes.data ?? [];
+    }
+    if (!wf) return notFound();
+    return <WorkflowBuilder workflow={wf as Parameters<typeof WorkflowBuilder>[0]["workflow"]} templates={templates} />;
+  }
+  if (path[0] === "automacoes") {
+    const tab = (search as { aba?: string }).aba ?? "fluxos";
+    return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
+  }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;

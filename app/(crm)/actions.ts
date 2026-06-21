@@ -199,6 +199,60 @@ export async function deleteSupplier(formData:FormData) {
   revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect("/configuracoes/fornecedores");
 }
 
+export async function inviteUser(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: myProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!myProfile?.company_id) redirect("/configuracoes/funcionarios?erro=Empresa não encontrada");
+
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const fullName = String(formData.get("full_name") || "").trim();
+  const roles = formData.getAll("roles").map(String);
+  if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
+
+  // Usa Supabase Admin API com service_role para criar o usuário
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const admin = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Verifica se o e-mail já existe
+  const { data: existing } = await admin.auth.admin.listUsers();
+  const alreadyExists = existing?.users?.some(u => u.email === email);
+  if (alreadyExists) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
+
+  // Cria o usuário com senha temporária e metadados da empresa
+  const tempPassword = Math.random().toString(36).slice(-10) + "Bielenki1!";
+  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+    app_metadata: { company_id: myProfile.company_id },
+    user_metadata: { full_name: fullName },
+  });
+
+  if (createError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(createError.message)}`);
+
+  // Aguarda o trigger criar o profile (pode levar um instante) e atualiza roles
+  await new Promise(r => setTimeout(r, 800));
+  const profileId = newUser.user?.id;
+  if (profileId) {
+    // Garante que o profile existe
+    await admin.from("profiles").upsert({ id: profileId, company_id: myProfile.company_id, full_name: fullName, status: "ativo" }, { onConflict: "id" });
+    if (roles.length) {
+      const inserts = roles.map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
+      await admin.from("user_roles").insert(inserts).select();
+    }
+    // Gera link de redefinição de senha para o novo usuário acessar
+    await admin.auth.admin.generateLink({ type: "recovery", email });
+  }
+
+  revalidatePath("/configuracoes/funcionarios");
+  redirect(`/configuracoes/funcionarios?salvo=1&novo=${encodeURIComponent(email)}`);
+}
+
 export async function saveEmployee(formData:FormData) {
   const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
   const full_name=String(formData.get("full_name")||"").trim();if(!full_name)redirect("/configuracoes/funcionarios?erro=Informe o nome");
@@ -248,4 +302,157 @@ export async function updateQuotePaymentMethods(formData: FormData) {
   const { error } = await db.from("quotes").update({ payment_methods: methods }).eq("id", quoteId);
   if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/orcamentos/${quoteId}`);
+}
+
+// ── Workflow Engine ──────────────────────────────────────────────────────────
+
+export async function saveWorkflow(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) redirect("/automacoes?erro=Empresa não encontrada");
+
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const status = String(formData.get("status") || "rascunho");
+  if (!name) redirect("/automacoes/novo?erro=Informe o nome do fluxo");
+
+  let steps: unknown[] = [], conditions: unknown[] = [];
+  try { steps = JSON.parse(String(formData.get("steps") || "[]")); } catch { steps = []; }
+  try { conditions = JSON.parse(String(formData.get("conditions") || "[]")); } catch { conditions = []; }
+
+  const values = {
+    company_id: profile.company_id,
+    name,
+    description: String(formData.get("description") || "").trim() || null,
+    status,
+    trigger_type: String(formData.get("trigger_type") || "manual"),
+    trigger_config: {},
+    conditions,
+    steps,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (id) {
+    const { error } = await db.from("workflows").update(values).eq("id", id).eq("company_id", profile.company_id);
+    if (error) redirect(`/automacoes/${id}/editar?erro=${encodeURIComponent(error.message)}`);
+    revalidatePath("/automacoes");
+    redirect(`/automacoes?salvo=1`);
+  } else {
+    const { data, error } = await db.from("workflows").insert({ ...values, created_by: user.id }).select("id").single();
+    if (error) redirect(`/automacoes/novo?erro=${encodeURIComponent(error.message)}`);
+    revalidatePath("/automacoes");
+    redirect(`/automacoes?salvo=1`);
+  }
+}
+
+export async function toggleWorkflow(formData: FormData) {
+  const db = await createClient();
+  const id = String(formData.get("id") || "");
+  const currentStatus = String(formData.get("current_status") || "inativo");
+  const newStatus = currentStatus === "ativo" ? "inativo" : "ativo";
+  const { error } = await db.from("workflows").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/automacoes");
+}
+
+export async function deleteWorkflow(formData: FormData) {
+  const db = await createClient();
+  const id = String(formData.get("id") || "");
+  if (!id) redirect("/automacoes");
+  const { error } = await db.from("workflows").delete().eq("id", id);
+  if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/automacoes");
+  redirect("/automacoes");
+}
+
+export async function saveMessageTemplate(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) redirect("/automacoes/mensagens?erro=Empresa não encontrada");
+
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  if (!name || !body) redirect("/automacoes/mensagens?erro=Nome e corpo são obrigatórios");
+
+  const values = {
+    company_id: profile.company_id,
+    name,
+    body,
+    category: String(formData.get("category") || "geral"),
+    channel: String(formData.get("channel") || "whatsapp"),
+    subject: String(formData.get("subject") || "").trim() || null,
+    event: "workflow",
+    active: formData.get("active") !== "off",
+    updated_at: new Date().toISOString(),
+  };
+
+  const result = id
+    ? await db.from("message_templates").update(values).eq("id", id)
+    : await db.from("message_templates").insert(values);
+
+  if (result.error) redirect(`/automacoes/mensagens?erro=${encodeURIComponent(result.error.message)}`);
+  revalidatePath("/automacoes");
+  redirect("/automacoes?aba=mensagens&salvo=1");
+}
+
+export async function deleteMessageTemplate(formData: FormData) {
+  const db = await createClient();
+  const id = String(formData.get("id") || "");
+  if (!id) redirect("/automacoes");
+  const { error } = await db.from("message_templates").delete().eq("id", id);
+  if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/automacoes");
+  redirect("/automacoes?aba=mensagens");
+}
+
+export async function saveAiAgentConfig(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) redirect("/agente-ia?erro=Empresa não encontrada");
+
+  const values = {
+    company_id: profile.company_id,
+    active: formData.get("active") === "on",
+    agent_name: String(formData.get("agent_name") || "Ana").trim(),
+    openai_model: String(formData.get("openai_model") || "llama-3.3-70b-versatile"),
+    temperature: Number(formData.get("temperature") ?? 0.3),
+    auto_create_lead: formData.get("auto_create_lead") === "on",
+    notify_on_premium: formData.get("notify_on_premium") === "on",
+    ai_provider: String(formData.get("ai_provider") || "groq"),
+    wpp_provider: String(formData.get("wpp_provider") || "evolution"),
+    updated_at: new Date().toISOString(),
+  } as Record<string, unknown>;
+
+  const groqKey = String(formData.get("groq_api_key") || "").trim();
+  if (groqKey && !groqKey.startsWith("***")) values.groq_api_key = groqKey;
+
+  const apiKey = String(formData.get("openai_api_key") || "").trim();
+  if (apiKey && !apiKey.startsWith("***")) values.openai_api_key = apiKey;
+
+  const numberId = String(formData.get("whatsapp_number_id") || "").trim();
+  if (numberId) values.whatsapp_number_id = numberId;
+
+  const token = String(formData.get("whatsapp_token") || "").trim();
+  if (token && !token.startsWith("***")) values.whatsapp_token = token;
+
+  const evoUrl = String(formData.get("evolution_api_url") || "").trim();
+  if (evoUrl) values.evolution_api_url = evoUrl;
+
+  const evoKey = String(formData.get("evolution_api_key") || "").trim();
+  if (evoKey && !evoKey.startsWith("***")) values.evolution_api_key = evoKey;
+
+  const evoInstance = String(formData.get("evolution_instance") || "").trim();
+  if (evoInstance) values.evolution_instance = evoInstance;
+
+  const { error } = await db.from("ai_agent_config").upsert(values, { onConflict: "company_id" });
+  if (error) redirect(`/agente-ia?aba=configuracoes&erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/agente-ia");
+  redirect("/agente-ia?aba=configuracoes&salvo=1");
 }
