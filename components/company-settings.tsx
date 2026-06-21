@@ -1,6 +1,6 @@
 import { updateCompanyIdentity } from "@/app/(crm)/actions";
 import { createClient } from "@/lib/supabase/server";
-import { Building2, ImagePlus, Ruler, Save } from "lucide-react";
+import { Building2, ImagePlus, Megaphone, Ruler, Save } from "lucide-react";
 import Link from "next/link";
 
 export async function CompanySettings({ error, saved }: { error?: string; saved?: boolean }) {
@@ -10,7 +10,7 @@ export async function CompanySettings({ error, saved }: { error?: string; saved?
     const { data: profile } = await db.from("profiles").select("company_id").single();
     if (profile?.company_id) { const result = await db.from("companies").select("*").eq("id", profile.company_id).single(); company = (result.data as Record<string,string|null>) ?? {}; }
   }
-  return <div className="mx-auto max-w-5xl"><div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-forest text-white"><Building2 className="h-5 w-5" /></div><h1 className="text-3xl font-black">Identidade da empresa</h1><p className="mt-1 text-sm text-ink/50">Estes dados aparecem nos orçamentos e fichas de visita.</p></div><Link href="/configuracoes/tabela-calhas" className="button-ghost"><Ruler className="h-4 w-4"/>Tabela de preços de calhas</Link></div>
+  return <div className="mx-auto max-w-5xl"><div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-forest text-white"><Building2 className="h-5 w-5" /></div><h1 className="text-3xl font-black">Identidade da empresa</h1><p className="mt-1 text-sm text-ink/50">Estes dados aparecem nos orçamentos e fichas de visita.</p></div><div className="flex flex-wrap gap-2"><Link href="/configuracoes/origens-lead" className="button-ghost"><Megaphone className="h-4 w-4"/>Origens de lead</Link><Link href="/configuracoes/tabela-calhas" className="button-ghost"><Ruler className="h-4 w-4"/>Tabela de preços</Link></div></div>
     {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}{saved && <p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Identidade atualizada com sucesso.</p>}
     <form action={updateCompanyIdentity} className="card grid gap-5 p-6 sm:grid-cols-2 lg:p-8" encType="multipart/form-data">
       <div className="sm:col-span-2"><label className="label">Logo da empresa</label><div className="flex items-center gap-4">{company.logo_url ? <img src={company.logo_url} alt="Logo atual" className="h-20 w-32 rounded-xl border bg-white object-contain p-2" /> : <div className="flex h-20 w-32 items-center justify-center rounded-xl border border-dashed bg-cream"><ImagePlus className="text-ink/35" /></div>}<input className="field max-w-md" type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" /></div><p className="mt-1 text-xs text-ink/40">PNG, JPG, WebP ou SVG. Máximo de 2 MB.</p></div>

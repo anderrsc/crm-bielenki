@@ -55,6 +55,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 - **Preços de calhas** aparece no menu somente para funções autorizadas. Vendedor e Financeiro visualizam; Compras, Gerente e Administrador podem editar.
 - Execute a migração `009_manual_sales_purchases_permissions.sql` para habilitar esses recursos.
 
+## Origens de lead
+
+- Clientes e oportunidades do pipeline permitem selecionar a origem do lead.
+- As opções iniciais incluem Google, Meta (Facebook/Instagram), Indicação, Arquiteto, Engenheiro, Telefone, WhatsApp, Site, cliente recorrente e outras.
+- Administradores e gerentes podem cadastrar, ordenar e desativar opções em **Configurações → Origens de lead** sem apagar o histórico.
+- Execute a migração `010_lead_sources.sql` para habilitar o cadastro.
+
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
 ## Validação
