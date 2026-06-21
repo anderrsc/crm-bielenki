@@ -25,6 +25,7 @@ import { RolesPage } from "@/components/roles-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
+  if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
   if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;

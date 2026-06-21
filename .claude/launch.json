@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "crm-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "node_modules\\.bin\\next.cmd", "dev", "--turbopack"],
+      "port": 3000
+    }
+  ]
+}
