@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // Sistema de prompt da Ana — Agente de Triagem
 const SYSTEM_PROMPT = `Você é Ana, a assistente virtual comercial da Marquinhos Calhas e Esquadrias.
@@ -100,6 +102,7 @@ export async function GET(req: NextRequest) {
 
 // POST: recebe mensagens do WhatsApp
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase();
   try {
     const body = await req.text();
     const payload = JSON.parse(body);
