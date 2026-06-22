@@ -46,6 +46,7 @@ type StepLog = {
   step_number: number;
   step_name: string;
   completed_at: string | null;
+  notes: string | null;
   responsible: { full_name: string } | null;
 };
 
