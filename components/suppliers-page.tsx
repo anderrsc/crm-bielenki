@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 type Supplier = { id: string; name: string; tax_id: string | null; phone: string | null; whatsapp: string | null; email: string | null; city: string | null; state: string | null; payment_terms: string | null; notes: string | null; status: string };
 const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
-export async function SuppliersPage({ error, saved }: { error?: string; saved?: boolean }) {
+export async function SuppliersPage({ error, saved, backHref = "/configuracoes" }: { error?: string; saved?: boolean; backHref?: string }) {
   let suppliers: Supplier[] = []; let loadError = ""; let canManage = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
@@ -20,7 +20,7 @@ export async function SuppliersPage({ error, saved }: { error?: string; saved?: 
   }
   return (
     <div className="mx-auto max-w-5xl">
-      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+      <Link href={backHref} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
       <div className="mb-7">
         <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
         <h1 className="mt-2 text-3xl font-black">Fornecedores</h1>

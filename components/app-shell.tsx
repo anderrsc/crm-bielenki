@@ -11,7 +11,7 @@ const groups = [
   { title: "Comercial", items: [["Clientes", "/clientes", Users], ["Orçamentos", "/orcamentos", FileText], ["Preços de calhas", "/tabela-calhas", Ruler], ["Vendas", "/vendas", HandCoins], ["Pedidos", "/pedidos", ClipboardCheck]] },
   { title: "Operação", items: [["Compras", "/compras", ShoppingCart], ["Fornecedores", "/fornecedores", Building2], ["Estoque", "/estoque", Boxes], ["Produção", "/producao", Factory], ["Materiais do pedido", "/producao/materiais-do-pedido", PackageSearch], ["Instalações", "/instalacoes", CalendarCheck]] },
   { title: "Pessoas", items: [["Funcionários", "/configuracoes/funcionarios", UserCog], ["Usuários", "/configuracoes/usuarios", Users], ["Cargos", "/configuracoes/cargos", Shield]] },
-  { title: "Gestão", items: [["Financeiro", "/financeiro", CircleDollarSign], ["Automações", "/automacoes", Bot], ["Agente IA", "/agente-ia", UserCog], ["Central IA", "/central-ia", Bot], ["Relatórios", "/relatorios", BarChart3], ["Configurações", "/configuracoes", Settings]] },
+  { title: "Gestão", items: [["Financeiro", "/financeiro", CircleDollarSign], ["Automações", "/automacoes", Bot], ["Agente IA", "/agente-ia", Bot], ["Central IA", "/central-ia", Bot], ["Relatórios", "/relatorios", BarChart3], ["Configurações", "/configuracoes", Settings]] },
 ] as const;
 
 export function AppShell({ children, userName, companyName, roles=[] }: { children: React.ReactNode; userName: string; companyName: string; roles?: string[] }) {

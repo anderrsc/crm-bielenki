@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Plus, Play, Pause, Trash2, Zap, Clock, CheckCircle2, XCircle, ArrowRight, MessageSquare, Webhook, BarChart3 } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Zap, Clock, CheckCircle2, XCircle, ArrowRight, MessageSquare, Webhook, BarChart3, UserPlus, UserCheck, FileText, Send, CheckSquare, Wrench, CalendarCheck, AlertTriangle, CircleDollarSign, Link2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toggleWorkflow, deleteWorkflow } from "@/app/(crm)/actions";
 
 type Workflow = {
@@ -35,12 +36,12 @@ const TRIGGER_LABELS: Record<string, string> = {
   manual: "Manual",
 };
 
-const TRIGGER_ICONS: Record<string, string> = {
-  lead_criado: "👤", lead_atualizado: "✏️",
-  orcamento_criado: "📋", orcamento_enviado: "📤", orcamento_aprovado: "✅", orcamento_rejeitado: "❌",
-  instalacao_concluida: "🔧", instalacao_agendada: "📅",
-  pagamento_recebido: "💰", pagamento_vencido: "⚠️",
-  scheduled: "⏰", webhook: "🔗", manual: "▶️",
+const TRIGGER_ICONS: Record<string, LucideIcon> = {
+  lead_criado: UserPlus, lead_atualizado: UserCheck,
+  orcamento_criado: FileText, orcamento_enviado: Send, orcamento_aprovado: CheckSquare, orcamento_rejeitado: XCircle,
+  instalacao_concluida: Wrench, instalacao_agendada: CalendarCheck,
+  pagamento_recebido: CircleDollarSign, pagamento_vencido: AlertTriangle,
+  scheduled: Clock, webhook: Webhook, manual: Play,
 };
 
 const STEP_TYPE_LABELS: Record<string, string> = {
@@ -112,10 +113,10 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard icon="⚡" label="Fluxos ativos" value={activeCount} total={workflows.length} color="text-emerald-600" />
-        <StatCard icon="▶️" label="Execuções (30d)" value={totalRuns30d} color="text-blue-600" />
-        <StatCard icon="✅" label="Taxa de sucesso" value={`${successRate}%`} color="text-violet-600" />
-        <StatCard icon="📨" label="Templates" value={templates.filter(t => t.active).length} color="text-amber-600" />
+        <StatCard icon={Zap} label="Fluxos ativos" value={activeCount} total={workflows.length} color="text-emerald-600" />
+        <StatCard icon={Play} label="Execuções (30d)" value={totalRuns30d} color="text-blue-600" />
+        <StatCard icon={CheckCircle2} label="Taxa de sucesso" value={`${successRate}%`} color="text-violet-600" />
+        <StatCard icon={MessageSquare} label="Templates" value={templates.filter(t => t.active).length} color="text-amber-600" />
       </div>
 
       {/* Tabs */}
@@ -133,7 +134,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
         <div className="space-y-3">
           {workflows.length === 0 && (
             <div className="card p-12 text-center">
-              <div className="text-4xl mb-3">⚡</div>
+              <Zap className="h-10 w-10 mx-auto mb-3 text-ink/20" />
               <p className="font-bold text-ink/70">Nenhum fluxo criado ainda</p>
               <p className="mt-1 text-sm text-ink/40">Crie seu primeiro fluxo de automação para começar.</p>
               <Link href="/automacoes/novo" className="button-primary mt-4 inline-flex items-center gap-2">
@@ -248,7 +249,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
       {/* Tab: Webhooks */}
       {tab === "webhooks" && (
         <div className="card p-8 text-center">
-          <div className="text-4xl mb-3">🔗</div>
+          <Link2 className="h-10 w-10 mx-auto mb-3 text-ink/20" />
           <p className="font-bold">Webhooks de entrada</p>
           <p className="mt-1 text-sm text-ink/50 max-w-md mx-auto">Configure endpoints para disparar fluxos a partir de sistemas externos como formulários, e-commerce, CRMs e qualquer serviço que suporte webhooks.</p>
           <button className="button-primary mt-4 mx-auto flex items-center gap-2 opacity-60 cursor-not-allowed" disabled>
@@ -260,10 +261,10 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
   );
 }
 
-function StatCard({ icon, label, value, total, color }: { icon: string; label: string; value: string | number; total?: number; color: string }) {
+function StatCard({ icon: Icon, label, value, total, color }: { icon: LucideIcon; label: string; value: string | number; total?: number; color: string }) {
   return (
     <div className="card p-4">
-      <div className="text-2xl mb-2">{icon}</div>
+      <Icon className={`h-5 w-5 mb-2 ${color}`} />
       <p className={`text-2xl font-black ${color}`}>{value}{total !== undefined ? <span className="text-sm font-normal text-ink/30 ml-1">/ {total}</span> : null}</p>
       <p className="text-xs text-ink/50 mt-0.5">{label}</p>
     </div>
@@ -273,10 +274,11 @@ function StatCard({ icon, label, value, total, color }: { icon: string; label: s
 function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
   const steps = Array.isArray(wf.steps) ? wf.steps : [];
   const rate = wf.runs_count > 0 ? Math.round((wf.success_count / wf.runs_count) * 100) : null;
+  const TriggerIcon = TRIGGER_ICONS[wf.trigger_type] ?? Zap;
   return (
     <div className="card p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 text-2xl shrink-0">{TRIGGER_ICONS[wf.trigger_type] ?? "⚡"}</div>
+        <div className="mt-0.5 shrink-0 rounded-lg bg-ink/5 p-2"><TriggerIcon className="h-4 w-4 text-ink/50" /></div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-sm">{wf.name}</span>
@@ -286,7 +288,7 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
           </div>
           {wf.description && <p className="mt-0.5 text-xs text-ink/50 line-clamp-1">{wf.description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/40">
-            <span>🎯 {TRIGGER_LABELS[wf.trigger_type] ?? wf.trigger_type}</span>
+            <span>{TRIGGER_LABELS[wf.trigger_type] ?? wf.trigger_type}</span>
             <span>• {steps.length} passo{steps.length !== 1 ? "s" : ""}</span>
             {wf.runs_count > 0 && <span>• {wf.runs_count} execuções</span>}
             {rate !== null && <span>• {rate}% sucesso</span>}

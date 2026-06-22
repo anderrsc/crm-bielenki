@@ -35,7 +35,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if (path[0] === "configuracoes" && path[1] === "fornecedores") return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if ((path[0] === "configuracoes" && path[1] === "fornecedores") || (path[0] === "fornecedores" && !path[1])) return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} backHref={path[0] === "configuracoes" ? "/configuracoes" : "/dashboard"} />;
   if (path[0] === "configuracoes" && path[1] === "funcionarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
