@@ -7,11 +7,11 @@ import { advanceProductionStep } from "@/app/(crm)/actions";
 const STEPS_CALHAS = [
   "Medição",
   "Corte",
-  "Formação",
-  "Solda",
-  "Acabamento",
+  "Dobra",
   "Pintura",
-  "Controle de Qualidade",
+  "Agendamento",
+  "Instalação",
+  "Pós-venda",
 ];
 
 const STEPS_ESQUADRIAS = [

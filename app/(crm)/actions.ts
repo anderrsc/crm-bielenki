@@ -559,6 +559,22 @@ export async function deleteCommercialTable(formData: FormData) {
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
 
+export async function resetUserPassword(formData: FormData) {
+  const profileId = String(formData.get("profile_id") || "");
+  if (!profileId) redirect("/configuracoes/funcionarios?erro=ID inválido");
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: target } = await admin.auth.admin.getUserById(profileId);
+  if (!target?.user?.email) redirect("/configuracoes/funcionarios?erro=Usuário sem e-mail");
+  const { error } = await admin.auth.admin.generateLink({ type: "recovery", email: target.user.email });
+  if (error) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes/funcionarios");
+  redirect("/configuracoes/funcionarios?salvo=1");
+}
+
 export async function advanceProductionStep(formData: FormData) {
   const db = await createClient();
   const productionOrderId = String(formData.get("production_order_id") || "");

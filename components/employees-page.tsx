@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Mail, Plus, Save, UserCheck, UserX } from "lucide-react";
-import { inviteUser, saveEmployee, saveUserRoles } from "@/app/(crm)/actions";
+import { ArrowLeft, KeyRound, Mail, Plus, Save, UserCheck, UserX } from "lucide-react";
+import { inviteUser, saveEmployee, saveUserRoles, resetUserPassword } from "@/app/(crm)/actions";
 import { createClient } from "@/lib/supabase/server";
 
 type Profile = { id: string; full_name: string; phone: string | null; status: string };
@@ -158,6 +158,15 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                     </button>
                   )}
                 </form>
+                {canManage && (
+                  <form action={resetUserPassword} className="border-t pt-4 flex items-center gap-3">
+                    <input type="hidden" name="profile_id" value={p.id} />
+                    <p className="text-xs text-ink/50 flex-1">Enviar e-mail de redefinição de senha para este usuário</p>
+                    <button className="button-ghost flex items-center gap-2 text-xs">
+                      <KeyRound className="h-3.5 w-3.5" /> Redefinir senha
+                    </button>
+                  </form>
+                )}
                 {canManage && (
                   <form action={saveUserRoles} className="border-t pt-4">
                     <input type="hidden" name="profile_id" value={p.id} />

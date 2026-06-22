@@ -46,8 +46,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <PricingCenter tab={s.aba as never} thickness={s.espessura} q={s.q} error={search.erro} saved={s.salvo === "1"} backHref="/configuracoes" selfHref="/configuracoes/tabela-calhas" />;
   }
   if ((path[0] === "configuracoes" && path[1] === "fornecedores") || (path[0] === "fornecedores" && !path[1])) { const isCfg = path[0] === "configuracoes"; return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} backHref={isCfg ? "/configuracoes" : "/dashboard"} selfHref={isCfg ? "/configuracoes/fornecedores" : "/fornecedores"} />; }
-  if (path[0] === "configuracoes" && path[1] === "funcionarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if (path[0] === "configuracoes" && path[1] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if ((path[0] === "configuracoes" && path[1] === "funcionarios") || path[0] === "funcionarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if ((path[0] === "configuracoes" && path[1] === "usuarios") || path[0] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "central-ia") {
