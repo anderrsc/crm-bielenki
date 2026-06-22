@@ -13,7 +13,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
     const db = await createClient();
     const [perm, result] = await Promise.all([
       db.rpc("has_table_access", { resource: "suppliers", action: "update" }),
-      db.from("suppliers").select("id,name,tax_id,phone,whatsapp,email,city,state,payment_terms,notes,status").order("name"),
+      db.from("suppliers").select("id,name,tax_id,phone,whatsapp,email,city,state,payment_terms,notes,status").is("deleted_at", null).order("name"),
     ]);
     canManage = Boolean(perm.data);
     suppliers = (result.data as Supplier[]) ?? [];

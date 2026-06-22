@@ -74,7 +74,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
     const [wfRes, exRes, tplRes] = await Promise.all([
-      db.from("workflows").select("id,name,description,status,trigger_type,runs_count,success_count,last_run_at,created_at,steps").order("created_at", { ascending: false }),
+      db.from("workflows").select("id,name,description,status,trigger_type,runs_count,success_count,last_run_at,created_at,steps").is("deleted_at", null).order("created_at", { ascending: false }),
       db.from("workflow_executions").select("id,workflow_id,status,trigger_type,started_at,completed_at,duration_ms,trigger_data").order("started_at", { ascending: false }).limit(50),
       db.from("message_templates").select("id,name,category,channel,body,usage_count,active").order("category").order("name"),
     ]);

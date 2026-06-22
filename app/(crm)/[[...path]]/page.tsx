@@ -130,15 +130,22 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
   const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
     if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
-  let rows: Record<string, unknown>[] = []; let error: string | undefined;
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, Number((search as { pagina?: string }).pagina ?? 1));
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE; // fetch one extra to detect hasMore
+  let rows: Record<string, unknown>[] = []; let error: string | undefined; let hasMore = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
-    let request = db.from(config.table).select(config.select).limit(100);
+    let request = db.from(config.table).select(config.select).range(from, to);
     if (search.q && config.search.length) request = request.or(config.search.map(k => `${k}.ilike.%${search.q}%`).join(","));
     const result = await request;
-    rows = (result.data as unknown as Record<string, unknown>[]) ?? []; error = result.error?.message;
+    const all = (result.data as unknown as Record<string, unknown>[]) ?? [];
+    hasMore = all.length > PAGE_SIZE;
+    rows = hasMore ? all.slice(0, PAGE_SIZE) : all;
+    error = result.error?.message;
   }
-  return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} />;
+  return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} page={page} hasMore={hasMore} />;
 }
 
 function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-bold uppercase tracking-widest text-forest">CRM Bielenki</p><h1 className="mt-2 text-3xl font-black capitalize">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }

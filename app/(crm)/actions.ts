@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { encryptSecret } from "@/lib/encrypt";
 
 const text = z.string().trim().min(1);
 
@@ -208,7 +209,7 @@ export async function saveSupplier(formData:FormData) {
 
 export async function deleteSupplier(formData:FormData) {
   const db=await createClient();const id=String(formData.get("id")||"");const back=String(formData.get("_back")||"/configuracoes/fornecedores");if(!id)redirect(back);
-  const {error}=await db.from("suppliers").delete().eq("id",id);if(error)redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  const {error}=await db.from("suppliers").update({deleted_at:new Date().toISOString()}).eq("id",id);if(error)redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(back);
 }
 
@@ -390,7 +391,7 @@ export async function deleteWorkflow(formData: FormData) {
   const db = await createClient();
   const id = String(formData.get("id") || "");
   if (!id) redirect("/automacoes");
-  const { error } = await db.from("workflows").delete().eq("id", id);
+  const { error } = await db.from("workflows").update({ deleted_at: new Date().toISOString() }).eq("id", id);
   if (error) redirect(`/automacoes?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/automacoes");
   redirect("/automacoes");
@@ -460,22 +461,22 @@ export async function saveAiAgentConfig(formData: FormData) {
   } as Record<string, unknown>;
 
   const groqKey = String(formData.get("groq_api_key") || "").trim();
-  if (groqKey && !groqKey.startsWith("***")) values.groq_api_key = groqKey;
+  if (groqKey && !groqKey.startsWith("***") && !groqKey.startsWith("enc:")) values.groq_api_key = encryptSecret(groqKey);
 
   const apiKey = String(formData.get("openai_api_key") || "").trim();
-  if (apiKey && !apiKey.startsWith("***")) values.openai_api_key = apiKey;
+  if (apiKey && !apiKey.startsWith("***") && !apiKey.startsWith("enc:")) values.openai_api_key = encryptSecret(apiKey);
 
   const numberId = String(formData.get("whatsapp_number_id") || "").trim();
   if (numberId) values.whatsapp_number_id = numberId;
 
   const token = String(formData.get("whatsapp_token") || "").trim();
-  if (token && !token.startsWith("***")) values.whatsapp_token = token;
+  if (token && !token.startsWith("***") && !token.startsWith("enc:")) values.whatsapp_token = encryptSecret(token);
 
   const evoUrl = String(formData.get("evolution_api_url") || "").trim();
   if (evoUrl) values.evolution_api_url = evoUrl;
 
   const evoKey = String(formData.get("evolution_api_key") || "").trim();
-  if (evoKey && !evoKey.startsWith("***")) values.evolution_api_key = evoKey;
+  if (evoKey && !evoKey.startsWith("***") && !evoKey.startsWith("enc:")) values.evolution_api_key = encryptSecret(evoKey);
 
   const evoInstance = String(formData.get("evolution_instance") || "").trim();
   if (evoInstance) values.evolution_instance = evoInstance;
