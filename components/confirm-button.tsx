@@ -6,6 +6,7 @@ export function ConfirmButton({
   formAction,
   message = "Tem certeza que deseja excluir? Esta ação não pode ser desfeita.",
   className,
+  title,
   children,
 }: {
   formAction: (fd: FormData) => Promise<void>;
