@@ -242,10 +242,9 @@ export async function inviteUser(formData: FormData) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Verifica se o e-mail já existe
-  const { data: existing } = await admin.auth.admin.listUsers();
-  const alreadyExists = existing?.users?.some(u => u.email === email);
-  if (alreadyExists) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
+  // Verifica se o e-mail já existe (getUserByEmail é eficiente — não carrega todos)
+  const { data: existingUser } = await admin.auth.admin.getUserByEmail(email);
+  if (existingUser?.user?.id) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
 
   // Cria o usuário com senha temporária e metadados da empresa
   const tempPassword = Math.random().toString(36).slice(-10) + "Bielenki1!";
@@ -259,11 +258,17 @@ export async function inviteUser(formData: FormData) {
 
   if (createError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(createError.message)}`);
 
-  // Aguarda o trigger criar o profile (pode levar um instante) e atualiza roles
-  await new Promise(r => setTimeout(r, 800));
+  // Retry: aguarda o trigger criar o profile (até 3s com verificação real)
   const profileId = newUser.user?.id;
   if (profileId) {
-    // Garante que o profile existe
+    let attempts = 0;
+    while (attempts < 6) {
+      const { data: existing } = await admin.from("profiles").select("id").eq("id", profileId).single();
+      if (existing?.id) break;
+      await new Promise(r => setTimeout(r, 500));
+      attempts++;
+    }
+    // Garante que o profile existe (upsert idempotente)
     await admin.from("profiles").upsert({ id: profileId, company_id: myProfile.company_id, full_name: fullName, status: "ativo" }, { onConflict: "id" });
     if (roles.length) {
       const inserts = roles.map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
@@ -352,7 +357,7 @@ export async function saveWorkflow(formData: FormData) {
     description: String(formData.get("description") || "").trim() || null,
     status,
     trigger_type: String(formData.get("trigger_type") || "manual"),
-    trigger_config: {},
+    trigger_config: (() => { try { return JSON.parse(String(formData.get("trigger_config") || "{}")); } catch { return {}; } })(),
     conditions,
     steps,
     updated_at: new Date().toISOString(),

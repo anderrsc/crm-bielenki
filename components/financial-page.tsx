@@ -116,14 +116,41 @@ export async function FinancialPage({ filter, error, received }: { filter?: stri
 }
 
 function PaymentForm({ entryId, openAmount }: { entryId: string; openAmount: number }) {
+  const today = new Date().toISOString().split("T")[0];
   return (
-    <form action={registerPayment}>
-      <input type="hidden" name="entry_id" value={entryId} />
-      <input type="hidden" name="amount" value={openAmount} />
-      <input type="hidden" name="payment_method" value="pix" />
-      <input type="hidden" name="notes" value="" />
-      <input type="hidden" name="_back" value="/financeiro" />
-      <button type="submit" className="rounded-lg bg-forest px-3 py-1 text-xs font-bold text-white hover:opacity-80 transition">Dar baixa</button>
-    </form>
+    <details className="relative">
+      <summary className="cursor-pointer rounded-lg bg-forest px-3 py-1 text-xs font-bold text-white hover:opacity-80 transition list-none">Dar baixa</summary>
+      <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-sand bg-white p-4 shadow-soft">
+        <form action={registerPayment} className="space-y-3">
+          <input type="hidden" name="entry_id" value={entryId} />
+          <input type="hidden" name="_back" value="/financeiro" />
+          <div>
+            <label className="label">Valor pago</label>
+            <input className="field" name="amount" type="number" step="0.01" min="0.01" defaultValue={openAmount} required />
+          </div>
+          <div>
+            <label className="label">Método</label>
+            <select className="field" name="payment_method">
+              <option value="pix">Pix</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="cartao_credito">Cartão de crédito</option>
+              <option value="cartao_debito">Cartão de débito</option>
+              <option value="transferencia">Transferência</option>
+              <option value="boleto">Boleto</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Data do pagamento</label>
+            <input className="field" name="paid_at" type="date" defaultValue={today} required />
+          </div>
+          <div>
+            <label className="label">Observação</label>
+            <input className="field" name="notes" type="text" placeholder="Opcional..." />
+          </div>
+          <button type="submit" className="button w-full">Confirmar baixa</button>
+        </form>
+      </div>
+    </details>
   );
 }

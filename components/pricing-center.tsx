@@ -10,6 +10,7 @@ import {
   savePricingService, deletePricingService,
   saveCommercialTable, deleteCommercialTable,
 } from "@/app/(crm)/actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 // ─── Listas de referência ───────────────────────────────────────────────────
 const EXTRA_PRODUCTS = [
@@ -254,7 +255,7 @@ export async function PricingCenter({
                             <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={p.active} />
                             <div className="flex gap-1">
                               <button title="Salvar" className="button-ghost p-1.5"><Save className="h-3.5 w-3.5" /></button>
-                              <button title="Excluir" formAction={deleteGutterPrice} className="button-ghost p-1.5 text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                              <ConfirmButton formAction={deleteGutterPrice} className="button-ghost p-1.5 text-red-600"><Trash2 className="h-3.5 w-3.5" /></ConfirmButton>
                             </div>
                           </form>
                         ) : (
@@ -534,7 +535,7 @@ export async function PricingCenter({
                       <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={c.active} />Ativo
                     </label>
                     <div className="flex items-center justify-end gap-2">
-                      <button className="button-ghost gap-1.5 p-2 text-red-600 hover:bg-red-50" formAction={deleteCommercialTable} title="Excluir"><Trash2 className="h-4 w-4" /></button>
+                      <ConfirmButton formAction={deleteCommercialTable} className="button-ghost gap-1.5 p-2 text-red-600 hover:bg-red-50" title="Excluir"><Trash2 className="h-4 w-4" /></ConfirmButton>
                       <button className="button gap-1.5 px-4 py-2 text-sm"><Save className="h-3.5 w-3.5" />Salvar</button>
                     </div>
                   </form>
@@ -668,7 +669,7 @@ function RowActions({ deleteAction }: { deleteAction: (fd: FormData) => Promise<
   return (
     <div className="flex gap-1">
       <button title="Salvar" className="button-ghost p-1.5"><Save className="h-3.5 w-3.5" /></button>
-      <button title="Excluir" formAction={deleteAction} className="button-ghost p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></button>
+      <ConfirmButton formAction={deleteAction} className="button-ghost p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></ConfirmButton>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Plus, Play, Pause, Trash2, Zap, Clock, CheckCircle2, XCircle, ArrowRight, MessageSquare, Webhook, BarChart3, UserPlus, UserCheck, FileText, Send, CheckSquare, Wrench, CalendarCheck, AlertTriangle, CircleDollarSign, Link2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toggleWorkflow, deleteWorkflow } from "@/app/(crm)/actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 type Workflow = {
   id: string; name: string; description: string | null; status: string;
@@ -318,9 +319,9 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
           </Link>
           <form action={deleteWorkflow}>
             <input type="hidden" name="id" value={wf.id} />
-            <button type="submit" className="button-ghost p-2 text-red-400 hover:text-red-600" title="Excluir">
+            <ConfirmButton formAction={deleteWorkflow} message={`Excluir o fluxo "${wf.name}"? Esta ação não pode ser desfeita.`} className="button-ghost p-2 text-red-400 hover:text-red-600" title="Excluir">
               <Trash2 className="h-4 w-4" />
-            </button>
+            </ConfirmButton>
           </form>
         </div>
       </div>

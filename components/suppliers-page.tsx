@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { saveSupplier, deleteSupplier } from "@/app/(crm)/actions";
+import { ConfirmButton } from "@/components/confirm-button";
 import { createClient } from "@/lib/supabase/server";
 
 type Supplier = { id: string; name: string; tax_id: string | null; phone: string | null; whatsapp: string | null; email: string | null; city: string | null; state: string | null; payment_terms: string | null; notes: string | null; status: string };
@@ -62,7 +63,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
               {canManage && (
                 <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
                   <button className="button gap-2"><Save className="h-4 w-4" />Salvar</button>
-                  <button formAction={deleteSupplier} className="button-ghost gap-2 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" />Excluir</button>
+                  <ConfirmButton formAction={deleteSupplier} className="button-ghost gap-2 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" />Excluir</ConfirmButton>
                 </div>
               )}
             </form>
