@@ -80,7 +80,7 @@ export async function ProductionFlowPage({
         )
         .eq("production_order_id", id)
         .order("step_number"),
-      db.from("profiles").select("id,full_name").eq("active", true).order("full_name"),
+      db.from("profiles").select("id,full_name").eq("status", "ativo").order("full_name"),
     ]);
 
     const order = orderRes.data as unknown as Order & {

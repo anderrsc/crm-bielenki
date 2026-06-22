@@ -157,7 +157,7 @@ export async function updateInstallationChecklist(formData:FormData) {
 }
 
 export async function updateInstallationStatus(formData:FormData) {
-  const db=await createClient();const id=String(formData.get("installation_id"));const status=String(formData.get("status"));if(!["agendada","em_andamento","cancelada"].includes(status))redirect(`/instalacoes/${id}?erro=Status inválido`);
+  const db=await createClient();const id=String(formData.get("installation_id"));const status=String(formData.get("status"));if(!["agendada","em_andamento","concluida","cancelada"].includes(status))redirect(`/instalacoes/${id}?erro=Status inválido`);
   const {error}=await db.from("installations").update({status}).eq("id",id);if(error)redirect(`/instalacoes/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath(`/instalacoes/${id}`);redirect(`/instalacoes/${id}`);
 }
 
@@ -227,6 +227,8 @@ export async function inviteUser(formData: FormData) {
   if (!user) redirect("/login");
   const { data: myProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!myProfile?.company_id) redirect("/configuracoes/funcionarios?erro=Empresa não encontrada");
+  const { data: myRoles } = await db.from("user_roles").select("role").eq("profile_id", user.id).in("role", ["administrador", "gerente"]);
+  if (!myRoles?.length) redirect("/configuracoes/funcionarios?erro=Sem permissão para criar usuários");
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") || "").trim();
