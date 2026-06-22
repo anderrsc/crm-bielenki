@@ -29,6 +29,7 @@ import { RolesPage } from "@/components/roles-page";
 import { AiTriagePage } from "@/components/ai-triage-page";
 import { AiControlPanel } from "@/components/ai-control-panel";
 import { ProductionFlowPage } from "@/components/production-flow-page";
+import { AuditLogPage } from "@/components/audit-log-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -94,6 +95,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const tab = (search as { aba?: string }).aba ?? "fluxos";
     return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
   }
+  if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;

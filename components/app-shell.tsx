@@ -12,7 +12,7 @@ const groups = [
   { title: "Operação", items: [["Compras", "/compras", ShoppingCart], ["Fornecedores", "/fornecedores", Building2], ["Estoque", "/estoque", Boxes], ["Produção", "/producao", Factory], ["Instalações", "/instalacoes", CalendarCheck]] },
   { title: "Financeiro", items: [["Financeiro", "/financeiro", CircleDollarSign], ["A Receber", "/financeiro/receber", WalletCards], ["A Pagar", "/financeiro/pagar", HandCoins]] },
   { title: "Pessoas", items: [["Funcionários", "/configuracoes/funcionarios", UserCog], ["Cargos", "/configuracoes/cargos", Shield]] },
-  { title: "Gestão", items: [["Automações", "/automacoes", Bot], ["Agente IA", "/agente-ia", Bot], ["Relatórios", "/relatorios", BarChart3], ["Configurações", "/configuracoes", Settings]] },
+  { title: "Gestão", items: [["Automações", "/automacoes", Bot], ["Agente IA", "/agente-ia", Bot], ["Relatórios", "/relatorios", BarChart3], ["Auditoria", "/auditoria", Shield], ["Configurações", "/configuracoes", Settings]] },
 ] as const;
 
 export function AppShell({ children, userName, companyName, roles=[] }: { children: React.ReactNode; userName: string; companyName: string; roles?: string[] }) {
