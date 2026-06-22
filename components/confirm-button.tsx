@@ -11,6 +11,7 @@ export function ConfirmButton({
   formAction: (fd: FormData) => Promise<void>;
   message?: string;
   className?: string;
+  title?: string;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -20,6 +21,7 @@ export function ConfirmButton({
       type="submit"
       formAction={formAction as never}
       className={className}
+      title={title}
       onClick={(e) => {
         if (!window.confirm(message)) e.preventDefault();
       }}
