@@ -152,7 +152,7 @@ language sql stable security invoker set search_path=public as $$
     select 'material',m.id,m.name,concat_ws(' · ',m.sku,m.unit),
       case when m.active then 'ativo' else 'inativo' end,('/estoque?material='||m.id),7
     from materials m,term where m.name ilike term.value or m.sku ilike term.value
-  ) select * from matches order by priority,title limit 60
+  ) select * from matches order by 7,3 limit 60
 $$;
 grant execute on function public.global_search(text) to authenticated;
 
@@ -175,7 +175,7 @@ select jsonb_build_object(
   'sales_by_type',coalesce((select jsonb_agg(x order by x.total desc) from (select st.name,sum(s.total) total,count(*) quantity from sales s join sale_types st on st.id=s.sale_type_id where s.created_at::date between p_start and p_end group by st.name) x),'[]'::jsonb),
   'quotes_by_status',coalesce((select jsonb_agg(x order by x.quantity desc) from (select status,count(*) quantity,coalesce(sum(total),0) total from quotes where created_at::date between p_start and p_end group by status) x),'[]'::jsonb),
   'pipeline_by_stage',coalesce((select jsonb_agg(x order by x.sort_order) from (select ps.name,ps.color,ps.sort_order,count(l.id) quantity,coalesce(sum(l.estimated_value),0) total from pipeline_stages ps left join leads l on l.stage_id=ps.id and l.status='aberto' group by ps.id,ps.name,ps.color,ps.sort_order) x),'[]'::jsonb),
-  'monthly_sales',coalesce((select jsonb_agg(x order by x.month) from (select date_trunc('month',created_at)::date month,sum(total) total,count(*) quantity from sales where created_at>=date_trunc('month',p_end::timestamp)-interval '5 months' and created_at<date_trunc('month',p_end::timestamp)+interval '1 month' group by 1) x),'[]'::jsonb)
+  'monthly_sales',coalesce((select jsonb_agg(x order by x.mes) from (select date_trunc('month',created_at)::date mes,sum(total) total,count(*) quantity from sales where created_at>=date_trunc('month',p_end::timestamp)-interval '5 months' and created_at<date_trunc('month',p_end::timestamp)+interval '1 month' group by 1) x),'[]'::jsonb)
 )
 $$;
 grant execute on function public.reporting_summary(date,date) to authenticated;
@@ -188,7 +188,8 @@ $$;
 grant execute on function public.current_user_roles() to authenticated;
 
 -- 8. Corrigir v_financial_entries para incluir client_name e supplier_name
-create or replace view public.v_financial_entries with (security_invoker=true) as
+drop view if exists public.v_financial_entries cascade;
+create view public.v_financial_entries with (security_invoker=true) as
 select
   fe.id, fe.company_id, fe.entry_type, fe.origin, fe.description,
   fe.total_amount, fe.paid_amount, fe.open_amount, fe.due_date,
@@ -206,30 +207,30 @@ left join public.clients  c on c.id = fe.client_id
 left join public.suppliers s on s.id = fe.supplier_id;
 
 -- 9. calcular_score_triagem (migration 013 — função ausente)
-create or replace function public.calcular_score_triagem(session_id uuid)
+create or replace function public.calcular_score_triagem(p_session_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare sess public.triage_sessions; score int:=0; class text; prioridade text;
+declare sess public.triage_sessions; v_score int:=0; v_class text; v_prioridade text;
 begin
-  select * into sess from public.triage_sessions where id=session_id;
+  select * into sess from public.triage_sessions where id=p_session_id;
   if sess.id is null then return null; end if;
-  if sess.nome       is not null then score:=score+10; end if;
-  if sess.cidade     is not null then score:=score+5; end if;
-  if sess.tipo_servico is not null then score:=score+10; end if;
-  if sess.produto    is not null then score:=score+10; end if;
-  if sess.possui_medidas then score:=score+15; end if;
-  if sess.tipo_obra  is not null then score:=score+5; end if;
-  if sess.linha      is not null then score:=score+5; end if;
-  if sess.cor        is not null then score:=score+5; end if;
-  if sess.prazo      is not null then score:=score+5; end if;
-  if sess.possui_projeto then score:=score+10; end if;
-  if sess.possui_fotos   then score:=score+5; end if;
-  if sess.rua        is not null then score:=score+5; end if;
-  if score>=80 then prioridade:='maxima'; class:='Cliente quente – conversão imediata';
-  elsif score>=60 then prioridade:='alta'; class:='Boa oportunidade – agilizar proposta';
-  elsif score>=40 then prioridade:='media'; class:='Oportunidade em desenvolvimento';
-  else prioridade:='baixa'; class:='Coletar mais informações'; end if;
-  update public.triage_sessions set score=score,prioridade=prioridade where id=session_id;
-  return jsonb_build_object('score',score,'prioridade',prioridade,'classificacao',class);
+  if sess.nome         is not null then v_score:=v_score+10; end if;
+  if sess.cidade       is not null then v_score:=v_score+5;  end if;
+  if sess.tipo_servico is not null then v_score:=v_score+10; end if;
+  if sess.produto      is not null then v_score:=v_score+10; end if;
+  if coalesce(sess.possui_medidas,false)  then v_score:=v_score+15; end if;
+  if sess.tipo_obra    is not null then v_score:=v_score+5;  end if;
+  if sess.linha        is not null then v_score:=v_score+5;  end if;
+  if sess.cor          is not null then v_score:=v_score+5;  end if;
+  if sess.prazo        is not null then v_score:=v_score+5;  end if;
+  if coalesce(sess.possui_projeto,false)  then v_score:=v_score+10; end if;
+  if coalesce(sess.possui_fotos,false)    then v_score:=v_score+5;  end if;
+  if sess.rua          is not null then v_score:=v_score+5;  end if;
+  if v_score>=80 then v_prioridade:='maxima'; v_class:='Cliente quente – conversão imediata';
+  elsif v_score>=60 then v_prioridade:='alta'; v_class:='Boa oportunidade – agilizar proposta';
+  elsif v_score>=40 then v_prioridade:='media'; v_class:='Oportunidade em desenvolvimento';
+  else v_prioridade:='baixa'; v_class:='Coletar mais informações'; end if;
+  update public.triage_sessions set score=v_score, prioridade=v_prioridade where id=p_session_id;
+  return jsonb_build_object('score',v_score,'prioridade',v_prioridade,'classificacao',v_class);
 end $$;
 grant execute on function public.calcular_score_triagem(uuid) to authenticated;
 

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 type Supplier = { id: string; name: string; tax_id: string | null; phone: string | null; whatsapp: string | null; email: string | null; city: string | null; state: string | null; payment_terms: string | null; notes: string | null; status: string };
 const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
-export async function SuppliersPage({ error, saved, backHref = "/configuracoes" }: { error?: string; saved?: boolean; backHref?: string }) {
+export async function SuppliersPage({ error, saved, backHref = "/configuracoes", selfHref = "/configuracoes/fornecedores" }: { error?: string; saved?: boolean; backHref?: string; selfHref?: string }) {
   let suppliers: Supplier[] = []; let loadError = ""; let canManage = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
@@ -31,7 +31,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes" 
       {canManage && (
         <details className="card mb-5">
           <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Novo fornecedor</summary>
-          <SupplierForm states={states} />
+          <SupplierForm states={states} selfHref={selfHref} />
         </details>
       )}
       <div className="space-y-3">
@@ -46,6 +46,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes" 
             </summary>
             <form action={saveSupplier} className="grid gap-3 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="id" value={s.id} />
+              <input type="hidden" name="_back" value={selfHref} />
               <div className="sm:col-span-2 lg:col-span-3"><label className="label">Razão social / Nome</label><input className="field" name="name" defaultValue={s.name} disabled={!canManage} required /></div>
               <div><label className="label">CNPJ / CPF</label><input className="field" name="tax_id" defaultValue={s.tax_id ?? ""} disabled={!canManage} /></div>
               <div><label className="label">Telefone</label><input className="field" name="phone" defaultValue={s.phone ?? ""} disabled={!canManage} /></div>
@@ -73,9 +74,10 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes" 
   );
 }
 
-function SupplierForm({ states }: { states: string[] }) {
+function SupplierForm({ states, selfHref }: { states: string[]; selfHref: string }) {
   return (
     <form action={saveSupplier} className="grid gap-3 border-t p-5 sm:grid-cols-2 lg:grid-cols-3">
+      <input type="hidden" name="_back" value={selfHref} />
       <div className="sm:col-span-2 lg:col-span-3"><label className="label">Razão social / Nome *</label><input className="field" name="name" required placeholder="Ex.: Aço Center Ltda" /></div>
       <div><label className="label">CNPJ / CPF</label><input className="field" name="tax_id" placeholder="00.000.000/0001-00" /></div>
       <div><label className="label">Telefone</label><input className="field" name="phone" /></div>

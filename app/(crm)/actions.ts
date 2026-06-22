@@ -155,16 +155,21 @@ export async function updateInstallationStatus(formData:FormData) {
 }
 
 export async function saveGutterPrice(formData:FormData) {
-  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/tabela-calhas?erro=Empresa não encontrada");
+  const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+  const back=String(formData.get("_back")||"/configuracoes/tabela-calhas?aba=materia-prima");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${back}&erro=Empresa+não+encontrada`);
   const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=Number(String(formData.get("unit_price")||"0").replace(",","."));
-  if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect("/configuracoes/tabela-calhas?erro=Revise produto, espessura, corte e preço");
+  if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect(`${back}&erro=Revise+produto,+espessura,+corte+e+preço`);
   const color=String(formData.get("color")||"").trim()||null;
   const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,color,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
-  const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(result.error.message)}`);revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect("/configuracoes/tabela-calhas?salvo=1");
+  const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`${back}&erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect(`${back}&salvo=1`);
 }
 
 export async function deleteGutterPrice(formData:FormData) {
-  const db=await createClient();const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`/configuracoes/tabela-calhas?erro=${encodeURIComponent(error.message)}`);revalidatePath("/configuracoes/tabela-calhas");redirect("/configuracoes/tabela-calhas");
+  const db=await createClient();const back=String(formData.get("_back")||"/configuracoes/tabela-calhas?aba=materia-prima");
+  const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`${back}&erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");redirect(back);
 }
 
 export async function createManualSale(formData:FormData) {
@@ -186,17 +191,27 @@ export async function saveLeadSource(formData:FormData) {
 
 export async function saveSupplier(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
-  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/fornecedores?erro=Empresa não encontrada");
-  const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();if(!name)redirect("/configuracoes/fornecedores?erro=Informe o nome do fornecedor");
+  const back=String(formData.get("_back")||"/configuracoes/fornecedores");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${back}?erro=Empresa+não+encontrada`);
+  const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();if(!name)redirect(`${back}?erro=Informe+o+nome+do+fornecedor`);
   const values={company_id:profile.company_id,name,tax_id:String(formData.get("tax_id")||"").trim()||null,phone:String(formData.get("phone")||"").trim()||null,whatsapp:String(formData.get("whatsapp")||"").trim()||null,email:String(formData.get("email")||"").trim()||null,city:String(formData.get("city")||"").trim()||null,state:String(formData.get("state")||"").trim()||null,payment_terms:String(formData.get("payment_terms")||"").trim()||null,notes:String(formData.get("notes")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
-  const result=id?await db.from("suppliers").update(values).eq("id",id):await db.from("suppliers").insert(values);if(result.error)redirect(`/configuracoes/fornecedores?erro=${encodeURIComponent(result.error.message)}`);
-  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect("/configuracoes/fornecedores?salvo=1");
+  const result=id?await db.from("suppliers").update(values).eq("id",id):await db.from("suppliers").insert(values);if(result.error)redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(`${back}?salvo=1`);
 }
 
 export async function deleteSupplier(formData:FormData) {
-  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/fornecedores");
-  const {error}=await db.from("suppliers").delete().eq("id",id);if(error)redirect(`/configuracoes/fornecedores?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect("/configuracoes/fornecedores");
+  const db=await createClient();const id=String(formData.get("id")||"");const back=String(formData.get("_back")||"/configuracoes/fornecedores");if(!id)redirect(back);
+  const {error}=await db.from("suppliers").delete().eq("id",id);if(error)redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(back);
+}
+
+function pgErr(msg:string):string {
+  if(msg.includes("duplicate key")||msg.includes("unique_violation"))return "Já existe um registro com esses dados";
+  if(msg.includes("violates foreign key"))return "Este registro está vinculado a outros dados e não pode ser removido";
+  if(msg.includes("violates not-null"))return "Campo obrigatório não foi preenchido";
+  if(msg.includes("permission denied"))return "Sem permissão para realizar esta operação";
+  if(msg.includes("JWT"))return "Sessão expirada. Faça login novamente";
+  return msg;
 }
 
 export async function inviteUser(formData: FormData) {
@@ -455,4 +470,84 @@ export async function saveAiAgentConfig(formData: FormData) {
   if (error) redirect(`/agente-ia?aba=configuracoes&erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/agente-ia");
   redirect("/agente-ia?aba=configuracoes&salvo=1");
+}
+
+// ── Central de Preços ─────────────────────────────────────────────────────────
+
+export async function savePaint(formData: FormData) {
+  const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
+  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pintura");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
+  const id = String(formData.get("id") || ""); const color = String(formData.get("color") || "").trim(); if (!color) redirect(`${back}?erro=Informe+a+cor`);
+  const values = { company_id: profile.company_id, color, price_per_meter: Number(String(formData.get("price_per_meter") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
+  const result = id ? await db.from("pricing_paints").update(values).eq("id", id) : await db.from("pricing_paints").insert(values);
+  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+}
+
+export async function deletePaint(formData: FormData) {
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pintura");
+  if (!id) redirect(back);
+  const { error } = await db.from("pricing_paints").delete().eq("id", id);
+  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
+}
+
+export async function saveSpecialPart(formData: FormData) {
+  const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
+  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pecas-especiais");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
+  const id = String(formData.get("id") || ""); const item_name = String(formData.get("item_name") || "").trim(); if (!item_name) redirect(`${back}?erro=Informe+o+nome+da+peça`);
+  const values = { company_id: profile.company_id, item_name, unit: String(formData.get("unit") || "Unidade"), unit_price: Number(String(formData.get("unit_price") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
+  const result = id ? await db.from("pricing_special_parts").update(values).eq("id", id) : await db.from("pricing_special_parts").insert(values);
+  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+}
+
+export async function deleteSpecialPart(formData: FormData) {
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pecas-especiais");
+  if (!id) redirect(back);
+  const { error } = await db.from("pricing_special_parts").delete().eq("id", id);
+  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
+}
+
+export async function savePricingService(formData: FormData) {
+  const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
+  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=servicos");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
+  const id = String(formData.get("id") || ""); const service_name = String(formData.get("service_name") || "").trim(); if (!service_name) redirect(`${back}?erro=Informe+o+nome+do+serviço`);
+  const values = { company_id: profile.company_id, service_name, unit: String(formData.get("unit") || "Serviço"), price: Number(String(formData.get("price") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
+  const result = id ? await db.from("pricing_services").update(values).eq("id", id) : await db.from("pricing_services").insert(values);
+  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+}
+
+export async function deletePricingService(formData: FormData) {
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=servicos");
+  if (!id) redirect(back);
+  const { error } = await db.from("pricing_services").delete().eq("id", id);
+  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
+}
+
+export async function saveCommercialTable(formData: FormData) {
+  const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
+  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
+  const id = String(formData.get("id") || ""); const name = String(formData.get("name") || "").trim(); if (!name) redirect(`${back}?erro=Informe+o+nome+da+tabela`);
+  const adjustmentType = String(formData.get("adjustment_type") || "desconto");
+  if (!["desconto","acrescimo","multiplicador"].includes(adjustmentType)) redirect(`${back}?erro=Tipo+de+ajuste+inválido`);
+  const values = { company_id: profile.company_id, name, description: String(formData.get("description") || "").trim() || null, adjustment_type: adjustmentType, adjustment_value: Number(String(formData.get("adjustment_value") || "0").replace(",", ".")), active: formData.get("active") === "on", updated_at: new Date().toISOString() };
+  const result = id ? await db.from("pricing_commercial_tables").update(values).eq("id", id) : await db.from("pricing_commercial_tables").insert(values);
+  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+}
+
+export async function deleteCommercialTable(formData: FormData) {
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
+  if (!id) redirect(back);
+  const { error } = await db.from("pricing_commercial_tables").delete().eq("id", id);
+  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }

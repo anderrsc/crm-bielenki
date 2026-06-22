@@ -17,6 +17,7 @@ import { ReportsPage } from "@/components/reports-page";
 import { OrderMaterialsPage } from "@/components/order-materials-page";
 import { InstallationChecklistPage } from "@/components/installation-checklist-page";
 import { GutterPricesPage } from "@/components/gutter-prices-page";
+import { PricingCenter } from "@/components/pricing-center";
 import type { GutterPrice, QuoteClient } from "@/lib/gutters";
 import { ManualSaleForm } from "@/components/manual-sale-form";
 import { ManualPurchaseForm } from "@/components/manual-purchase-form";
@@ -32,10 +33,16 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
   if (path[0] === "dashboard") { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
-  if (path[0] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "tabela-calhas") {
+    const s = search as { aba?: string; espessura?: string; salvo?: string; q?: string };
+    return <PricingCenter tab={s.aba as never} thickness={s.espessura} q={s.q} error={search.erro} saved={s.salvo === "1"} backHref="/dashboard" selfHref="/tabela-calhas" />;
+  }
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if (path[0] === "configuracoes" && path[1] === "tabela-calhas") return <GutterPricesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if ((path[0] === "configuracoes" && path[1] === "fornecedores") || (path[0] === "fornecedores" && !path[1])) return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} backHref={path[0] === "configuracoes" ? "/configuracoes" : "/dashboard"} />;
+  if (path[0] === "configuracoes" && path[1] === "tabela-calhas") {
+    const s = search as { aba?: string; espessura?: string; salvo?: string; q?: string };
+    return <PricingCenter tab={s.aba as never} thickness={s.espessura} q={s.q} error={search.erro} saved={s.salvo === "1"} backHref="/configuracoes" selfHref="/configuracoes/tabela-calhas" />;
+  }
+  if ((path[0] === "configuracoes" && path[1] === "fornecedores") || (path[0] === "fornecedores" && !path[1])) { const isCfg = path[0] === "configuracoes"; return <SuppliersPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} backHref={isCfg ? "/configuracoes" : "/dashboard"} selfHref={isCfg ? "/configuracoes/fornecedores" : "/fornecedores"} />; }
   if (path[0] === "configuracoes" && path[1] === "funcionarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
