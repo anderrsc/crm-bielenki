@@ -28,6 +28,7 @@ import { EmployeesPage } from "@/components/employees-page";
 import { RolesPage } from "@/components/roles-page";
 import { AiTriagePage } from "@/components/ai-triage-page";
 import { AiControlPanel } from "@/components/ai-control-panel";
+import { ProductionFlowPage } from "@/components/production-flow-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -97,6 +98,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;
   if (path[0] === "producao" && path[1] === "materiais-do-pedido") return <OrderMaterialsPage error={search.erro} received={(search as { recebido?: string }).recebido === "1"} />;
+  if (path[0] === "producao" && path[1] && path[1] !== "materiais-do-pedido") return <ProductionFlowPage id={path[1]} error={search.erro} />;
+  if (path[0] === "producao") return <ProductionFlowPage filter={(search as { tipo?: string }).tipo} error={search.erro} />;
   if (path[0] === "instalacoes" && path[1]) return <InstallationChecklistPage id={path[1]} error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") {let sources:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const result=await db.from("lead_sources").select("id,name").eq("active",true).order("sort_order");sources=result.data??[];}return <ClientForm error={search.erro} sources={sources}/>;}
   if (path[0] === "vendas" && path[1] === "nova") {

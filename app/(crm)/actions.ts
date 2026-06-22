@@ -558,3 +558,32 @@ export async function deleteCommercialTable(formData: FormData) {
   if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
+
+export async function advanceProductionStep(formData: FormData) {
+  const db = await createClient();
+  const productionOrderId = String(formData.get("production_order_id") || "");
+  const stepNumber = Number(formData.get("step_number"));
+  const stepName = String(formData.get("step_name") || "");
+  const totalSteps = Number(formData.get("total_steps"));
+  const responsibleId = String(formData.get("responsible_id") || "") || null;
+  const notes = String(formData.get("notes") || "") || null;
+  if (!productionOrderId) redirect("/producao");
+  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const now = new Date().toISOString();
+  await db.from("production_step_logs").upsert({
+    company_id: profile?.company_id,
+    production_order_id: productionOrderId,
+    step_number: stepNumber,
+    step_name: stepName,
+    started_at: now,
+    completed_at: now,
+    responsible_id: responsibleId,
+    notes,
+  }, { onConflict: "production_order_id,step_number" });
+  const nextStep = stepNumber + 1;
+  const newStatus = nextStep > totalSteps ? "finalizado" : "em_producao";
+  const { error } = await db.from("production_orders").update({ current_step: nextStep, status: newStatus }).eq("id", productionOrderId);
+  if (error) redirect(`/producao/${productionOrderId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/producao");
+  redirect(`/producao/${productionOrderId}`);
+}
