@@ -243,9 +243,9 @@ export async function inviteUser(formData: FormData) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Verifica se o e-mail já existe (getUserByEmail é eficiente — não carrega todos)
-  const { data: existingUser } = await admin.auth.admin.getUserByEmail(email);
-  if (existingUser?.user?.id) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
+  // Verifica se o e-mail já existe via profiles
+  const { data: existingProfile } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (existingProfile?.id) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
 
   // Cria o usuário com senha temporária e metadados da empresa
   const tempPassword = Math.random().toString(36).slice(-10) + "Bielenki1!";
