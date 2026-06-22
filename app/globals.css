@@ -45,7 +45,7 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   font-family: inherit;
   color: #111111;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Margens de impressão aprovadas pelo modelo oficial: 30mm superior,
@@ -196,6 +196,9 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 @media print {
   .quote-pay-item[data-checked="false"] { display: none; }
   .quote-pay-item input[type="checkbox"] { display: none; }
+  .quote-sheet { overflow: visible !important; }
+  .quote-sheet tr, .quote-fin-row, .quote-footer-grid, .quote-sign-block { break-inside: avoid; page-break-inside: avoid; }
+  .quote-sheet thead { display: table-header-group; }
 }
 
 .quote-sign-block { flex: 1; text-align: center; font-size: 9.5px; color: #333; }

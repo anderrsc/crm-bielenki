@@ -18,13 +18,38 @@ export async function createClientRecord(formData: FormData) {
   revalidatePath("/clientes"); redirect(`/clientes/${data.id}`);
 }
 
+export async function updateClientRecord(formData: FormData) {
+  const db=await createClient();
+  const id=String(formData.get("id")||"");
+  const parsed=z.object({name:text,phone:z.string().optional(),email:z.string().email().or(z.literal("")).optional(),tax_id:z.string().optional(),city:z.string().optional(),state:z.string().max(2).optional(),notes:z.string().optional(),lead_source_id:z.string().uuid().or(z.literal("")).optional()}).safeParse(Object.fromEntries(formData));
+  if(!z.string().uuid().safeParse(id).success||!parsed.success)redirect(`/clientes/${id}/editar?erro=Revise os campos`);
+  const {error}=await db.from("clients").update({...parsed.data,lead_source_id:parsed.data.lead_source_id||null,updated_at:new Date().toISOString()}).eq("id",id);
+  if(error)redirect(`/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/clientes");redirect(`/clientes/${id}`);
+}
+
+export async function deactivateClient(formData: FormData) {
+  const db=await createClient();const id=String(formData.get("id")||"");
+  if(!z.string().uuid().safeParse(id).success)redirect("/clientes?erro=Cliente inválido");
+  const {error}=await db.from("clients").update({status:"inativo",updated_at:new Date().toISOString()}).eq("id",id);
+  if(error)redirect(`/clientes/${id}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/clientes");redirect("/clientes");
+}
+
 export async function registerPayment(formData: FormData) {
   const db = await createClient();
-  const back = String(formData.get("_back") || "/financeiro");
+  const requestedBack = String(formData.get("_back") || "/financeiro");
+  const back = requestedBack.startsWith("/financeiro") ? requestedBack : "/financeiro";
   const entryId = String(formData.get("entry_id") || formData.get("financial_entry_id") || "");
   const amount = Number(formData.get("amount"));
+  const interest = Number(formData.get("interest")||0);
+  const discount = Number(formData.get("discount")||0);
+  const installments = Number(formData.get("installments")||1);
   const paidAt = String(formData.get("paid_at") || new Date().toISOString().slice(0, 10));
-  const { error } = await db.rpc("register_payment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? "") });
+  const firstDueDate = String(formData.get("first_due_date")||paidAt);
+  const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
+  if(!parsed.success) redirect(`${back}?erro=Revise+os+dados+do+pagamento`);
+  const { error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
   if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/financeiro"); redirect(`${back}?recebido=1`);
 }
@@ -53,6 +78,21 @@ export async function saveGutterQuote(formData: FormData) {
   }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
+
+export async function reversePayment(formData:FormData){const db=await createClient();const id=String(formData.get("payment_id")||"");const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);revalidatePath("/financeiro");redirect("/financeiro?recebido=1");}
+
+export async function updateGutterQuote(formData: FormData) {
+  const db=await createClient();const quoteId=String(formData.get("quote_id")||"");let payload:unknown;
+  try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);}
+  const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
+  if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
+  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...(payload as Record<string,unknown>),valid_until:validUntil,installation_deadline:installationDeadline}});
+  if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
+}
+
+export async function duplicateQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {data,error}=await db.rpc("duplicate_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect(`/orcamentos/${data}/editar`);}
+export async function deleteQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {error}=await db.rpc("delete_draft_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect("/orcamentos");}
 
 export async function updateCompanyIdentity(formData: FormData) {
   const db = await createClient();
@@ -190,6 +230,13 @@ export async function createManualPurchase(formData:FormData) {
   const {data,error}=await db.rpc("create_manual_purchase",{p_payload:payload});if(error)redirect(`/compras/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/compras");revalidatePath("/financeiro");redirect(`/compras/${data}`);
 }
 
+export async function createWindowQuote(formData:FormData){
+  const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
+  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
+  if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
+  const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
+}
+
 export async function saveLeadSource(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/origens-lead?erro=Empresa não encontrada");
   const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();const channel=String(formData.get("channel")||"outros");const sortOrder=Number(formData.get("sort_order")||0);if(!name)redirect("/configuracoes/origens-lead?erro=Informe o nome da origem");
@@ -233,7 +280,8 @@ export async function inviteUser(formData: FormData) {
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") || "").trim();
-  const roles = formData.getAll("roles").map(String);
+  const allowedRoles = ["administrador","gerente","vendedor","compras","producao","estoque","instalador","financeiro","atendente"];
+  const roles = formData.getAll("roles").map(String).filter(role => allowedRoles.includes(role));
   if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
 
   // Usa Supabase Admin API com service_role para criar o usuário
@@ -243,40 +291,27 @@ export async function inviteUser(formData: FormData) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Verifica se o e-mail já existe via profiles
-  const { data: existingProfile } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
-  if (existingProfile?.id) redirect("/configuracoes/funcionarios?erro=Este e-mail já está cadastrado no sistema");
-
-  // Cria o usuário com senha temporária e metadados da empresa
-  const tempPassword = Math.random().toString(36).slice(-10) + "Bielenki1!";
-  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true,
-    app_metadata: { company_id: myProfile.company_id },
-    user_metadata: { full_name: fullName },
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+  const { data: newUser, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: fullName },
+    redirectTo: siteUrl ? `${siteUrl}/login` : undefined,
   });
 
   if (createError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(createError.message)}`);
 
-  // Retry: aguarda o trigger criar o profile (até 3s com verificação real)
   const profileId = newUser.user?.id;
   if (profileId) {
-    let attempts = 0;
-    while (attempts < 6) {
-      const { data: existing } = await admin.from("profiles").select("id").eq("id", profileId).single();
-      if (existing?.id) break;
-      await new Promise(r => setTimeout(r, 500));
-      attempts++;
-    }
-    // Garante que o profile existe (upsert idempotente)
-    await admin.from("profiles").upsert({ id: profileId, company_id: myProfile.company_id, full_name: fullName, status: "ativo" }, { onConflict: "id" });
-    if (roles.length) {
-      const inserts = roles.map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
-      await admin.from("user_roles").insert(inserts).select();
-    }
-    // Gera link de redefinição de senha para o novo usuário acessar
-    await admin.auth.admin.generateLink({ type: "recovery", email });
+    const { error: metadataError } = await admin.auth.admin.updateUserById(profileId, {
+      app_metadata: { company_id: myProfile.company_id }, user_metadata: { full_name: fullName },
+    });
+    if (metadataError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(metadataError.message)}`);
+    const { error: profileError } = await admin.from("profiles").upsert(
+      { id: profileId, company_id: myProfile.company_id, full_name: fullName, status: "ativo" }, { onConflict: "id" },
+    );
+    if (profileError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(profileError.message)}`);
+    const inserts = (roles.length ? roles : ["atendente"]).map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
+    const { error: roleError } = await admin.from("user_roles").insert(inserts);
+    if (roleError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(roleError.message)}`);
   }
 
   revalidatePath("/configuracoes/funcionarios");
@@ -284,7 +319,7 @@ export async function inviteUser(formData: FormData) {
 }
 
 export async function saveEmployee(formData:FormData) {
-  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
+  const db=await createClient();const {data:allowed}=await db.rpc("has_role",{roles:["administrador","gerente"]});if(!allowed)redirect("/configuracoes/funcionarios?erro=Sem permissão");const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
   const full_name=String(formData.get("full_name")||"").trim();if(!full_name)redirect("/configuracoes/funcionarios?erro=Informe o nome");
   const values={full_name,phone:String(formData.get("phone")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
   const {error}=await db.from("profiles").update(values).eq("id",id);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
@@ -295,14 +330,14 @@ export async function saveUserRoles(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
   const {data:myProfile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!myProfile?.company_id)redirect("/configuracoes/funcionarios?erro=Empresa não encontrada");
   const profileId=String(formData.get("profile_id")||"");if(!profileId)redirect("/configuracoes/funcionarios?erro=Funcionário inválido");
-  const roles=formData.getAll("roles").map(String);
-  await db.from("user_roles").delete().eq("profile_id",profileId);
-  if(roles.length){const inserts=roles.map(role=>({company_id:myProfile.company_id,profile_id:profileId,role}));const {error}=await db.from("user_roles").insert(inserts);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);}
+  const allowedRoles=["administrador","gerente","vendedor","compras","producao","estoque","instalador","financeiro","atendente"];
+  const roles=formData.getAll("roles").map(String).filter(role=>allowedRoles.includes(role));
+  const {error}=await db.rpc("replace_user_roles",{p_profile_id:profileId,p_roles:roles});if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/funcionarios");redirect("/configuracoes/funcionarios?salvo=1");
 }
 
 export async function savePermission(formData:FormData) {
-  const db=await createClient();const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/cargos?erro=ID inválido");
+  const db=await createClient();const {data:allowed}=await db.rpc("has_role",{roles:["administrador"]});if(!allowed)redirect("/configuracoes/cargos?erro=Sem permissão");const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/cargos?erro=ID inválido");
   const values={can_view:formData.get("can_view")==="on",can_create:formData.get("can_create")==="on",can_update:formData.get("can_update")==="on",can_delete:formData.get("can_delete")==="on"};
   const {error}=await db.from("permissions").update(values).eq("id",id);if(error)redirect(`/configuracoes/cargos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/cargos");redirect("/configuracoes/cargos?salvo=1");
@@ -575,9 +610,15 @@ export async function resetUserPassword(formData: FormData) {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login");
+  const { data: actorRoles } = await db.from("user_roles").select("role").eq("profile_id", user.id).in("role", ["administrador", "gerente"]);
+  if (!actorRoles?.length) redirect("/configuracoes/funcionarios?erro=Sem permissão");
+  const { data: actorProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  const { data: targetProfile } = await admin.from("profiles").select("company_id").eq("id", profileId).single();
+  if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect("/configuracoes/funcionarios?erro=Usuário inválido");
   const { data: target } = await admin.auth.admin.getUserById(profileId);
   if (!target?.user?.email) redirect("/configuracoes/funcionarios?erro=Usuário sem e-mail");
-  const { error } = await admin.auth.admin.generateLink({ type: "recovery", email: target.user.email });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+  const { error } = await admin.auth.resetPasswordForEmail(target.user.email, { redirectTo: siteUrl ? `${siteUrl}/login` : undefined });
   if (error) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/funcionarios");
   redirect("/configuracoes/funcionarios?salvo=1");
@@ -586,27 +627,12 @@ export async function resetUserPassword(formData: FormData) {
 export async function advanceProductionStep(formData: FormData) {
   const db = await createClient();
   const productionOrderId = String(formData.get("production_order_id") || "");
-  const stepNumber = Number(formData.get("step_number"));
-  const stepName = String(formData.get("step_name") || "");
-  const totalSteps = Number(formData.get("total_steps"));
   const responsibleId = String(formData.get("responsible_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
   if (!productionOrderId) redirect("/producao");
-  const { data: profile } = await db.from("profiles").select("company_id").single();
-  const now = new Date().toISOString();
-  await db.from("production_step_logs").upsert({
-    company_id: profile?.company_id,
-    production_order_id: productionOrderId,
-    step_number: stepNumber,
-    step_name: stepName,
-    started_at: now,
-    completed_at: now,
-    responsible_id: responsibleId,
-    notes,
-  }, { onConflict: "production_order_id,step_number" });
-  const nextStep = stepNumber + 1;
-  const newStatus = nextStep > totalSteps ? "finalizado" : "em_producao";
-  const { error } = await db.from("production_orders").update({ current_step: nextStep, status: newStatus }).eq("id", productionOrderId);
+  const { error } = await db.rpc("advance_production_step", {
+    p_production_order_id: productionOrderId, p_responsible_id: responsibleId, p_notes: notes,
+  });
   if (error) redirect(`/producao/${productionOrderId}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/producao");
   redirect(`/producao/${productionOrderId}`);

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { FinancialPage } from "@/components/financial-page";
 import { ClientForm } from "@/components/client-form";
-import { GutterQuote } from "@/components/gutter-quote";
+import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote";
 import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
@@ -30,6 +30,8 @@ import { AiTriagePage } from "@/components/ai-triage-page";
 import { AiControlPanel } from "@/components/ai-control-panel";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
+import { WindowQuote } from "@/components/window-quote";
+import { maskSecret } from "@/lib/encrypt";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -65,7 +67,14 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         companyId ? db.from("ai_agent_config").select("*").eq("company_id", companyId).single() : Promise.resolve({ data: null }),
         companyId ? db.from("triage_sessions").select("id,phone,nome,status,produto,tipo_servico,score,prioridade,probabilidade,prazo,necessita_visita,possui_projeto,possui_fotos,eh_manutencao,resumo_executivo,created_at,completed_at,messages").eq("company_id", companyId).order("created_at", { ascending: false }).limit(50) : Promise.resolve({ data: [] }),
       ]);
-      return <AiTriagePage config={configRes.data as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
+      const safeConfig = configRes.data ? {
+        ...configRes.data,
+        groq_api_key: maskSecret(configRes.data.groq_api_key ?? ""),
+        openai_api_key: maskSecret(configRes.data.openai_api_key ?? ""),
+        evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
+        whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
+      } : null;
+      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
     }
     return <AiTriagePage config={null} sessions={[]} tab={tab} />;
   }
@@ -104,6 +113,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "producao") return <ProductionFlowPage filter={(search as { tipo?: string }).tipo} error={search.erro} />;
   if (path[0] === "instalacoes" && path[1]) return <InstallationChecklistPage id={path[1]} error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "clientes" && path[1] === "novo") {let sources:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const result=await db.from("lead_sources").select("id,name").eq("active",true).order("sort_order");sources=result.data??[];}return <ClientForm error={search.erro} sources={sources}/>;}
+  if (path[0] === "clientes" && path[1] && path[2] === "editar") {if(!process.env.NEXT_PUBLIC_SUPABASE_URL)return notFound();const db=await createClient();const [clientResult,sourceResult]=await Promise.all([db.from("clients").select("id,name,tax_id,phone,email,city,state,notes,lead_source_id").eq("id",path[1]).single(),db.from("lead_sources").select("id,name").eq("active",true).order("sort_order")]);if(!clientResult.data)return notFound();return <ClientForm error={search.erro} sources={sourceResult.data??[]} client={clientResult.data}/>;}
   if (path[0] === "vendas" && path[1] === "nova") {
     let clients:{id:string;name:string}[]=[];let saleTypes:{id:string;name:string}[]=[];
     if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [clientResult,typeResult]=await Promise.all([db.from("clients").select("id,name").eq("status","ativo").order("name"),db.from("sale_types").select("id,name").eq("active",true).order("name")]);clients=clientResult.data??[];saleTypes=typeResult.data??[];}
@@ -120,10 +130,18 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [priceResult,clientResult]=await Promise.all([db.from("gutter_prices").select("id,product,thickness,cut_mm,color,unit_price,notes,active").eq("active",true),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);prices=(priceResult.data as GutterPrice[])??[];clients=(clientResult.data as QuoteClient[])??[];}
     return <GutterQuote prices={prices} clients={clients}/>;
   }
+  if(path[0]==="orcamentos"&&path[1]==="esquadrias"){let clients:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const result=await db.from("clients").select("id,name").eq("status","ativo").order("name");clients=result.data??[];}return <WindowQuote clients={clients} error={search.erro}/>;}
+  if(path[0]==="orcamentos"&&path[1]&&path[2]==="editar"){
+    const db=await createClient();const [quoteResult,gutterResult,priceResult,clientResult]=await Promise.all([db.from("quotes").select("id,client_id,discount,freight,notes,valid_until,installation_deadline,status").eq("id",path[1]).single(),db.from("gutter_quotes").select("items:gutter_quote_items(product,thickness,cut,color,quantity,meters,unit_price)").eq("quote_id",path[1]).single(),db.from("gutter_prices").select("id,product,thickness,cut_mm,color,unit_price,notes,active").eq("active",true),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);
+    if(!quoteResult.data||!gutterResult.data||quoteResult.data.status==="aprovado")return notFound();
+    const initial={...quoteResult.data,notes:quoteResult.data.notes??"",valid_until:quoteResult.data.valid_until??"",installation_deadline:quoteResult.data.installation_deadline??"",items:(gutterResult.data as unknown as {items:GutterQuoteInitial["items"]}).items} as GutterQuoteInitial;
+    return <GutterQuote prices={(priceResult.data as GutterPrice[])??[]} clients={(clientResult.data as QuoteClient[])??[]} initial={initial}/>;
+  }
   if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
   if (path[0] === "financeiro") {
     const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
-    return <FinancialPage filter={filter} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} />;
+    const financialPage=Math.max(1,Number((search as {pagina?:string}).pagina??1)||1);
+    return <FinancialPage filter={filter} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} page={financialPage}/>;
   }
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
   const config = modules[key];

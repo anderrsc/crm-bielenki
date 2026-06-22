@@ -199,13 +199,6 @@ export async function ProductionFlowPage({
             </h2>
             <form action={advanceProductionStep} className="space-y-4">
               <input type="hidden" name="production_order_id" value={id} />
-              <input type="hidden" name="step_number" value={order.current_step} />
-              <input
-                type="hidden"
-                name="step_name"
-                value={steps[order.current_step - 1]}
-              />
-              <input type="hidden" name="total_steps" value={steps.length} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label">Responsável pela etapa</label>

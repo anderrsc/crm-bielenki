@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { decryptSecret } from "@/lib/encrypt";
 
 function getSupabase() {
   return createClient(
@@ -83,8 +84,18 @@ function verifySignature(payload: string, signature: string, secret: string): bo
   if (!signature) return false;
   const crypto = require("crypto");
   const expected = "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  if (signature.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
+
+function validEvolutionSecret(value: string): boolean {
+  const expected = process.env.EVOLUTION_WEBHOOK_SECRET ?? "";
+  if (!expected || value.length !== expected.length) return false;
+  const crypto = require("crypto");
+  return crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected));
+}
+
+const secretValue = (value?: string | null) => value ? decryptSecret(value) : "";
 
 // GET: verificação do webhook pelo Meta
 export async function GET(req: NextRequest) {
@@ -109,6 +120,9 @@ export async function POST(req: NextRequest) {
 
     // Detecta formato: Evolution API ou Meta
     const isEvolution = !!(payload?.data?.key || payload?.event);
+    if (isEvolution && !validEvolutionSecret(req.headers.get("x-webhook-secret") ?? req.headers.get("apikey") ?? "")) {
+      return NextResponse.json({ error: "Invalid Evolution webhook secret" }, { status: 401 });
+    }
 
     let from = "";
     let phoneNumberId = "";
@@ -170,21 +184,20 @@ export async function POST(req: NextRequest) {
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
     let company: { id: string; name: string; trade_name: string; whatsapp_phone_number_id: string } | null = null;
-    const { data: byPhone } = await supabase
-      .from("companies")
-      .select("id, name, trade_name, whatsapp_phone_number_id")
-      .eq("whatsapp_phone_number_id", phoneNumberId)
-      .single();
-    company = byPhone;
-
-    // Fallback: pega a primeira empresa ativa (setup single-tenant)
-    if (!company) {
-      const { data: first } = await supabase
+    if (isEvolution) {
+      const { data: configByInstance } = await supabase
+        .from("ai_agent_config")
+        .select("company:companies(id,name,trade_name,whatsapp_phone_number_id)")
+        .eq("evolution_instance", phoneNumberId)
+        .maybeSingle();
+      company = configByInstance?.company as unknown as typeof company;
+    } else {
+      const { data: byPhone } = await supabase
         .from("companies")
         .select("id, name, trade_name, whatsapp_phone_number_id")
-        .limit(1)
-        .single();
-      company = first;
+        .eq("whatsapp_phone_number_id", phoneNumberId)
+        .maybeSingle();
+      company = byPhone;
     }
 
     if (!company) {
@@ -245,9 +258,9 @@ export async function POST(req: NextRequest) {
         text: welcomeMsg,
         provider: wppProviderWelcome,
         phoneNumberId,
-        metaToken: agentConfig.whatsapp_token || process.env.WHATSAPP_ACCESS_TOKEN || "",
+        metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
         evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
-        evolutionKey: agentConfig.evolution_api_key || process.env.EVOLUTION_API_KEY || "",
+        evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
         evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
       });
 
@@ -279,8 +292,8 @@ export async function POST(req: NextRequest) {
       ? "https://api.groq.com/openai/v1/chat/completions"
       : "https://api.openai.com/v1/chat/completions";
     const aiKey = isGroq
-      ? (agentConfig.groq_api_key ?? agentConfig.openai_api_key)
-      : agentConfig.openai_api_key;
+      ? secretValue(agentConfig.groq_api_key ?? agentConfig.openai_api_key)
+      : secretValue(agentConfig.openai_api_key);
     const aiModel = agentConfig.openai_model || (isGroq ? "llama-3.3-70b-versatile" : "gpt-4o");
 
     // Chama IA (Groq ou OpenAI — API compatível)
@@ -305,7 +318,7 @@ export async function POST(req: NextRequest) {
     if (!openaiResponse.ok) {
       const errText = await openaiResponse.text();
       console.error("OpenAI error:", errText);
-      return NextResponse.json({ error: "OpenAI error", details: errText }, { status: 500 });
+      return NextResponse.json({ error: "AI provider request failed" }, { status: 502 });
     }
 
     const aiData = await openaiResponse.json();
@@ -401,10 +414,10 @@ export async function POST(req: NextRequest) {
       provider: wppProvider,
       // Meta
       phoneNumberId,
-      metaToken: agentConfig.whatsapp_token || process.env.WHATSAPP_ACCESS_TOKEN || "",
+      metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
       // Evolution API
       evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
-      evolutionKey: agentConfig.evolution_api_key || process.env.EVOLUTION_API_KEY || "",
+      evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
       evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
     });
 
@@ -428,15 +441,12 @@ async function sendWhatsAppMessage(p: SendParams) {
       console.log("[DEV/Evolution] Mensagem para", p.to, ":", p.text.slice(0, 80));
       return;
     }
-    try {
-      await fetch(`${p.evolutionUrl}/message/sendText/${p.evolutionInstance}`, {
-        method: "POST",
-        headers: { "apikey": p.evolutionKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ number: p.to, text: p.text })
-      });
-    } catch (e) {
-      console.error("Erro Evolution API:", e);
-    }
+    const response = await fetch(`${p.evolutionUrl}/message/sendText/${p.evolutionInstance}`, {
+      method: "POST",
+      headers: { "apikey": p.evolutionKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ number: p.to, text: p.text })
+    });
+    if (!response.ok) throw new Error(`Evolution API HTTP ${response.status}`);
     return;
   }
 
@@ -445,20 +455,17 @@ async function sendWhatsAppMessage(p: SendParams) {
     console.log("[DEV/Meta] Mensagem para", p.to, ":", p.text.slice(0, 80));
     return;
   }
-  try {
-    await fetch(`https://graph.facebook.com/v19.0/${p.phoneNumberId}/messages`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${p.metaToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: p.to,
-        type: "text",
-        text: { body: p.text }
-      })
-    });
-  } catch (e) {
-    console.error("Erro Meta API:", e);
-  }
+  const response = await fetch(`https://graph.facebook.com/v19.0/${p.phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${p.metaToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: p.to,
+      type: "text",
+      text: { body: p.text }
+    })
+  });
+  if (!response.ok) throw new Error(`Meta WhatsApp API HTTP ${response.status}`);
 }
 
 async function createOrUpdateLead(

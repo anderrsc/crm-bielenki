@@ -60,7 +60,7 @@ type LogRow      = { id:string; table_name:string; operation:string; old_data:Re
 // ─── Main component ─────────────────────────────────────────────────────────
 export async function PricingCenter({
   tab = "materia-prima",
-  thickness = "0.5 mm",
+  thickness = "0.50 mm",
   q,
   error,
   saved,

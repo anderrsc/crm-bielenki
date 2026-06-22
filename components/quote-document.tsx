@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
-import { approveQuote } from "@/app/(crm)/actions";
+import { approveQuote, deleteQuote, duplicateQuote } from "@/app/(crm)/actions";
+import { ConfirmButton } from "@/components/confirm-button";
 import { PrintButton } from "@/components/print-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
@@ -139,6 +140,9 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
         <div className="flex gap-3">
+          {quote.status !== "aprovado"&&<Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>}
+          <form><input type="hidden" name="quote_id" value={id}/><button formAction={duplicateQuote} className="button-ghost">Duplicar</button></form>
+          {quote.status !== "aprovado"&&<form><input type="hidden" name="quote_id" value={id}/><ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton></form>}
           <PrintButton />
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>

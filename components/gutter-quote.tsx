@@ -1,31 +1,33 @@
 "use client";
 
-import { saveGutterQuote } from "@/app/(crm)/actions";
+import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import { gutterColors, gutterCuts, gutterProducts, gutterThicknesses, type GutterPrice, type QuoteClient } from "@/lib/gutters";
-import { money } from "@/lib/utils";
+import { localISODate, money } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-type Item = { product: string; thickness: string; cut: string; color: string; quantity: number; meters: number; unit_price: number };
+export type GutterQuoteItem = { product: string; thickness: string; cut: string; color: string; quantity: number; meters: number; unit_price: number };
+type Item = GutterQuoteItem;
+export type GutterQuoteInitial={id:string;client_id:string;discount:number;freight:number;notes:string;valid_until:string;installation_deadline:string;items:GutterQuoteItem[]};
 
 const findPrice = (prices: GutterPrice[], item: Pick<Item, "product" | "thickness" | "cut" | "color">) =>
   prices.find(x => x.active && x.product === item.product && x.thickness === item.thickness && x.cut_mm === Number(item.cut.replace(/\D/g, "")) && (x.color ?? "Natural") === item.color);
 
 const blank = (prices: GutterPrice[]): Item => {
-  const item = { product: "Calha Beiral", thickness: "0.5 mm", cut: "300 mm", color: "Natural", quantity: 1, meters: 1, unit_price: 0 };
+  const item = { product: "Calha de Beiral", thickness: "0.50 mm", cut: "300 mm", color: "Natural", quantity: 1, meters: 1, unit_price: 0 };
   return { ...item, unit_price: Number(findPrice(prices, item)?.unit_price ?? 0) };
 };
 
-export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; clients: QuoteClient[] }) {
-  const [items, setItems] = useState<Item[]>(() => [blank(prices)]);
-  const [discount, setDiscount] = useState(0);
-  const [freight, setFreight] = useState(0);
-  const [clientId, setClientId] = useState("");
-  const [notes, setNotes] = useState("");
+export function GutterQuote({ prices, clients, initial }: { prices: GutterPrice[]; clients: QuoteClient[];initial?:GutterQuoteInitial }) {
+  const [items, setItems] = useState<Item[]>(() => initial?.items.length?initial.items:[blank(prices)]);
+  const [discount, setDiscount] = useState(initial?.discount??0);
+  const [freight, setFreight] = useState(initial?.freight??0);
+  const [clientId, setClientId] = useState(initial?.client_id??"");
+  const [notes, setNotes] = useState(initial?.notes??"");
   const today = new Date(); today.setDate(today.getDate() + 30);
-  const defaultValid = today.toISOString().slice(0, 10);
-  const [validUntil, setValidUntil] = useState(defaultValid);
-  const [installationDeadline, setInstallationDeadline] = useState("Até 15 dias após aprovação e conferência final das medidas");
+  const defaultValid = localISODate(today);
+  const [validUntil, setValidUntil] = useState(initial?.valid_until??defaultValid);
+  const [installationDeadline, setInstallationDeadline] = useState(initial?.installation_deadline??"Até 15 dias após aprovação e conferência final das medidas");
   const subtotal = useMemo(() => items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0), [items]);
   const total = Math.max(0, subtotal - discount + freight);
   const change = (index: number, key: keyof Item, value: string) =>
@@ -44,12 +46,13 @@ export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; client
       <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Calculadora tecnica</p>
-          <h1 className="mt-2 text-3xl font-black">Orcamento de calhas</h1>
+          <h1 className="mt-2 text-3xl font-black">{initial?"Editar orçamento de calhas":"Orçamento de calhas"}</h1>
           <p className="mt-1 text-sm text-ink/50">Quantidade x metragem x preco por metro.</p>
         </div>
         <span className="flex items-center gap-2 text-xs font-bold text-ink/45"><Database className="h-4 w-4" />{prices.length} precos cadastrados</span>
       </div>
-      <form action={saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <form action={initial?updateGutterQuote:saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
+        {initial&&<input type="hidden" name="quote_id" value={initial.id}/>}
         <input type="hidden" name="payload" value={payload} />
         <input type="hidden" name="valid_until" value={validUntil} />
         <input type="hidden" name="installation_deadline" value={installationDeadline} />
@@ -110,7 +113,7 @@ export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; client
               <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
               <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
             </div>
-            <button disabled={!clientId || total <= 0} className="button w-full"><Save className="h-4 w-4" />Salvar orcamento</button>
+            <button disabled={!clientId || total <= 0} className="button w-full"><Save className="h-4 w-4" />Salvar orçamento</button>
           </div>
         </aside>
       </form>

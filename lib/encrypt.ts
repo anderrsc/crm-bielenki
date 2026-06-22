@@ -2,7 +2,8 @@ import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 function getKey(): Buffer {
   const k = process.env.ENCRYPTION_KEY ?? "";
-  const hex = k.replace(/[^0-9a-fA-F]/g, "").padEnd(64, "0").slice(0, 64);
+  const hex = k.replace(/[^0-9a-fA-F]/g, "");
+  if (hex.length !== 64) throw new Error("ENCRYPTION_KEY deve conter exatamente 64 caracteres hexadecimais");
   return Buffer.from(hex, "hex");
 }
 
