@@ -40,6 +40,7 @@ type QuoteData = {
   freight: number;
   total: number;
   valid_until: string | null;
+  installation_deadline: string | null;
   notes: string | null;
   client_notes: string | null;
   seller_name: string | null;
@@ -91,7 +92,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   const quoteResult = await db
     .from("quotes")
     .select(
-      "id,quote_number,status,subtotal,discount,freight,total,valid_until,notes,client_notes,seller_name,payment_methods,created_at," +
+      "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,created_at," +
         "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
         "sale_type:sale_types(name)," +
         "company:companies(*)"
@@ -216,6 +217,10 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             <div className="quote-bar-meta">
               <span className="quote-bar-label">VALIDADE</span>
               <span className="quote-bar-value">{quote.valid_until ? shortDate(quote.valid_until) : "—"}</span>
+            </div>
+            <div className="quote-bar-meta">
+              <span className="quote-bar-label">PRAZO INSTALAÇÃO</span>
+              <span className="quote-bar-value" style={{fontSize:"9px"}}>{quote.installation_deadline || "A definir"}</span>
             </div>
             <div className="quote-bar-meta">
               <span className="quote-bar-label">VENDEDOR</span>

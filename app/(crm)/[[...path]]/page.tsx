@@ -2,6 +2,7 @@ import { ModuleTable } from "@/components/module-table";
 import { modules } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { FinancialPage } from "@/components/financial-page";
 import { ClientForm } from "@/components/client-form";
 import { GutterQuote } from "@/components/gutter-quote";
 import { DetailPage } from "@/components/detail-page";
@@ -115,17 +116,19 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <GutterQuote prices={prices} clients={clients}/>;
   }
   if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
-  const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0] === "financeiro" ? "financeiro" : path[0];
+  if (path[0] === "financeiro") {
+    const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
+    return <FinancialPage filter={filter} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} />;
+  }
+  const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
-  const financialFilter = path[0] === "financeiro" && ["receber", "pagar"].includes(path[1]);
-    const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
-    if (path[1] && path[1] !== "novo" && !financialFilter && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
+  const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
+    if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
   let rows: Record<string, unknown>[] = []; let error: string | undefined;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
     let request = db.from(config.table).select(config.select).limit(100);
-    if (financialFilter) request = request.eq("entry_type", path[1]);
     if (search.q && config.search.length) request = request.or(config.search.map(k => `${k}.ilike.%${search.q}%`).join(","));
     const result = await request;
     rows = (result.data as unknown as Record<string, unknown>[]) ?? []; error = result.error?.message;

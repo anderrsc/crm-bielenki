@@ -19,11 +19,13 @@ export async function createClientRecord(formData: FormData) {
 
 export async function registerPayment(formData: FormData) {
   const db = await createClient();
-  const entryId = String(formData.get("financial_entry_id"));
+  const back = String(formData.get("_back") || "/financeiro");
+  const entryId = String(formData.get("entry_id") || formData.get("financial_entry_id") || "");
   const amount = Number(formData.get("amount"));
-  const { error } = await db.rpc("register_payment", { p_entry_id: entryId, p_amount: amount, p_paid_at: String(formData.get("paid_at")), p_method: String(formData.get("payment_method")), p_notes: String(formData.get("notes") ?? "") });
-  if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/financeiro");
+  const paidAt = String(formData.get("paid_at") || new Date().toISOString().slice(0, 10));
+  const { error } = await db.rpc("register_payment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? "") });
+  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/financeiro"); redirect(`${back}?recebido=1`);
 }
 
 export async function toggleChecklistItem(formData: FormData) {
@@ -39,10 +41,15 @@ export async function toggleChecklistItem(formData: FormData) {
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
   const payload = JSON.parse(String(formData.get("payload")));
+  const validUntil = String(formData.get("valid_until") || "").trim() || null;
+  const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
   const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1) }).safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
   const { data, error } = await db.rpc("create_gutter_quote", { p_payload: parsed.data });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
+  if (data && (validUntil || installationDeadline)) {
+    await db.from("quotes").update({ valid_until: validUntil, installation_deadline: installationDeadline }).eq("id", data);
+  }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 

@@ -5,13 +5,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#18221e",
-        cream: "#f4f1e9",
-        forest: "#234d3c",
-        lime: "#b9d349",
-        sand: "#ded7c7",
+        ink: "#111111",
+        cream: "#f5f5f5",
+        forest: "#c41429",
+        lime: "#ffd700",
+        sand: "#e0e0e0",
       },
-      boxShadow: { soft: "0 20px 50px rgba(24,34,30,.08)" },
+      boxShadow: { soft: "0 20px 50px rgba(0,0,0,.10)" },
     },
   },
   plugins: [],

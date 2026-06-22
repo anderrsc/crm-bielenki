@@ -22,6 +22,10 @@ export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; client
   const [freight, setFreight] = useState(0);
   const [clientId, setClientId] = useState("");
   const [notes, setNotes] = useState("");
+  const today = new Date(); today.setDate(today.getDate() + 30);
+  const defaultValid = today.toISOString().slice(0, 10);
+  const [validUntil, setValidUntil] = useState(defaultValid);
+  const [installationDeadline, setInstallationDeadline] = useState("Até 15 dias após aprovação e conferência final das medidas");
   const subtotal = useMemo(() => items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0), [items]);
   const total = Math.max(0, subtotal - discount + freight);
   const change = (index: number, key: keyof Item, value: string) =>
@@ -47,6 +51,8 @@ export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; client
       </div>
       <form action={saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
         <input type="hidden" name="payload" value={payload} />
+        <input type="hidden" name="valid_until" value={validUntil} />
+        <input type="hidden" name="installation_deadline" value={installationDeadline} />
         <div className="space-y-4">
           <div className="card p-5">
             <label className="label">Cliente</label>
@@ -97,7 +103,9 @@ export function GutterQuote({ prices, clients }: { prices: GutterPrice[]; client
             <div className="flex justify-between text-sm"><span className="text-ink/50">Subtotal</span><b>{money(subtotal)}</b></div>
             <NumberField label="Desconto (R$)" value={discount} onChange={v => setDiscount(Number(v))} />
             <NumberField label="Frete (R$)" value={freight} onChange={v => setFreight(Number(v))} />
-            <div><label className="label">Observacoes</label><textarea className="field min-h-24" value={notes} onChange={e => setNotes(e.target.value)} /></div>
+            <div><label className="label">Observações</label><textarea className="field min-h-24" value={notes} onChange={e => setNotes(e.target.value)} /></div>
+            <div><label className="label">Validade do orçamento</label><input type="date" className="field" value={validUntil} onChange={e => setValidUntil(e.target.value)} /></div>
+            <div><label className="label">Prazo de instalação</label><input type="text" className="field" value={installationDeadline} onChange={e => setInstallationDeadline(e.target.value)} placeholder="Ex: Até 15 dias após aprovação e conferência das medidas" /></div>
             <div className="border-t pt-4">
               <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
               <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
