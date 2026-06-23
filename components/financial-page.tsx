@@ -2,7 +2,7 @@
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import Link from "next/link";
-import { PaymentModal } from "@/components/payment-modal";
+import { PaymentDialog } from "@/components/payment-dialog";
 
 type Entry = {
   id: string;
@@ -32,7 +32,7 @@ const TABS = [
   { href: "/financeiro/pagar",   label: "A Pagar",    key: "pagar" },
 ];
 
-export async function FinancialPage({ filter, error, received }: { filter?: string; error?: string; received?: boolean }) {
+export async function FinancialPage({ filter, error, received, page = 1 }: { filter?: string; error?: string; received?: boolean; page?: number }) {
   const db = await createClient();
   const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).limit(200);
   const { data } = filter ? await q.eq("entry_type", filter) : await q;
@@ -104,7 +104,7 @@ export async function FinancialPage({ filter, error, received }: { filter?: stri
                   <td className={`px-4 py-3 text-right font-bold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
                   <td className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-bold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
                   <td className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
-                  <td className="px-4 py-3">{e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentModal entryId={e.id} openAmount={e.open_amount} />}</td>
+                  <td className="px-4 py-3">{e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} />}</td>
                 </tr>
               );
             })}
