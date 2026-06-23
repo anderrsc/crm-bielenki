@@ -8,7 +8,7 @@ import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote"
 import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
-import { VisitSheet } from "@/components/visit-sheet";
+import { VisitSheet, type VisitSheetData } from "@/components/visit-sheet";
 import { AutomationSettings } from "@/components/automation-settings";
 import { AutomationsHub } from "@/components/automations-hub";
 import { WorkflowBuilder } from "@/components/workflow-builder";
@@ -126,7 +126,26 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [supplierResult,materialResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("materials").select("id,name,unit").eq("active",true).order("name")]);suppliers=supplierResult.data??[];materials=materialResult.data??[];}
     return <ManualPurchaseForm suppliers={suppliers} materials={materials} error={search.erro}/>;
   }
-  if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") return <VisitSheet clientId={path[1]} />;
+  if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return notFound();
+    const db = await createClient();
+    const [clientRes, companyRes] = await Promise.all([
+      db.from("clients").select("name,phone,whatsapp,neighborhood,city,state,address").eq("id", path[1]).single(),
+      db.from("profiles").select("company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single(),
+    ]);
+    if (!clientRes.data) return notFound();
+    const company = (companyRes.data?.company ?? {}) as VisitSheetData["company"];
+    return <VisitSheet client={clientRes.data} company={company} backHref={`/clientes/${path[1]}`} />;
+  }
+  if (path[0] === "medicoes" && path[1] === "ficha-em-branco") {
+    let company: VisitSheetData["company"] = {};
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const res = await db.from("profiles").select("company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single();
+      company = (res.data?.company ?? {}) as VisitSheetData["company"];
+    }
+    return <VisitSheet company={company} backHref="/medicoes" />;
+  }
   if (path[0] === "orcamentos" && path[1] === "calhas") {
     let prices:GutterPrice[]=[];let clients:QuoteClient[]=[];
     if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [priceResult,clientResult]=await Promise.all([db.from("gutter_prices").select("id,product,thickness,cut_mm,color,unit_price,notes,active").eq("active",true),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);prices=(priceResult.data as GutterPrice[])??[];clients=(clientResult.data as QuoteClient[])??[];}

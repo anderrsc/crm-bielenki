@@ -1,58 +1,320 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { CompanyBrand, type CompanyBrandData } from "@/components/company-brand";
-import { PrintButton } from "@/components/print-button";
-import { createClient } from "@/lib/supabase/server";
-import { shortDate } from "@/lib/utils";
+import { ArrowLeft, Printer } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-const checklist = [
-  "Medidas conferidas",
-  "Produto definido",
-  "Cor definida",
-  "Vidro definido",
-  "Acessorios definidos",
-  "Forma de instalacao definida",
-  "Fotos realizadas",
-  "Cliente aprovou medidas",
-  "Producao liberada",
-];
+/* ─── Tipos ──────────────────────────────────────────────────────────────── */
+export type VisitSheetData = {
+  client?: {
+    name: string;
+    phone: string | null;
+    whatsapp: string | null;
+    neighborhood: string | null;
+    city: string | null;
+    state: string | null;
+    address: string | null;
+  } | null;
+  company: {
+    trade_name?: string | null;
+    name?: string | null;
+    tax_id?: string | null;
+    phone?: string | null;
+    whatsapp?: string | null;
+    email?: string | null;
+    website?: string | null;
+    address?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    logo_url?: string | null;
+    primary_color?: string | null;
+  };
+  backHref?: string;
+};
 
-export async function VisitSheet({ clientId }: { clientId: string }) {
-  const db = await createClient();
-  const result = await db.from("clients").select("*,company:companies(*)").eq("id",clientId).single();
-  if (result.error || !result.data) return <p className="card p-8">Cliente nao encontrado: {result.error?.message}</p>;
-  const client = result.data as unknown as Record<string,unknown>;
-  const company = client.company as CompanyBrandData;
-  const address = [client.address, client.neighborhood, client.city, client.state].filter(Boolean).join(" - ");
-  return <div className="mx-auto max-w-[210mm]"><div className="no-print mb-5 flex items-center justify-between"><Link href={`/clientes/${clientId}`} className="inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar ao cliente</Link><PrintButton label="Imprimir ficha" /></div>
-    <article className="print-sheet card min-h-[297mm] bg-white p-[8mm]"><CompanyBrand company={company} compact />
-      <div className="mt-2 flex items-center justify-between border-b-2 pb-2" style={{borderColor:company.primary_color || "#234d3c"}}>
-        <div><p className="text-[9px] font-black uppercase tracking-[.22em] text-ink/40">Ficha oficial de medicao</p><h1 className="text-2xl font-black">Visita tecnica / croqui</h1></div>
-        <div className="rounded-lg px-3 py-2 text-right text-white" style={{background:company.primary_color || "#234d3c"}}><p className="text-[9px] font-bold uppercase tracking-wider text-white/65">Data</p><p className="font-black">{shortDate(new Date().toISOString().slice(0,10))}</p></div>
-      </div>
-      <div className="mt-2 grid grid-cols-4 gap-2 text-[10px]">
-        <Info label="Cliente" value={String(client.name)} strong />
-        <Info label="Telefone / WhatsApp" value={String(client.whatsapp || client.phone || "")} />
-        <Info label="Bairro" value={String(client.neighborhood || "Nao informado")} strong />
-        <Info label="Cidade" value={[client.city,client.state].filter(Boolean).join(" / ")} />
-        <div className="col-span-2"><Info label="Endereco" value={address} /></div>
-        <Info label="Vendedor" value="____________________" />
-        <Info label="Medidor" value="____________________" />
-      </div>
-      <div className="visit-writing-area relative mt-3 min-h-[172mm] rounded-lg border-2 border-ink/15 bg-white">
-        <div className="absolute inset-x-0 top-0 flex justify-between border-b border-ink/10 px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-ink/35"><span>Area de croqui / desenhos / ambientes / anotacoes tecnicas</span><span>80% livre</span></div>
-        <div className="absolute inset-x-0 top-9 border-t border-dashed border-ink/5" style={{backgroundImage:"linear-gradient(to bottom, transparent 23px, rgba(24,34,30,.06) 24px)",backgroundSize:"100% 24px",height:"calc(100% - 36px)"}} />
-      </div>
-      <table className="mt-3 w-full border-collapse text-[9px]">
-        <thead><tr className="bg-cream text-left">{["Ambiente","Produto","Largura","Altura","Qtd","Cor","Vidro","Observacoes"].map(h=><th key={h} className="border px-1.5 py-1 font-black uppercase tracking-wide text-ink/55">{h}</th>)}</tr></thead>
-        <tbody>{Array.from({length:7}).map((_,i)=><tr key={i}>{Array.from({length:8}).map((__,j)=><td key={j} className="h-6 border px-1.5">&nbsp;</td>)}</tr>)}</tbody>
-      </table>
-      <div className="mt-3 grid grid-cols-3 gap-1.5 text-[9px]">{checklist.map(item=><label key={item} className="flex items-center gap-1 rounded border px-2 py-1 font-semibold"><span className="inline-block h-3 w-3 border border-ink/40" />{item}</label>)}</div>
-      <div className="mt-2 flex justify-between text-[9px] text-ink/35"><span>Ficha de medicao tecnica - {company.trade_name || "Marquinhos Calhas e Esquadrias"}</span><span>Cliente: {String(client.name)} - Bairro: {String(client.neighborhood || "-")}</span></div>
-    </article>
-  </div>;
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+function fmtDateTime(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
-function Info({label,value,strong=false}:{label:string;value:string;strong?:boolean}) {
-  return <div className="rounded-lg bg-cream/70 px-3 py-2"><p className="font-bold uppercase tracking-wider text-ink/35">{label}</p><p className={`mt-0.5 ${strong ? "text-base font-black" : "font-bold"}`}>{value || "Nao informado"}</p></div>;
+/* ─── Componente principal (Client) ──────────────────────────────────────── */
+export function VisitSheet({ client, company, backHref = "/medicoes" }: VisitSheetData) {
+  const [now, setNow]       = useState(() => fmtDateTime(new Date()));
+  const sheetRef            = useRef<HTMLElement>(null);
+  const red                 = company.primary_color || "#D71920";
+  const tradeName           = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
+
+  /* Atualiza data/hora no momento da impressão */
+  useEffect(() => {
+    const handler = () => setNow(fmtDateTime(new Date()));
+    window.addEventListener("beforeprint", handler);
+    return () => window.removeEventListener("beforeprint", handler);
+  }, []);
+
+  const phone = client?.whatsapp || client?.phone || "";
+  const neighborhood = client?.neighborhood || "";
+  const city = [client?.city, client?.state].filter(Boolean).join(" / ");
+  const address = [client?.address, client?.neighborhood, client?.city, client?.state]
+    .filter(Boolean).join(" - ");
+
+  const compAddr = [company.address, company.neighborhood, company.city, company.state]
+    .filter(Boolean).join(" - ");
+
+  function handlePrint() {
+    setNow(fmtDateTime(new Date()));
+    setTimeout(() => window.print(), 50);
+  }
+
+  function handlePdf() {
+    setNow(fmtDateTime(new Date()));
+    setTimeout(() => {
+      const style = document.createElement("style");
+      style.id = "__pdf_hint";
+      style.textContent = "@page { size: A4 portrait; margin: 0; }";
+      document.head.appendChild(style);
+      window.print();
+      setTimeout(() => document.getElementById("__pdf_hint")?.remove(), 1000);
+    }, 50);
+  }
+
+  return (
+    <div className="mx-auto max-w-[210mm]">
+
+      {/* ── Barra de ações (não imprime) ──────────────────────────────── */}
+      <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3">
+        <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-bold text-ink/55 hover:text-ink">
+          <ArrowLeft className="h-4 w-4" />
+          {client ? "Voltar ao cliente" : "Voltar"}
+        </Link>
+        <div className="flex flex-wrap gap-2">
+          {client && (
+            <Link
+              href="/medicoes/ficha-em-branco"
+              className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream"
+            >
+              Gerar Ficha em Branco
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream"
+          >
+            <Printer className="h-4 w-4" /> Imprimir
+          </button>
+          <button
+            type="button"
+            onClick={handlePdf}
+            className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream"
+          >
+            Gerar PDF
+          </button>
+        </div>
+      </div>
+
+      {/* ── Ficha A4 ──────────────────────────────────────────────────── */}
+      <article
+        ref={sheetRef}
+        className="visit-sheet bg-white"
+        style={{
+          width: "210mm",
+          minHeight: "297mm",
+          padding: "10mm 12mm 10mm 12mm",
+          boxSizing: "border-box",
+          fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+          position: "relative",
+        }}
+      >
+
+        {/* Data/hora — topo esquerdo */}
+        <div
+          style={{
+            fontSize: "8px",
+            color: "#888",
+            marginBottom: "4mm",
+            letterSpacing: ".03em",
+          }}
+        >
+          {now}
+        </div>
+
+        {/* ── Cabeçalho ─────────────────────────────────────────────── */}
+        <header
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto",
+            alignItems: "center",
+            gap: "6mm",
+          }}
+        >
+          {/* Logo */}
+          <div style={{ width: "22mm", display: "flex", alignItems: "center" }}>
+            {company.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={tradeName}
+                src={company.logo_url}
+                crossOrigin="anonymous"
+                style={{ width: "22mm", maxHeight: "18mm", objectFit: "contain" }}
+              />
+            ) : (
+              <div style={{ width: "22mm", height: "18mm", background: red, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px" }}>
+                <span style={{ color: "#fff", fontWeight: 900, fontSize: "14px" }}>MC</span>
+              </div>
+            )}
+          </div>
+
+          {/* Centro: nome + dados */}
+          <div>
+            <p style={{ fontSize: "15px", fontWeight: 900, color: "#111", lineHeight: 1.1, marginBottom: "1.5mm" }}>
+              {tradeName}
+            </p>
+            {company.name && company.name !== tradeName && (
+              <p style={{ fontSize: "8px", color: "#555", marginBottom: "0.8mm" }}>
+                {company.name}{company.tax_id ? ` - CNPJ ${company.tax_id}` : ""}
+              </p>
+            )}
+            {!company.name && company.tax_id && (
+              <p style={{ fontSize: "8px", color: "#555", marginBottom: "0.8mm" }}>
+                CNPJ {company.tax_id}
+              </p>
+            )}
+            {compAddr && (
+              <p style={{ fontSize: "8px", color: "#555" }}>{compAddr}</p>
+            )}
+          </div>
+
+          {/* Direita: contatos */}
+          <div style={{ textAlign: "right", fontSize: "8.5px", color: "#444", lineHeight: "1.8" }}>
+            {company.whatsapp && (
+              <p style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}>
+                <WaIcon /> WhatsApp: {company.whatsapp}
+              </p>
+            )}
+            {company.phone && (
+              <p style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}>
+                <PhoneIcon /> Telefone: {company.phone}
+              </p>
+            )}
+            {company.email && (
+              <p style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}>
+                <MailIcon /> {company.email}
+              </p>
+            )}
+            {company.website && (
+              <p style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}>
+                <IgIcon /> {company.website}
+              </p>
+            )}
+          </div>
+        </header>
+
+        {/* Linha vermelha separadora */}
+        <div style={{ height: "1.5px", background: red, margin: "3.5mm 0" }} />
+
+        {/* ── Cards superiores ──────────────────────────────────────── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "3mm",
+            marginBottom: "3mm",
+          }}
+        >
+          <FieldCard label="CLIENTE" value={client?.name} large />
+          <FieldCard label="TELEFONE / WHATSAPP" value={phone} />
+          <FieldCard label="BAIRRO" value={neighborhood || (client ? "Não informado" : "")} />
+          <FieldCard label="CIDADE" value={city} />
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr",
+            gap: "3mm",
+            marginBottom: "4mm",
+          }}
+        >
+          <FieldCard label="ENDEREÇO" value={address} />
+          <FieldCard label="DISPONIBILIDADE DE HORÁRIO" value="" blank />
+          <FieldCard label="MEDIDOR" value="" blank />
+        </div>
+
+        {/* ── Área de croqui ─────────────────────────────────────────── */}
+        <div
+          style={{
+            flex: 1,
+            border: "1px solid #e0e0e0",
+            borderRadius: "6px",
+            overflow: "hidden",
+            backgroundImage: "linear-gradient(to bottom, transparent 27px, #e8e8e8 28px)",
+            backgroundSize: "100% 28px",
+            minHeight: "185mm",
+          }}
+        />
+
+      </article>
+    </div>
+  );
+}
+
+/* ─── Sub-componentes ────────────────────────────────────────────────────── */
+function FieldCard({ label, value, large = false, blank = false }: { label: string; value?: string; large?: boolean; blank?: boolean }) {
+  return (
+    <div
+      style={{
+        background: "#f7f7f7",
+        borderRadius: "6px",
+        padding: "3mm 3.5mm",
+        minHeight: "12mm",
+        boxShadow: "0 1px 2px rgba(0,0,0,.04)",
+      }}
+    >
+      <p style={{ fontSize: "7px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: "1.5mm" }}>
+        {label}
+      </p>
+      {blank || !value ? (
+        <div style={{ borderBottom: "1px solid #bbb", height: "10px", marginTop: "4mm" }} />
+      ) : (
+        <p style={{ fontSize: large ? "12px" : "9px", fontWeight: large ? 900 : 700, color: "#111", lineHeight: 1.2 }}>
+          {value}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Ícones SVG discretos ───────────────────────────────────────────────── */
+function WaIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#555", flexShrink: 0 }}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+    </svg>
+  );
+}
+function PhoneIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "#555", flexShrink: 0 }}>
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.17 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.27 6.27l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+    </svg>
+  );
+}
+function MailIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "#555", flexShrink: 0 }}>
+      <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,14 22,4"/>
+    </svg>
+  );
+}
+function IgIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#555", flexShrink: 0 }}>
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+    </svg>
+  );
 }

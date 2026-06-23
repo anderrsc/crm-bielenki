@@ -11,12 +11,20 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 ::-webkit-scrollbar-thumb { background: #c8c1b2; border-radius: 99px; }
 
 @media print {
-  @page { size: A4; margin: 10mm; }
+  @page { size: A4 portrait; margin: 0; }
   body { background: white !important; }
-  .no-print, aside, header { display: none !important; }
+  .no-print, aside, header, nav { display: none !important; }
   main { padding: 0 !important; }
   .print-sheet { box-shadow: none !important; border: 0 !important; width: 100% !important; max-width: none !important; }
   .visit-writing-area { min-height: 205mm !important; }
+  .visit-sheet {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
 }
 
 @layer components {
