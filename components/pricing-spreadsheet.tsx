@@ -41,7 +41,7 @@ export const CATEGORIES = [
   "Manutenção",
 ];
 
-const THICKNESSES = ["0.43","0.50","0.65","0.80"];
+const THICKNESSES = ["0.5mm","0.6mm","0.7mm","1.0mm"];
 const UNITS = ["metro","peça","unidade","hora","serviço","diária","kg","m²"];
 const COLORS = ["Natural","Branco","Preto","Grafite","Marrom","Bronze","Cinza","Areia","Outra"];
 
