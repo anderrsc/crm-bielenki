@@ -209,7 +209,7 @@ export function PricingSpreadsheet({
         </div>
 
         {/* Filtro de categoria */}
-        <select className="field h-9 text-sm max-w-[180px]" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
+        <select className="field h-9 text-sm min-w-[220px]" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
           <option value="Todos">Todos ({counts.Todos})</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c} ({counts[c] ?? 0})</option>)}
         </select>
