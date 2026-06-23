@@ -2,9 +2,7 @@
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import Link from "next/link";
-import { PaymentDialog } from "@/components/payment-dialog";
-import { ConfirmButton } from "@/components/confirm-button";
-import { reversePayment } from "@/app/(crm)/actions";
+import { PaymentModal } from "@/components/payment-modal";
 
 type Entry = {
   id: string;
@@ -13,17 +11,11 @@ type Entry = {
   total_amount: number;
   paid_amount: number;
   open_amount: number;
-  interest_amount:number;
-  discount_amount:number;
-  installment_count:number;
-  first_installment_due_date:string|null;
   due_date: string | null;
   display_status: string;
   client_name: string | null;
   supplier_name: string | null;
 };
-
-type Summary = { open_amount:number;open_count:number;overdue_amount:number;overdue_count:number;due_today_count:number;done_count:number;total_count:number };
 
 const STATUS: Record<string, { label: string; color: string; Icon: typeof Clock }> = {
   pago:                { label: "Pago",       color: "text-emerald-700 bg-emerald-50 border-emerald-200", Icon: CheckCircle2 },
@@ -40,23 +32,18 @@ const TABS = [
   { href: "/financeiro/pagar",   label: "A Pagar",    key: "pagar" },
 ];
 
-export async function FinancialPage({ filter, error, received, page=1 }: { filter?: string; error?: string; received?: boolean;page?:number }) {
+export async function FinancialPage({ filter, error, received }: { filter?: string; error?: string; received?: boolean }) {
   const db = await createClient();
-  const pageSize=50;const from=(page-1)*pageSize;const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from,from+pageSize-1);
-  const [listResult, summaryResult] = await Promise.all([
-    filter ? q.eq("entry_type", filter) : q,
-    db.rpc("financial_summary", { p_entry_type: filter ?? null }),
-  ]);
-  const { data } = listResult;
+  const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).limit(200);
+  const { data } = filter ? await q.eq("entry_type", filter) : await q;
   const entries = (data ?? []) as Entry[];
-  const paymentResult=entries.length?await db.from("payments").select("id,financial_entry_id,amount,paid_at").in("financial_entry_id",entries.map(entry=>entry.id)).is("reversed_at",null).order("created_at",{ascending:false}):{data:[]};
-  const activePayments=(paymentResult.data??[]) as {id:string;financial_entry_id:string;amount:number;paid_at:string}[];
 
   const overdue  = entries.filter(e => e.display_status === "vencido" && e.open_amount > 0);
   const dueToday = entries.filter(e => e.display_status === "vence_hoje");
+  const pending  = entries.filter(e => ["aguardando_pagamento","parcialmente_pago"].includes(e.display_status));
   const done     = entries.filter(e => ["pago","cancelado"].includes(e.display_status));
-  const fallback:Summary={open_amount:entries.filter(e=>e.open_amount>0&&e.display_status!=="cancelado").reduce((s,e)=>s+e.open_amount,0),open_count:entries.filter(e=>e.open_amount>0&&e.display_status!=="cancelado").length,overdue_amount:overdue.reduce((s,e)=>s+e.open_amount,0),overdue_count:overdue.length,due_today_count:dueToday.length,done_count:done.length,total_count:entries.length};
-  const summary=(summaryResult.data as Summary|null)??fallback;
+  const totalPending = pending.reduce((s, e) => s + e.open_amount, 0);
+  const totalOverdue = overdue.reduce((s, e) => s + e.open_amount, 0);
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -80,22 +67,21 @@ export async function FinancialPage({ filter, error, received, page=1 }: { filte
       {received && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">Pagamento registrado com sucesso.</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
 
-      {(summary.overdue_count > 0 || summary.due_today_count > 0) && (
+      {(overdue.length > 0 || dueToday.length > 0) && (
         <div className="mb-5 flex flex-wrap gap-3">
-          {summary.overdue_count > 0 && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700"><AlertCircle className="h-4 w-4" />{summary.overdue_count} vencido(s) &middot; {money(summary.overdue_amount)} em aberto</div>}
-          {summary.due_today_count > 0 && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700"><AlertTriangle className="h-4 w-4" />{summary.due_today_count} vence(m) hoje</div>}
+          {overdue.length > 0 && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700"><AlertCircle className="h-4 w-4" />{overdue.length} vencido(s) &middot; {money(totalOverdue)} em aberto</div>}
+          {dueToday.length > 0 && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700"><AlertTriangle className="h-4 w-4" />{dueToday.length} vence(m) hoje</div>}
         </div>
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(summary.open_amount)}</p><p className="text-xs text-ink/45">{summary.open_count} lançamento(s)</p></div>
-        <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(summary.overdue_amount)}</p><p className="text-xs text-red-500">{summary.overdue_count} lançamento(s)</p></div>
-        <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{summary.done_count}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
+        <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pending.length} lançamento(s)</p></div>
+        <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdue.length} lançamento(s)</p></div>
+        <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{done.length}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
       </div>
 
-      <div className="card overflow-hidden">
-        {summary.total_count>entries.length&&<p className="border-b bg-amber-50 px-4 py-2 text-xs text-amber-800">Exibindo {entries.length} de {summary.total_count} lançamentos. Os totalizadores consideram todos.</p>}
-        <div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b bg-cream text-left text-xs font-bold uppercase tracking-wider text-ink/40">
               <th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Parte</th>
@@ -118,13 +104,12 @@ export async function FinancialPage({ filter, error, received, page=1 }: { filte
                   <td className={`px-4 py-3 text-right font-bold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
                   <td className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-bold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
                   <td className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
-                   <td className="px-4 py-3"><div className="flex items-center gap-2">{e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date||e.due_date}/>} {activePayments.find(payment=>payment.financial_entry_id===e.id)&&<form><input type="hidden" name="payment_id" value={activePayments.find(payment=>payment.financial_entry_id===e.id)!.id}/><ConfirmButton formAction={reversePayment} message="Estornar o pagamento mais recente deste lançamento?" className="text-xs font-bold text-red-700">Estornar</ConfirmButton></form>}</div></td>
+                  <td className="px-4 py-3">{e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentModal entryId={e.id} openAmount={e.open_amount} />}</td>
                 </tr>
               );
             })}
           </tbody>
-        </table></div>
-        {summary.total_count>pageSize&&<div className="flex items-center justify-between border-t p-4 text-sm"><Link className={page<=1?"pointer-events-none text-ink/25":"font-bold text-forest"} href={`/financeiro${filter?`/${filter}`:""}?pagina=${page-1}`}>Anterior</Link><span>Página {page}</span><Link className={from+entries.length>=summary.total_count?"pointer-events-none text-ink/25":"font-bold text-forest"} href={`/financeiro${filter?`/${filter}`:""}?pagina=${page+1}`}>Próxima</Link></div>}
+        </table>
       </div>
     </div>
   );
