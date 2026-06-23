@@ -25,9 +25,13 @@ create table if not exists public.financial_installments(
   unique(financial_entry_id,installment_number)
 );
 alter table public.financial_installments enable row level security;
+drop policy if exists financial_installments_select on public.financial_installments;
 create policy financial_installments_select on public.financial_installments for select using(company_id=public.current_company_id() and public.has_table_access('financial_entries','select'));
+drop policy if exists financial_installments_insert on public.financial_installments;
 create policy financial_installments_insert on public.financial_installments for insert with check(company_id=public.current_company_id() and public.has_table_access('financial_entries','update'));
+drop policy if exists financial_installments_update on public.financial_installments;
 create policy financial_installments_update on public.financial_installments for update using(company_id=public.current_company_id() and public.has_table_access('financial_entries','update')) with check(company_id=public.current_company_id());
+drop policy if exists financial_installments_delete on public.financial_installments;
 create policy financial_installments_delete on public.financial_installments for delete using(company_id=public.current_company_id() and public.has_table_access('financial_entries','update'));
 
 -- The previous migration recreated this view as a definer view without a tenant
@@ -65,74 +69,90 @@ revoke all on function public.require_table_access(text,text) from public;
 grant execute on function public.require_table_access(text,text) to authenticated;
 
 -- Preserve the established transactional implementations behind guarded wrappers.
-do $$
+do $guard$
 begin
   if to_regprocedure('public.create_gutter_quote(jsonb)') is not null
     and to_regprocedure('public.create_gutter_quote_unchecked(jsonb)') is null then
-    alter function public.create_gutter_quote(jsonb) rename to create_gutter_quote_unchecked;
+    execute 'alter function public.create_gutter_quote(jsonb) rename to create_gutter_quote_unchecked';
   end if;
-end $$;
-drop function if exists public.create_gutter_quote(jsonb);
-revoke all on function public.create_gutter_quote_unchecked(jsonb) from public, authenticated;
-create function public.create_gutter_quote(p_payload jsonb) returns uuid
-language plpgsql security definer set search_path=public as $$
-begin
-  perform public.require_table_access('quotes','insert');
-  return public.create_gutter_quote_unchecked(p_payload);
-end $$;
-grant execute on function public.create_gutter_quote(jsonb) to authenticated;
+  if to_regprocedure('public.create_gutter_quote_unchecked(jsonb)') is not null then
+    execute 'drop function if exists public.create_gutter_quote(jsonb)';
+    execute 'revoke all on function public.create_gutter_quote_unchecked(jsonb) from public, authenticated';
+    execute $sql$
+      create function public.create_gutter_quote(p_payload jsonb) returns uuid
+      language plpgsql security definer set search_path=public as $fn$
+      begin
+        perform public.require_table_access('quotes','insert');
+        return public.create_gutter_quote_unchecked(p_payload);
+      end $fn$;
+    $sql$;
+    execute 'grant execute on function public.create_gutter_quote(jsonb) to authenticated';
+  end if;
+end $guard$;
 
-do $$
+do $guard$
 begin
   if to_regprocedure('public.approve_quote(uuid,date)') is not null
     and to_regprocedure('public.approve_quote_unchecked(uuid,date)') is null then
-    alter function public.approve_quote(uuid,date) rename to approve_quote_unchecked;
+    execute 'alter function public.approve_quote(uuid,date) rename to approve_quote_unchecked';
   end if;
-end $$;
-drop function if exists public.approve_quote(uuid,date);
-revoke all on function public.approve_quote_unchecked(uuid,date) from public, authenticated;
-create function public.approve_quote(p_quote_id uuid, p_due_date date default null) returns uuid
-language plpgsql security definer set search_path=public as $$
-begin
-  perform public.require_table_access('quotes','update');
-  perform public.require_table_access('sales','insert');
-  return public.approve_quote_unchecked(p_quote_id,p_due_date);
-end $$;
-grant execute on function public.approve_quote(uuid,date) to authenticated;
+  if to_regprocedure('public.approve_quote_unchecked(uuid,date)') is not null then
+    execute 'drop function if exists public.approve_quote(uuid,date)';
+    execute 'revoke all on function public.approve_quote_unchecked(uuid,date) from public, authenticated';
+    execute $sql$
+      create function public.approve_quote(p_quote_id uuid, p_due_date date default null) returns uuid
+      language plpgsql security definer set search_path=public as $fn$
+      begin
+        perform public.require_table_access('quotes','update');
+        perform public.require_table_access('sales','insert');
+        return public.approve_quote_unchecked(p_quote_id,p_due_date);
+      end $fn$;
+    $sql$;
+    execute 'grant execute on function public.approve_quote(uuid,date) to authenticated';
+  end if;
+end $guard$;
 
-do $$
+do $guard$
 begin
   if to_regprocedure('public.create_manual_sale(jsonb)') is not null
     and to_regprocedure('public.create_manual_sale_unchecked(jsonb)') is null then
-    alter function public.create_manual_sale(jsonb) rename to create_manual_sale_unchecked;
+    execute 'alter function public.create_manual_sale(jsonb) rename to create_manual_sale_unchecked';
   end if;
-end $$;
-drop function if exists public.create_manual_sale(jsonb);
-revoke all on function public.create_manual_sale_unchecked(jsonb) from public, authenticated;
-create function public.create_manual_sale(p_payload jsonb) returns uuid
-language plpgsql security definer set search_path=public as $$
-begin
-  perform public.require_table_access('sales','insert');
-  return public.create_manual_sale_unchecked(p_payload);
-end $$;
-grant execute on function public.create_manual_sale(jsonb) to authenticated;
+  if to_regprocedure('public.create_manual_sale_unchecked(jsonb)') is not null then
+    execute 'drop function if exists public.create_manual_sale(jsonb)';
+    execute 'revoke all on function public.create_manual_sale_unchecked(jsonb) from public, authenticated';
+    execute $sql$
+      create function public.create_manual_sale(p_payload jsonb) returns uuid
+      language plpgsql security definer set search_path=public as $fn$
+      begin
+        perform public.require_table_access('sales','insert');
+        return public.create_manual_sale_unchecked(p_payload);
+      end $fn$;
+    $sql$;
+    execute 'grant execute on function public.create_manual_sale(jsonb) to authenticated';
+  end if;
+end $guard$;
 
-do $$
+do $guard$
 begin
   if to_regprocedure('public.create_manual_purchase(jsonb)') is not null
     and to_regprocedure('public.create_manual_purchase_unchecked(jsonb)') is null then
-    alter function public.create_manual_purchase(jsonb) rename to create_manual_purchase_unchecked;
+    execute 'alter function public.create_manual_purchase(jsonb) rename to create_manual_purchase_unchecked';
   end if;
-end $$;
-drop function if exists public.create_manual_purchase(jsonb);
-revoke all on function public.create_manual_purchase_unchecked(jsonb) from public, authenticated;
-create function public.create_manual_purchase(p_payload jsonb) returns uuid
-language plpgsql security definer set search_path=public as $$
-begin
-  perform public.require_table_access('purchase_orders','insert');
-  return public.create_manual_purchase_unchecked(p_payload);
-end $$;
-grant execute on function public.create_manual_purchase(jsonb) to authenticated;
+  if to_regprocedure('public.create_manual_purchase_unchecked(jsonb)') is not null then
+    execute 'drop function if exists public.create_manual_purchase(jsonb)';
+    execute 'revoke all on function public.create_manual_purchase_unchecked(jsonb) from public, authenticated';
+    execute $sql$
+      create function public.create_manual_purchase(p_payload jsonb) returns uuid
+      language plpgsql security definer set search_path=public as $fn$
+      begin
+        perform public.require_table_access('purchase_orders','insert');
+        return public.create_manual_purchase_unchecked(p_payload);
+      end $fn$;
+    $sql$;
+    execute 'grant execute on function public.create_manual_purchase(jsonb) to authenticated';
+  end if;
+end $guard$;
 
 create or replace function public.update_gutter_quote(p_quote_id uuid, p_payload jsonb)
 returns uuid language plpgsql security definer set search_path=public as $$
