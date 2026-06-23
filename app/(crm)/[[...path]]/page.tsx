@@ -35,6 +35,8 @@ import { WindowQuote } from "@/components/window-quote";
 import { maskSecret } from "@/lib/encrypt";
 import { AgendaPage } from "@/components/agenda-page";
 import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
+import { CompanyIdentityEditor, type LogoConfig } from "@/components/company-identity";
+import { TemplatesPage, type DocumentTemplate } from "@/components/templates-page";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -46,6 +48,30 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <PricingCenter tab={s.aba as never} thickness={s.espessura} q={s.q} error={search.erro} saved={s.salvo === "1"} backHref="/dashboard" selfHref="/tabela-calhas" />;
   }
   if (path[0] === "configuracoes" && path[1] === "origens-lead") return <LeadSourcesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "configuracoes" && path[1] === "identidade") {
+    let company: LogoConfig = {};
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const { data: p } = await db.from("profiles").select("company_id").single();
+      if (p?.company_id) {
+        const { data } = await db.from("companies").select("trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color,logo_width,logo_max_height,logo_align,logo_margin_top,logo_margin_bottom,quote_footer").eq("id", p.company_id).single();
+        company = (data as LogoConfig) ?? {};
+      }
+    }
+    return <CompanyIdentityEditor company={company} />;
+  }
+  if (path[0] === "configuracoes" && path[1] === "templates") {
+    let templates: DocumentTemplate[] = [];
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await createClient();
+      const { data: p } = await db.from("profiles").select("company_id").single();
+      if (p?.company_id) {
+        const { data } = await db.from("document_templates").select("id,name,type,status,is_default,config,updated_at").eq("company_id", p.company_id).order("type").order("updated_at", { ascending: false });
+        templates = (data as DocumentTemplate[]) ?? [];
+      }
+    }
+    return <TemplatesPage templates={templates} />;
+  }
   if (path[0] === "configuracoes" && path[1] === "tabela-calhas") {
     const s = search as { aba?: string; espessura?: string; salvo?: string; q?: string };
     return <PricingCenter tab={s.aba as never} thickness={s.espessura} q={s.q} error={search.erro} saved={s.salvo === "1"} backHref="/configuracoes" selfHref="/configuracoes/tabela-calhas" />;
