@@ -65,7 +65,14 @@ revoke all on function public.require_table_access(text,text) from public;
 grant execute on function public.require_table_access(text,text) to authenticated;
 
 -- Preserve the established transactional implementations behind guarded wrappers.
-alter function public.create_gutter_quote(jsonb) rename to create_gutter_quote_unchecked;
+do $$
+begin
+  if to_regprocedure('public.create_gutter_quote(jsonb)') is not null
+    and to_regprocedure('public.create_gutter_quote_unchecked(jsonb)') is null then
+    alter function public.create_gutter_quote(jsonb) rename to create_gutter_quote_unchecked;
+  end if;
+end $$;
+drop function if exists public.create_gutter_quote(jsonb);
 revoke all on function public.create_gutter_quote_unchecked(jsonb) from public, authenticated;
 create function public.create_gutter_quote(p_payload jsonb) returns uuid
 language plpgsql security definer set search_path=public as $$
@@ -75,7 +82,14 @@ begin
 end $$;
 grant execute on function public.create_gutter_quote(jsonb) to authenticated;
 
-alter function public.approve_quote(uuid,date) rename to approve_quote_unchecked;
+do $$
+begin
+  if to_regprocedure('public.approve_quote(uuid,date)') is not null
+    and to_regprocedure('public.approve_quote_unchecked(uuid,date)') is null then
+    alter function public.approve_quote(uuid,date) rename to approve_quote_unchecked;
+  end if;
+end $$;
+drop function if exists public.approve_quote(uuid,date);
 revoke all on function public.approve_quote_unchecked(uuid,date) from public, authenticated;
 create function public.approve_quote(p_quote_id uuid, p_due_date date default null) returns uuid
 language plpgsql security definer set search_path=public as $$
@@ -86,7 +100,14 @@ begin
 end $$;
 grant execute on function public.approve_quote(uuid,date) to authenticated;
 
-alter function public.create_manual_sale(jsonb) rename to create_manual_sale_unchecked;
+do $$
+begin
+  if to_regprocedure('public.create_manual_sale(jsonb)') is not null
+    and to_regprocedure('public.create_manual_sale_unchecked(jsonb)') is null then
+    alter function public.create_manual_sale(jsonb) rename to create_manual_sale_unchecked;
+  end if;
+end $$;
+drop function if exists public.create_manual_sale(jsonb);
 revoke all on function public.create_manual_sale_unchecked(jsonb) from public, authenticated;
 create function public.create_manual_sale(p_payload jsonb) returns uuid
 language plpgsql security definer set search_path=public as $$
@@ -96,7 +117,14 @@ begin
 end $$;
 grant execute on function public.create_manual_sale(jsonb) to authenticated;
 
-alter function public.create_manual_purchase(jsonb) rename to create_manual_purchase_unchecked;
+do $$
+begin
+  if to_regprocedure('public.create_manual_purchase(jsonb)') is not null
+    and to_regprocedure('public.create_manual_purchase_unchecked(jsonb)') is null then
+    alter function public.create_manual_purchase(jsonb) rename to create_manual_purchase_unchecked;
+  end if;
+end $$;
+drop function if exists public.create_manual_purchase(jsonb);
 revoke all on function public.create_manual_purchase_unchecked(jsonb) from public, authenticated;
 create function public.create_manual_purchase(p_payload jsonb) returns uuid
 language plpgsql security definer set search_path=public as $$
