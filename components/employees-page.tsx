@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, KeyRound, Mail, Plus, Save, UserCheck, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, Plus, Save, UserCheck, UserX } from "lucide-react";
 import { inviteUser, saveEmployee, saveUserRoles, resetUserPassword } from "@/app/(crm)/actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,7 +60,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
       )}
       {saved && (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
-          ✓ Salvo com sucesso. O novo usuário receberá as instruções de acesso por e-mail.
+          ✓ Usuário criado com sucesso. Informe a senha definida ao novo usuário — o acesso já está liberado.
         </div>
       )}
 
@@ -86,6 +86,16 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                 <label className="label">E-mail *</label>
                 <input className="field" name="email" type="email" placeholder="joao@exemplo.com" required />
               </div>
+              <div>
+                <label className="label">Senha inicial * <span className="normal-case font-normal text-ink/40">(mín. 6 caracteres)</span></label>
+                <input className="field" name="password" type="password" placeholder="Senha de acesso" minLength={6} required />
+              </div>
+              <div className="flex items-end">
+                <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 w-full">
+                  <KeyRound className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>Informe a senha ao usuário. O acesso é imediato — sem envio de e-mail.</span>
+                </div>
+              </div>
             </div>
             <div>
               <label className="label mb-2 block">Cargos / Acessos</label>
@@ -97,10 +107,6 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                   </label>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg bg-cream p-3 text-xs text-ink/60">
-              <Mail className="h-4 w-4 shrink-0 text-forest" />
-              <span>O usuário será criado com acesso imediato. Você deverá enviar a senha gerada manualmente ou usar o link de redefinição de senha do Supabase.</span>
             </div>
             <button type="submit" className="button flex items-center gap-2">
               <Plus className="h-4 w-4" /> Criar usuário

@@ -6,7 +6,7 @@ import { PrintButton } from "@/components/print-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
-import { money, shortDate } from "@/lib/utils";
+import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
 
 const TOTAL_LINHAS = 20;
 
@@ -176,13 +176,12 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
         className="quote-sheet print-sheet relative overflow-hidden bg-white"
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
-        {company.logo_url && (
+        {proxyLogoUrl(company.logo_url) && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={company.logo_url}
+            src={proxyLogoUrl(company.logo_url)!}
             alt=""
             aria-hidden
-            crossOrigin="anonymous"
             className="quote-watermark pointer-events-none absolute select-none"
           />
         )}
@@ -192,7 +191,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             <div className="quote-logo-col">
               {company.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt={company.trade_name || company.name || "Logo"} src={company.logo_url} crossOrigin="anonymous" className="quote-logo-img" />
+                <img alt={company.trade_name || company.name || "Logo"} src={proxyLogoUrl(company.logo_url)!} className="quote-logo-img" />
               ) : (
                 <div className="quote-logo-fallback" style={{ background: secondary }}>
                   {(company.trade_name || company.name || "MC").slice(0, 2).toUpperCase()}

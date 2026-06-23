@@ -309,48 +309,49 @@ export async function inviteUser(formData: FormData) {
   const { data: myRoles } = await db.from("user_roles").select("role").eq("profile_id", user.id).in("role", ["administrador", "gerente"]);
   if (!myRoles?.length) redirect("/configuracoes/funcionarios?erro=Sem permissão para criar usuários");
 
-  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const email    = String(formData.get("email")     || "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") || "").trim();
+  const password = String(formData.get("password")  || "").trim();
   const allowedRoles = ["administrador","gerente","vendedor","compras","producao","estoque","instalador","financeiro","atendente"];
-  const roles = formData.getAll("roles").map(String).filter(role => allowedRoles.includes(role));
-  if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
+  const roles = formData.getAll("roles").map(String).filter(r => allowedRoles.includes(r));
 
-  // Verifica se email já existe no sistema
+  if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
+  if (!password || password.length < 6) redirect("/configuracoes/funcionarios?erro=Senha deve ter no mínimo 6 caracteres");
+
+  // Verifica duplicata
   const { data: existing } = await db.from("profiles").select("id").eq("email", email).maybeSingle();
   if (existing) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Este e-mail já está cadastrado no sistema")}`);
 
-  // Usa Supabase Admin API com service_role para criar o usuário
-  const { createClient: createAdmin } = await import("@supabase/supabase-js");
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    redirect("/configuracoes/funcionarios?erro=SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione nas variáveis de ambiente do Vercel.");
+  }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
-  const { data: newUser, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: fullName },
-    redirectTo: siteUrl ? `${siteUrl}/login` : undefined,
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+  // Cria usuário com senha definida pelo admin (sem envio de email de convite)
+  const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+    app_metadata:  { company_id: myProfile.company_id },
   });
 
   if (createError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(createError.message)}`);
 
   const profileId = newUser.user?.id;
   if (profileId) {
-    const { error: metadataError } = await admin.auth.admin.updateUserById(profileId, {
-      app_metadata: { company_id: myProfile.company_id }, user_metadata: { full_name: fullName },
-    });
-    if (metadataError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(metadataError.message)}`);
-    const { error: profileError } = await admin.from("profiles").upsert(
-      { id: profileId, company_id: myProfile.company_id, full_name: fullName, email, status: "ativo" }, { onConflict: "id" },
+    await admin.from("profiles").upsert(
+      { id: profileId, company_id: myProfile.company_id, full_name: fullName, email, status: "ativo" },
+      { onConflict: "id" },
     );
-    if (profileError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(profileError.message)}`);
     const inserts = (roles.length ? roles : ["atendente"]).map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
-    const { error: roleError } = await admin.from("user_roles").insert(inserts);
-    if (roleError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(roleError.message)}`);
+    await admin.from("user_roles").insert(inserts);
   }
 
   revalidatePath("/configuracoes/funcionarios");
-  redirect(`/configuracoes/funcionarios?salvo=1&novo=${encodeURIComponent(email)}`);
+  redirect(`/configuracoes/funcionarios?salvo=1`);
 }
 
 export async function saveEmployee(formData:FormData) {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, FileDown, Printer, Users } from "lucide-react";
+import { proxyLogoUrl } from "@/lib/utils";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type VisitSheetData = {
@@ -108,7 +109,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
           <div style={{ width: "22mm" }}>
             {company.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt={tradeName} src={company.logo_url} crossOrigin="anonymous"
+              <img alt={tradeName} src={proxyLogoUrl(company.logo_url)!}
                 style={{ width: "22mm", maxHeight: "18mm", objectFit: "contain" }} />
             ) : (
               <div style={{ width: "22mm", height: "18mm", background: red, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px" }}>

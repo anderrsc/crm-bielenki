@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Printer, FileDown, X } from "lucide-react";
+import { proxyLogoUrl } from "@/lib/utils";
 
 type Company = {
   trade_name?: string | null;
@@ -125,7 +126,7 @@ export function PrintSheet({ client, company }: { client?: Client; company: Comp
             <div style={{ width: "22mm" }}>
               {company.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt={tradeName} src={company.logo_url} crossOrigin="anonymous"
+                <img alt={tradeName} src={proxyLogoUrl(company.logo_url)!}
                   style={{ width: "22mm", maxHeight: "18mm", objectFit: "contain" }} />
               ) : (
                 <div style={{ width: "22mm", height: "18mm", background: red, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px" }}>

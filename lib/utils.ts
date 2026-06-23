@@ -14,6 +14,12 @@ export const shortDate = (value?: string | null) => {
     return Number.isNaN(date.getTime()) ? "Sem data" : new Intl.DateTimeFormat("pt-BR").format(date);
 };
 
+// Converte URL de logo para proxy local (resolve CORS na impressão/PDF)
+export const proxyLogoUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+};
+
 export const localISODate = (date = new Date()) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
