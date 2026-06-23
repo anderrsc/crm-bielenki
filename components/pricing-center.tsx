@@ -10,6 +10,8 @@ import {
   savePricingService, deletePricingService,
   saveCommercialTable, deleteCommercialTable,
 } from "@/app/(crm)/actions";
+import { getAllPrices } from "@/app/(crm)/pricing-actions";
+import { PricingSpreadsheet } from "@/components/pricing-spreadsheet";
 import { ConfirmButton } from "@/components/confirm-button";
 
 // ─── Listas de referência ───────────────────────────────────────────────────
@@ -94,9 +96,7 @@ export async function PricingCenter({
 
     if (cid) {
       if (tab === "materia-prima") {
-        let req = db.from("gutter_prices").select("id,product,thickness,cut_mm,color,unit_price,notes,active").eq("company_id", cid).eq("thickness", thickness).order("product").order("cut_mm");
-        if (q) req = req.ilike("product", `%${q}%`);
-        prices = ((await req).data ?? []) as GutterRow[];
+        prices = (await getAllPrices()) as unknown as GutterRow[];
       } else if (tab === "pintura") {
         let req = db.from("pricing_paints").select("*").eq("company_id", cid).order("color");
         if (q) req = req.ilike("color", `%${q}%`);
@@ -152,136 +152,12 @@ export async function PricingCenter({
         ))}
       </div>
 
-      {/* ─── Matéria-Prima ─────────────────────────── */}
+      {/* ─── Matéria-Prima — planilha interativa ─── */}
       {tab === "materia-prima" && (
-        <div className="space-y-5">
-          {/* Thickness sub-tabs */}
-          <div className="flex gap-2 overflow-x-auto">
-            {gutterThicknesses.map(th => (
-              <Link key={th} href={thickHref(th)}
-                className={cn("whitespace-nowrap rounded-xl border px-4 py-2 text-sm font-bold transition",
-                  thickness === th ? "border-forest bg-forest text-white" : "border-ink/10 text-ink/50 hover:border-ink/20 hover:text-ink")}>
-                {th}
-              </Link>
-            ))}
-          </div>
-
-          {/* Search + New */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <form className="relative max-w-sm flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-ink/35" />
-              <input className="field pl-9" name="q" defaultValue={q} placeholder="Buscar produto..." />
-              <input type="hidden" name="aba" value="materia-prima" />
-              <input type="hidden" name="espessura" value={thickness} />
-            </form>
-            {canManage && (
-              <Link href={`${selfHref}?aba=materia-prima&espessura=${encodeURIComponent(thickness)}&novo=1`}
-                className="button shrink-0"><Plus className="h-4 w-4" />Novo preço</Link>
-            )}
-          </div>
-
-          {/* New form */}
-          {canManage && (
-            <details className="card" open={(q ?? "") === "" && prices.length === 0 ? true : undefined}>
-              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Adicionar preço — {thickness}</summary>
-              <form action={saveGutterPrice} className="grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
-                <input type="hidden" name="_back" value={`${selfHref}?aba=materia-prima&espessura=${encodeURIComponent(thickness)}`} />
-                <div>
-                  <label className="label">Produto</label>
-                  <input className="field" name="product" list="product-list" required placeholder="Selecione ou digite" />
-                  <datalist id="product-list">{ALL_PRODUCTS.map(p => <option key={p} value={p} />)}</datalist>
-                </div>
-                <div>
-                  <label className="label">Espessura</label>
-                  <select className="field" name="thickness" defaultValue={thickness}>
-                    {gutterThicknesses.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Corte (mm)</label>
-                  <input className="field" name="cut_mm" type="number" list="cut-list" required placeholder="mm" />
-                  <datalist id="cut-list">{ALL_CUTS.map(c => <option key={c} value={c} />)}</datalist>
-                </div>
-                <div>
-                  <label className="label">Cor</label>
-                  <select className="field" name="color">{gutterColors.map(c => <option key={c}>{c}</option>)}</select>
-                </div>
-                <div>
-                  <label className="label">Preço por metro</label>
-                  <input className="field" name="unit_price" type="number" step="0.0001" min="0" required placeholder="0,00" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="label">Observação</label>
-                  <input className="field" name="notes" />
-                </div>
-                <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
-                  <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked />Ativo
-                </label>
-                <button className="button sm:col-span-2 lg:col-span-4"><Save className="h-4 w-4" />Salvar preço</button>
-              </form>
-            </details>
-          )}
-
-          {/* Table */}
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left text-sm">
-                <thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45">
-                  <tr>
-                    <th className="px-4 py-3">Produto</th>
-                    <th className="px-4 py-3">Corte</th>
-                    <th className="px-4 py-3">Cor</th>
-                    <th className="px-4 py-3">Preço / m</th>
-                    <th className="px-4 py-3">Obs.</th>
-                    <th className="px-4 py-3">Ativo</th>
-                    {canManage && <th className="px-4 py-3" />}
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {prices.map(p => (
-                    <tr key={p.id} className={cn("transition hover:bg-cream/30", !p.active && "opacity-40")}>
-                      <td colSpan={canManage ? 7 : 6}>
-                        {canManage ? (
-                          <form action={saveGutterPrice} className="grid grid-cols-[1.6fr_.8fr_.7fr_.8fr_1.2fr_.4fr_auto] items-center gap-2 px-4 py-2">
-                            <input type="hidden" name="id" value={p.id} />
-                            <input type="hidden" name="_back" value={`${selfHref}?aba=materia-prima&espessura=${encodeURIComponent(thickness)}`} />
-                            <input className="field h-8 text-sm font-semibold" name="product" defaultValue={p.product} list="product-list-edit" />
-                            <datalist id="product-list-edit">{ALL_PRODUCTS.map(x => <option key={x} value={x} />)}</datalist>
-                            <input className="field h-8 text-sm" name="cut_mm" type="number" defaultValue={p.cut_mm} />
-                            <select className="field h-8 text-sm" name="color" defaultValue={p.color ?? "Natural"}>{gutterColors.map(c => <option key={c}>{c}</option>)}</select>
-                            <input className="field h-8 text-sm font-black" name="unit_price" type="number" step="0.0001" min="0" defaultValue={p.unit_price} />
-                            <input className="field h-8 text-sm" name="notes" defaultValue={p.notes ?? ""} />
-                            <input type="hidden" name="thickness" value={p.thickness} />
-                            <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={p.active} />
-                            <div className="flex gap-1">
-                              <button title="Salvar" className="button-ghost p-1.5"><Save className="h-3.5 w-3.5" /></button>
-                              <ConfirmButton formAction={deleteGutterPrice} className="button-ghost p-1.5 text-red-600"><Trash2 className="h-3.5 w-3.5" /></ConfirmButton>
-                            </div>
-                          </form>
-                        ) : (
-                          <div className="grid grid-cols-[1.6fr_.8fr_.7fr_.8fr_1.2fr_.4fr] items-center gap-2 px-4 py-3">
-                            <span className="font-semibold">{p.product}</span>
-                            <span>{p.cut_mm} mm</span>
-                            <span>{p.color ?? "Natural"}</span>
-                            <span className="font-black text-forest">{money(p.unit_price)}/m</span>
-                            <span className="text-ink/50">{p.notes ?? "—"}</span>
-                            <span>{p.active ? "Sim" : "Não"}</span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!prices.length && (
-                    <tr><td colSpan={canManage ? 7 : 6} className="p-10 text-center text-ink/40">
-                      Nenhum preço cadastrado para espessura {thickness}.
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          {prices.length > 0 && <p className="text-right text-xs text-ink/40">{prices.length} registro{prices.length !== 1 ? "s" : ""}</p>}
-        </div>
+        <PricingSpreadsheet
+          initialRows={prices as unknown as import("@/components/pricing-spreadsheet").PriceRow[]}
+          canManage={canManage}
+        />
       )}
 
       {/* ─── Pintura ───────────────────────────────── */}
