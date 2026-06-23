@@ -135,7 +135,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     ]);
     if (!clientRes.data) return notFound();
     const company = (companyRes.data?.company ?? {}) as VisitSheetData["company"];
-    return <VisitSheet client={clientRes.data} company={company} backHref={`/clientes/${path[1]}`} />;
+    return <VisitSheet clientId={path[1]} client={clientRes.data} company={company} backHref={`/clientes/${path[1]}`} />;
   }
   if (path[0] === "medicoes" && path[1] === "ficha-em-branco") {
     let company: VisitSheetData["company"] = {};
