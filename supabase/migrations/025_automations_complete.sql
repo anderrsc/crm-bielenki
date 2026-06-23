@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.workflow_executions (
   created_by   UUID REFERENCES public.profiles(id)
 );
 ALTER TABLE public.workflow_executions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS workflow_executions_company ON public.workflow_executions;
 CREATE POLICY workflow_executions_company ON public.workflow_executions
   USING (company_id = public.current_company_id());
 
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.operational_alerts (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.operational_alerts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS operational_alerts_company ON public.operational_alerts;
 CREATE POLICY operational_alerts_company ON public.operational_alerts
   USING (company_id = public.current_company_id());
 
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.lead_followups (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.lead_followups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS lead_followups_company ON public.lead_followups;
 CREATE POLICY lead_followups_company ON public.lead_followups
   USING (company_id = public.current_company_id());
 
@@ -314,5 +317,4 @@ GRANT EXECUTE ON FUNCTION public.dashboard_summary() TO authenticated;
 ALTER TABLE public.order_checklist_items ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'geral';
 ALTER TABLE public.order_checklist_items ADD COLUMN IF NOT EXISTS item_name TEXT;
 
--- Preenche item_name se estiver vazio (pode estar em coluna 'name')
-UPDATE public.order_checklist_items SET item_name = name WHERE item_name IS NULL AND name IS NOT NULL;
+-- item_name é nova coluna, sem dados anteriores para migrar
