@@ -302,6 +302,10 @@ export async function inviteUser(formData: FormData) {
   const roles = formData.getAll("roles").map(String).filter(role => allowedRoles.includes(role));
   if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
 
+  // Verifica se email já existe no sistema
+  const { data: existing } = await db.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (existing) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Este e-mail já está cadastrado no sistema")}`);
+
   // Usa Supabase Admin API com service_role para criar o usuário
   const { createClient: createAdmin } = await import("@supabase/supabase-js");
   const admin = createAdmin(
@@ -324,7 +328,7 @@ export async function inviteUser(formData: FormData) {
     });
     if (metadataError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(metadataError.message)}`);
     const { error: profileError } = await admin.from("profiles").upsert(
-      { id: profileId, company_id: myProfile.company_id, full_name: fullName, status: "ativo" }, { onConflict: "id" },
+      { id: profileId, company_id: myProfile.company_id, full_name: fullName, email, status: "ativo" }, { onConflict: "id" },
     );
     if (profileError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(profileError.message)}`);
     const inserts = (roles.length ? roles : ["atendente"]).map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));

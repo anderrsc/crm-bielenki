@@ -3,7 +3,7 @@ import { ArrowLeft, KeyRound, Mail, Plus, Save, UserCheck, UserX } from "lucide-
 import { inviteUser, saveEmployee, saveUserRoles, resetUserPassword } from "@/app/(crm)/actions";
 import { createClient } from "@/lib/supabase/server";
 
-type Profile = { id: string; full_name: string; phone: string | null; status: string };
+type Profile = { id: string; full_name: string; phone: string | null; email: string | null; status: string };
 type UserRole = { profile_id: string; role: string };
 
 const ALL_ROLES: { value: string; label: string }[] = [
@@ -29,7 +29,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
     const db = await createClient();
     const [perm, profResult, rolesResult] = await Promise.all([
       db.rpc("has_table_access", { resource: "profiles", action: "update" }),
-      db.from("profiles").select("id,full_name,phone,status").order("full_name"),
+      db.from("profiles").select("id,full_name,phone,email,status").order("full_name"),
       db.from("user_roles").select("profile_id,role"),
     ]);
     canManage = Boolean(perm.data);
@@ -126,6 +126,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                     <p className="text-xs text-ink/50">
                       {myRoles.map(r => ALL_ROLES.find(x => x.value === r)?.label ?? r).join(", ") || "Sem cargo"}
                     </p>
+                    {p.email && <p className="text-xs text-ink/40">{p.email}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

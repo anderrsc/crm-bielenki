@@ -1,6 +1,6 @@
 ﻿import { createClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
-import { AlertCircle, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { PaymentDialog } from "@/components/payment-dialog";
 
@@ -32,11 +32,16 @@ const TABS = [
   { href: "/financeiro/pagar",   label: "A Pagar",    key: "pagar" },
 ];
 
+const PAGE_SIZE = 60;
+
 export async function FinancialPage({ filter, error, received, page = 1 }: { filter?: string; error?: string; received?: boolean; page?: number }) {
   const db = await createClient();
-  const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).limit(200);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);
   const { data } = filter ? await q.eq("entry_type", filter) : await q;
   const entries = (data ?? []) as Entry[];
+  const hasNext = entries.length === PAGE_SIZE;
 
   const overdue  = entries.filter(e => e.display_status === "vencido" && e.open_amount > 0);
   const dueToday = entries.filter(e => e.display_status === "vence_hoje");
@@ -80,6 +85,23 @@ export async function FinancialPage({ filter, error, received, page = 1 }: { fil
         <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{done.length}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
       </div>
 
+      {(page > 1 || hasNext) && (
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm text-ink/50">Página {page}</span>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page - 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-white px-3 py-2 text-sm font-semibold hover:bg-cream">
+                <ChevronLeft className="h-4 w-4" /> Anterior
+              </Link>
+            )}
+            {hasNext && (
+              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page + 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-white px-3 py-2 text-sm font-semibold hover:bg-cream">
+                Próxima <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[700px] text-sm">
           <thead>
