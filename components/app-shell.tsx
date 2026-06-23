@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bot, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Factory, FileText, HandCoins, LayoutDashboard, Menu, PackageSearch, Ruler, Search, Settings, Shield, ShoppingCart, UserCog, Users, WalletCards, X } from "lucide-react";
+import { AlertCircle, BarChart3, Bot, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Factory, FileText, HandCoins, LayoutDashboard, Menu, PackageSearch, Ruler, Search, Settings, Shield, ShoppingCart, UserCog, Users, WalletCards, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const groups = [
-  { title: "Visao geral", items: [["Dashboard", "/dashboard", LayoutDashboard], ["Pipeline", "/pipeline", BarChart3], ["Busca global", "/busca", Search]] },
+  { title: "Visao geral", items: [["Dashboard", "/dashboard", LayoutDashboard], ["Pendencias", "/pendencias", AlertCircle], ["Pipeline", "/pipeline", BarChart3], ["Busca global", "/busca", Search]] },
   { title: "Comercial", items: [["Clientes", "/clientes", Users], ["Orcamentos", "/orcamentos", FileText], ["Central de Precos", "/tabela-calhas", Ruler], ["Vendas", "/vendas", HandCoins], ["Pedidos", "/pedidos", ClipboardCheck]] },
   { title: "Operacao", items: [["Agenda", "/agenda", CalendarCheck], ["Medicoes", "/medicoes", Ruler], ["Compras", "/compras", ShoppingCart], ["Fornecedores", "/fornecedores", Building2], ["Estoque", "/estoque", Boxes], ["Producao", "/producao", Factory], ["Instalacoes", "/instalacoes", CalendarCheck]] },
   { title: "Financeiro", items: [["Financeiro", "/financeiro", CircleDollarSign], ["A Receber", "/financeiro/receber", WalletCards], ["A Pagar", "/financeiro/pagar", HandCoins]] },
@@ -21,7 +21,7 @@ export function AppShell({ children, userName, companyName, roles=[] }: { childr
   const [collapsed, setCollapsed] = useState(false);
   const privileged=roles.some(role=>["administrador","gerente"].includes(role));
   const canSee=(href:string)=>{
-    if(privileged||["/dashboard","/busca"].includes(href))return true;
+    if(privileged||["/dashboard","/busca","/pendencias"].includes(href))return true;
     if(href.startsWith("/financeiro")||href==="/relatorios")return roles.includes("financeiro");
     if(href.startsWith("/configuracoes")||["/automacoes","/agente-ia","/auditoria"].includes(href))return false;
     if(["/agenda","/medicoes"].includes(href))return roles.some(role=>["vendedor","atendente","instalador","producao"].includes(role));

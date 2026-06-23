@@ -54,6 +54,19 @@ export async function registerPayment(formData: FormData) {
   revalidatePath("/financeiro"); redirect(`${back}?recebido=1`);
 }
 
+export async function rescheduleEntry(formData: FormData) {
+  const db = await createClient();
+  const entryId   = String(formData.get("entry_id") || "");
+  const newDue    = String(formData.get("new_due_date") || "");
+  const reason    = String(formData.get("reason") || "");
+  const parsed = z.object({ entryId: z.string().uuid(), newDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({ entryId, newDue });
+  if (!parsed.success) redirect("/financeiro?erro=Data+de+vencimento+inválida");
+  const { error } = await db.rpc("reschedule_entry", { p_entry_id: entryId, p_new_due_date: newDue, p_reason: reason });
+  if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/financeiro");
+  redirect("/financeiro?recebido=1");
+}
+
 export async function toggleChecklistItem(formData: FormData) {
   const db = await createClient();
   const id = String(formData.get("id"));

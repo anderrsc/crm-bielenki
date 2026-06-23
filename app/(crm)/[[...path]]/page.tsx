@@ -30,6 +30,7 @@ import { AiTriagePage } from "@/components/ai-triage-page";
 import { AiControlPanel } from "@/components/ai-control-panel";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
+import { PendingCenter } from "@/components/pending-center";
 import { WindowQuote } from "@/components/window-quote";
 import { maskSecret } from "@/lib/encrypt";
 
@@ -105,6 +106,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
   }
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
+  if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;
