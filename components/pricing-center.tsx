@@ -11,7 +11,9 @@ import {
   saveCommercialTable, deleteCommercialTable,
 } from "@/app/(crm)/actions";
 import { getAllPrices } from "@/app/(crm)/pricing-actions";
+import { getMatrixRows } from "@/app/(crm)/matrix-actions";
 import { PricingSpreadsheet } from "@/components/pricing-spreadsheet";
+import { AluminumMatrix } from "@/components/aluminum-matrix";
 import { ConfirmButton } from "@/components/confirm-button";
 
 // ─── Listas de referência ───────────────────────────────────────────────────
@@ -79,6 +81,7 @@ export async function PricingCenter({
 }) {
   let canManage = false;
   let prices: GutterRow[] = [];
+  let matrixRows: import("@/components/aluminum-matrix").MatrixRow[] = [];
   let paints: PaintRow[] = [];
   let parts: PartRow[] = [];
   let services: ServiceRow[] = [];
@@ -96,7 +99,10 @@ export async function PricingCenter({
 
     if (cid) {
       if (tab === "materia-prima") {
-        prices = (await getAllPrices()) as unknown as GutterRow[];
+        [prices, matrixRows] = await Promise.all([
+          getAllPrices() as unknown as Promise<GutterRow[]>,
+          getMatrixRows(),
+        ]);
       } else if (tab === "pintura") {
         let req = db.from("pricing_paints").select("*").eq("company_id", cid).order("color");
         if (q) req = req.ilike("color", `%${q}%`);
@@ -152,12 +158,18 @@ export async function PricingCenter({
         ))}
       </div>
 
-      {/* ─── Matéria-Prima — planilha interativa ─── */}
+      {/* ─── Matéria-Prima ─── */}
       {tab === "materia-prima" && (
-        <PricingSpreadsheet
-          initialRows={prices as unknown as import("@/components/pricing-spreadsheet").PriceRow[]}
-          canManage={canManage}
-        />
+        <div className="space-y-10">
+          <AluminumMatrix initialRows={matrixRows} canManage={canManage} />
+          <div>
+            <p className="mb-4 text-xs font-bold uppercase tracking-[.2em] text-ink/40">Outros itens e exceções</p>
+            <PricingSpreadsheet
+              initialRows={prices as unknown as import("@/components/pricing-spreadsheet").PriceRow[]}
+              canManage={canManage}
+            />
+          </div>
+        </div>
       )}
 
       {/* ─── Pintura ───────────────────────────────── */}
