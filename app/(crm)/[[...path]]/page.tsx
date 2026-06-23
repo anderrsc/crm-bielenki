@@ -33,6 +33,8 @@ import { AuditLogPage } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
 import { WindowQuote } from "@/components/window-quote";
 import { maskSecret } from "@/lib/encrypt";
+import { AgendaPage } from "@/components/agenda-page";
+import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
   const path = (await params).path ?? [];
@@ -107,6 +109,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   }
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
+  if (path[0] === "agenda") {
+    const events = await getAgendaEvents();
+    return <AgendaPage initialEvents={events} />;
+  }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;

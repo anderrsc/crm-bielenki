@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, FileDown, Printer, Users } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, FileDown, Printer, Users, ChevronDown } from "lucide-react";
 import { proxyLogoUrl } from "@/lib/utils";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
@@ -35,7 +36,11 @@ export type VisitSheetData = {
 };
 
 /* ─── Componente de preview (dentro do CRM) ─────────────────────────────── */
+const QTY_OPTIONS = [1, 5, 10, 20, 50, 100];
+
 export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }: VisitSheetData) {
+  const [qty, setQty] = useState(1);
+  const [showQty, setShowQty] = useState(false);
   const red = company.primary_color || "#D71920";
   const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
   const phone = client?.whatsapp || client?.phone || "";
@@ -63,13 +68,41 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
           >
             <Users className="h-4 w-4" /> Gerar Ficha do Cliente
           </Link>
-          <Link
-            href="/ficha/branco"
-            target="_blank"
-            className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream"
-          >
-            Gerar Ficha em Branco
-          </Link>
+          {/* Ficha em branco com seletor de quantidade */}
+          <div className="relative">
+            <div className="flex">
+              <Link
+                href={`/ficha/branco${qty > 1 ? `?qty=${qty}` : ""}`}
+                target="_blank"
+                className="flex items-center gap-2 rounded-l-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream"
+              >
+                Ficha em Branco{qty > 1 ? ` (${qty})` : ""}
+              </Link>
+              <button
+                onClick={() => setShowQty(v => !v)}
+                className="flex items-center rounded-r-xl border border-l-0 border-sand bg-white px-2 py-2 hover:bg-cream"
+              >
+                <ChevronDown className="h-3.5 w-3.5 text-ink/50" />
+              </button>
+            </div>
+            {showQty && (
+              <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border bg-white shadow-lg p-2">
+                <p className="mb-1.5 text-xs font-bold text-ink/40 px-2">Quantidade</p>
+                {QTY_OPTIONS.map(n => (
+                  <button key={n} onClick={() => { setQty(n); setShowQty(false); }}
+                    className={`w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium hover:bg-cream ${qty === n ? "bg-lime/20 text-forest font-bold" : ""}`}>
+                    {n} {n === 1 ? "cópia" : "cópias"}
+                  </button>
+                ))}
+                <div className="mt-1.5 border-t pt-1.5 px-2">
+                  <label className="text-xs text-ink/40">Personalizado</label>
+                  <input type="number" min={1} max={100} value={qty}
+                    onChange={e => setQty(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+                    className="mt-0.5 w-full rounded-lg border px-2 py-1 text-sm" />
+                </div>
+              </div>
+            )}
+          </div>
           <Link
             href={printHref}
             target="_blank"

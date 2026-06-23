@@ -30,7 +30,10 @@ type Client = {
   address: string | null;
 };
 
-export function PrintSheet({ client, company }: { client?: Client; company: Company }) {
+export function PrintSheet({ client, company, qty = 1 }: { client?: Client; company: Company; qty?: number }) {
+  if (qty > 1) {
+    return <MultiSheet company={company} qty={qty} />;
+  }
   const red = company.primary_color || "#D71920";
   const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
   const phone = client?.whatsapp || client?.phone || "";
@@ -201,6 +204,98 @@ export function PrintSheet({ client, company }: { client?: Client; company: Comp
             minHeight: "183mm",
           }} />
         </article>
+      </div>
+    </>
+  );
+}
+
+/* ── Multi-sheet (fichas em branco em quantidade) ────────────────────────── */
+function MultiSheet({ company, qty }: { company: Company; qty: number }) {
+  const [now, setNow] = useState("");
+  useEffect(() => {
+    const fmt = (d: Date) => {
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    };
+    setNow(fmt(new Date()));
+    const handler = () => setNow(fmt(new Date()));
+    window.addEventListener("beforeprint", handler);
+    return () => window.removeEventListener("beforeprint", handler);
+  }, []);
+
+  const red = company.primary_color || "#D71920";
+  const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
+  const compAddr = [company.address, company.neighborhood, company.city, company.state].filter(Boolean).join(" - ");
+
+  return (
+    <>
+      <div className="no-print fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 border-b bg-white px-6 py-3 shadow-sm">
+        <span className="text-sm font-bold text-ink">Fichas em Branco — {qty} {qty === 1 ? "cópia" : "cópias"}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream">
+            <Printer className="h-4 w-4" /> Imprimir
+          </button>
+          <button onClick={() => window.print()}
+            className="flex items-center gap-2 rounded-xl bg-[#234d3c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
+            <FileDown className="h-4 w-4" /> Gerar PDF
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-4 bg-[#f0f0f0] pt-[60px] pb-8 print:bg-white print:p-0 print:gap-0">
+        {Array.from({ length: qty }).map((_, i) => (
+          <article key={i}
+            className="bg-white print:shadow-none"
+            style={{
+              width: "210mm", minHeight: "297mm", padding: "10mm 12mm", boxSizing: "border-box",
+              fontFamily: "'Segoe UI','Inter',system-ui,sans-serif",
+              boxShadow: "0 4px 32px rgba(0,0,0,.12)",
+              pageBreakAfter: i < qty - 1 ? "always" : "auto",
+              breakAfter: i < qty - 1 ? "page" : "auto",
+            }}>
+            <div style={{ fontSize: "8px", color: "#888", marginBottom: "4mm" }}>{now}</div>
+            <header style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", gap: "6mm" }}>
+              <div style={{ width: "22mm" }}>
+                {company.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt={tradeName} src={proxyLogoUrl(company.logo_url)!} style={{ width: "22mm", maxHeight: "18mm", objectFit: "contain" }} />
+                ) : (
+                  <div style={{ width: "22mm", height: "18mm", background: red, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px" }}>
+                    <span style={{ color: "#fff", fontWeight: 900, fontSize: "14px" }}>MC</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p style={{ fontSize: "15px", fontWeight: 900, color: "#111", lineHeight: 1.1, margin: "0 0 1.5mm" }}>{tradeName}</p>
+                {company.tax_id && <p style={{ fontSize: "8px", color: "#555", margin: "0 0 0.8mm" }}>CNPJ {company.tax_id}</p>}
+                {compAddr && <p style={{ fontSize: "8px", color: "#555", margin: 0 }}>{compAddr}</p>}
+              </div>
+              <div style={{ textAlign: "right", fontSize: "8.5px", color: "#444", lineHeight: "1.9" }}>
+                {company.whatsapp && <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}><WaIcon /> {company.whatsapp}</div>}
+                {company.phone && <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}><PhoneIcon /> {company.phone}</div>}
+                {company.email && <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px" }}><MailIcon /> {company.email}</div>}
+              </div>
+            </header>
+            <div style={{ height: "1.5px", background: red, margin: "3.5mm 0" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "3mm", marginBottom: "3mm" }}>
+              {["CLIENTE","TELEFONE / WHATSAPP","BAIRRO","CIDADE"].map(l => (
+                <div key={l} style={{ background: "#f7f7f7", borderRadius: "6px", padding: "3mm 3.5mm", minHeight: "12mm" }}>
+                  <p style={{ fontSize: "7px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: ".1em", margin: "0 0 1.5mm" }}>{l}</p>
+                  <div style={{ borderBottom: "1px solid #bbb", height: "10px", marginTop: "5mm" }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "3mm", marginBottom: "4mm" }}>
+              {["ENDEREÇO","DISPONIBILIDADE DE HORÁRIO","MEDIDOR"].map(l => (
+                <div key={l} style={{ background: "#f7f7f7", borderRadius: "6px", padding: "3mm 3.5mm", minHeight: "12mm" }}>
+                  <p style={{ fontSize: "7px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: ".1em", margin: "0 0 1.5mm" }}>{l}</p>
+                  <div style={{ borderBottom: "1px solid #bbb", height: "10px", marginTop: "5mm" }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ border: "1px solid #e0e0e0", borderRadius: "6px", backgroundImage: "linear-gradient(to bottom,transparent 27px,#e8e8e8 28px)", backgroundSize: "100% 28px", minHeight: "183mm" }} />
+          </article>
+        ))}
       </div>
     </>
   );
