@@ -3,12 +3,17 @@
 import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import { gutterColors, gutterCuts, gutterProducts, gutterThicknesses, type GutterPrice, type QuoteClient } from "@/lib/gutters";
 import { localISODate, money } from "@/lib/utils";
-import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
+import { Copy, Database, Package, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export type GutterQuoteItem = { product: string; thickness: string; cut: string; color: string; quantity: number; meters: number; unit_price: number };
 type Item = GutterQuoteItem;
-export type GutterQuoteInitial={id:string;client_id:string;discount:number;freight:number;notes:string;valid_until:string;installation_deadline:string;items:GutterQuoteItem[]};
+export type SpecialItem = { product: string; description: string; unit: string; quantity: number; unit_price: number };
+export type GutterQuoteInitial={id:string;client_id:string;discount:number;freight:number;notes:string;valid_until:string;installation_deadline:string;items:GutterQuoteItem[];special_items?:SpecialItem[]};
+
+const SPECIAL_UNITS = ["unidade","peça","serviço","diária","pacote","metro","kg","hora","personalizada"];
+
+const blankSpecial = (): SpecialItem => ({ product: "", description: "", unit: "unidade", quantity: 1, unit_price: 0 });
 
 const findPrice = (prices: GutterPrice[], item: Pick<Item, "product" | "thickness" | "cut" | "color">) =>
   prices.find(x => x.active && x.product === item.product && x.thickness === item.thickness && x.cut_mm === Number(item.cut.replace(/\D/g, "")) && (x.color ?? "Natural") === item.color);
@@ -20,6 +25,7 @@ const blank = (prices: GutterPrice[]): Item => {
 
 export function GutterQuote({ prices, clients, initial }: { prices: GutterPrice[]; clients: QuoteClient[];initial?:GutterQuoteInitial }) {
   const [items, setItems] = useState<Item[]>(() => initial?.items.length?initial.items:[blank(prices)]);
+  const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() => initial?.special_items ?? []);
   const [discount, setDiscount] = useState(initial?.discount??0);
   const [freight, setFreight] = useState(initial?.freight??0);
   const [clientId, setClientId] = useState(initial?.client_id??"");
@@ -28,7 +34,9 @@ export function GutterQuote({ prices, clients, initial }: { prices: GutterPrice[
   const defaultValid = localISODate(today);
   const [validUntil, setValidUntil] = useState(initial?.valid_until??defaultValid);
   const [installationDeadline, setInstallationDeadline] = useState(initial?.installation_deadline??"Até 15 dias após aprovação e conferência final das medidas");
-  const subtotal = useMemo(() => items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0), [items]);
+  const subtotalCalhas = useMemo(() => items.reduce((t, item) => t + item.quantity * item.meters * item.unit_price, 0), [items]);
+  const subtotalEspeciais = useMemo(() => specialItems.reduce((t, item) => t + item.quantity * item.unit_price, 0), [specialItems]);
+  const subtotal = subtotalCalhas + subtotalEspeciais;
   const total = Math.max(0, subtotal - discount + freight);
   const change = (index: number, key: keyof Item, value: string) =>
     setItems(current => current.map((item, i) => {
@@ -40,7 +48,12 @@ export function GutterQuote({ prices, clients, initial }: { prices: GutterPrice[
       }
       return next;
     }));
-  const payload = JSON.stringify({ client_id: clientId, discount, freight, notes, items });
+  const changeSpecial = (index: number, key: keyof SpecialItem, value: string) =>
+    setSpecialItems(current => current.map((item, i) => {
+      if (i !== index) return item;
+      return { ...item, [key]: ["quantity","unit_price"].includes(key) ? Number(value) : value };
+    }));
+  const payload = JSON.stringify({ client_id: clientId, discount, freight, notes, items, special_items: specialItems });
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -98,7 +111,44 @@ export function GutterQuote({ prices, clients, initial }: { prices: GutterPrice[
               </div>
             );
           })}
-          <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems(current => [...current, blank(prices)])}><Plus className="h-4 w-4" />Adicionar item</button>
+          <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems(current => [...current, blank(prices)])}><Plus className="h-4 w-4" />Adicionar item de calha</button>
+
+          {/* Itens Especiais / Serviços / Acessórios */}
+          <div className="mt-2">
+            <div className="mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4 text-forest" />
+              <h2 className="font-bold text-ink">Itens Especiais / Serviços / Acessórios</h2>
+              <span className="text-xs text-ink/40">(PU MS40, silicone, mão de obra, frete…)</span>
+            </div>
+            {specialItems.map((item, index) => (
+              <div className="card mb-3 p-4" key={index}>
+                <div className="mb-3 flex items-center justify-between">
+                  <b className="text-sm text-ink/70">Item especial {index + 1}</b>
+                  <button type="button" className="button-ghost p-1.5 text-red-600" onClick={() => setSpecialItems(c => c.filter((_,i)=>i!==index))}><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                  <div className="sm:col-span-2">
+                    <label className="label">Produto / Serviço</label>
+                    <input className="field" type="text" placeholder="Ex: PU MS40, Mão de obra, Frete…" value={item.product} onChange={e => changeSpecial(index,"product",e.target.value)} required />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Descrição (opcional)</label>
+                    <input className="field" type="text" placeholder="Detalhes adicionais…" value={item.description} onChange={e => changeSpecial(index,"description",e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Unidade</label>
+                    <select className="field" value={item.unit} onChange={e => changeSpecial(index,"unit",e.target.value)}>
+                      {SPECIAL_UNITS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase()+u.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <NumberField label="Quantidade" value={item.quantity} onChange={v => changeSpecial(index,"quantity",v)} />
+                  <NumberField label="Valor unitário (R$)" value={item.unit_price} onChange={v => changeSpecial(index,"unit_price",v)} />
+                  <div className="flex items-end"><p className="text-sm text-ink/50">Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b></p></div>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="button-ghost w-full border-dashed border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => setSpecialItems(c => [...c, blankSpecial()])}><Plus className="h-4 w-4" />Adicionar item especial / serviço</button>
+          </div>
         </div>
         <aside className="card h-fit p-5 xl:sticky xl:top-24">
           <h2 className="text-lg font-black">Resumo</h2>

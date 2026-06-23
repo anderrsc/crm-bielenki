@@ -61,6 +61,7 @@ type QuoteItem = {
   meters?: number;
   unit_price: number;
   total: number;
+  item_type?: string | null;
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -70,8 +71,15 @@ const PAYMENT_LABELS: Record<string, string> = {
   dinheiro: "Dinheiro",
 };
 
+function isSpecialItem(item: QuoteItem) {
+  return item.item_type === "especial" || (!item.thickness && !item.cut && !item.meters);
+}
+
 function buildDescription(item: QuoteItem, isGutter: boolean) {
-  if (!isGutter) return item.product + (item.description ? ` — ${item.description}` : "");
+  // Itens especiais: nunca mostrar espessura/corte
+  if (!isGutter || isSpecialItem(item)) {
+    return item.product + (item.description ? ` — ${item.description}` : "");
+  }
   const parts = [item.product];
   if (item.thickness) parts.push(item.thickness);
   if (item.cut) parts.push(`c/${item.cut}`);
@@ -79,13 +87,17 @@ function buildDescription(item: QuoteItem, isGutter: boolean) {
 }
 
 function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string; quantidade: string } {
-  if (isGutter) {
-    return { tipo: "METRO", quantidade: Number(item.meters ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
+  // Itens especiais: usar unit e quantity
+  if (!isGutter || isSpecialItem(item)) {
+    const unit = (item.unit || "un").toLowerCase();
+    if (unit.startsWith("h")) return { tipo: "HORA", quantidade: String(item.quantity) };
+    if (unit === "metro" || unit === "m") return { tipo: "METRO", quantidade: Number(item.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
+    if (unit === "kg") return { tipo: "KG", quantidade: String(item.quantity) };
+    if (unit === "diária" || unit === "diaria") return { tipo: "DIÁRIA", quantidade: String(item.quantity) };
+    if (unit === "serviço" || unit === "servico") return { tipo: "SERVIÇO", quantidade: String(item.quantity) };
+    return { tipo: "UNIDADE", quantidade: String(item.quantity) };
   }
-  const unit = (item.unit || "un").toLowerCase();
-  if (unit.startsWith("h")) return { tipo: "HORA", quantidade: String(item.quantity) };
-  if (unit.startsWith("m") && !unit.startsWith("un")) return { tipo: "METRO", quantidade: Number(item.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
-  return { tipo: "UNIDADE", quantidade: String(item.quantity) };
+  return { tipo: "METRO", quantidade: Number(item.meters ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
 }
 export async function QuoteDocument({ id, error }: { id: string; error?: string }) {
   const db = await createClient();
@@ -113,13 +125,17 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
     .eq("quote_id", id)
     .maybeSingle();
 
-  let items = (gutter.data as unknown as { items?: QuoteItem[] } | null)?.items ?? [];
+  const gutterItems = (gutter.data as unknown as { items?: QuoteItem[] } | null)?.items ?? [];
   const isGutter = Boolean(gutter.data);
 
-  if (!items.length) {
-    const result = await db.from("quote_items").select("product,description,unit,quantity,unit_price,total").eq("quote_id", id);
-    items = (result.data as unknown as QuoteItem[]) ?? [];
-  }
+  // Sempre carregar quote_items (itens especiais de calhas + todos os itens de esquadrias)
+  const { data: quoteItemsRaw } = await db.from("quote_items").select("product,description,unit,quantity,unit_price,total,item_type").eq("quote_id", id).order("created_at" as never);
+  const quoteItems = (quoteItemsRaw as unknown as QuoteItem[]) ?? [];
+
+  // Calhas: itens normais primeiro, depois especiais. Esquadrias: só quote_items.
+  const items: QuoteItem[] = isGutter
+    ? [...gutterItems, ...quoteItems.filter(i => i.item_type === "especial")]
+    : quoteItems;
 
   const company = quote.company;
   const client = quote.client;
@@ -161,10 +177,12 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
         {company.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={company.logo_url}
             alt=""
             aria-hidden
+            crossOrigin="anonymous"
             className="quote-watermark pointer-events-none absolute select-none"
           />
         )}
@@ -173,7 +191,8 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
           <header className="quote-header">
             <div className="quote-logo-col">
               {company.logo_url ? (
-                <img alt={company.trade_name || company.name || "Logo"} src={company.logo_url} className="quote-logo-img" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt={company.trade_name || company.name || "Logo"} src={company.logo_url} crossOrigin="anonymous" className="quote-logo-img" />
               ) : (
                 <div className="quote-logo-fallback" style={{ background: secondary }}>
                   {(company.trade_name || company.name || "MC").slice(0, 2).toUpperCase()}
