@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 export async function uploadLogo(formData: FormData): Promise<{ url?: string; error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
-
   const file = formData.get("logo") as File | null;
   if (!file || file.size === 0) return { error: "Nenhum arquivo enviado" };
   if (file.size > 3 * 1024 * 1024) return { error: "Arquivo muito grande. Máx. 3 MB." };
@@ -126,16 +125,58 @@ export async function duplicateTemplate(templateId: string): Promise<{ error?: s
   return { id: newTpl.id };
 }
 
+function defaultTemplateConfig(type: string): Record<string, unknown> {
+  if (type === "ficha_medicao") {
+    return {
+      template_family: "marquinhos_referencia",
+      layout: "medicao_modelo_referencia_2026",
+      paper: "A4",
+      show_logo: true,
+      logo_width: 25,
+      logo_align: "left",
+      header_style: "logo_esquerda_empresa_centro_contatos_direita",
+      cards: ["cliente", "telefone_whatsapp", "bairro", "cidade", "endereco", "disponibilidade_horario", "medidor"],
+      body_style: "area_pautada_grande",
+      primary_color: "#d71920",
+      font_size: 10,
+    };
+  }
+
+  if (type === "orcamento_calhas") {
+    return {
+      template_family: "marquinhos_referencia",
+      layout: "orcamento_modelo_referencia_2026",
+      paper: "A4",
+      show_logo: true,
+      logo_width: 68,
+      logo_align: "left",
+      header_style: "logo_grande_info_centro_qr_direita",
+      quote_bar: "vermelha_com_numero_data_validade_vendedor",
+      client_box: "dados_cliente_com_marca_dagua",
+      table_rows: 20,
+      footer_style: "observacoes_totais_pagamento_assinatura",
+      primary_color: "#d71920",
+      secondary_color: "#111111",
+      font_size: 10,
+    };
+  }
+
+  return {
+    logo_width: 80, logo_align: "left",
+    logo_margin_top: 0, logo_margin_bottom: 0,
+    show_logo: true, show_header: true, show_footer: true,
+    font_size: 10, primary_color: null,
+  };
+}
+
 export async function restoreTemplateDefaults(templateId: string): Promise<{ error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
+  const { data: tpl, error: fetchError } = await db.from("document_templates").select("type").eq("id", templateId).single();
+  if (fetchError) return { error: fetchError.message };
+
   const { error } = await db.from("document_templates").update({
-    config: {
-      logo_width: 80, logo_align: "left",
-      logo_margin_top: 0, logo_margin_bottom: 0,
-      show_logo: true, show_header: true, show_footer: true,
-      font_size: 10, primary_color: null,
-    }
+    config: defaultTemplateConfig(String(tpl?.type || "")),
   }).eq("id", templateId);
   if (error) return { error: error.message };
   revalidatePath("/configuracoes/templates");
