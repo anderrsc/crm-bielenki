@@ -136,3 +136,77 @@ export type QuoteClient = {
   phone?: string | null;
   city?: string | null;
 };
+
+// ─── Aliases e helpers para pricing-spreadsheet e gutter-prices-page ─────────
+export const gutterFabricationCategories = FABRICATED_CATEGORIES;
+export const gutterSpecialCategories = OTHER_CATEGORIES;
+export const gutterCategories = ALL_QUOTE_CATEGORIES;
+export const gutterProductsByCategory = PRODUCTS_BY_CATEGORY;
+export const gutterFabricationProducts = FABRICATED_CATEGORIES.flatMap((c) => [...PRODUCTS_BY_CATEGORY[c]]);
+
+export const gutterPricingUnits = [
+  "Metro Linear (m)",
+  "Metro",
+  "Unidade",
+  "Peça",
+  "Tubo",
+  "Caixa",
+  "Hora",
+  "Serviço",
+  "Diária",
+];
+
+const ascii = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+export function gutterCategoryForProduct(product?: string | null): QuoteCategory {
+  const p = ascii(String(product ?? ""));
+  for (const category of ALL_QUOTE_CATEGORIES) {
+    if (PRODUCTS_BY_CATEGORY[category].some((name) => ascii(name) === p)) return category;
+  }
+  if (p.includes("rufo")) return "Rufos";
+  if (p.includes("pingadeira")) return "Pingadeiras";
+  if (p.includes("condutor") || p.includes("joelho") || p.includes("bocal")) return "Condutores";
+  if (p.includes("mao de obra") || p.includes("frete") || p.includes("deslocamento")) return "Serviços";
+  if (p.includes("coifa") || p.includes("chamine") || p.includes("duto")) return "Itens Especiais";
+  if (p.includes("suporte") || p.includes("rebite") || p.includes("silicone") || p.includes("vedante")) return "Acessórios";
+  return "Calhas";
+}
+
+export function gutterItemTypeForCategory(category?: string | null): string {
+  if (category === "Serviços") return "servico";
+  if (category === "Acessórios" || category === "Itens Especiais") return "item_especial";
+  if (category === "Condutores") return "condutor";
+  return "fabricacao";
+}
+
+export function isFabricationCategory(category?: string | null): boolean {
+  return FABRICATED_CATEGORIES.includes((category || "") as FabricatedCategory);
+}
+
+export function isPvcCondutor(product?: string | null): boolean {
+  return ascii(String(product ?? "")).includes("pvc");
+}
+
+export function isAluminumCondutor(product?: string | null): boolean {
+  return ascii(String(product ?? "")).includes("aluminio");
+}
+
+export function normalizeGutterThickness(value?: string | null): string {
+  const raw = String(value ?? "").replace(",", ".").replace(/\s/g, "").toLowerCase();
+  if (raw === "0.5mm" || raw === "0.50mm") return "0.50 mm";
+  if (raw === "0.6mm" || raw === "0.60mm") return "0.60 mm";
+  if (raw === "0.7mm" || raw === "0.70mm") return "0.70 mm";
+  if (raw === "1.0mm" || raw === "1.00mm" || raw === "1mm") return "1.00 mm";
+  return value ?? "";
+}
+
+export function normalizeGutterColor(value?: string | null): string {
+  const raw = ascii(String(value ?? ""));
+  if (!raw || raw === "natural" || raw === "aluminio natural") return "Aluminio Natural";
+  if (raw === "branco") return "Pintura Branco";
+  if (raw === "preto") return "Pintura Preto";
+  if (raw === "marrom") return "Pintura Marrom";
+  if (raw === "cinza") return "Pintura Cinza";
+  if (raw.includes("personaliz")) return "Pintura Personalizado";
+  return value ?? "";
+}
