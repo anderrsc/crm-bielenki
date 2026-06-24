@@ -86,17 +86,14 @@ export async function saveGutterQuote(formData: FormData) {
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
   const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1), special_items: z.array(specialItemSchema).optional() }).safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
-  const { data, error } = await db.rpc("create_gutter_quote", { p_payload: { ...parsed.data, special_items: undefined } });
+  const { data, error } = await db.rpc("create_gutter_quote", {
+    p_payload: {
+      ...parsed.data,
+      valid_until: validUntil,
+      installation_deadline: installationDeadline,
+    },
+  });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
-  if (data) {
-    if (validUntil || installationDeadline) await db.from("quotes").update({ valid_until: validUntil, installation_deadline: installationDeadline }).eq("id", data);
-    const specials = parsed.data.special_items ?? [];
-    if (specials.length) {
-      const { data: { user } } = await db.auth.getUser();
-      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(specials.map(s => ({ quote_id: data, company_id: prof!.company_id, product: s.product, description: s.description || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
-    }
-  }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
@@ -108,17 +105,8 @@ export async function updateGutterQuote(formData: FormData) {
   const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
   if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
   const p = payload as Record<string,unknown>;
-  const specialItems = z.array(specialItemSchema).safeParse(p.special_items);
-  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...p,special_items:undefined,valid_until:validUntil,installation_deadline:installationDeadline}});
+  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...p,valid_until:validUntil,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
-  if(data && specialItems.success) {
-    await db.from("quote_items").delete().eq("quote_id", quoteId).eq("item_type","especial");
-    if(specialItems.data.length) {
-      const { data: { user } } = await db.auth.getUser();
-      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(specialItems.data.map(s => ({ quote_id: quoteId, company_id: prof!.company_id, product: s.product, description: s.description || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
-    }
-  }
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
 
