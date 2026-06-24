@@ -14,7 +14,7 @@ export function QuoteSellerField({ quoteId, sellerName }: { quoteId: string; sel
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="quote-bar-value quote-seller-button no-print"
+        className="quote-bar-value quote-seller-button"
         title="Editar vendedor"
       >
         {value || "Definir vendedor"}

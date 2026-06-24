@@ -92,6 +92,31 @@ const blankOther = (item_type: OtherCategory): SpecialItem => ({
   unit_price: 0,
 });
 
+const otherCategoryFromRecord = (item: Partial<SpecialItem>): OtherCategory => {
+  const firstDescriptionPart = String(item.description || "").split("|")[0]?.trim();
+  const rawType = String(item.item_type || "");
+  if (OTHER_CATEGORIES.includes(firstDescriptionPart as OtherCategory)) return firstDescriptionPart as OtherCategory;
+  if (rawType === "condutor") return "Condutores";
+  if (rawType === "servico") return "Serviços";
+  if (rawType === "item_especial") {
+    const product = String(item.product || "");
+    const found = OTHER_CATEGORIES.find((category) => PRODUCTS_BY_CATEGORY[category].includes(product));
+    return found || "Itens Especiais";
+  }
+  if (OTHER_CATEGORIES.includes(rawType as OtherCategory)) return rawType as OtherCategory;
+  return "Itens Especiais";
+};
+
+const cleanOtherDescription = (description?: string | null) => {
+  const first = String(description || "").split("|")[0]?.trim();
+  return String(description || "")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => part !== first || !OTHER_CATEGORIES.includes(first as OtherCategory))
+    .join(" | ");
+};
+
 /* ─── Componente principal ───────────────────────────────────────────────── */
 export function GutterQuote({
   prices,
@@ -103,10 +128,18 @@ export function GutterQuote({
   initial?: GutterQuoteInitial;
 }) {
   const [items, setItems] = useState<GutterQuoteItem[]>(() =>
-    initial?.items.length ? initial.items : [blankFabricated("Calhas", prices)]
+    initial?.items.length ? initial.items : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices)]
   );
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() =>
-    initial?.special_items ?? []
+    (initial?.special_items ?? []).map((item) => {
+      const item_type = otherCategoryFromRecord(item);
+      return {
+        ...item,
+        item_type,
+        description: cleanOtherDescription(item.description),
+        unit: item.unit || UNITS_BY_CATEGORY[item_type][0],
+      };
+    })
   );
   const [discount, setDiscount] = useState(initial?.discount ?? 0);
   const [freight, setFreight] = useState(initial?.freight ?? 0);
@@ -230,6 +263,12 @@ export function GutterQuote({
           </div>
 
           {/* ── Itens Fabricados agrupados ── */}
+          {!items.length && (
+            <div className="rounded-2xl border border-dashed border-sand bg-white p-5 text-sm text-ink/55">
+              Sem itens de fabricação própria. O orçamento será montado apenas com complementares, serviços ou itens especiais.
+            </div>
+          )}
+
           {fabricatedByCat.map(({ cat, rows }) => (
             <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
               <div className="flex items-center justify-between">
@@ -249,7 +288,7 @@ export function GutterQuote({
                   onChange={changeFab}
                   onDuplicate={() => setItems(c => [...c.slice(0, idx + 1), { ...item }, ...c.slice(idx + 1)])}
                   onRemove={() => setItems(c => c.filter((_, i) => i !== idx))}
-                  canRemove={items.length > 1}
+                  canRemove={items.length > 1 || specialItems.length > 0}
                 />
               ))}
             </div>
@@ -357,7 +396,7 @@ export function GutterQuote({
               <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
               <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
             </div>
-            <button disabled={!clientId || total <= 0} className="button w-full">
+            <button disabled={!clientId || total <= 0 || (items.length === 0 && specialItems.length === 0)} className="button w-full">
               <Save className="h-4 w-4" />Salvar orçamento
             </button>
           </div>

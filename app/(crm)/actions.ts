@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { encryptSecret } from "@/lib/encrypt";
+import { gutterItemTypeForCategory } from "@/lib/gutters";
 
 const text = z.string().trim().min(1);
 
@@ -77,14 +78,52 @@ export async function toggleChecklistItem(formData: FormData) {
   revalidatePath(`/pedidos/${orderId}`);
 }
 
-const specialItemSchema = z.object({ product: text, description: z.string().default(""), unit: z.string().default("unidade"), quantity: z.number().positive(), unit_price: z.number().nonnegative() });
+const gutterItemSchema = z.object({
+  category: z.string().default("Calhas"),
+  product: text,
+  thickness: text,
+  cut: text,
+  color: z.string().optional(),
+  quantity: z.number().positive(),
+  meters: z.number().positive(),
+  unit_price: z.number().nonnegative(),
+});
+
+const specialItemSchema = z.object({
+  item_type: z.string().default("Itens Especiais"),
+  product: text,
+  description: z.string().default(""),
+  unit: z.string().default("unidade"),
+  quantity: z.number().positive(),
+  unit_price: z.number().nonnegative(),
+});
+
+const gutterQuotePayloadSchema = z.object({
+  client_id: z.string().uuid(),
+  discount: z.number().nonnegative(),
+  freight: z.number().nonnegative(),
+  notes: z.string(),
+  hide_unit_prices: z.boolean().default(false),
+  items: z.array(gutterItemSchema).default([]),
+  special_items: z.array(specialItemSchema).default([]),
+}).superRefine((payload, ctx) => {
+  if (!payload.items.length && !payload.special_items.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Informe ao menos um item" });
+  }
+});
+
+function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) {
+  const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
+  const specials = payload.special_items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
+  return fabrication + specials;
+}
 
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
   const payload = JSON.parse(String(formData.get("payload")));
   const validUntil = String(formData.get("valid_until") || "").trim() || null;
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
-  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), hide_unit_prices: z.boolean().optional(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1), special_items: z.array(specialItemSchema).optional() }).safeParse(payload);
+  const parsed = gutterQuotePayloadSchema.safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
   const { data, error } = await db.rpc("create_gutter_quote", {
     p_payload: {
@@ -94,8 +133,27 @@ export async function saveGutterQuote(formData: FormData) {
     },
   });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
-  if (data && parsed.data.hide_unit_prices != null) {
-    await db.from("quotes").update({ hide_unit_prices: parsed.data.hide_unit_prices }).eq("id", data);
+  if (data) {
+    await db.from("quotes").update({
+      subtotal: gutterQuoteSubtotal(parsed.data),
+      hide_unit_prices: parsed.data.hide_unit_prices,
+      valid_until: validUntil,
+      installation_deadline: installationDeadline,
+    }).eq("id", data);
+    if (parsed.data.special_items.length) {
+      const { data: { user } } = await db.auth.getUser();
+      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
+      await db.from("quote_items").insert(parsed.data.special_items.map((item) => ({
+        quote_id: data,
+        company_id: prof!.company_id,
+        product: item.product,
+        description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
+        unit: item.unit,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        item_type: gutterItemTypeForCategory(item.item_type),
+      })));
+    }
   }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
@@ -108,11 +166,30 @@ export async function updateGutterQuote(formData: FormData) {
   const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
   if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
   const p = payload as Record<string,unknown>;
-  const hideUnitPrices = z.boolean().optional().safeParse(p.hide_unit_prices);
-  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...p,valid_until:validUntil,installation_deadline:installationDeadline}});
+  const parsed = gutterQuotePayloadSchema.safeParse(p);
+  if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orÃ§amento`);
+  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,valid_until:validUntil,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
-  if(data && hideUnitPrices.success && hideUnitPrices.data != null) {
-    await db.from("quotes").update({ hide_unit_prices: hideUnitPrices.data }).eq("id", quoteId);
+  if(data) {
+    await db.from("quote_items").delete().eq("quote_id", quoteId).neq("item_type","calha");
+    if (parsed.data.special_items.length) {
+      const { data: { user } } = await db.auth.getUser();
+      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
+      await db.from("quote_items").insert(parsed.data.special_items.map((item) => ({
+        quote_id: quoteId,
+        company_id: prof!.company_id,
+        product: item.product,
+        description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
+        unit: item.unit,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        item_type: gutterItemTypeForCategory(item.item_type),
+      })));
+    }
+    await db.from("quotes").update({
+      subtotal: gutterQuoteSubtotal(parsed.data),
+      hide_unit_prices: parsed.data.hide_unit_prices,
+    }).eq("id", quoteId);
   }
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }

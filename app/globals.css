@@ -12,13 +12,19 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 
 @media print {
   @page { size: A4 portrait; margin: 0; }
-  body { background: white !important; margin: 0 !important; padding: 0 !important; }
-  /* Ocultar UI do sistema */
-  .no-print { display: none !important; }
-  aside, header, nav { display: none !important; }
+  html, body {
+    width: 210mm;
+    min-height: 297mm;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; }
+  .no-print { display: none !important; visibility: hidden !important; }
   main { padding: 0 !important; margin: 0 !important; }
   /* Ficha de visita */
-  .print-sheet { box-shadow: none !important; border: 0 !important; }
+  .print-sheet { box-shadow: none !important; border: 0 !important; margin: 0 !important; }
   .print-bg { background: white !important; padding: 0 !important; }
   /* Orçamento */
   article { box-shadow: none !important; margin: 0 !important; border: 0 !important; }
@@ -363,7 +369,17 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 @media print {
   .quote-pay-item[data-checked="false"] { display: none; }
   .quote-pay-item input[type="checkbox"] { display: none; }
-  .quote-sheet { overflow: visible !important; width: 100% !important; max-width: none !important; padding: 10mm 12mm 8mm 12mm !important; }
+  .quote-seller-icon { display: none; }
+  .quote-seller-button { pointer-events: none; }
+  .quote-sheet {
+    left: 0;
+    max-width: none !important;
+    overflow: visible !important;
+    padding: 10mm 12mm 8mm 12mm !important;
+    position: absolute !important;
+    top: 0;
+    width: 210mm !important;
+  }
   .quote-sheet tr, .quote-fin-row, .quote-footer-grid, .quote-sign-block { break-inside: avoid; page-break-inside: avoid; }
   .quote-empty-row td { height: 17px !important; }
 }

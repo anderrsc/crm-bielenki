@@ -74,13 +74,42 @@ const PAYMENT_LABELS: Record<string, string> = {
   dinheiro: "Dinheiro",
 };
 
+const COMPLEMENTARY_PREFIXES = new Set(["condutores", "acessorios", "servicos", "itens especiais"]);
+
+function normalizeLabel(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function isComplementaryQuoteItem(item: QuoteItem) {
+  const itemType = String(item.item_type || "");
+  return Boolean(itemType) && !["calha", "esquadria", "fabricacao"].includes(itemType);
+}
+
 function isSpecialItem(item: QuoteItem) {
-  return item.item_type === "especial" || (!item.thickness && !item.cut && !item.meters);
+  return isComplementaryQuoteItem(item) || (!item.thickness && !item.cut && !item.meters);
+}
+
+function cleanSpecialDescription(description?: string | null) {
+  const parts = String(description || "")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts[0] && COMPLEMENTARY_PREFIXES.has(normalizeLabel(parts[0]))) {
+    return parts.slice(1).join(" | ");
+  }
+  return parts.join(" | ");
+}
+
+function quoteItemTotal(item: QuoteItem, isGutter: boolean) {
+  if (isGutter && !isSpecialItem(item)) {
+    return Number(item.quantity || 0) * Number(item.meters || 0) * Number(item.unit_price || 0);
+  }
+  return Number(item.total ?? Number(item.quantity || 0) * Number(item.unit_price || 0));
 }
 
 function buildDescription(item: QuoteItem, isGutter: boolean) {
   if (!isGutter || isSpecialItem(item)) {
-    return item.product + (item.description ? ` — ${item.description}` : "");
+    return [item.product, cleanSpecialDescription(item.description)].filter(Boolean).join(" | ");
   }
   const parts = [item.product];
   if (item.thickness) parts.push(item.thickness);
@@ -142,7 +171,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   // all other items (especial) come from quote_items.
   // For non-gutter quotes: use quote_items directly.
   const items: QuoteItem[] = isGutter
-    ? [...gutterItems, ...quoteItems.filter(i => i.item_type === "especial")]
+    ? [...gutterItems, ...quoteItems.filter(isComplementaryQuoteItem)]
     : quoteItems;
 
   const company = quote.company;
@@ -152,7 +181,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   const availablePayments = company.payment_methods_available?.length
     ? company.payment_methods_available
     : ["pix", "cartao", "cheque", "dinheiro"];
-  const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : [];
+  const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : availablePayments;
   const hideUnitPrices = quote.hide_unit_prices ?? false;
 
   const observacoes = (quote.notes || company.quote_footer || "")
@@ -349,7 +378,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
                     <td>{tipo}</td>
                     <td>{quantidade}</td>
                     {!hideUnitPrices && <td>{unitPriceDisplay}</td>}
-                    <td className="quote-td-total">{money(item.total)}</td>
+                    <td className="quote-td-total">{money(quoteItemTotal(item, isGutter))}</td>
                   </tr>
                 );
               })}
