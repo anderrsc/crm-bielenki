@@ -175,7 +175,7 @@ export function AluminumMatrix({
                           <Check className="h-3.5 w-3.5 text-emerald-500" />
                         )}
                         {errors[row.id] && (
-                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" title={errors[row.id]} />
+                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" aria-label={errors[row.id]} />
                         )}
                         <button
                           onClick={() => handleSave(row)}
