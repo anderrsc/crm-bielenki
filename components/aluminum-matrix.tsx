@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { Save, Plus, Trash2, Check, AlertTriangle } from "lucide-react";
 import { saveMatrixRow, deleteMatrixRow } from "@/app/(crm)/matrix-actions";
-import { gutterThicknesses } from "@/lib/gutters";
 
 export type MatrixRow = {
   id: string;
@@ -12,7 +11,7 @@ export type MatrixRow = {
   price_per_meter: number;
 };
 
-const THICKNESSES = gutterThicknesses;
+const THICKNESSES = ["0.5mm", "0.6mm", "0.7mm", "1.0mm"];
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(v);
@@ -176,9 +175,7 @@ export function AluminumMatrix({
                           <Check className="h-3.5 w-3.5 text-emerald-500" />
                         )}
                         {errors[row.id] && (
-                          <span title={errors[row.id]}>
-                            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-                          </span>
+                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" aria-label={errors[row.id]} />
                         )}
                         <button
                           onClick={() => handleSave(row)}

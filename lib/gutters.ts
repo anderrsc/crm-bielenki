@@ -1,9 +1,14 @@
-export const gutterFabricationCategories = ["Calhas", "Rufos", "Pingadeiras"] as const;
-export const gutterSpecialCategories = ["Condutores", "Acessórios", "Serviços", "Itens Especiais"] as const;
-export const gutterCategories = [...gutterFabricationCategories, ...gutterSpecialCategories] as const;
+// ─── Categorias de orçamento ──────────────────────────────────────────────────
+export const FABRICATED_CATEGORIES = ["Calhas", "Rufos", "Pingadeiras"] as const;
+export const OTHER_CATEGORIES = ["Condutores", "Acessórios", "Serviços", "Itens Especiais"] as const;
+export const ALL_QUOTE_CATEGORIES = [...FABRICATED_CATEGORIES, ...OTHER_CATEGORIES] as const;
+export type FabricatedCategory = typeof FABRICATED_CATEGORIES[number];
+export type OtherCategory = typeof OTHER_CATEGORIES[number];
+export type QuoteCategory = typeof ALL_QUOTE_CATEGORIES[number];
 
-export const gutterProductsByCategory = {
-  Calhas: [
+// ─── Produtos por categoria ───────────────────────────────────────────────────
+export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
+  "Calhas": [
     "Calha de Beiral",
     "Calha Platibanda",
     "Calha Coletora",
@@ -12,7 +17,7 @@ export const gutterProductsByCategory = {
     "Calha Moldura",
     "Calha Quadrada",
   ],
-  Rufos: [
+  "Rufos": [
     "Rufo",
     "Rufo Externo",
     "Rufo Interno",
@@ -24,23 +29,23 @@ export const gutterProductsByCategory = {
     "Rufo Sobre Calha",
     "Rufo para Chaminé",
   ],
-  Pingadeiras: [
+  "Pingadeiras": [
     "Pingadeira",
     "Pingadeira com Rufo",
     "Pingadeira Dupla",
     "Pingadeira para Muro",
     "Pingadeira de Marquise",
   ],
-  Condutores: [
-    "Condutor de PVC Redondo 75 mm",
-    "Condutor de PVC Redondo 100 mm",
+  "Condutores": [
+    "Condutor de PVC Redondo 75mm",
+    "Condutor de PVC Redondo 100mm",
     "Condutor Retangular em Alumínio",
     "Condutor Quadrado em Alumínio",
     "Curva para Condutor",
     "Joelho para Condutor",
     "Saída/Bocal para Condutor",
   ],
-  Acessórios: [
+  "Acessórios": [
     "Par de Cabeceira",
     "Suporte Interno U",
     "Suporte Externo (Gancho)",
@@ -52,7 +57,7 @@ export const gutterProductsByCategory = {
     "Silicone Neutro",
     "Tubo Vedante PU MS40",
   ],
-  Serviços: [
+  "Serviços": [
     "Mão de Obra para Instalação de Calhas",
     "Mão de Obra para Instalação de Rufos",
     "Mão de Obra para Instalação de Pingadeiras",
@@ -62,32 +67,38 @@ export const gutterProductsByCategory = {
     "Mão de Obra para Troca de Calhas",
     "Mão de Obra para Troca de Rufos",
     "Mão de Obra e Materiais para Pintura de Calhas",
-    "Deslocamento",
-    "Frete",
     "Mão de Obra de Manutenção",
     "Mão de Obra de Abertura e Fechamento de Telhado",
+    "Deslocamento",
+    "Frete",
   ],
   "Itens Especiais": [
     "Coifa em Alumínio",
-    "Chaminé em Alumínio Ø300 mm",
-    "Chaminé em Alumínio Ø250 mm",
-    "Chaminé em Alumínio Ø400 mm",
-    "Chaminé em Alumínio Ø500 mm",
+    "Chaminé em Alumínio Ø300mm",
+    "Chaminé em Alumínio Ø250mm",
+    "Chaminé em Alumínio Ø400mm",
+    "Chaminé em Alumínio Ø500mm",
     "Exaustor Eólico",
     "Coifa Interna em Alumínio",
     "Duto Especial",
-    "Chaminé em Inox 304 Ø150 mm",
+    "Chaminé em Inox 304 Ø150mm",
     "Peça Sob Medida",
     "Corte e Dobra Especial",
   ],
-} as const;
+};
 
-export const gutterProducts = gutterCategories.flatMap((category) => [...gutterProductsByCategory[category]]);
-export const gutterFabricationProducts = gutterFabricationCategories.flatMap((category) => [...gutterProductsByCategory[category]]);
+// Lista plana de todos os produtos de fabricação própria (para autocomplete)
+export const gutterProducts: string[] = [
+  ...PRODUCTS_BY_CATEGORY["Calhas"],
+  ...PRODUCTS_BY_CATEGORY["Rufos"],
+  ...PRODUCTS_BY_CATEGORY["Pingadeiras"],
+];
 
-export const gutterThicknesses = ["0.50 mm", "0.60 mm", "0.70 mm", "1.00 mm"];
+// ─── Espessuras, cortes, cores ────────────────────────────────────────────────
+export const gutterThicknesses = ["0.5mm", "0.6mm", "0.7mm", "1.0mm"];
+
 export const gutterCuts = [150, 200, 250, 300, 330, 350, 400, 500, 600, 700, 800, 900, 1000, 1200];
-export const gutterCutOptions = gutterCuts.map((cut) => `C/ ${cut}`);
+
 export const gutterColors = [
   "Aluminio Natural",
   "Pintura Branco",
@@ -99,106 +110,29 @@ export const gutterColors = [
   "Pintura Personalizado",
 ];
 
-export const gutterAccessoryUnits = ["Peça", "Unidade", "Tubo", "Caixa"];
-export const gutterServiceUnits = ["Metro", "Unidade", "Hora", "Serviço", "Diária"];
-export const gutterCondutorUnits = ["Metro", "Unidade"];
-export const gutterSpecialItemUnits = ["Unidade", "Metro", "Serviço"];
-export const gutterPricingUnits = [
-  "Metro Linear (m)",
-  "Metro",
-  "Unidade",
-  "Peça",
-  "Tubo",
-  "Caixa",
-  "Hora",
-  "Serviço",
-  "Diária",
-];
+// ─── Unidades por categoria ───────────────────────────────────────────────────
+export const UNITS_BY_CATEGORY: Record<OtherCategory, string[]> = {
+  "Condutores": ["metro", "unidade", "peça"],
+  "Acessórios": ["peça", "unidade", "tubo", "caixa"],
+  "Serviços": ["metro", "unidade", "hora", "serviço", "diária"],
+  "Itens Especiais": ["unidade", "peça", "serviço", "metro"],
+};
 
-export const quoteBlockLabels = [
-  "CALHAS",
-  "RUFOS E PINGADEIRAS",
-  "CONDUTORES E ACESSÓRIOS",
-  "SERVIÇOS E ITENS ESPECIAIS",
-] as const;
-
-const ascii = (value: string) =>
-  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-export function normalizeGutterThickness(value?: string | null) {
-  const raw = String(value ?? "").replace(",", ".").replace(/\s/g, "").toLowerCase();
-  if (raw === "0.5mm" || raw === "0.50mm" || raw === "0.5") return "0.50 mm";
-  if (raw === "0.6mm" || raw === "0.60mm" || raw === "0.6") return "0.60 mm";
-  if (raw === "0.7mm" || raw === "0.70mm" || raw === "0.7") return "0.70 mm";
-  if (raw === "1.0mm" || raw === "1.00mm" || raw === "1.0" || raw === "1") return "1.00 mm";
-  return value ?? "";
-}
-
-export function normalizeGutterColor(value?: string | null) {
-  const raw = ascii(String(value ?? ""));
-  if (!raw || raw === "natural") return "Aluminio Natural";
-  if (raw === "branco") return "Pintura Branco";
-  if (raw === "preto") return "Pintura Preto";
-  if (raw === "marrom") return "Pintura Marrom";
-  if (raw === "cinza") return "Pintura Cinza";
-  if (raw === "personalizada" || raw === "personalizado" || raw === "outra") return "Pintura Personalizado";
-  return value ?? "";
-}
-
-export function gutterCategoryForProduct(product?: string | null) {
-  const p = ascii(String(product ?? ""));
-  for (const category of gutterCategories) {
-    if (gutterProductsByCategory[category].some((name) => ascii(name) === p)) return category;
-  }
-  if (p.includes("rufo")) return "Rufos";
-  if (p.includes("pingadeira")) return "Pingadeiras";
-  if (p.includes("condutor") || p.includes("joelho") || p.includes("bocal")) return "Condutores";
-  if (p.includes("mao de obra") || p.includes("frete") || p.includes("deslocamento")) return "Serviços";
-  if (p.includes("coifa") || p.includes("chamine") || p.includes("duto")) return "Itens Especiais";
-  if (p.includes("suporte") || p.includes("rebite") || p.includes("silicone") || p.includes("vedante")) return "Acessórios";
-  return "Calhas";
-}
-
-export function gutterItemTypeForCategory(category?: string | null) {
-  if (category === "Serviços") return "servico";
-  if (category === "Acessórios" || category === "Itens Especiais") return "item_especial";
-  if (category === "Condutores") return "condutor";
-  return "fabricacao";
-}
-
-export function isFabricationCategory(category?: string | null) {
-  return gutterFabricationCategories.includes((category || "") as typeof gutterFabricationCategories[number]);
-}
-
-export function isPvcCondutor(product?: string | null) {
-  return ascii(String(product ?? "")).includes("pvc");
-}
-
-export function isAluminumCondutor(product?: string | null) {
-  return ascii(String(product ?? "")).includes("aluminio");
-}
-
-export function quoteBlockForCategory(category?: string | null, product?: string | null) {
-  const resolved = category || gutterCategoryForProduct(product);
-  if (resolved === "Calhas") return "CALHAS";
-  if (resolved === "Rufos" || resolved === "Pingadeiras") return "RUFOS E PINGADEIRAS";
-  if (resolved === "Condutores" || resolved === "Acessórios") return "CONDUTORES E ACESSÓRIOS";
-  return "SERVIÇOS E ITENS ESPECIAIS";
-}
-
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 export type GutterPrice = {
   id: string;
   product: string;
-  category?: string | null;
-  item_type?: string | null;
-  thickness?: string | null;
-  cut_mm?: number | null;
-  unit?: string | null;
+  thickness: string;
+  cut_mm: number;
   color: string | null;
   unit_price: number;
-  install_price?: number | null;
   notes: string | null;
   active: boolean;
 };
 
-export type QuoteClient = { id: string; name: string; phone?: string | null; city?: string | null };
+export type QuoteClient = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  city?: string | null;
+};

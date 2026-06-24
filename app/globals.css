@@ -12,16 +12,25 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 
 @media print {
   @page { size: A4 portrait; margin: 0; }
-  body { background: white !important; }
-  /* Página de ficha dedicada (/ficha/*) */
+  body { background: white !important; margin: 0 !important; padding: 0 !important; }
+  /* Ocultar UI do sistema */
   .no-print { display: none !important; }
-  /* Ficha dentro do CRM (preview) */
   aside, header, nav { display: none !important; }
-  main { padding: 0 !important; }
+  main { padding: 0 !important; margin: 0 !important; }
+  /* Ficha de visita */
   .print-sheet { box-shadow: none !important; border: 0 !important; }
-  /* Container da ficha dedicada */
   .print-bg { background: white !important; padding: 0 !important; }
-  article { box-shadow: none !important; margin: 0 !important; }
+  /* Orçamento */
+  article { box-shadow: none !important; margin: 0 !important; border: 0 !important; }
+  /* Garantir que imagens apareçam na impressão */
+  img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Evitar quebras desnecessárias de página */
+  .quote-header,
+  .quote-bar,
+  .quote-client-box,
+  .quote-bottom-grid,
+  .quote-footer-grid { break-inside: avoid; page-break-inside: avoid; }
+  .quote-table thead { display: table-header-group; }
 }
 
 @layer components {
@@ -354,9 +363,9 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 @media print {
   .quote-pay-item[data-checked="false"] { display: none; }
   .quote-pay-item input[type="checkbox"] { display: none; }
-  .quote-sheet { overflow: visible !important; }
+  .quote-sheet { overflow: visible !important; width: 100% !important; max-width: none !important; padding: 10mm 12mm 8mm 12mm !important; }
   .quote-sheet tr, .quote-fin-row, .quote-footer-grid, .quote-sign-block { break-inside: avoid; page-break-inside: avoid; }
-  .quote-sheet thead { display: table-header-group; }
+  .quote-empty-row td { height: 17px !important; }
 }
 
 .quote-sign-block { flex: 1; text-align: center; font-size: 9.5px; color: #333; border-left: 1px solid #ddd; padding-left: 10mm; }

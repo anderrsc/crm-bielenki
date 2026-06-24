@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AlertCircle, BarChart3, Bot, Boxes, Building2, CalendarCheck, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Factory, FileText, HandCoins, LayoutDashboard, Menu, PackageSearch, Ruler, Search, Settings, Shield, ShoppingCart, UserCog, Users, WalletCards, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/logout-button";
 
 const groups = [
   { title: "Visao geral", items: [["Dashboard", "/dashboard", LayoutDashboard], ["Pendencias", "/pendencias", AlertCircle], ["Pipeline", "/pipeline", BarChart3], ["Busca global", "/busca", Search]] },
@@ -35,6 +36,10 @@ export function AppShell({ children, userName, companyName, roles=[] }: { childr
     <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col bg-ink text-white transition-all lg:sticky lg:translate-x-0", open && "translate-x-0", collapsed && "lg:w-[86px]") }>
       <div className="flex h-20 items-center justify-between border-b border-white/10 px-6"><Link href="/dashboard" className="font-black tracking-tight leading-tight">{collapsed ? <span className="text-lime text-xl">M</span> : <><span className="text-white">MARQUINHOS</span><br/><span className="text-lime text-xs font-bold tracking-widest">CALHAS &amp; ESQUADRIAS</span></>}</Link><button className="lg:hidden" onClick={() => setOpen(false)}><X /></button></div>
       <nav className="flex-1 space-y-6 overflow-y-auto p-4">{groups.map((group) => <div key={group.title}><p className={cn("mb-2 px-3 text-[10px] font-bold uppercase tracking-[.2em] text-white/35", collapsed && "hidden")}>{group.title}</p><div className="space-y-1">{group.items.filter(([,href])=>canSee(href)).map(([label, href, Icon]) => { const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`)); return <Link title={label} onClick={() => setOpen(false)} href={href} key={href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/65 transition hover:bg-white/10 hover:text-white", active && "bg-lime text-ink hover:bg-lime hover:text-ink", collapsed && "justify-center")}><Icon className="h-[18px] w-[18px] shrink-0" />{!collapsed && label}</Link>})}</div></div>)}</nav>
+      <div className="border-t border-white/10 p-3 space-y-1">
+        {!collapsed && <p className="px-3 pb-1 text-[11px] font-semibold text-white/35 truncate">{userName}</p>}
+        <LogoutButton collapsed={collapsed} />
+      </div>
       <button onClick={() => setCollapsed(!collapsed)} className="hidden border-t border-white/10 p-4 text-white/50 hover:text-white lg:block">{collapsed ? <ChevronRight className="mx-auto" /> : <ChevronLeft className="mx-auto" />}</button>
     </aside>
     <div className="min-w-0 flex-1">

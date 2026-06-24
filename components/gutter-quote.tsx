@@ -2,31 +2,18 @@
 
 import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import {
-  gutterAccessoryUnits,
-  gutterColors,
-  gutterCondutorUnits,
-  gutterCutOptions,
-  gutterFabricationCategories,
-  gutterProductsByCategory,
-  gutterServiceUnits,
-  gutterSpecialCategories,
-  gutterSpecialItemUnits,
-  gutterThicknesses,
-  gutterCategoryForProduct,
-  isFabricationCategory,
-  normalizeGutterColor,
-  normalizeGutterThickness,
-  type GutterPrice,
-  type QuoteClient,
+  gutterColors, gutterCuts, gutterThicknesses,
+  PRODUCTS_BY_CATEGORY, UNITS_BY_CATEGORY,
+  FABRICATED_CATEGORIES, OTHER_CATEGORIES,
+  type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
 import { localISODate, money } from "@/lib/utils";
-import { Copy, Database, Package, Plus, Save, Trash2 } from "lucide-react";
+import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-type Category = keyof typeof gutterProductsByCategory;
-
+/* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type GutterQuoteItem = {
-  category: string;
+  category: FabricatedCategory;
   product: string;
   thickness: string;
   cut: string;
@@ -34,19 +21,15 @@ export type GutterQuoteItem = {
   quantity: number;
   meters: number;
   unit_price: number;
-  install_price: number;
 };
 
 export type SpecialItem = {
-  category?: string;
+  item_type: OtherCategory | "especial";
   product: string;
   description: string;
   unit: string;
   quantity: number;
   unit_price: number;
-  diameter?: string;
-  height?: string;
-  length?: string;
 };
 
 export type GutterQuoteInitial = {
@@ -57,128 +40,59 @@ export type GutterQuoteInitial = {
   notes: string;
   valid_until: string;
   installation_deadline: string;
+  hide_unit_prices: boolean;
   items: GutterQuoteItem[];
   special_items?: SpecialItem[];
 };
 
-const asCategory = (value?: string | null): Category =>
-  Object.prototype.hasOwnProperty.call(gutterProductsByCategory, value || "")
-    ? (value as Category)
-    : "Calhas";
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+const SPECIAL_UNITS = ["metro", "unidade", "peça", "hora", "serviço", "diária", "tubo", "caixa"];
 
-const cutNumber = (cut?: string | null) => Number(String(cut ?? "").replace(/\D/g, ""));
-
-const normalizeCut = (cut?: string | null) => {
-  const value = cutNumber(cut);
-  return value ? `C/ ${value}` : "C/ 300";
+const CAT_COLORS: Record<string, string> = {
+  "Calhas":          "border-blue-200 bg-blue-50/40",
+  "Rufos":           "border-violet-200 bg-violet-50/40",
+  "Pingadeiras":     "border-teal-200 bg-teal-50/40",
+  "Condutores":      "border-amber-200 bg-amber-50/40",
+  "Acessórios":      "border-orange-200 bg-orange-50/40",
+  "Serviços":        "border-rose-200 bg-rose-50/40",
+  "Itens Especiais": "border-gray-200 bg-gray-50/40",
 };
 
-const lineTotal = (item: GutterQuoteItem) =>
-  item.quantity * item.meters * (Number(item.unit_price) + Number(item.install_price || 0));
-
-const specialUnits = (category?: string | null) => {
-  if (category === "Condutores") return gutterCondutorUnits;
-  if (category === "Acessórios") return gutterAccessoryUnits;
-  if (category === "Serviços") return gutterServiceUnits;
-  return gutterSpecialItemUnits;
+const CAT_BADGE: Record<string, string> = {
+  "Calhas":          "bg-blue-100 text-blue-700",
+  "Rufos":           "bg-violet-100 text-violet-700",
+  "Pingadeiras":     "bg-teal-100 text-teal-700",
+  "Condutores":      "bg-amber-100 text-amber-700",
+  "Acessórios":      "bg-orange-100 text-orange-700",
+  "Serviços":        "bg-rose-100 text-rose-700",
+  "Itens Especiais": "bg-gray-100 text-gray-700",
 };
 
-const defaultProduct = (category: string) => gutterProductsByCategory[asCategory(category)][0];
+const findPrice = (prices: GutterPrice[], item: Pick<GutterQuoteItem, "product" | "thickness" | "cut" | "color">) =>
+  prices.find(x =>
+    x.active &&
+    x.product === item.product &&
+    x.thickness === item.thickness &&
+    x.cut_mm === Number(item.cut.replace(/\D/g, "")) &&
+    (x.color ?? "Aluminio Natural") === item.color
+  );
 
-const findPrice = (
-  prices: GutterPrice[],
-  item: Pick<GutterQuoteItem, "category" | "product" | "thickness" | "cut" | "color">
-) =>
-  prices.find((price) => {
-    const category = price.category || gutterCategoryForProduct(price.product);
-    return (
-      price.active &&
-      price.product === item.product &&
-      (category === item.category || gutterCategoryForProduct(price.product) === item.category) &&
-      normalizeGutterThickness(price.thickness) === normalizeGutterThickness(item.thickness) &&
-      Number(price.cut_mm) === cutNumber(item.cut) &&
-      normalizeGutterColor(price.color) === normalizeGutterColor(item.color)
-    );
-  });
-
-const findSpecialPrice = (prices: GutterPrice[], item: SpecialItem) =>
-  prices.find((price) => {
-    const category = price.category || gutterCategoryForProduct(price.product);
-    return price.active && price.product === item.product && category === item.category;
-  });
-
-const blank = (prices: GutterPrice[]): GutterQuoteItem => {
-  const item = {
-    category: "Calhas",
-    product: "Calha de Beiral",
-    thickness: "0.50 mm",
-    cut: "C/ 300",
-    color: "Aluminio Natural",
-    quantity: 1,
-    meters: 1,
-    unit_price: 0,
-    install_price: 0,
-  };
-  const price = findPrice(prices, item);
-  return { ...item, unit_price: Number(price?.unit_price ?? 0), install_price: Number(price?.install_price ?? 0) };
+const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[]): GutterQuoteItem => {
+  const product = PRODUCTS_BY_CATEGORY[category][0];
+  const item = { category, product, thickness: "0.5mm", cut: "200 mm", color: "Aluminio Natural", quantity: 1, meters: 1, unit_price: 0 };
+  return { ...item, unit_price: Number(findPrice(prices, item)?.unit_price ?? 0) };
 };
 
-const blankSpecial = (prices: GutterPrice[]): SpecialItem => {
-  const item = {
-    category: "Condutores",
-    product: "Condutor de PVC Redondo 75 mm",
-    description: "",
-    unit: "Metro",
-    quantity: 1,
-    unit_price: 0,
-    diameter: "",
-    height: "",
-    length: "",
-  };
-  const price = findSpecialPrice(prices, item);
-  return { ...item, unit_price: Number(price?.unit_price ?? 0) };
-};
+const blankOther = (item_type: OtherCategory): SpecialItem => ({
+  item_type,
+  product: PRODUCTS_BY_CATEGORY[item_type][0],
+  description: "",
+  unit: UNITS_BY_CATEGORY[item_type][0],
+  quantity: 1,
+  unit_price: 0,
+});
 
-const normalizeItem = (prices: GutterPrice[], item: Partial<GutterQuoteItem>): GutterQuoteItem => {
-  const category = isFabricationCategory(item.category) ? item.category! : gutterCategoryForProduct(item.product);
-  const next = {
-    category,
-    product: item.product || defaultProduct(category),
-    thickness: normalizeGutterThickness(item.thickness) || "0.50 mm",
-    cut: normalizeCut(item.cut),
-    color: normalizeGutterColor(item.color) || "Aluminio Natural",
-    quantity: Number(item.quantity) || 1,
-    meters: Number(item.meters) || 1,
-    unit_price: Number(item.unit_price) || 0,
-    install_price: Number(item.install_price) || 0,
-  };
-  const price = findPrice(prices, next);
-  return price && !item.unit_price
-    ? { ...next, unit_price: Number(price.unit_price || 0), install_price: Number(price.install_price || 0) }
-    : next;
-};
-
-const normalizeSpecial = (prices: GutterPrice[], item: Partial<SpecialItem>): SpecialItem => {
-  const category = isFabricationCategory(item.category)
-    ? "Condutores"
-    : item.category || gutterCategoryForProduct(item.product);
-  const product = item.product || defaultProduct(category);
-  const unit = item.unit || specialUnits(category)[0];
-  const next = {
-    category,
-    product,
-    description: item.description || "",
-    unit,
-    quantity: Number(item.quantity) || 1,
-    unit_price: Number(item.unit_price) || 0,
-    diameter: item.diameter || "",
-    height: item.height || "",
-    length: item.length || "",
-  };
-  const price = findSpecialPrice(prices, next);
-  return price && !item.unit_price ? { ...next, unit_price: Number(price.unit_price || 0) } : next;
-};
-
+/* ─── Componente principal ───────────────────────────────────────────────── */
 export function GutterQuote({
   prices,
   clients,
@@ -189,80 +103,106 @@ export function GutterQuote({
   initial?: GutterQuoteInitial;
 }) {
   const [items, setItems] = useState<GutterQuoteItem[]>(() =>
-    initial?.items.length ? initial.items.map((item) => normalizeItem(prices, item)) : [blank(prices)]
+    initial?.items.length ? initial.items : [blankFabricated("Calhas", prices)]
   );
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() =>
-    (initial?.special_items ?? []).map((item) => normalizeSpecial(prices, item))
+    initial?.special_items ?? []
   );
   const [discount, setDiscount] = useState(initial?.discount ?? 0);
   const [freight, setFreight] = useState(initial?.freight ?? 0);
+  const [hideUnitPrices, setHideUnitPrices] = useState(initial?.hide_unit_prices ?? false);
   const [clientId, setClientId] = useState(initial?.client_id ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const today = new Date();
-  today.setDate(today.getDate() + 30);
-  const defaultValid = localISODate(today);
-  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? defaultValid);
+
+  const today = new Date(); today.setDate(today.getDate() + 30);
+  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? localISODate(today));
   const [installationDeadline, setInstallationDeadline] = useState(
     initial?.installation_deadline ?? "Até 15 dias após aprovação e conferência final das medidas"
   );
-  const subtotalCalhas = useMemo(() => items.reduce((total, item) => total + lineTotal(item), 0), [items]);
-  const subtotalEspeciais = useMemo(
-    () => specialItems.reduce((total, item) => total + item.quantity * item.unit_price, 0),
+
+  /* ── Cálculos ── */
+  const subtotalFab = useMemo(
+    () => items.reduce((t, i) => t + i.quantity * i.meters * i.unit_price, 0),
+    [items]
+  );
+  const subtotalOther = useMemo(
+    () => specialItems.reduce((t, i) => t + i.quantity * i.unit_price, 0),
     [specialItems]
   );
-  const subtotal = subtotalCalhas + subtotalEspeciais;
+  const subtotal = subtotalFab + subtotalOther;
   const total = Math.max(0, subtotal - discount + freight);
 
-  const change = (index: number, key: keyof GutterQuoteItem, value: string) =>
-    setItems((current) =>
-      current.map((item, i) => {
+  /* ── Edição de itens fabricados ── */
+  const changeFab = (index: number, key: keyof GutterQuoteItem, value: string) =>
+    setItems(curr =>
+      curr.map((item, i) => {
         if (i !== index) return item;
-        let next = {
+        const next = {
           ...item,
-          [key]: ["quantity", "meters", "unit_price", "install_price"].includes(key) ? Number(value) : value,
+          [key]: ["quantity", "meters", "unit_price"].includes(key) ? Number(value) : value,
         } as GutterQuoteItem;
-        if (key === "category") next = { ...next, product: defaultProduct(value) };
-        if (["category", "product", "thickness", "cut", "color"].includes(key)) {
-          const price = findPrice(prices, next);
-          next.unit_price = Number(price?.unit_price ?? 0);
-          next.install_price = Number(price?.install_price ?? 0);
+        if (["product", "thickness", "cut", "color"].includes(key)) {
+          next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
+        }
+        if (key === "category") {
+          next.product = PRODUCTS_BY_CATEGORY[value as FabricatedCategory][0];
+          next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
         }
         return next;
       })
     );
 
-  const changeSpecial = (index: number, key: keyof SpecialItem, value: string) =>
-    setSpecialItems((current) =>
-      current.map((item, i) => {
+  const changeOther = (index: number, key: keyof SpecialItem, value: string) =>
+    setSpecialItems(curr =>
+      curr.map((item, i) => {
         if (i !== index) return item;
-        let next = {
+        const next = {
           ...item,
           [key]: ["quantity", "unit_price"].includes(key) ? Number(value) : value,
         } as SpecialItem;
-        if (key === "category") {
-          next = { ...next, product: defaultProduct(value), unit: specialUnits(value)[0] };
-        }
-        if (["category", "product", "unit"].includes(key)) {
-          const price = findSpecialPrice(prices, next);
-          next.unit_price = Number(price?.unit_price ?? 0);
+        if (key === "item_type") {
+          next.product = PRODUCTS_BY_CATEGORY[value as OtherCategory][0];
+          next.unit = UNITS_BY_CATEGORY[value as OtherCategory][0];
         }
         return next;
       })
     );
 
-  const payload = JSON.stringify({ client_id: clientId, discount, freight, notes, items, special_items: specialItems });
+  const payload = JSON.stringify({
+    client_id: clientId,
+    discount,
+    freight,
+    notes,
+    hide_unit_prices: hideUnitPrices,
+    items,
+    special_items: specialItems,
+  });
+
+  /* ── Agrupamento para exibição ── */
+  const fabricatedByCat = FABRICATED_CATEGORIES.map(cat => ({
+    cat,
+    rows: items.map((item, idx) => ({ item, idx })).filter(({ item }) => item.category === cat),
+  })).filter(g => g.rows.length > 0);
+
+  const otherByCat = OTHER_CATEGORIES.map(cat => ({
+    cat,
+    rows: specialItems.map((item, idx) => ({ item, idx })).filter(({ item }) => item.item_type === cat),
+  })).filter(g => g.rows.length > 0);
 
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Calculadora técnica</p>
-          <h1 className="mt-2 text-3xl font-black">{initial ? "Editar orçamento de calhas" : "Orçamento de calhas"}</h1>
-          <p className="mt-1 text-sm text-ink/50">Cadastro padronizado por categoria, corte, espessura, cor e unidade.</p>
+          <h1 className="mt-2 text-3xl font-black">
+            {initial ? "Editar orçamento de calhas" : "Orçamento de calhas"}
+          </h1>
+          <p className="mt-1 text-sm text-ink/50">
+            Calhas · Rufos · Pingadeiras · Condutores · Acessórios · Serviços
+          </p>
         </div>
         <span className="flex items-center gap-2 text-xs font-bold text-ink/45">
-          <Database className="h-4 w-4" />
-          {prices.length} preços cadastrados
+          <Database className="h-4 w-4" />{prices.length} preços cadastrados
         </span>
       </div>
 
@@ -273,170 +213,152 @@ export function GutterQuote({
         <input type="hidden" name="installation_deadline" value={installationDeadline} />
 
         <div className="space-y-4">
+          {/* Cliente */}
           <div className="card p-5">
             <label className="label">Cliente</label>
-            <select className="field" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <select className="field" value={clientId} onChange={e => setClientId(e.target.value)} required>
               <option value="">Selecione o cliente</option>
-              {clients.map((client) => (
-                <option value={client.id} key={client.id}>
-                  {client.name}
-                  {client.city ? ` · ${client.city}` : ""}
-                  {client.phone ? ` · ${client.phone}` : ""}
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.city ? ` · ${c.city}` : ""}{c.phone ? ` · ${c.phone}` : ""}
                 </option>
               ))}
             </select>
-            {!clients.length && <p className="mt-2 text-xs text-amber-700">Cadastre um cliente antes de criar o orçamento.</p>}
+            {!clients.length && (
+              <p className="mt-2 text-xs text-amber-700">Cadastre um cliente antes de criar o orçamento.</p>
+            )}
           </div>
 
-          {items.map((item, index) => {
-            const category = asCategory(item.category);
-            const tablePrice = findPrice(prices, item);
-            return (
-              <div className="card p-5" key={index}>
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <b>Item {index + 1} · Fabricação própria</b>
-                    {tablePrice ? (
-                      <p className="mt-1 flex items-center gap-1 text-xs font-bold text-emerald-700">
-                        <Database className="h-3.5 w-3.5" />
-                        Preço preenchido pela tabela
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-amber-700">Sem combinação cadastrada: informe o preço manualmente.</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      title="Duplicar"
-                      className="button-ghost p-2"
-                      onClick={() => setItems((current) => [...current.slice(0, index + 1), { ...item }, ...current.slice(index + 1)])}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Excluir"
-                      disabled={items.length === 1}
-                      className="button-ghost p-2 text-red-600"
-                      onClick={() => setItems((current) => current.filter((_, i) => i !== index))}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-                  <Select label="Categoria" value={item.category} options={gutterFabricationCategories} onChange={(v) => change(index, "category", v)} />
-                  <Select label="Produto" value={item.product} options={gutterProductsByCategory[category]} onChange={(v) => change(index, "product", v)} />
-                  <Select label="Espessura" value={item.thickness} options={gutterThicknesses} onChange={(v) => change(index, "thickness", v)} />
-                  <Select label="C/" value={item.cut} options={gutterCutOptions} onChange={(v) => change(index, "cut", v)} />
-                  <Select label="Cor" value={item.color} options={gutterColors} onChange={(v) => change(index, "color", v)} />
-                  <NumberField label="Quantidade" value={item.quantity} onChange={(v) => change(index, "quantity", v)} />
-                  <NumberField label="Metragem" value={item.meters} onChange={(v) => change(index, "meters", v)} />
-                  <NumberField label="Valor por metro" value={item.unit_price} onChange={(v) => change(index, "unit_price", v)} />
-                  <NumberField label="Instalação por metro" value={item.install_price} onChange={(v) => change(index, "install_price", v)} />
-                </div>
-                <div className="mt-4 text-right text-sm text-ink/50">
-                  Subtotal do item: <b className="text-ink">{money(lineTotal(item))}</b>
-                </div>
+          {/* ── Itens Fabricados agrupados ── */}
+          {fabricatedByCat.map(({ cat, rows }) => (
+            <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
+              <div className="flex items-center justify-between">
+                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${CAT_BADGE[cat]}`}>
+                  {cat}
+                </span>
+                <span className="text-xs text-ink/40">
+                  Subtotal: <b>{money(rows.reduce((t, { item: i }) => t + i.quantity * i.meters * i.unit_price, 0))}</b>
+                </span>
               </div>
-            );
-          })}
-
-          <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems((current) => [...current, blank(prices)])}>
-            <Plus className="h-4 w-4" />
-            Adicionar Calha / Rufo / Pingadeira
-          </button>
-
-          <div className="mt-2">
-            <div className="mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4 text-forest" />
-              <h2 className="font-bold text-ink">Condutores, Acessórios, Serviços e Itens Especiais</h2>
+              {rows.map(({ item, idx }) => (
+                <FabricatedItemCard
+                  key={idx}
+                  item={item}
+                  index={idx}
+                  prices={prices}
+                  onChange={changeFab}
+                  onDuplicate={() => setItems(c => [...c.slice(0, idx + 1), { ...item }, ...c.slice(idx + 1)])}
+                  onRemove={() => setItems(c => c.filter((_, i) => i !== idx))}
+                  canRemove={items.length > 1}
+                />
+              ))}
             </div>
-            {specialItems.map((item, index) => {
-              const category = asCategory(item.category || "Condutores");
-              return (
-                <div className="card mb-3 p-4" key={index}>
-                  <div className="mb-3 flex items-center justify-between">
-                    <b className="text-sm text-ink/70">Item complementar {index + 1}</b>
-                    <button type="button" className="button-ghost p-1.5 text-red-600" onClick={() => setSpecialItems((c) => c.filter((_, i) => i !== index))}>
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <Select label="Categoria" value={item.category || "Condutores"} options={gutterSpecialCategories} onChange={(v) => changeSpecial(index, "category", v)} />
-                    <Select label="Nome" value={item.product} options={gutterProductsByCategory[category]} onChange={(v) => changeSpecial(index, "product", v)} />
-                    <Select label="Unidade" value={item.unit} options={specialUnits(item.category)} onChange={(v) => changeSpecial(index, "unit", v)} />
-                    <NumberField label="Quantidade" value={item.quantity} onChange={(v) => changeSpecial(index, "quantity", v)} />
-                    <NumberField label="Valor" value={item.unit_price} onChange={(v) => changeSpecial(index, "unit_price", v)} />
-                    {item.category === "Itens Especiais" && (
-                      <>
-                        <TextField label="Diâmetro" value={item.diameter || ""} onChange={(v) => changeSpecial(index, "diameter", v)} />
-                        <TextField label="Altura" value={item.height || ""} onChange={(v) => changeSpecial(index, "height", v)} />
-                        <TextField label="Comprimento" value={item.length || ""} onChange={(v) => changeSpecial(index, "length", v)} />
-                      </>
-                    )}
-                    <div className="sm:col-span-2 xl:col-span-4">
-                      <label className="label">Observações</label>
-                      <input className="field" type="text" value={item.description} onChange={(e) => changeSpecial(index, "description", e.target.value)} />
-                    </div>
-                    <div className="flex items-end">
-                      <p className="text-sm text-ink/50">
-                        Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              className="button-ghost w-full border-dashed border-amber-300 text-amber-700 hover:bg-amber-50"
-              onClick={() => setSpecialItems((c) => [...c, blankSpecial(prices)])}
-            >
-              <Plus className="h-4 w-4" />
-              Adicionar item complementar
-            </button>
+          ))}
+
+          {/* ── Itens de outras categorias ── */}
+          {otherByCat.map(({ cat, rows }) => (
+            <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
+              <div className="flex items-center justify-between">
+                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${CAT_BADGE[cat]}`}>
+                  {cat}
+                </span>
+                <span className="text-xs text-ink/40">
+                  Subtotal: <b>{money(rows.reduce((t, { item: i }) => t + i.quantity * i.unit_price, 0))}</b>
+                </span>
+              </div>
+              {rows.map(({ item, idx }) => (
+                <OtherItemCard
+                  key={idx}
+                  item={item}
+                  index={idx}
+                  onChange={changeOther}
+                  onRemove={() => setSpecialItems(c => c.filter((_, i) => i !== idx))}
+                />
+              ))}
+            </div>
+          ))}
+
+          {/* ── Botões para adicionar ── */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {FABRICATED_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setItems(c => [...c, blankFabricated(cat, prices)])}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
+              >
+                <Plus className="h-3.5 w-3.5" /> {cat}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {OTHER_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSpecialItems(c => [...c, blankOther(cat)])}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
+              >
+                <Plus className="h-3.5 w-3.5" /> {cat}
+              </button>
+            ))}
           </div>
         </div>
 
+        {/* ── Sidebar de resumo ── */}
         <aside className="card h-fit p-5 xl:sticky xl:top-24">
           <h2 className="text-lg font-black">Resumo</h2>
           <div className="mt-5 space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-ink/50">Calhas / Rufos / Pingadeiras</span>
-              <b>{money(subtotalCalhas)}</b>
+            {/* Subtotais por bloco */}
+            <div className="space-y-1.5 rounded-xl bg-cream p-3 text-sm">
+              {subtotalFab > 0 && (
+                <div className="flex justify-between text-ink/60">
+                  <span>Calhas / Rufos / Pingadeiras</span>
+                  <b>{money(subtotalFab)}</b>
+                </div>
+              )}
+              {subtotalOther > 0 && (
+                <div className="flex justify-between text-ink/60">
+                  <span>Outros itens</span>
+                  <b>{money(subtotalOther)}</b>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-2 font-bold">
+                <span>Subtotal</span><b>{money(subtotal)}</b>
+              </div>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-ink/50">Complementares</span>
-              <b>{money(subtotalEspeciais)}</b>
-            </div>
-            <NumberField label="Desconto (R$)" value={discount} onChange={(v) => setDiscount(Number(v))} />
-            <NumberField label="Frete (R$)" value={freight} onChange={(v) => setFreight(Number(v))} />
+
+            <NumberField label="Desconto (R$)" value={discount} onChange={v => setDiscount(Number(v))} />
+            <NumberField label="Frete (R$)" value={freight} onChange={v => setFreight(Number(v))} />
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hideUnitPrices}
+                onChange={e => setHideUnitPrices(e.target.checked)}
+                className="h-4 w-4 accent-forest"
+              />
+              <span className="font-medium text-ink/70">Ocultar valores unitários no impresso</span>
+            </label>
             <div>
               <label className="label">Observações</label>
-              <textarea className="field min-h-24" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <textarea className="field min-h-24" value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
             <div>
               <label className="label">Validade do orçamento</label>
-              <input type="date" className="field" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+              <input type="date" className="field" value={validUntil} onChange={e => setValidUntil(e.target.value)} />
             </div>
             <div>
               <label className="label">Prazo de instalação</label>
-              <input
-                type="text"
-                className="field"
-                value={installationDeadline}
-                onChange={(e) => setInstallationDeadline(e.target.value)}
-              />
+              <input type="text" className="field" value={installationDeadline}
+                onChange={e => setInstallationDeadline(e.target.value)}
+                placeholder="Ex: Até 15 dias após aprovação" />
             </div>
             <div className="border-t pt-4">
               <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
               <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
             </div>
             <button disabled={!clientId || total <= 0} className="button w-full">
-              <Save className="h-4 w-4" />
-              Salvar orçamento
+              <Save className="h-4 w-4" />Salvar orçamento
             </button>
           </div>
         </aside>
@@ -445,26 +367,135 @@ export function GutterQuote({
   );
 }
 
-function Select({
-  label,
-  value,
-  options,
-  onChange,
+/* ─── Card de item fabricado (Calhas / Rufos / Pingadeiras) ─────────────── */
+function FabricatedItemCard({
+  item, index, prices, onChange, onDuplicate, onRemove, canRemove,
 }: {
-  label: string;
-  value: string;
-  options: readonly string[];
-  onChange: (v: string) => void;
+  item: GutterQuoteItem;
+  index: number;
+  prices: GutterPrice[];
+  onChange: (i: number, k: keyof GutterQuoteItem, v: string) => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const tablePrice = findPrice(prices, item);
+  const subtotal = item.quantity * item.meters * item.unit_price;
+
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Select
+            label=""
+            value={item.category}
+            options={[...FABRICATED_CATEGORIES]}
+            onChange={v => onChange(index, "category", v)}
+            className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
+          />
+          {tablePrice
+            ? <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700"><Database className="h-3 w-3" />Da tabela</span>
+            : <span className="text-[10px] text-amber-700">Sem preço cadastrado — informe manualmente</span>}
+        </div>
+        <div className="flex gap-1">
+          <button type="button" title="Duplicar" className="button-ghost p-1.5" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /></button>
+          <button type="button" title="Excluir" disabled={!canRemove} className="button-ghost p-1.5 text-red-600 disabled:opacity-30" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+        <div className="sm:col-span-2">
+          <Select label="Produto" value={item.product}
+            options={PRODUCTS_BY_CATEGORY[item.category]}
+            onChange={v => onChange(index, "product", v)} />
+        </div>
+        <Select label="Espessura" value={item.thickness} options={gutterThicknesses} onChange={v => onChange(index, "thickness", v)} />
+        <Select label="C/" value={item.cut} options={gutterCuts.map(x => `${x} mm`)} onChange={v => onChange(index, "cut", v)} />
+        <Select label="Cor" value={item.color} options={gutterColors} onChange={v => onChange(index, "color", v)} />
+        <NumberField label="Qtd." value={item.quantity} onChange={v => onChange(index, "quantity", v)} />
+        <NumberField label="Metros" value={item.meters} onChange={v => onChange(index, "meters", v)} />
+        <NumberField label="R$/metro" value={item.unit_price} onChange={v => onChange(index, "unit_price", v)} />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-sm">
+        <span className="text-xs text-ink/40">{item.quantity} un × {item.meters}m × {money(item.unit_price)}/m</span>
+        <b className="text-forest">{money(subtotal)}</b>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Card de outros itens (Condutores / Acessórios / Serviços / Especiais) ── */
+function OtherItemCard({
+  item, index, onChange, onRemove,
+}: {
+  item: SpecialItem;
+  index: number;
+  onChange: (i: number, k: keyof SpecialItem, v: string) => void;
+  onRemove: () => void;
+}) {
+  const isOtherCat = OTHER_CATEGORIES.includes(item.item_type as OtherCategory);
+  const productList = isOtherCat
+    ? PRODUCTS_BY_CATEGORY[item.item_type as OtherCategory]
+    : [];
+  const unitList = isOtherCat
+    ? UNITS_BY_CATEGORY[item.item_type as OtherCategory]
+    : SPECIAL_UNITS;
+
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <Select
+          label=""
+          value={item.item_type}
+          options={[...OTHER_CATEGORIES]}
+          onChange={v => onChange(index, "item_type", v)}
+          className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
+        />
+        <button type="button" className="button-ghost p-1.5 text-red-600" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <div className="sm:col-span-2">
+          <label className="label">Produto / Serviço</label>
+          {productList.length > 0 ? (
+            <select className="field" value={item.product} onChange={e => onChange(index, "product", e.target.value)}>
+              {productList.map(p => <option key={p}>{p}</option>)}
+            </select>
+          ) : (
+            <input className="field" type="text" placeholder="Nome do produto ou serviço…"
+              value={item.product} onChange={e => onChange(index, "product", e.target.value)} />
+          )}
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Descrição (opcional)</label>
+          <input className="field" type="text" placeholder="Detalhes adicionais…"
+            value={item.description} onChange={e => onChange(index, "description", e.target.value)} />
+        </div>
+        <Select label="Unidade" value={item.unit} options={unitList} onChange={v => onChange(index, "unit", v)} />
+        <NumberField label="Quantidade" value={item.quantity} onChange={v => onChange(index, "quantity", v)} />
+        <NumberField label="Valor unitário (R$)" value={item.unit_price} onChange={v => onChange(index, "unit_price", v)} />
+        <div className="flex items-end pb-3">
+          <p className="text-sm text-ink/50">Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b></p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Helpers UI ─────────────────────────────────────────────────────────── */
+function Select({ label, value, options, onChange, className }: {
+  label: string; value: string; options: string[]; onChange: (v: string) => void; className?: string;
 }) {
   return (
     <div>
-      <label className="label">{label}</label>
-      <select className="field" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((x) => (
-          <option key={x} value={x}>
-            {x}
-          </option>
-        ))}
+      {label && <label className="label">{label}</label>}
+      <select
+        className={className ?? "field"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      >
+        {options.map(x => <option key={x}>{x}</option>)}
       </select>
     </div>
   );
@@ -474,16 +505,7 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
   return (
     <div>
       <label className="label">{label}</label>
-      <input className="field" type="number" min="0" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <input className="field" type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+      <input className="field" type="number" min="0" step="0.01" value={value} onChange={e => onChange(e.target.value)} />
     </div>
   );
 }
