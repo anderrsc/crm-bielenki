@@ -46,6 +46,7 @@ type QuoteData = {
   client_notes: string | null;
   seller_name: string | null;
   payment_methods: string[] | null;
+  hide_unit_prices: boolean;
   created_at: string;
   client: Row;
   company: CompanyData;
@@ -54,11 +55,13 @@ type QuoteData = {
 type QuoteItem = {
   product: string;
   description?: string | null;
-  thickness?: string;
-  cut?: string;
-  unit?: string;
+  thickness?: string | null;
+  cut?: string | null;
+  color?: string | null;
+  category?: string | null;
+  unit?: string | null;
   quantity: number;
-  meters?: number;
+  meters?: number | null;
   unit_price: number;
   total: number;
   item_type?: string | null;
@@ -76,22 +79,21 @@ function isSpecialItem(item: QuoteItem) {
 }
 
 function buildDescription(item: QuoteItem, isGutter: boolean) {
-  // Itens especiais: nunca mostrar espessura/corte
   if (!isGutter || isSpecialItem(item)) {
     return item.product + (item.description ? ` — ${item.description}` : "");
   }
   const parts = [item.product];
   if (item.thickness) parts.push(item.thickness);
   if (item.cut) parts.push(`c/${item.cut}`);
+  if (item.color && item.color !== "Aluminio Natural") parts.push(item.color);
   return parts.join(" ");
 }
 
 function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string; quantidade: string } {
-  // Itens especiais: usar unit e quantity
   if (!isGutter || isSpecialItem(item)) {
     const unit = (item.unit || "un").toLowerCase();
     if (unit.startsWith("h")) return { tipo: "HORA", quantidade: String(item.quantity) };
-    if (unit === "metro" || unit === "m") return { tipo: "METRO", quantidade: Number(item.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
+    if (unit === "metro" || unit === "m" || unit === "metro linear (m)") return { tipo: "METRO", quantidade: Number(item.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
     if (unit === "kg") return { tipo: "KG", quantidade: String(item.quantity) };
     if (unit === "diária" || unit === "diaria") return { tipo: "DIÁRIA", quantidade: String(item.quantity) };
     if (unit === "serviço" || unit === "servico") return { tipo: "SERVIÇO", quantidade: String(item.quantity) };
@@ -99,13 +101,14 @@ function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string
   }
   return { tipo: "METRO", quantidade: Number(item.meters ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
 }
+
 export async function QuoteDocument({ id, error }: { id: string; error?: string }) {
   const db = await createClient();
 
   const quoteResult = await db
     .from("quotes")
     .select(
-      "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,created_at," +
+      "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,hide_unit_prices,created_at," +
         "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
         "sale_type:sale_types(name)," +
         "company:companies(*)"
@@ -121,18 +124,23 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
 
   const gutter = await db
     .from("gutter_quotes")
-    .select("id,items:gutter_quote_items(product,thickness,cut,quantity,meters,unit_price,total)")
+    .select("id,items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price,total)")
     .eq("quote_id", id)
     .maybeSingle();
 
   const gutterItems = (gutter.data as unknown as { items?: QuoteItem[] } | null)?.items ?? [];
   const isGutter = Boolean(gutter.data);
 
-  // Sempre carregar quote_items (itens especiais de calhas + todos os itens de esquadrias)
-  const { data: quoteItemsRaw } = await db.from("quote_items").select("product,description,unit,quantity,unit_price,total,item_type").eq("quote_id", id).order("created_at" as never);
+  // quote_items: all non-fabrication items (especial = condutores, acessórios, serviços, itens especiais)
+  const { data: quoteItemsRaw } = await db
+    .from("quote_items")
+    .select("product,description,unit,quantity,unit_price,total,item_type")
+    .eq("quote_id", id);
   const quoteItems = (quoteItemsRaw as unknown as QuoteItem[]) ?? [];
 
-  // Calhas: itens normais primeiro, depois especiais. Esquadrias: só quote_items.
+  // For gutter quotes: fabrication items come from gutter_quote_items (with full detail);
+  // all other items (especial) come from quote_items.
+  // For non-gutter quotes: use quote_items directly.
   const items: QuoteItem[] = isGutter
     ? [...gutterItems, ...quoteItems.filter(i => i.item_type === "especial")]
     : quoteItems;
@@ -141,8 +149,11 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   const client = quote.client;
   const primary = company.primary_color || "#D71920";
   const secondary = company.secondary_color || "#111111";
-  const availablePayments = company.payment_methods_available?.length ? company.payment_methods_available : ["pix", "cartao", "cheque", "dinheiro"];
+  const availablePayments = company.payment_methods_available?.length
+    ? company.payment_methods_available
+    : ["pix", "cartao", "cheque", "dinheiro"];
   const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : [];
+  const hideUnitPrices = quote.hide_unit_prices ?? false;
 
   const observacoes = (quote.notes || company.quote_footer || "")
     .split("\n")
@@ -156,9 +167,19 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
         <div className="flex gap-3">
-          {quote.status !== "aprovado"&&<Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>}
-          <form><input type="hidden" name="quote_id" value={id}/><button formAction={duplicateQuote} className="button-ghost">Duplicar</button></form>
-          {quote.status !== "aprovado"&&<form><input type="hidden" name="quote_id" value={id}/><ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton></form>}
+          {quote.status !== "aprovado" && (
+            <Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>
+          )}
+          <form>
+            <input type="hidden" name="quote_id" value={id} />
+            <button formAction={duplicateQuote} className="button-ghost">Duplicar</button>
+          </form>
+          {quote.status !== "aprovado" && (
+            <form>
+              <input type="hidden" name="quote_id" value={id} />
+              <ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton>
+            </form>
+          )}
           <PrintButton />
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>
@@ -172,6 +193,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
       </div>
 
       {error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
       <article
         className="quote-sheet print-sheet relative overflow-hidden bg-white"
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
@@ -187,11 +209,17 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
         )}
 
         <div className="relative">
+          {/* ── Cabeçalho 3 colunas ── */}
           <header className="quote-header">
             <div className="quote-logo-col">
               {company.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img alt={company.trade_name || company.name || "Logo"} src={proxyLogoUrl(company.logo_url)!} className="quote-logo-img" />
+                <img
+                  alt={company.trade_name || company.name || "Logo"}
+                  src={proxyLogoUrl(company.logo_url)!}
+                  className="quote-logo-img"
+                  crossOrigin="anonymous"
+                />
               ) : (
                 <div className="quote-logo-fallback" style={{ background: secondary }}>
                   {(company.trade_name || company.name || "MC").slice(0, 2).toUpperCase()}
@@ -200,13 +228,18 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             </div>
 
             <div className="quote-company-col">
-              <p className="quote-company-name">{(company.trade_name || "Marquinhos Calhas e Esquadrias").toUpperCase()}</p>
+              <p className="quote-company-name">{(company.trade_name || company.name || "").toUpperCase()}</p>
               <div className="quote-company-lines">
                 {company.tax_id && <p>CNPJ: {company.tax_id}</p>}
                 {(company.address || company.neighborhood || company.city) && (
-                  <p>{[company.address, company.neighborhood, [company.city, company.state].filter(Boolean).join(" - ")].filter(Boolean).join(", ")}</p>
+                  <p>
+                    {[company.address, company.neighborhood, [company.city, company.state].filter(Boolean).join(" - ")]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
                 )}
-                {(company.phone || company.whatsapp) && <p>{[company.phone, company.whatsapp].filter(Boolean).join(" · ")}</p>}
+                {company.phone && <p>{company.phone}</p>}
+                {company.whatsapp && company.whatsapp !== company.phone && <p>{company.whatsapp}</p>}
                 {company.email && <p>{company.email}</p>}
               </div>
             </div>
@@ -230,6 +263,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             </div>
           </header>
 
+          {/* ── Faixa vermelha ── */}
           <div className="quote-bar">
             <div className="quote-bar-numero">ORÇAMENTO Nº {String(quote.quote_number)}</div>
             <div className="quote-bar-meta">
@@ -242,13 +276,17 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             </div>
             <div className="quote-bar-meta">
               <span className="quote-bar-label">PRAZO INSTALAÇÃO</span>
-              <span className="quote-bar-value" style={{fontSize:"9px"}}>{quote.installation_deadline || "A definir"}</span>
+              <span className="quote-bar-value" style={{ fontSize: "9px" }}>
+                {quote.installation_deadline || "A definir"}
+              </span>
             </div>
             <div className="quote-bar-meta">
               <span className="quote-bar-label">VENDEDOR</span>
               <QuoteSellerField quoteId={quote.id} sellerName={quote.seller_name || ""} />
             </div>
           </div>
+
+          {/* ── Dados do cliente ── */}
           <section className="quote-client-box">
             <p className="quote-client-title">DADOS DO CLIENTE</p>
             <div className="quote-client-grid">
@@ -259,7 +297,9 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
               <span className="quote-client-lbl">ENDEREÇO:</span>
               <span className="quote-client-val">{String(client.address || "—")}</span>
               <span className="quote-client-lbl">CIDADE/UF:</span>
-              <span className="quote-client-val">{[client.city, client.state].filter(Boolean).join(" - ") || "—"}</span>
+              <span className="quote-client-val">
+                {[client.city, client.state].filter(Boolean).join(" - ") || "—"}
+              </span>
             </div>
             {quote.client_notes && (
               <div className="quote-client-obs">
@@ -269,16 +309,18 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             )}
           </section>
 
+          {/* ── Tabela de itens ── */}
           <table className="quote-table">
             <thead>
               <tr>
-                <th style={{ width: "8%" }}>ITEM</th>
-                <th className="quote-th-desc" style={{ width: "42%" }}>
+                <th style={{ width: "7%" }}>ITEM</th>
+                <th className="quote-th-desc" style={{ width: hideUnitPrices ? "45%" : "37%" }}>
                   DESCRIÇÃO
                 </th>
-                <th style={{ width: "14%" }}>TIPO</th>
-                <th style={{ width: "16%" }}>QUANTIDADE</th>
-                <th style={{ width: "20%" }}>TOTAL</th>
+                <th style={{ width: "13%" }}>TIPO</th>
+                <th style={{ width: "15%" }}>QUANTIDADE</th>
+                {!hideUnitPrices && <th style={{ width: "13%" }}>VLR. UNIT.</th>}
+                <th style={{ width: hideUnitPrices ? "20%" : "15%" }}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -291,23 +333,30 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
+                      {!hideUnitPrices && <td>&nbsp;</td>}
                       <td>&nbsp;</td>
                     </tr>
                   );
                 }
                 const { tipo, quantidade } = buildTipoQuantidade(item, isGutter);
+                const unitPriceDisplay = isGutter && !isSpecialItem(item)
+                  ? money(item.unit_price) + "/m"
+                  : money(item.unit_price);
                 return (
                   <tr key={i}>
                     <td className="quote-td-item">{String(i + 1).padStart(2, "0")}</td>
                     <td className="quote-td-desc">{buildDescription(item, isGutter)}</td>
                     <td>{tipo}</td>
                     <td>{quantidade}</td>
+                    {!hideUnitPrices && <td>{unitPriceDisplay}</td>}
                     <td className="quote-td-total">{money(item.total)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+
+          {/* ── Observações + Resumo financeiro ── */}
           <div className="quote-bottom-grid">
             <div className="quote-obs-box">
               <p className="quote-obs-title">OBSERVAÇÕES</p>
@@ -342,6 +391,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             </div>
           </div>
 
+          {/* ── Forma de pagamento + Assinatura ── */}
           <div className="quote-footer-grid">
             <div className="quote-pay-block">
               <p className="quote-pay-title">FORMA DE PAGAMENTO</p>
@@ -355,7 +405,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             <div className="quote-sign-block">
               <div className="quote-sign-line" />
               <p>ASSINATURA DO RESPONSÁVEL</p>
-              <p>{company.trade_name || "Marquinhos Calhas e Esquadrias"}</p>
+              <p>{company.trade_name || company.name || ""}</p>
             </div>
           </div>
         </div>

@@ -84,7 +84,7 @@ export async function saveGutterQuote(formData: FormData) {
   const payload = JSON.parse(String(formData.get("payload")));
   const validUntil = String(formData.get("valid_until") || "").trim() || null;
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
-  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1), special_items: z.array(specialItemSchema).optional() }).safeParse(payload);
+  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), hide_unit_prices: z.boolean().optional(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1), special_items: z.array(specialItemSchema).optional() }).safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
   const { data, error } = await db.rpc("create_gutter_quote", {
     p_payload: {
@@ -94,6 +94,9 @@ export async function saveGutterQuote(formData: FormData) {
     },
   });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
+  if (data && parsed.data.hide_unit_prices != null) {
+    await db.from("quotes").update({ hide_unit_prices: parsed.data.hide_unit_prices }).eq("id", data);
+  }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
@@ -105,8 +108,12 @@ export async function updateGutterQuote(formData: FormData) {
   const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
   if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
   const p = payload as Record<string,unknown>;
+  const hideUnitPrices = z.boolean().optional().safeParse(p.hide_unit_prices);
   const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...p,valid_until:validUntil,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
+  if(data && hideUnitPrices.success && hideUnitPrices.data != null) {
+    await db.from("quotes").update({ hide_unit_prices: hideUnitPrices.data }).eq("id", quoteId);
+  }
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
 
