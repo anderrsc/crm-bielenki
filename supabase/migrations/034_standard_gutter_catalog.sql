@@ -52,7 +52,8 @@ begin
     alter table public.gutter_prices
       add constraint gutter_prices_cut_mm_positive check (cut_mm is null or cut_mm > 0);
   end if;
-end $$;
+end;
+$$;
 
 alter table public.gutter_quote_items
   add column if not exists category text not null default 'Calhas',
@@ -413,7 +414,8 @@ begin
     );
   end loop;
   return q;
-end $$;
+end;
+$$;
 
 revoke all on function public.create_gutter_quote(jsonb) from public;
 grant execute on function public.create_gutter_quote(jsonb) to authenticated;
@@ -498,7 +500,8 @@ begin
     );
   end loop;
   return q.id;
-end $$;
+end;
+$$;
 
 revoke all on function public.update_gutter_quote(uuid,jsonb) from public;
 grant execute on function public.update_gutter_quote(uuid,jsonb) to authenticated;
@@ -534,7 +537,8 @@ begin
     where gutter_quote_id=old_gutter;
   end if;
   return target;
-end $$;
+end;
+$$;
 
 revoke all on function public.duplicate_quote(uuid) from public;
 grant execute on function public.duplicate_quote(uuid) to authenticated;
