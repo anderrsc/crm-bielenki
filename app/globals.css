@@ -170,7 +170,22 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 .quote-td-desc { text-align: left; padding-left: 10px; }
 .quote-td-item { font-weight: 700; color: #111111; }
 .quote-td-total { font-weight: 700; }
-.quote-empty-row td { color: transparent; }
+  .quote-empty-row td { color: transparent; }
+  .quote-section-row td {
+    background: color-mix(in srgb, var(--quote-primary, #d71920) 12%, white);
+    color: var(--quote-secondary, #111111);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.45px;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .quote-subtotal-row td {
+    background: #f7f7f7;
+    font-size: 10px;
+    font-weight: 800;
+    text-align: right;
+  }
 
 /* ===== Observações + Resumo financeiro ===== */
 .quote-bottom-grid { display: flex; gap: 14px; margin-top: 6px; align-items: flex-start; }

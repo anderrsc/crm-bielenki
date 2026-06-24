@@ -6,6 +6,7 @@ import { PrintButton } from "@/components/print-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
+import { quoteBlockForCategory, quoteBlockLabels } from "@/lib/gutters";
 import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
 
 const TOTAL_LINHAS = 20;
@@ -52,14 +53,17 @@ type QuoteData = {
 };
 
 type QuoteItem = {
+  category?: string | null;
   product: string;
   description?: string | null;
   thickness?: string;
   cut?: string;
+  color?: string | null;
   unit?: string;
   quantity: number;
   meters?: number;
   unit_price: number;
+  install_price?: number | null;
   total: number;
   item_type?: string | null;
 };
@@ -72,7 +76,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 function isSpecialItem(item: QuoteItem) {
-  return item.item_type === "especial" || (!item.thickness && !item.cut && !item.meters);
+  return item.item_type === "especial" || item.item_type === "item_especial" || item.item_type === "servico" || (!item.thickness && !item.cut && !item.meters);
 }
 
 function buildDescription(item: QuoteItem, isGutter: boolean) {
@@ -83,7 +87,46 @@ function buildDescription(item: QuoteItem, isGutter: boolean) {
   const parts = [item.product];
   if (item.thickness) parts.push(item.thickness);
   if (item.cut) parts.push(`c/${item.cut}`);
+  if (item.color) parts.push(item.color);
   return parts.join(" ");
+}
+
+function itemTotal(item: QuoteItem, isGutter: boolean) {
+  if (isGutter && !isSpecialItem(item)) {
+    return Number(item.quantity || 0) * Number(item.meters || 0) * (Number(item.unit_price || 0) + Number(item.install_price || 0));
+  }
+  return Number(item.total ?? Number(item.quantity || 0) * Number(item.unit_price || 0));
+}
+
+type TableRow =
+  | { kind: "header"; label: string }
+  | { kind: "item"; item: QuoteItem; index: number }
+  | { kind: "subtotal"; label: string; value: number }
+  | { kind: "empty"; key: string };
+
+function buildTableRows(items: QuoteItem[], isGutter: boolean): TableRow[] {
+  if (!isGutter) {
+    const rows = items.map((item, index) => ({ kind: "item" as const, item, index: index + 1 }));
+    return [...rows, ...Array.from({ length: Math.max(0, TOTAL_LINHAS - rows.length) }, (_, i) => ({ kind: "empty" as const, key: `empty-${i}` }))];
+  }
+
+  const grouped = new Map<string, QuoteItem[]>();
+  for (const label of quoteBlockLabels) grouped.set(label, []);
+  for (const item of items) {
+    const label = quoteBlockForCategory(item.category, item.product);
+    grouped.set(label, [...(grouped.get(label) ?? []), item]);
+  }
+
+  const rows: TableRow[] = [];
+  let index = 1;
+  for (const label of quoteBlockLabels) {
+    const groupItems = grouped.get(label) ?? [];
+    if (!groupItems.length) continue;
+    rows.push({ kind: "header", label });
+    for (const item of groupItems) rows.push({ kind: "item", item, index: index++ });
+    rows.push({ kind: "subtotal", label, value: groupItems.reduce((total, item) => total + itemTotal(item, isGutter), 0) });
+  }
+  return [...rows, ...Array.from({ length: Math.max(0, TOTAL_LINHAS - rows.length) }, (_, i) => ({ kind: "empty" as const, key: `empty-${i}` }))];
 }
 
 function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string; quantidade: string } {
@@ -121,7 +164,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
 
   const gutter = await db
     .from("gutter_quotes")
-    .select("id,items:gutter_quote_items(product,thickness,cut,quantity,meters,unit_price,total)")
+    .select("id,items:gutter_quote_items(category,item_type,product,thickness,cut,color,quantity,meters,unit_price,install_price,total)")
     .eq("quote_id", id)
     .maybeSingle();
 
@@ -136,6 +179,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   const items: QuoteItem[] = isGutter
     ? [...gutterItems, ...quoteItems.filter(i => i.item_type === "especial")]
     : quoteItems;
+  const tableRows = buildTableRows(items, isGutter);
 
   const company = quote.company;
   const client = quote.client;
@@ -282,11 +326,10 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: TOTAL_LINHAS }).map((_, i) => {
-                const item = items[i];
-                if (!item) {
+              {tableRows.map((row) => {
+                if (row.kind === "empty") {
                   return (
-                    <tr key={i} className="quote-empty-row">
+                    <tr key={row.key} className="quote-empty-row">
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
@@ -295,14 +338,29 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
                     </tr>
                   );
                 }
-                const { tipo, quantidade } = buildTipoQuantidade(item, isGutter);
+                if (row.kind === "header") {
+                  return (
+                    <tr key={`header-${row.label}`} className="quote-section-row">
+                      <td colSpan={5}>{row.label}</td>
+                    </tr>
+                  );
+                }
+                if (row.kind === "subtotal") {
+                  return (
+                    <tr key={`subtotal-${row.label}`} className="quote-subtotal-row">
+                      <td colSpan={4}>Subtotal {row.label}</td>
+                      <td>{money(row.value)}</td>
+                    </tr>
+                  );
+                }
+                const { tipo, quantidade } = buildTipoQuantidade(row.item, isGutter);
                 return (
-                  <tr key={i}>
-                    <td className="quote-td-item">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="quote-td-desc">{buildDescription(item, isGutter)}</td>
+                  <tr key={`item-${row.index}-${row.item.product}`}>
+                    <td className="quote-td-item">{String(row.index).padStart(2, "0")}</td>
+                    <td className="quote-td-desc">{buildDescription(row.item, isGutter)}</td>
                     <td>{tipo}</td>
                     <td>{quantidade}</td>
-                    <td className="quote-td-total">{money(item.total)}</td>
+                    <td className="quote-td-total">{money(itemTotal(row.item, isGutter))}</td>
                   </tr>
                 );
               })}

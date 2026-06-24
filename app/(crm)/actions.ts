@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { encryptSecret } from "@/lib/encrypt";
+import { gutterCategoryForProduct, gutterItemTypeForCategory } from "@/lib/gutters";
 
 const text = z.string().trim().min(1);
 
@@ -77,24 +78,61 @@ export async function toggleChecklistItem(formData: FormData) {
   revalidatePath(`/pedidos/${orderId}`);
 }
 
-const specialItemSchema = z.object({ product: text, description: z.string().default(""), unit: z.string().default("unidade"), quantity: z.number().positive(), unit_price: z.number().nonnegative() });
+const gutterItemSchema = z.object({
+  category: z.string().default("Calhas"),
+  product: text,
+  thickness: text,
+  cut: text,
+  color: z.string().default("Aluminio Natural"),
+  quantity: z.number().positive(),
+  meters: z.number().positive(),
+  unit_price: z.number().nonnegative(),
+  install_price: z.number().nonnegative().default(0),
+});
+
+const specialItemSchema = z.object({
+  category: z.string().default("Itens Especiais"),
+  product: text,
+  description: z.string().default(""),
+  unit: z.string().default("Unidade"),
+  quantity: z.number().positive(),
+  unit_price: z.number().nonnegative(),
+  diameter: z.string().optional().default(""),
+  height: z.string().optional().default(""),
+  length: z.string().optional().default(""),
+});
+
+const gutterQuotePayloadSchema = z.object({
+  client_id: z.string().uuid(),
+  discount: z.number().nonnegative(),
+  freight: z.number().nonnegative(),
+  notes: z.string(),
+  items: z.array(gutterItemSchema).min(1),
+  special_items: z.array(specialItemSchema).optional(),
+});
+
+function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) {
+  const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * (item.unit_price + item.install_price), 0);
+  const specials = (payload.special_items ?? []).reduce((total, item) => total + item.quantity * item.unit_price, 0);
+  return fabrication + specials;
+}
 
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
   const payload = JSON.parse(String(formData.get("payload")));
   const validUntil = String(formData.get("valid_until") || "").trim() || null;
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
-  const parsed = z.object({ client_id: z.string().uuid(), discount: z.number().nonnegative(), freight: z.number().nonnegative(), notes: z.string(), items: z.array(z.object({ product: text, thickness: text, cut: text, color: z.string().optional(), quantity: z.number().positive(), meters: z.number().positive(), unit_price: z.number().nonnegative() })).min(1), special_items: z.array(specialItemSchema).optional() }).safeParse(payload);
+  const parsed = gutterQuotePayloadSchema.safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
   const { data, error } = await db.rpc("create_gutter_quote", { p_payload: { ...parsed.data, special_items: undefined } });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
   if (data) {
-    if (validUntil || installationDeadline) await db.from("quotes").update({ valid_until: validUntil, installation_deadline: installationDeadline }).eq("id", data);
+    await db.from("quotes").update({ subtotal: gutterQuoteSubtotal(parsed.data), valid_until: validUntil, installation_deadline: installationDeadline }).eq("id", data);
     const specials = parsed.data.special_items ?? [];
     if (specials.length) {
       const { data: { user } } = await db.auth.getUser();
       const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(specials.map(s => ({ quote_id: data, company_id: prof!.company_id, product: s.product, description: s.description || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
+      await db.from("quote_items").insert(specials.map(s => ({ quote_id: data, company_id: prof!.company_id, product: s.product, description: [s.category, s.description, s.diameter&&`Diâmetro: ${s.diameter}`, s.height&&`Altura: ${s.height}`, s.length&&`Comprimento: ${s.length}`].filter(Boolean).join(" | ") || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
     }
   }
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
@@ -108,16 +146,19 @@ export async function updateGutterQuote(formData: FormData) {
   const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
   if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
   const p = payload as Record<string,unknown>;
-  const specialItems = z.array(specialItemSchema).safeParse(p.special_items);
-  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...p,special_items:undefined,valid_until:validUntil,installation_deadline:installationDeadline}});
+  const parsed = gutterQuotePayloadSchema.safeParse(p);
+  if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orçamento`);
+  const specialItems = z.array(specialItemSchema).safeParse(parsed.data.special_items);
+  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,special_items:undefined,valid_until:validUntil,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
   if(data && specialItems.success) {
     await db.from("quote_items").delete().eq("quote_id", quoteId).eq("item_type","especial");
     if(specialItems.data.length) {
       const { data: { user } } = await db.auth.getUser();
       const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(specialItems.data.map(s => ({ quote_id: quoteId, company_id: prof!.company_id, product: s.product, description: s.description || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
+      await db.from("quote_items").insert(specialItems.data.map(s => ({ quote_id: quoteId, company_id: prof!.company_id, product: s.product, description: [s.category, s.description, s.diameter&&`Diâmetro: ${s.diameter}`, s.height&&`Altura: ${s.height}`, s.length&&`Comprimento: ${s.length}`].filter(Boolean).join(" | ") || null, unit: s.unit, quantity: s.quantity, unit_price: s.unit_price, item_type: "especial" })));
     }
+    await db.from("quotes").update({ subtotal: gutterQuoteSubtotal(parsed.data) }).eq("id", quoteId);
   }
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
@@ -240,7 +281,8 @@ export async function saveGutterPrice(formData:FormData) {
   const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=Number(String(formData.get("unit_price")||"0").replace(",","."));
   if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect(`${back}&erro=Revise+produto,+espessura,+corte+e+preço`);
   const color=String(formData.get("color")||"").trim()||null;
-  const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,color,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
+  const category=gutterCategoryForProduct(product);
+  const values={company_id:profile.company_id,product,category,item_type:gutterItemTypeForCategory(category),thickness,cut_mm:cutMm,unit:"Metro Linear (m)",color,unit_price:unitPrice,install_price:Number(String(formData.get("install_price")||"0").replace(",","."))||0,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
   const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`${back}&erro=${encodeURIComponent(pgErr(result.error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect(`${back}&salvo=1`);
 }

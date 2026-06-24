@@ -31,8 +31,9 @@ export async function bulkSavePrices(
       id: r.id.startsWith("new-") ? null : r.id,
       product: r.product.trim(),
       category: r.category,
-      thickness: r.thickness,
-      cut_mm: Number(r.cut_mm),
+      item_type: r.item_type ?? null,
+      thickness: r.thickness || null,
+      cut_mm: r.cut_mm == null ? null : Number(r.cut_mm),
       unit: r.unit,
       color: r.color || null,
       unit_price: Number(r.unit_price) || 0,
@@ -76,7 +77,7 @@ export async function getAllPrices(): Promise<PriceRow[]> {
 
   const { data } = await db
     .from("gutter_prices")
-    .select("id,product,category,thickness,cut_mm,unit,color,unit_price,labor_price,paint_price,install_price,freight_price,min_price,margin_pct,max_discount_pct,notes,active")
+    .select("id,product,category,item_type,thickness,cut_mm,unit,color,unit_price,labor_price,paint_price,install_price,freight_price,min_price,margin_pct,max_discount_pct,notes,active")
     .eq("company_id", profile.company_id)
     .order("category")
     .order("product")
@@ -86,9 +87,10 @@ export async function getAllPrices(): Promise<PriceRow[]> {
     id: r.id,
     product: r.product ?? "",
     category: r.category ?? "Calhas Padrão",
-    thickness: r.thickness ?? "0.50",
-    cut_mm: Number(r.cut_mm) || 200,
-    unit: r.unit ?? "metro",
+    item_type: r.item_type ?? null,
+    thickness: r.thickness ?? null,
+    cut_mm: r.cut_mm == null ? null : Number(r.cut_mm),
+    unit: r.unit ?? "Metro Linear (m)",
     color: r.color ?? null,
     unit_price: Number(r.unit_price) || 0,
     labor_price: Number(r.labor_price) || 0,

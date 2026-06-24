@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Save, Plus, Trash2, Check, AlertTriangle } from "lucide-react";
 import { saveMatrixRow, deleteMatrixRow } from "@/app/(crm)/matrix-actions";
+import { gutterThicknesses } from "@/lib/gutters";
 
 export type MatrixRow = {
   id: string;
@@ -11,7 +12,7 @@ export type MatrixRow = {
   price_per_meter: number;
 };
 
-const THICKNESSES = ["0.5mm", "0.6mm", "0.7mm", "1.0mm"];
+const THICKNESSES = gutterThicknesses;
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(v);
