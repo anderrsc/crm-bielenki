@@ -150,7 +150,7 @@ export function GutterQuote({
   const today = new Date(); today.setDate(today.getDate() + 30);
   const [validUntil, setValidUntil] = useState(initial?.valid_until ?? localISODate(today));
   const [installationDeadline, setInstallationDeadline] = useState(
-    initial?.installation_deadline ?? "Até 15 dias após aprovação e conferência final das medidas"
+    initial?.installation_deadline ?? "Até 15 dias"
   );
 
   /* ── Cálculos ── */
