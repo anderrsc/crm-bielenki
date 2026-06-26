@@ -293,7 +293,7 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 }
 
 /* ===== Dados do cliente ===== */
-.quote-client-box { position: relative; margin-top: 5mm; border: 1px solid #ddd; border-radius: 6px; padding: 4.5mm 6mm; min-height: 36mm; overflow: hidden; }
+.quote-client-box { position: relative; margin-top: 4mm; border: 1px solid #ddd; border-radius: 6px; padding: 4mm 6mm; min-height: 32mm; overflow: hidden; }
 .quote-client-title {
   display: flex; align-items: center; gap: 3mm;
   font-size: 12px; font-weight: 900; color: var(--quote-primary, #d71920);
@@ -319,7 +319,7 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 .quote-th-desc { text-align: left; padding-left: 10px; }
 .quote-table tbody td {
   border: 1px solid #ddd; padding: 0 6px; text-align: center;
-  height: 6.2mm;
+  height: 5.8mm;
   vertical-align: middle;
 }
 .quote-td-desc { text-align: left; padding-left: 10px; }
