@@ -8,7 +8,12 @@ import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
 
-const TOTAL_LINHAS = 20;
+// Quantidade-base de linhas (preenchidas + vazias) que cabem com folga em
+// uma folha A4 com o layout atual. Quando há poucos itens, completa até
+// este número para manter a estética da tabela. Quando há mais itens do
+// que isso, a tabela cresce com os itens reais (sem linhas vazias extras)
+// e o CSS de impressão permite quebra de página controlada nesse caso.
+const MIN_LINHAS_VISUAIS = 18;
 
 type Row = Record<string, unknown>;
 
@@ -189,6 +194,8 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
     .map((line) => line.trim())
     .filter(Boolean);
 
+  const totalLinhas = Math.max(MIN_LINHAS_VISUAIS, items.length);
+
   return (
     <div className="mx-auto max-w-5xl">
       <div className="no-print mb-5 flex items-center justify-between">
@@ -224,7 +231,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
       {error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <article
-        className="quote-sheet print-sheet relative overflow-hidden bg-white"
+        className="quote-sheet print-sheet relative bg-white"
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
         {proxyLogoUrl(company.logo_url) && (
@@ -353,7 +360,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: TOTAL_LINHAS }).map((_, i) => {
+              {Array.from({ length: totalLinhas }).map((_, i) => {
                 const item = items[i];
                 if (!item) {
                   return (
