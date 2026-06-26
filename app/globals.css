@@ -184,23 +184,25 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   width: 100%;
   max-width: 210mm;
   margin: 0 auto;
-  padding: 10mm 6mm 8mm 6mm;
+  padding: 8mm 6mm 6mm 6mm;
   font-family: "Segoe UI", Inter, system-ui, sans-serif;
   color: #111111;
   box-sizing: border-box;
   overflow: visible;
 }
 
-/* Margens de impressão aprovadas pelo modelo oficial: 30mm superior,
-   20mm inferior, 15mm laterais. Implementadas como padding interno do
-   papel A4 (em vez de @page nomeado, que tem suporte inconsistente entre
-   motores de impressão). Em produção, a tela de impressão do orçamento
-   deve usar window.print() — o padding abaixo já contempla o total. */
+/* Margens de impressão: a folha A4 real (210mm x 297mm) é fixada em altura
+   no @media print para impedir que o navegador some o conteúdo e quebre em
+   2 páginas. O padding interno abaixo já está calibrado para que o
+   conteúdo completo (cabeçalho + faixa + dados do cliente + tabela de
+   18 linhas + totais + rodapé) caiba dentro de 297mm com folga de
+   segurança. Em produção, a impressão deve usar window.print(). */
 @media print {
   .quote-sheet {
-    width: 100%;
-    max-width: none;
-    padding: 10mm 6mm 8mm 6mm;
+    width: 210mm;
+    max-width: 210mm;
+    height: 297mm;
+    padding: 8mm 6mm 6mm 6mm;
     margin: 0;
   }
 }
@@ -220,41 +222,41 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 /* ===== Cabeçalho 3 colunas ===== */
 .quote-header {
   display: grid;
-  grid-template-columns: 74mm 1fr 38mm;
+  grid-template-columns: 70mm 1fr 36mm;
   align-items: center;
-  gap: 7mm;
-  padding-bottom: 6mm;
+  gap: 6mm;
+  padding-bottom: 4mm;
   border-bottom: 0;
 }
 .quote-logo-col { min-width: 0; }
-.quote-logo-img { width: 68mm; height: 28mm; max-width: none; object-fit: contain; background: #fff; }
+.quote-logo-img { width: 64mm; height: 25mm; max-width: none; object-fit: contain; background: #fff; }
 .quote-logo-fallback {
-  height: 26mm; width: 64mm; border-radius: 0;
+  height: 23mm; width: 60mm; border-radius: 0;
   display: flex; align-items: center; justify-content: center;
-  color: var(--quote-primary, #d71920); background: #fff !important; font-weight: 900; font-size: 24px;
+  color: var(--quote-primary, #d71920); background: #fff !important; font-weight: 900; font-size: 22px;
 }
 
 .quote-company-col {
-  min-height: 32mm;
+  min-height: 28mm;
   border-left: 1px solid #d9d9d9;
   border-right: 1px solid #d9d9d9;
-  padding: 0 7mm;
+  padding: 0 6mm;
   text-align: left;
-  font-size: 10.5px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.4;
   color: #111;
 }
-.quote-company-name { font-size: 13px; font-weight: 900; color: #111111; margin: 0 0 3mm 0; }
-.quote-company-lines p { margin: 1.4mm 0; }
+.quote-company-name { font-size: 12.5px; font-weight: 900; color: #111111; margin: 0 0 2.5mm 0; }
+.quote-company-lines p { margin: 1.2mm 0; }
 
-.quote-qr-col { text-align: center; width: 30mm; }
+.quote-qr-col { text-align: center; width: 28mm; }
 .quote-qr-box {
-  width: 24mm; height: 24mm; margin: 0 auto;
+  width: 22mm; height: 22mm; margin: 0 auto;
   border: 1.5px solid var(--quote-primary, #d71920);
-  border-radius: 4px; padding: 2.5mm;
+  border-radius: 4px; padding: 2mm;
 }
 .quote-qr-box--empty { border-style: dashed; opacity: 0.35; }
-.quote-qr-caption { font-size: 9px; color: #111; margin-top: 3mm; line-height: 1.2; }
+.quote-qr-caption { font-size: 8.5px; color: #111; margin-top: 2.5mm; line-height: 1.15; }
 
 /* ===== Faixa vermelha do orçamento ===== */
 .quote-bar {
@@ -262,9 +264,9 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   grid-template-columns: 1.55fr .42fr .42fr .46fr .55fr;
   align-items: stretch;
   background: var(--quote-primary, #d71920);
-  color: #fff; margin-top: 0; border-radius: 0; overflow: hidden; min-height: 13mm; font-size: 11px;
+  color: #fff; margin-top: 0; border-radius: 0; overflow: hidden; min-height: 11.5mm; font-size: 11px;
 }
-.quote-bar-numero { display: flex; align-items: center; padding: 0 9mm; font-size: 17px; font-weight: 900; letter-spacing: 0.35px; }
+.quote-bar-numero { display: flex; align-items: center; padding: 0 8mm; font-size: 16px; font-weight: 900; letter-spacing: 0.35px; }
 .quote-bar-meta {
   background: transparent; color: #fff;
   display: flex; flex-direction: column; justify-content: center;
@@ -291,33 +293,33 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 }
 
 /* ===== Dados do cliente ===== */
-.quote-client-box { position: relative; margin-top: 6mm; border: 1px solid #ddd; border-radius: 6px; padding: 5mm 6mm; min-height: 41mm; overflow: hidden; }
+.quote-client-box { position: relative; margin-top: 4mm; border: 1px solid #ddd; border-radius: 6px; padding: 4mm 5mm; min-height: 34mm; overflow: hidden; }
 .quote-client-title {
   display: flex; align-items: center; gap: 3mm;
-  font-size: 13px; font-weight: 900; color: var(--quote-primary, #d71920);
-  margin: 0 0 4mm 0; letter-spacing: 0.3px;
+  font-size: 12px; font-weight: 900; color: var(--quote-primary, #d71920);
+  margin: 0 0 3mm 0; letter-spacing: 0.3px;
 }
-.quote-client-title::before { content: "◆"; color: var(--quote-primary, #d71920); font-size: 14px; line-height: 1; }
-.quote-client-grid { display: grid; grid-template-columns: 26mm 1fr; row-gap: 3mm; font-size: 10.5px; width: 62%; }
+.quote-client-title::before { content: "◆"; color: var(--quote-primary, #d71920); font-size: 13px; line-height: 1; }
+.quote-client-grid { display: grid; grid-template-columns: 26mm 1fr; row-gap: 2.5mm; font-size: 10px; width: 62%; }
 .quote-client-lbl { font-weight: 700; color: #333; }
 .quote-client-val { color: #111111; }
 .quote-client-obs {
-  margin-top: 4mm; padding-top: 0; border-top: 0; font-size: 10.5px; width: 62%;
+  margin-top: 3mm; padding-top: 0; border-top: 0; font-size: 10px; width: 62%;
   display: flex; flex-direction: column; gap: 3px;
 }
 .quote-client-obs .quote-client-lbl { display: block; }
 
-/* ===== Tabela de itens — grade fixa de 20 linhas ===== */
-.quote-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 5mm; }
+/* ===== Tabela de itens — grade dinâmica (mín. 18 linhas) ===== */
+.quote-table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-top: 3mm; }
 .quote-table thead th {
   background: var(--quote-secondary, #111111); color: #fff;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
-  padding: 2.4mm 2mm; text-align: center; border: 1px solid var(--quote-secondary, #111111);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px;
+  padding: 2mm 2mm; text-align: center; border: 1px solid var(--quote-secondary, #111111);
 }
 .quote-th-desc { text-align: left; padding-left: 10px; }
 .quote-table tbody td {
   border: 1px solid #ddd; padding: 0 6px; text-align: center;
-  height: 7.1mm;
+  height: 6.3mm;
   vertical-align: middle;
 }
 .quote-td-desc { text-align: left; padding-left: 10px; }
@@ -341,27 +343,27 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   }
 
 /* ===== Observações + Resumo financeiro ===== */
-.quote-bottom-grid { display: flex; gap: 5mm; margin-top: 4mm; align-items: flex-start; }
-.quote-obs-box { flex: 1.5; border: 1px solid #ddd; border-radius: 6px; padding: 4mm 5mm; min-height: 28mm; }
-.quote-obs-title { font-size: 11px; font-weight: 900; color: var(--quote-primary, #d71920); margin: 0 0 3mm 0; }
-.quote-obs-box ul { margin: 0; padding-left: 16px; font-size: 9.5px; line-height: 1.5; color: #333; }
+.quote-bottom-grid { display: flex; gap: 5mm; margin-top: 3mm; align-items: flex-start; }
+.quote-obs-box { flex: 1.5; border: 1px solid #ddd; border-radius: 6px; padding: 3mm 4mm; min-height: 22mm; }
+.quote-obs-title { font-size: 10.5px; font-weight: 900; color: var(--quote-primary, #d71920); margin: 0 0 2.5mm 0; }
+.quote-obs-box ul { margin: 0; padding-left: 16px; font-size: 9px; line-height: 1.45; color: #333; }
 
 .quote-fin-box { flex: 1; display: flex; flex-direction: column; }
 .quote-fin-row {
-  display: flex; justify-content: space-between; padding: 6px 14px;
-  font-size: 10.5px; font-weight: 700; border: 1px solid #ddd; border-bottom: none;
+  display: flex; justify-content: space-between; padding: 5px 14px;
+  font-size: 10px; font-weight: 700; border: 1px solid #ddd; border-bottom: none;
 }
 .quote-fin-row:first-child { border-radius: 6px 6px 0 0; }
 .quote-fin-total {
   display: flex; justify-content: space-between; align-items: center;
   background: var(--quote-primary, #d71920); color: #fff;
-  padding: 3mm 8mm; border-radius: 0 0 3px 3px; font-size: 15px; font-weight: 900;
+  padding: 2.5mm 8mm; border-radius: 0 0 3px 3px; font-size: 14px; font-weight: 900;
 }
 
 /* ===== Forma de pagamento (seleção rápida) ===== */
-.quote-footer-grid { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6mm; padding-top: 6mm; border-top: 1px solid #ddd; }
+.quote-footer-grid { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 4mm; padding-top: 4mm; border-top: 1px solid #ddd; }
 .quote-pay-block { flex: 1; }
-.quote-pay-title { font-size: 11px; font-weight: 800; color: var(--quote-primary, #d71920); margin: 0 0 8px 0; }
+.quote-pay-title { font-size: 10.5px; font-weight: 800; color: var(--quote-primary, #d71920); margin: 0 0 6px 0; }
 .quote-pay-icons { display: flex; gap: 18px; font-size: 10px; color: #333; }
 .quote-pay-item { display: inline-flex; align-items: center; font-weight: 600; cursor: pointer; margin-right: 18px; }
 .quote-pay-item input[type="checkbox"] { accent-color: var(--quote-primary, #d71920); margin-right: 6px; }
@@ -371,17 +373,10 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   .quote-pay-item input[type="checkbox"] { display: none; }
   .quote-seller-icon { display: none; }
   .quote-seller-button { pointer-events: none; }
-  .quote-sheet {
-    left: 0;
-    max-width: none !important;
-    overflow: visible !important;
-    padding: 10mm 12mm 8mm 12mm !important;
-    position: absolute !important;
-    top: 0;
-    width: 210mm !important;
-  }
+  /* A folha já tem width/height/padding fixados na regra @media print
+     de .quote-sheet declarada acima (8mm 6mm 6mm 6mm, 210mm x 297mm).
+     Aqui só tratamos quebras de página e ajustes específicos do print. */
   .quote-sheet tr, .quote-fin-row, .quote-footer-grid, .quote-sign-block { break-inside: avoid; page-break-inside: avoid; }
-  .quote-empty-row td { height: 17px !important; }
 }
 
 .quote-sign-block { flex: 1; text-align: center; font-size: 9.5px; color: #333; border-left: 1px solid #ddd; padding-left: 10mm; }
