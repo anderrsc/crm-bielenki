@@ -191,17 +191,17 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   overflow: visible;
 }
 
-/* Margens de impressão: a folha A4 real (210mm x 297mm) é fixada em altura
-   no @media print para impedir que o navegador some o conteúdo e quebre em
-   2 páginas. O padding interno abaixo já está calibrado para que o
-   conteúdo completo (cabeçalho + faixa + dados do cliente + tabela de
-   18 linhas + totais + rodapé) caiba dentro de 297mm com folga de
-   segurança. Em produção, a impressão deve usar window.print(). */
+/* Margens de impressão: a folha A4 é definida pelo @page (210mm x 297mm).
+   O .quote-sheet NÃO tem height fixo no print — isso é intencional: forçar
+   height:297mm faz o navegador empurrar qualquer pixel de overflow para uma
+   2ª página inteira. Em vez disso, o padding e as medidas internas abaixo
+   foram calibrados para que o conteúdo completo (cabeçalho + faixa + dados
+   do cliente + tabela de 16 linhas + totais + rodapé) some ~257mm de altura
+   real, deixando ~40mm de folga de segurança dentro dos 297mm da folha. */
 @media print {
   .quote-sheet {
     width: 210mm;
     max-width: 210mm;
-    height: 297mm;
     padding: 8mm 6mm 6mm 6mm;
     margin: 0;
   }
@@ -271,10 +271,11 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   background: transparent; color: #fff;
   display: flex; flex-direction: column; justify-content: center;
   align-items: center; text-align: center;
-  padding: 0 4mm; border-left: 1.5px solid rgba(255,255,255,.85);
+  padding: 0 3mm; border-left: 1.5px solid rgba(255,255,255,.85);
+  overflow: hidden;
 }
-.quote-bar-label { font-size: 8px; font-weight: 800; color: #fff; letter-spacing: 0.4px; }
-.quote-bar-value { font-size: 10px; font-weight: 900; color: #fff; margin-top: 1px; }
+.quote-bar-label { font-size: 7.5px; font-weight: 800; color: #fff; letter-spacing: 0.3px; }
+.quote-bar-value { font-size: 10px; font-weight: 900; color: #fff; margin-top: 1px; line-height: 1.2; max-height: 7.5mm; overflow: hidden; }
 
 /* Vendedor editável inline */
 .quote-seller-button {
@@ -309,17 +310,17 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 }
 .quote-client-obs .quote-client-lbl { display: block; }
 
-/* ===== Tabela de itens — grade dinâmica (mín. 18 linhas) ===== */
-.quote-table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-top: 3mm; }
+/* ===== Tabela de itens — grade dinâmica (mín. 16 linhas) ===== */
+.quote-table { width: 100%; border-collapse: collapse; font-size: 9px; margin-top: 3mm; }
 .quote-table thead th {
   background: var(--quote-secondary, #111111); color: #fff;
-  font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px;
-  padding: 2mm 2mm; text-align: center; border: 1px solid var(--quote-secondary, #111111);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
+  padding: 1.8mm 2mm; text-align: center; border: 1px solid var(--quote-secondary, #111111);
 }
 .quote-th-desc { text-align: left; padding-left: 10px; }
 .quote-table tbody td {
   border: 1px solid #ddd; padding: 0 6px; text-align: center;
-  height: 6.3mm;
+  height: 5.6mm;
   vertical-align: middle;
 }
 .quote-td-desc { text-align: left; padding-left: 10px; }
@@ -373,9 +374,10 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   .quote-pay-item input[type="checkbox"] { display: none; }
   .quote-seller-icon { display: none; }
   .quote-seller-button { pointer-events: none; }
-  /* A folha já tem width/height/padding fixados na regra @media print
-     de .quote-sheet declarada acima (8mm 6mm 6mm 6mm, 210mm x 297mm).
-     Aqui só tratamos quebras de página e ajustes específicos do print. */
+  /* A largura/padding da folha já são fixados na regra @media print
+     de .quote-sheet declarada acima (8mm 6mm 6mm 6mm, 210mm). A altura
+     NÃO é fixada de propósito — ver comentário acima. Aqui só tratamos
+     quebras de página e ajustes específicos do print. */
   .quote-sheet tr, .quote-fin-row, .quote-footer-grid, .quote-sign-block { break-inside: avoid; page-break-inside: avoid; }
 }
 
