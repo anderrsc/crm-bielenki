@@ -13,7 +13,7 @@ import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
 // este número para manter a estética da tabela. Quando há mais itens do
 // que isso, a tabela cresce com os itens reais (sem linhas vazias extras)
 // e o CSS de impressão permite quebra de página controlada nesse caso.
-const MIN_LINHAS_VISUAIS = 18;
+const MIN_LINHAS_VISUAIS = 16;
 
 type Row = Record<string, unknown>;
 
