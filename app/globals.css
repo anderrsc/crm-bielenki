@@ -27,9 +27,9 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   .print-sheet { box-shadow: none !important; border: 0 !important; margin: 0 !important; }
   .print-bg { background: white !important; padding: 0 !important; }
   /* Orçamento */
-  article { box-shadow: none !important; margin: 0 !important; border: 0 !important; }
-  /* Garantir que imagens apareçam na impressão */
-  img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Garantir que cores de fundo (faixa vermelha, cabecalho preto da tabela, total em destaque, linhas de secao, etc.) e imagens aparecam na impressao. Sem isto, o Chrome remove backgrounds ao imprimir/salvar em PDF (a menos que o usuario marque manualmente "Graficos de segundo plano"), deixando texto branco invisivel sobre fundo branco. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* Evitar quebras desnecessárias de página */
   .quote-header,
   .quote-bar,
@@ -323,7 +323,7 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 .quote-th-desc { text-align: left; padding-left: 10px; }
 .quote-table tbody td {
   border: 1px solid #ddd; padding: 0 6px; text-align: center;
-  height: 5.8mm;
+  height: 5.4mm;
   vertical-align: middle;
 }
 .quote-td-desc { text-align: left; padding-left: 10px; }
