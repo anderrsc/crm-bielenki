@@ -216,7 +216,7 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
               <ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton>
             </form>
           )}
-          <PrintButton />
+          <PrintButton /><a href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer" className="button-ghost">Baixar PDF</a>
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>
               <input type="hidden" name="quote_id" value={id} />
