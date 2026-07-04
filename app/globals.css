@@ -21,7 +21,7 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
   }
   body * { visibility: hidden; }
   .print-sheet, .print-sheet * { visibility: visible; }
-  .no-print { display: none !important; visibility: hidden !important; }
+  .no-print { display: none !important; visibility: hidden !important; } .app-sidebar, .app-topbar { display: none !important; } .app-shell-root { display: block !important; min-height: 0 !important; } .app-shell-root > .min-w-0 { width: 100% !important; margin: 0 !important; }
   main { padding: 0 !important; margin: 0 !important; }
   /* Ficha de visita */
   .print-sheet { box-shadow: none !important; border: 0 !important; margin: 0 !important; }
