@@ -122,10 +122,12 @@ export function GutterQuote({
   prices,
   clients,
   initial,
+  error,
 }: {
   prices: GutterPrice[];
   clients: QuoteClient[];
   initial?: GutterQuoteInitial;
+  error?: string;
 }) {
   const [items, setItems] = useState<GutterQuoteItem[]>(() =>
     initial?.items.length ? initial.items : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices)]
@@ -238,6 +240,8 @@ export function GutterQuote({
           <Database className="h-4 w-4" />{prices.length} preços cadastrados
         </span>
       </div>
+
+      {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <form action={initial ? updateGutterQuote : saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
         {initial && <input type="hidden" name="quote_id" value={initial.id} />}
