@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import puppeteer from "puppeteer-core";
 import { createClient } from "@/lib/supabase/server";
 
+
+const CHROMIUM_PACK_URL = "https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -42,8 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           browser = await puppeteer.launch({
                   args: chromium.args,
                   defaultViewport: { width: 1000, height: 1400 },
-                  executablePath: await chromium.executablePath(),
-                  headless: true,
+                        executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
+                  headless: true
           });
 
       const page = await browser.newPage();
