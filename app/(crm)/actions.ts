@@ -3,11 +3,40 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { encryptSecret } from "@/lib/encrypt";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
+import { generateQuotePdfBuffer } from "@/lib/generate-quote-pdf";
 
 const text = z.string().trim().min(1);
+
+// Pre-gera o PDF do orcamento em segundo plano assim que ele e salvo, para
+// que o download (rota /api/orcamentos/[id]/pdf) ja encontre o arquivo
+// pronto no storage em vez de precisar abrir o Chromium na hora. Roda via
+// after() para nao atrasar o redirect que o usuario ve apos salvar.
+async function schedulePdfPregeneration(db: Awaited<ReturnType<typeof createClient>>, quoteId: string) {
+  const hdrs = await headers();
+  const host = hdrs.get("host") || "";
+  const origin = `${hdrs.get("x-forwarded-proto") || "https"}://${host}`;
+  const cookieHeader = hdrs.get("cookie") || "";
+  after(async () => {
+    try {
+      const { data: q } = await db.from("quotes").select("company_id").eq("id", quoteId).single();
+      if (!q) return;
+      const pdfBuffer = await generateQuotePdfBuffer({ origin, quoteId, cookieHeader, host });
+      const { error: uploadError } = await db.storage
+        .from("quote-pdfs")
+        .upload(`${q.company_id}/${quoteId}.pdf`, pdfBuffer, { contentType: "application/pdf", upsert: true });
+      if (!uploadError) {
+        await db.from("quotes").update({ pdf_generated_at: new Date().toISOString() }).eq("id", quoteId);
+      }
+    } catch (e) {
+      console.error("Erro ao pre-gerar PDF do orcamento:", e);
+    }
+  });
+}
 
 export async function createClientRecord(formData: FormData) {
   const db = await createClient();
@@ -155,6 +184,7 @@ export async function saveGutterQuote(formData: FormData) {
       })));
     }
   }
+  if (data) await schedulePdfPregeneration(db, data);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
@@ -191,6 +221,7 @@ export async function updateGutterQuote(formData: FormData) {
       hide_unit_prices: parsed.data.hide_unit_prices,
     }).eq("id", quoteId);
   }
+  if (data) await schedulePdfPregeneration(db, String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
 
@@ -337,7 +368,9 @@ export async function createWindowQuote(formData:FormData){
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
   const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
-  const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
+  const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
+  if(data)await schedulePdfPregeneration(db,String(data));
+  revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
 
 export async function saveLeadSource(formData:FormData) {
