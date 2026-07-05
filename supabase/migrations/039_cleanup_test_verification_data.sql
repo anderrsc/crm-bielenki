@@ -27,14 +27,15 @@ begin
   delete from public.purchase_requests
   where order_id in (select id from public.orders where client_id = v_client);
 
+  -- precisa vir antes de orders/sales: quotes.sale_id referencia sales(id)
+  delete from public.quotes where client_id = v_client;
+
   delete from public.orders where client_id = v_client;
 
   delete from public.financial_entries
   where sale_id in (select id from public.sales where client_id = v_client);
 
   delete from public.sales where client_id = v_client;
-
-  delete from public.quotes where client_id = v_client;
 end $$;
 
 commit;
