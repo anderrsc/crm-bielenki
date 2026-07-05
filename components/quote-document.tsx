@@ -235,13 +235,12 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
         {proxyLogoUrl(company.logo_url) && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proxyLogoUrl(company.logo_url)!}
-            alt=""
-            aria-hidden
-            className="quote-watermark pointer-events-none absolute select-none"
-          />
+          <div className="quote-watermark-wrap" aria-hidden>
+            <div
+              className="quote-watermark-tile"
+              style={{ backgroundImage: `url(${proxyLogoUrl(company.logo_url)})` }}
+            />
+          </div>
         )}
 
         <div className="relative">
