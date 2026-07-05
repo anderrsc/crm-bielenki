@@ -43,7 +43,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     try {
           browser = await puppeteer.launch({
                   args: chromium.args,
-                  defaultViewport: { width: 1000, height: 1400 },
+                  // A4 (210mm x 297mm) a 96 CSS DPI = 794 x 1123 px. Um viewport
+                  // fora dessa proporcao faz o Chromium renderizar o conteudo em
+                  // outra escala antes de encaixar na folha A4 do PDF, distorcendo
+                  // qualquer medida em mm (ex.: o ladrilho da marca d'agua).
+                  defaultViewport: { width: 794, height: 1123 },
                         executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
                   headless: true
           });
