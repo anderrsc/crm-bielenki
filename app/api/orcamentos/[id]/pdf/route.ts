@@ -53,8 +53,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { error: uploadError } = await db.storage
       .from("quote-pdfs")
       .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
-    if (!uploadError) {
-      await db.from("quotes").update({ pdf_generated_at: new Date().toISOString() }).eq("id", id);
+    if (uploadError) {
+      console.error("Erro ao cachear PDF do orcamento no storage:", storagePath, uploadError);
+    } else {
+      const { error: updateError } = await db
+        .from("quotes")
+        .update({ pdf_generated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (updateError) console.error("Erro ao marcar pdf_generated_at:", updateError);
     }
 
     return new NextResponse(new Uint8Array(pdfBuffer), {

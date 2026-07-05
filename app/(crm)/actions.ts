@@ -23,14 +23,22 @@ async function schedulePdfPregeneration(db: Awaited<ReturnType<typeof createClie
   const cookieHeader = hdrs.get("cookie") || "";
   after(async () => {
     try {
-      const { data: q } = await db.from("quotes").select("company_id").eq("id", quoteId).single();
-      if (!q) return;
+      const { data: q, error: qError } = await db.from("quotes").select("company_id").eq("id", quoteId).single();
+      if (qError || !q) { console.error("Pre-geracao de PDF: orcamento nao encontrado", quoteId, qError); return; }
       const pdfBuffer = await generateQuotePdfBuffer({ origin, quoteId, cookieHeader, host });
+      const storagePath = `${q.company_id}/${quoteId}.pdf`;
       const { error: uploadError } = await db.storage
         .from("quote-pdfs")
-        .upload(`${q.company_id}/${quoteId}.pdf`, pdfBuffer, { contentType: "application/pdf", upsert: true });
-      if (!uploadError) {
-        await db.from("quotes").update({ pdf_generated_at: new Date().toISOString() }).eq("id", quoteId);
+        .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
+      if (uploadError) {
+        console.error("Erro ao cachear PDF do orcamento no storage:", storagePath, uploadError);
+      } else {
+        const { error: updateError } = await db
+          .from("quotes")
+          .update({ pdf_generated_at: new Date().toISOString() })
+          .eq("id", quoteId);
+        if (updateError) console.error("Erro ao marcar pdf_generated_at:", updateError);
+        else console.log("PDF pre-gerado com sucesso:", storagePath);
       }
     } catch (e) {
       console.error("Erro ao pre-gerar PDF do orcamento:", e);
