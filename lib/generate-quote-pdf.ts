@@ -53,34 +53,27 @@ export async function generateQuotePdfBuffer(params: {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    // A folha e 100% renderizada no servidor; sem JS o Chromium nao precisa
+    // baixar/executar os bundles do Next nem hidratar a pagina.
+    await page.setJavaScriptEnabled(false);
     const cookies = parseCookieHeader(params.cookieHeader, params.host);
     if (cookies.length > 0) await page.setCookie(...cookies);
 
-    // "load" + a espera explicita pelas imagens abaixo e suficiente: os
-    // dados do orcamento ja vem prontos no HTML (server component), entao
-    // nao ha necessidade de esperar a rede ficar completamente ociosa.
-    await page.goto(`${params.origin}/orcamentos/${params.quoteId}`, { waitUntil: "load", timeout: 45000 });
-
-    await page.evaluate(() =>
-      Promise.all(
-        Array.from(document.images)
-          .filter((img) => !img.complete)
-          .map(
-            (img) =>
-              new Promise<void>((resolve) => {
-                img.onload = () => resolve();
-                img.onerror = () => resolve();
-              })
-          )
-      )
-    );
+    // Rota de impressao dedicada (app/(print)/orcamentos/[id]/impressao):
+    // so a folha do orcamento, sem o layout do CRM. Renderizar a pagina
+    // normal trazia menu/cabecalho escondidos por visibility:hidden, que
+    // continuavam ocupando espaco e tiravam a folha do tamanho A4.
+    // O evento "load" so dispara depois que todas as <img> (logo, QR) terminaram
+    // de carregar, e os dados ja vem prontos no HTML (server component).
+    await page.goto(`${params.origin}/orcamentos/${params.quoteId}/impressao`, { waitUntil: "load", timeout: 45000 });
 
     await page.emulateMediaType("print");
 
     const pdfBuffer = await page.pdf({
-      format: "A4",
+      width: "210mm",
+      height: "297mm",
       printBackground: true,
-      preferCSSPageSize: true,
+      preferCSSPageSize: false,
       margin: { top: "0mm", bottom: "0mm", left: "0mm", right: "0mm" },
     });
 

@@ -136,7 +136,9 @@ function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string
   return { tipo: "METRO", quantidade: Number(item.meters ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
 }
 
-export async function QuoteDocument({ id, error }: { id: string; error?: string }) {
+// printOnly: renderiza so a folha do orcamento (sem botoes), usada pela rota
+// /orcamentos/[id]/impressao que o Chromium headless transforma em PDF.
+export async function QuoteDocument({ id, error, printOnly = false }: { id: string; error?: string; printOnly?: boolean }) {
   const db = await createClient();
 
   const quoteResult = await db
@@ -197,8 +199,8 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
   const totalLinhas = Math.max(MIN_LINHAS_VISUAIS, items.length);
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="no-print mb-5 flex items-center justify-between">
+    <div className={printOnly ? undefined : "mx-auto max-w-5xl"}>
+      {!printOnly && <div className="no-print mb-5 flex items-center justify-between">
         <Link href="/orcamentos" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55">
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
@@ -226,9 +228,9 @@ export async function QuoteDocument({ id, error }: { id: string; error?: string 
             </form>
           )}
         </div>
-      </div>
+      </div>}
 
-      {error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <article
         className="quote-sheet print-sheet relative bg-white"
