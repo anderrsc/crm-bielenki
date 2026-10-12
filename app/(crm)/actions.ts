@@ -131,7 +131,8 @@ function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) 
 
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
-  const payload = JSON.parse(String(formData.get("payload")));
+  let payload: unknown;
+  try { payload = JSON.parse(String(formData.get("payload"))); } catch { redirect("/orcamentos/calhas?erro=Dados inválidos"); }
   const validUntil = String(formData.get("valid_until") || "").trim() || null;
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
   const parsed = gutterQuotePayloadSchema.safeParse(payload);

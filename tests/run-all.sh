@@ -55,6 +55,7 @@ export SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 export NEXT_PUBLIC_SITE_URL=$E2E_BASE_URL
 export ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
 export EVOLUTION_WEBHOOK_SECRET=segredo-de-teste
+export WHATSAPP_WEBHOOK_VERIFY_TOKEN=token-verificacao-teste
 psql "$DATABASE_URL" -q -v ON_ERROR_STOP=1 -f tests/db/seed-sample.sql
 
 echo "==> verificando consultas do codigo contra o banco"
@@ -70,6 +71,6 @@ for i in $(seq 1 60); do curl -s -o /dev/null "$E2E_BASE_URL/login" && break; sl
 
 echo "==> testes de ponta a ponta"
 node --test --test-concurrency=1 --test-reporter=spec \
-  tests/e2e/quote-flow.test.mjs tests/e2e/business.test.mjs tests/e2e/ui-actions.test.mjs \
+  tests/e2e/api.test.mjs tests/e2e/quote-flow.test.mjs tests/e2e/business.test.mjs tests/e2e/ui-actions.test.mjs \
   tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs
 echo "==> tudo verde"

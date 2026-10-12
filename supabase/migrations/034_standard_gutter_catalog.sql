@@ -31,6 +31,9 @@ alter table public.gutter_prices
   add column if not exists length text,
   add column if not exists sort_order integer not null default 0;
 
+alter table public.gutter_prices drop constraint if exists gutter_prices_company_id_product_thickness_cut_mm_key;
+create unique index if not exists gutter_prices_variant_unique on public.gutter_prices(company_id,product,thickness,cut_mm,color);
+
 alter table public.gutter_prices alter column category set default 'Calhas';
 alter table public.gutter_prices alter column unit set default 'Metro Linear (m)';
 alter table public.gutter_prices alter column thickness drop not null;

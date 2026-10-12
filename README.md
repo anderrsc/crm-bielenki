@@ -69,7 +69,8 @@ Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions`
 ```bash
 npm run typecheck
 npm run build
-PG_ADMIN_URL=postgres://postgres:postgres@localhost:5432/postgres npm test
+npm run test:unit   # vitest + PGlite, sem servicos externos
+PG_ADMIN_URL=postgres://postgres:postgres@localhost:5432/postgres npm run test:full
 ```
 
 `npm test` (`tests/run-all.sh`, também roda no CI) monta um banco vazio com todas as migrations, sobe PostgREST e um Supabase simulado (`tests/e2e/fake-supabase.mjs`), faz o build do app e roda:
@@ -118,3 +119,20 @@ As regras e os textos podem ser alterados na página **Automações**. O sistema
 - O workflow **Validar CRM Bielenki** executa TypeScript, auditoria de segurança e build em todo push ou pull request para `main`.
 - O Dependabot verifica semanalmente as dependências npm e mensalmente as GitHub Actions.
 - O workflow também pode ser iniciado manualmente pela aba **Actions** do repositório.
+
+
+## Testes operacionais
+
+Execute `npm run test:unit` para testar telas, validações, APIs e fluxos
+transacionais em PostgreSQL isolado (PGlite), sem credenciais e sem tocar em dados
+reais. `npm test` roda essa suíte e depois a bateria completa (`test:full`). O CI
+executa as duas em todo PR.
+
+A suíte Playwright em `tests/e2e/*.spec.ts` cobre desktop e celular. Configure `E2E_BASE_URL`,
+`E2E_EMAIL` e `E2E_PASSWORD` em variáveis de ambiente/Secrets, instale Chromium com
+`npx playwright install chromium` e execute `npm run test:e2e`. Use uma conta de
+teste autorizada. A suíte não salva registros nem envia mensagens.
+
+O relatório com correções, limites e ordem de aplicação está em [tests/AUDIT.md](tests/AUDIT.md).
+No banco existente, aplique as migrações **040 a 046** (ou `scripts/aplicar-no-supabase.sql`)
+antes do deploy desta versão; depois rode `scripts/verificar-banco-producao.sql`.

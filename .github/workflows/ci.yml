@@ -35,6 +35,9 @@ jobs:
       - name: Validar TypeScript
         run: npm run typecheck
 
+      - name: Testar lógica, telas e transações PostgreSQL (PGlite)
+        run: npm run test:unit
+
       - name: Auditar dependências
         run: npm audit --omit=dev --audit-level=high
 
@@ -77,7 +80,7 @@ jobs:
       - name: Rodar todos os testes
         env:
           PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
-        run: npm test
+        run: npm run test:full
 
       - name: Logs em caso de falha
         if: failure()
