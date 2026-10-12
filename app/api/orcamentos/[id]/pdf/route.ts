@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateQuotePdfBuffer } from "@/lib/generate-quote-pdf";
+import { generateAndCacheQuotePdf, isQuotePdfFresh, quotePdfPath } from "@/lib/quote-pdf-cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Gera o PDF do orcamento. Se ja existe um PDF em cache no storage e ele
-// nao ficou desatualizado (o orcamento nao foi editado depois de gerado),
-// serve o arquivo pronto direto do storage — sem abrir Chromium. Isso e o
-// caminho comum, ja que o PDF e pre-gerado em segundo plano assim que o
-// orcamento e salvo (ver schedulePdfPregeneration em actions.ts). So cai
-// para a geracao na hora se o cache nao existir ou estiver desatualizado.
+function pdfResponse(body: Uint8Array, quoteNumber: string) {
+  return new NextResponse(body as BodyInit, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="orcamento-${quoteNumber}.pdf"`,
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+// Serve o PDF do orcamento. Caminho comum: o PDF ja foi pre-gerado em
+// segundo plano (ao salvar ou ao abrir o orcamento) e vem pronto do storage,
+// sem abrir Chromium. So gera na hora se o cache nao existir ou estiver
+// desatualizado (orcamento editado depois da ultima geracao).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -25,51 +33,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Orcamento nao encontrado" }, { status: 404 });
   }
 
-  const storagePath = `${quote.company_id}/${id}.pdf`;
-  const cacheFresh =
-    quote.pdf_generated_at && new Date(quote.pdf_generated_at) >= new Date(quote.updated_at);
-
-  if (cacheFresh) {
-    const { data: file } = await db.storage.from("quote-pdfs").download(storagePath);
-    if (file) {
-      const buf = new Uint8Array(await file.arrayBuffer());
-      return new NextResponse(buf, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="orcamento-${quote.quote_number}.pdf"`,
-          "Cache-Control": "no-store",
-        },
-      });
-    }
+  if (isQuotePdfFresh(quote)) {
+    const { data: file } = await db.storage.from("quote-pdfs").download(quotePdfPath(quote.company_id, id));
+    if (file) return pdfResponse(new Uint8Array(await file.arrayBuffer()), quote.quote_number);
   }
 
-  const origin = request.nextUrl.origin;
-  const host = request.nextUrl.hostname;
-  const cookieHeader = request.headers.get("cookie") ?? "";
-
   try {
-    const pdfBuffer = await generateQuotePdfBuffer({ origin, quoteId: id, cookieHeader, host });
-
-    const { error: uploadError } = await db.storage
-      .from("quote-pdfs")
-      .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
-    if (uploadError) {
-      console.error("Erro ao cachear PDF do orcamento no storage:", storagePath, uploadError);
-    } else {
-      const { error: updateError } = await db
-        .from("quotes")
-        .update({ pdf_generated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (updateError) console.error("Erro ao marcar pdf_generated_at:", updateError);
-    }
-
-    return new NextResponse(new Uint8Array(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="orcamento-${quote.quote_number}.pdf"`,
-        "Cache-Control": "no-store",
-      },
+    const pdf = await generateAndCacheQuotePdf(db, id, quote.company_id, {
+      origin: request.nextUrl.origin,
+      host: request.nextUrl.hostname,
+      cookieHeader: request.headers.get("cookie") ?? "",
     });
+    return pdfResponse(new Uint8Array(pdf), quote.quote_number);
   } catch (err) {
     console.error("Erro ao gerar PDF do orcamento:", err);
     return NextResponse.json({ error: "Erro ao gerar PDF" }, { status: 500 });

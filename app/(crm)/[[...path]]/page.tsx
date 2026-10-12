@@ -1,3 +1,4 @@
+import { selectOwnProfile } from "@/lib/own-profile";
 import { ModuleTable } from "@/components/module-table";
 import { modules } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,7 @@ import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote"
 import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
+import { scheduleQuotePdfPrewarm } from "@/lib/quote-pdf-cache";
 import { VisitSheet, type VisitSheetData } from "@/components/visit-sheet";
 import { AutomationSettings } from "@/components/automation-settings";
 import { AutomationsHub } from "@/components/automations-hub";
@@ -52,7 +54,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let company: LogoConfig = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const { data: p } = await db.from("profiles").select("company_id").single();
+      const { data: p } = await selectOwnProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("companies").select("trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color,logo_width,logo_max_height,logo_align,logo_margin_top,logo_margin_bottom,quote_footer").eq("id", p.company_id).single();
         company = (data as LogoConfig) ?? {};
@@ -64,7 +66,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let templates: DocumentTemplate[] = [];
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const { data: p } = await db.from("profiles").select("company_id").single();
+      const { data: p } = await selectOwnProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("document_templates").select("id,name,type,status,is_default,config,updated_at").eq("company_id", p.company_id).order("type").order("updated_at", { ascending: false });
         templates = (data as DocumentTemplate[]) ?? [];
@@ -163,7 +165,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const db = await createClient();
     const [clientRes, companyRes] = await Promise.all([
       db.from("clients").select("name,phone,whatsapp,neighborhood,city,state,address").eq("id", path[1]).single(),
-      db.from("profiles").select("company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single(),
+      selectOwnProfile(db, "company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)"),
     ]);
     if (!clientRes.data) return notFound();
     const company = (companyRes.data?.company ?? {}) as VisitSheetData["company"];
@@ -173,7 +175,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let company: VisitSheetData["company"] = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const res = await db.from("profiles").select("company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single();
+      const res = await selectOwnProfile(db, "company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)");
       company = (res.data?.company ?? {}) as VisitSheetData["company"];
     }
     return <VisitSheet company={company} backHref="/medicoes" />;
@@ -190,7 +192,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const initial={...quoteResult.data,notes:quoteResult.data.notes??"",valid_until:quoteResult.data.valid_until??"",installation_deadline:quoteResult.data.installation_deadline??"",hide_unit_prices:quoteResult.data.hide_unit_prices??false,items:(gutterResult.data as unknown as {items:GutterQuoteInitial["items"]}).items,special_items:(specialResult.data??[]) as GutterQuoteInitial["special_items"]} as GutterQuoteInitial;
     return <GutterQuote prices={(priceResult.data as GutterPrice[])??[]} clients={(clientResult.data as QuoteClient[])??[]} initial={initial} error={search.erro}/>;
   }
-  if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
+  if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") {
+    await scheduleQuotePdfPrewarm(path[1]);
+    return <QuoteDocument id={path[1]} error={search.erro} />;
+  }
   if (path[0] === "financeiro") {
     const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
     const financialPage=Math.max(1,Number((search as {pagina?:string}).pagina??1)||1);

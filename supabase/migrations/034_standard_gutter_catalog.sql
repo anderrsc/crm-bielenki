@@ -24,6 +24,7 @@ returns text language sql immutable as $$
 $$;
 
 alter table public.gutter_prices
+  add column if not exists color text,
   add column if not exists item_type text not null default 'fabricacao',
   add column if not exists diameter text,
   add column if not exists height text,

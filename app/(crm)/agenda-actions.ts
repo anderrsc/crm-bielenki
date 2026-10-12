@@ -1,5 +1,6 @@
 "use server";
 
+import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import type { AgendaEvent } from "@/components/agenda-page";
 
@@ -48,7 +49,7 @@ export async function createAgendaEvent(
 
   if (!title || !date) return { error: "Título e data são obrigatórios" };
 
-  const { data: profile } = await db.from("profiles").select("company_id,id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id,id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   // Mapeia tipos não suportados pelo check constraint original para "outro"

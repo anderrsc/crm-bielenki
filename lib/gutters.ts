@@ -210,3 +210,14 @@ export function normalizeGutterColor(value?: string | null): string {
   if (raw.includes("personaliz")) return "Pintura Personalizado";
   return value ?? "";
 }
+
+// A tabela de precos tem espessuras gravadas em formatos diferentes
+// ("0.5mm" pela tela, "0.50 mm" pelas migrations 023/034). Compara pelo valor.
+export function thicknessValue(value: string | null | undefined) {
+  const n = Number.parseFloat(String(value ?? "").replace(",", "."));
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+export function sameThickness(a: string | null | undefined, b: string | null | undefined) {
+  const x = thicknessValue(a);
+  return x !== null && x === thicknessValue(b);
+}

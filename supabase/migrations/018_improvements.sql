@@ -45,7 +45,8 @@ create index if not exists idx_financial_entries_due_date
   where status not in ('pago', 'cancelado');
 
 -- View melhorada de entradas financeiras com alerta de vencimento
-create or replace view public.v_financial_entries as
+drop view if exists public.v_financial_entries;
+create view public.v_financial_entries with (security_invoker=true) as
 select
   fe.id,
   fe.description,

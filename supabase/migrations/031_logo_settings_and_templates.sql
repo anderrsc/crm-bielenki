@@ -47,7 +47,7 @@ GRANT ALL ON public.document_templates TO authenticated;
 CREATE OR REPLACE FUNCTION public.seed_default_templates(p_company_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  tmpl RECORD;
+  tmpl TEXT[];
   defaults TEXT[][] := ARRAY[
     ARRAY['Orçamento de Calhas — Padrão',    'orcamento_calhas'],
     ARRAY['Orçamento de Esquadrias — Padrão','orcamento_esquadrias'],
@@ -59,7 +59,7 @@ DECLARE
     ARRAY['Contrato — Padrão',                'contrato']
   ];
 BEGIN
-  FOREACH tmpl IN ARRAY defaults LOOP
+  FOREACH tmpl SLICE 1 IN ARRAY defaults LOOP
     INSERT INTO public.document_templates(company_id, name, type, status, is_default, config)
     VALUES (
       p_company_id,

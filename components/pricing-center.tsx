@@ -557,7 +557,7 @@ function RowActions({ deleteAction }: { deleteAction: (fd: FormData) => Promise<
   return (
     <div className="flex gap-1">
       <button title="Salvar" className="button-ghost p-1.5"><Save className="h-3.5 w-3.5" /></button>
-      <ConfirmButton formAction={deleteAction} className="button-ghost p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></ConfirmButton>
+      <ConfirmButton formAction={deleteAction} title="Excluir" className="button-ghost p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></ConfirmButton>
     </div>
   );
 }

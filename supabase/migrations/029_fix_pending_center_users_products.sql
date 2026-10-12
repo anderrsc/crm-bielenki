@@ -1,6 +1,7 @@
 -- Migration 029 — Fix pending_center (id ambíguo) + createUser admin + produtos padrão
 
 -- ─── 1. pending_center corrigido (record_id evita ambiguidade) ───────────────
+DROP FUNCTION IF EXISTS public.pending_center();
 CREATE OR REPLACE FUNCTION public.pending_center()
 RETURNS TABLE (
   record_id   UUID,

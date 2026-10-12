@@ -3,10 +3,12 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { approveQuote, deleteQuote, duplicateQuote } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PrintButton } from "@/components/print-button";
+import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
+import { imageDataUri } from "@/lib/image-data-uri";
 
 // Quantidade-base de linhas (preenchidas + vazias) que cabem com folga em
 // uma folha A4 com o layout atual. Quando há poucos itens, completa até
@@ -141,16 +143,29 @@ function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string
 export async function QuoteDocument({ id, error, printOnly = false }: { id: string; error?: string; printOnly?: boolean }) {
   const db = await createClient();
 
-  const quoteResult = await db
-    .from("quotes")
-    .select(
-      "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,hide_unit_prices,created_at," +
-        "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
-        "sale_type:sale_types(name)," +
-        "company:companies(*)"
-    )
-    .eq("id", id)
-    .single();
+  // As tres consultas sao independentes: rodam em paralelo.
+  const [quoteResult, gutter, { data: quoteItemsRaw }] = await Promise.all([
+    db
+      .from("quotes")
+      .select(
+        "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,hide_unit_prices,created_at," +
+          "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
+          "sale_type:sale_types(name)," +
+          "company:companies(*)"
+      )
+      .eq("id", id)
+      .single(),
+    db
+      .from("gutter_quotes")
+      .select("id,items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price,total)")
+      .eq("quote_id", id)
+      .maybeSingle(),
+    // quote_items: itens que nao sao de fabricacao (condutores, acessorios, servicos, itens especiais)
+    db
+      .from("quote_items")
+      .select("product,description,unit,quantity,unit_price,total,item_type")
+      .eq("quote_id", id),
+  ]);
 
   if (quoteResult.error || !quoteResult.data) {
     return <p className="card p-8">Orçamento não encontrado: {quoteResult.error?.message}</p>;
@@ -158,20 +173,9 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
   const quote = quoteResult.data as unknown as QuoteData;
 
-  const gutter = await db
-    .from("gutter_quotes")
-    .select("id,items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price,total)")
-    .eq("quote_id", id)
-    .maybeSingle();
-
   const gutterItems = (gutter.data as unknown as { items?: QuoteItem[] } | null)?.items ?? [];
   const isGutter = Boolean(gutter.data);
 
-  // quote_items: all non-fabrication items (especial = condutores, acessórios, serviços, itens especiais)
-  const { data: quoteItemsRaw } = await db
-    .from("quote_items")
-    .select("product,description,unit,quantity,unit_price,total,item_type")
-    .eq("quote_id", id);
   const quoteItems = (quoteItemsRaw as unknown as QuoteItem[]) ?? [];
 
   // For gutter quotes: fabrication items come from gutter_quote_items (with full detail);
@@ -182,6 +186,13 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     : quoteItems;
 
   const company = quote.company;
+  const qrSrc = company.qr_code_url
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(company.qr_code_url)}`
+    : null;
+  // Na folha de impressao (PDF) as imagens vao embutidas no HTML.
+  const [logoSrc, qrImgSrc] = printOnly
+    ? await Promise.all([imageDataUri(company.logo_url), imageDataUri(qrSrc)])
+    : [proxyLogoUrl(company.logo_url), qrSrc];
   const client = quote.client;
   const primary = company.primary_color || "#D71920";
   const secondary = company.secondary_color || "#111111";
@@ -205,7 +216,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
         <div className="flex gap-3">
-          {quote.status !== "aprovado" && (
+          {/* A tela de edicao so existe para orcamentos de calhas. */}
+          {isGutter && quote.status !== "aprovado" && (
             <Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>
           )}
           <form>
@@ -218,7 +230,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               <ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton>
             </form>
           )}
-          <PrintButton /><a href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer" className="button-ghost">Baixar PDF</a>
+          <PrintButton /><QuotePdfButton quoteId={id} fileName={`orcamento-${quote.quote_number}.pdf`} />
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>
               <input type="hidden" name="quote_id" value={id} />
@@ -236,11 +248,11 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
         className="quote-sheet print-sheet relative bg-white"
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
-        {proxyLogoUrl(company.logo_url) && (
+        {logoSrc && (
           <div className="quote-watermark-wrap" aria-hidden>
             <div
               className="quote-watermark-tile"
-              style={{ backgroundImage: `url(${proxyLogoUrl(company.logo_url)})` }}
+              style={{ backgroundImage: `url(${logoSrc})` }}
             />
           </div>
         )}
@@ -249,11 +261,11 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           {/* ── Cabeçalho 3 colunas ── */}
           <header className="quote-header">
             <div className="quote-logo-col">
-              {company.logo_url ? (
+              {logoSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   alt={company.trade_name || company.name || "Logo"}
-                  src={proxyLogoUrl(company.logo_url)!}
+                  src={logoSrc}
                   className="quote-logo-img"
                   crossOrigin="anonymous"
                 />
@@ -282,13 +294,13 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </div>
 
             <div className="quote-qr-col">
-              {company.qr_code_url ? (
+              {qrImgSrc ? (
                 <>
                   <div className="quote-qr-box">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt="QR Code"
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(company.qr_code_url)}`}
+                      src={qrImgSrc}
                       className="h-full w-full object-contain"
                     />
                   </div>

@@ -17,7 +17,7 @@ export function QuoteSellerField({ quoteId, sellerName }: { quoteId: string; sel
         className="quote-bar-value quote-seller-button"
         title="Editar vendedor"
       >
-        {value || "Definir vendedor"}
+        {value || <><span className="print:hidden">Definir vendedor</span><span className="hidden print:inline">—</span></>}
         <Pencil className="quote-seller-icon" />
       </button>
     );

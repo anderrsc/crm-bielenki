@@ -45,12 +45,12 @@ export async function PendingCenter({ category }: { category?: string }) {
   }
 
   const filtered = category
-    ? items.filter(i => i.category === category || i.category.startsWith(category))
+    ? items.filter(i => i.category === category || i.category.startsWith(`${category}_`))
     : items;
 
   const counts: Record<string, number> = {};
   for (const i of items) {
-    const key = i.category.replace("financeiro_", "financeiro");
+    const key = i.category.startsWith("financeiro") ? "financeiro" : i.category;
     counts[key] = (counts[key] ?? 0) + 1;
   }
   const totalHigh = items.filter(i => i.priority === "high").length;
@@ -58,7 +58,7 @@ export async function PendingCenter({ category }: { category?: string }) {
   const TABS = [
     { key: "",           label: "Todos",       count: items.length },
     { key: "orcamento",  label: "Orçamentos",  count: counts.orcamento ?? 0 },
-    { key: "financeiro", label: "Financeiro",  count: (counts["financeiro_receber"] ?? 0) + (counts["financeiro_pagar"] ?? 0) },
+    { key: "financeiro", label: "Financeiro",  count: counts.financeiro ?? 0 },
     { key: "producao",   label: "Produção",    count: counts.producao ?? 0 },
     { key: "compra",     label: "Compras",     count: counts.compra ?? 0 },
     { key: "instalacao", label: "Instalações", count: counts.instalacao ?? 0 },
@@ -125,7 +125,7 @@ export async function PendingCenter({ category }: { category?: string }) {
           return (
             <Link
               href={item.link}
-              key={item.record_id}
+              key={`${item.category}-${item.record_id}`}
               className="card flex items-center gap-4 p-4 transition hover:-translate-y-px hover:shadow-md"
             >
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${cfg.color}`}>

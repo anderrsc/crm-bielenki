@@ -1,5 +1,6 @@
 "use server";
 
+import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -10,7 +11,7 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
   if (!file || file.size === 0) return { error: "Nenhum arquivo enviado" };
   if (file.size > 3 * 1024 * 1024) return { error: "Arquivo muito grande. Máx. 3 MB." };
 
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
@@ -30,7 +31,8 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
   const { data: urlData } = db.storage.from("company-assets").getPublicUrl(path);
   const publicUrl = urlData.publicUrl + `?t=${Date.now()}`;
 
-  await db.from("companies").update({ logo_url: publicUrl }).eq("id", profile.company_id);
+  const { error: updateError } = await db.from("companies").update({ logo_url: publicUrl }).eq("id", profile.company_id);
+  if (updateError) return { error: updateError.message };
 
   revalidatePath("/configuracoes");
   return { url: publicUrl };
@@ -39,10 +41,11 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
 export async function removeLogo(): Promise<{ error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
-  await db.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
+  const { error } = await db.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
+  if (error) return { error: error.message };
   revalidatePath("/configuracoes");
   return {};
 }
@@ -56,7 +59,7 @@ export async function saveLogoSettings(settings: {
 }): Promise<{ error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   const { error } = await db.from("companies").update({
@@ -87,7 +90,7 @@ export async function saveTemplateConfig(
 export async function setTemplateDefault(templateId: string, type: string): Promise<{ error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   // Remove is_default de outros do mesmo tipo
