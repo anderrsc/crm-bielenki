@@ -17,13 +17,17 @@ const trg = (await db.query(`select c.relname tbl, t.tgname from pg_trigger t jo
 await db.end();
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
+const byTable = new Map();
+for (const c of cols) byTable.set(c.table_name, [...(byTable.get(c.table_name) ?? []), c.column_name]);
 const sql = `-- Diagnostico do banco de producao do CRM Bielenki.
 -- Rode no SQL Editor do Supabase. Cada linha do resultado e algo que o
 -- sistema espera e NAO existe no banco. Resultado vazio = banco em dia.
 -- Gerado por tests/db/generate-prod-check.mjs a partir das migrations.
 
-with expected_columns(table_name, column_name) as (values
-${cols.map((c) => `  (${q(c.table_name)}, ${q(c.column_name)})`).join(",\n")}
+with expected_columns(table_name, column_name) as (
+  select t, unnest(string_to_array(c, ',')) from (values
+${[...byTable].map(([t, cs]) => `    (${q(t)}, ${q(cs.join(","))})`).join(",\n")}
+  ) v(t, c)
 ), expected_functions(name, args) as (values
 ${fns.map((f) => `  (${q(f.proname)}, ${q(f.args)})`).join(",\n")}
 ), expected_triggers(table_name, trigger_name) as (values

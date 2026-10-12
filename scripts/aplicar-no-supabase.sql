@@ -1,5 +1,5 @@
 -- CRM Bielenki: migrations 040 a 047 (cole tudo no SQL Editor do Supabase e clique Run).
--- Pode ser rodado mais de uma vez.
+-- Se o editor cortar o texto, use os arquivos separados em scripts/supabase/.
 
 -- ===== supabase/migrations/040_quote_pdf_cache.sql =====
 -- Migration 040 - Cache do PDF do orcamento
@@ -492,7 +492,7 @@ CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $fn$
+AS $$
 DECLARE
   c UUID;
   v_checklist UUID;
@@ -574,7 +574,7 @@ BEGIN
     ON CONFLICT DO NOTHING;
     i := i + 1;
   END LOOP;
-END $fn$;
+END $$;
 
 commit;
 
@@ -951,7 +951,7 @@ CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $fn$
+AS $$
 DECLARE
   c UUID;
   v_checklist UUID;
@@ -1034,7 +1034,7 @@ BEGIN
     ON CONFLICT DO NOTHING;
     i := i + 1;
   END LOOP;
-END $fn$;
+END $$;
 REVOKE ALL ON FUNCTION public.create_order_checklist(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 
 
@@ -1146,7 +1146,7 @@ CREATE OR REPLACE FUNCTION public.advance_production_step(p_production_order_id 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $fn$
+AS $$
 declare po public.production_orders; total_steps integer; step_name text; next_step integer;
 begin
   perform public.require_table_access('production_orders','update');
@@ -1181,7 +1181,7 @@ begin
     status=case when next_step>total_steps then 'finalizado' else 'em_producao' end
   where id=po.id;
   return next_step;
-end $fn$;
+end $$;
 
 revoke all on function public.advance_production_step(uuid,uuid,text) from public;
 grant execute on function public.advance_production_step(uuid,uuid,text) to authenticated;

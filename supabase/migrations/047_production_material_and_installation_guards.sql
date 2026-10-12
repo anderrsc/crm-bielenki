@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION public.advance_production_step(p_production_order_id 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $fn$
+AS $$
 declare po public.production_orders; total_steps integer; step_name text; next_step integer;
 begin
   perform public.require_table_access('production_orders','update');
@@ -50,7 +50,7 @@ begin
     status=case when next_step>total_steps then 'finalizado' else 'em_producao' end
   where id=po.id;
   return next_step;
-end $fn$;
+end $$;
 
 revoke all on function public.advance_production_step(uuid,uuid,text) from public;
 grant execute on function public.advance_production_step(uuid,uuid,text) to authenticated;
