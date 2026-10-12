@@ -29,7 +29,9 @@ export async function login(env = process.env) {
       setAll: values => values.forEach(({ name, value }) => jar.set(name, value)),
     },
   });
-  const { error } = await db.auth.signInWithPassword({ email: env.SMOKE_TEST_EMAIL, password: env.SMOKE_TEST_PASSWORD });
+  // Secrets pasted into GitHub often carry a trailing space or newline, which
+  // Supabase rejects as invalid_credentials.
+  const { error } = await db.auth.signInWithPassword({ email: env.SMOKE_TEST_EMAIL.trim(), password: env.SMOKE_TEST_PASSWORD });
   if (error) throw new Error(`Falha ao autenticar no Supabase: ${error.message}`);
   return [...jar].map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join("; ");
 }
