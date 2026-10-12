@@ -1,3 +1,6 @@
+
+import { currentProfile } from "@/lib/supabase/profile";
+import { pageNumber, searchFilter } from "@/lib/query";
 import { ModuleTable } from "@/components/module-table";
 import { modules } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
@@ -52,7 +55,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let company: LogoConfig = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const { data: p } = await db.from("profiles").select("company_id").single();
+      const { data: p } = await currentProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("companies").select("trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color,logo_width,logo_max_height,logo_align,logo_margin_top,logo_margin_bottom,quote_footer").eq("id", p.company_id).single();
         company = (data as LogoConfig) ?? {};
@@ -64,7 +67,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let templates: DocumentTemplate[] = [];
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const { data: p } = await db.from("profiles").select("company_id").single();
+      const { data: p } = await currentProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("document_templates").select("id,name,type,status,is_default,config,updated_at").eq("company_id", p.company_id).order("type").order("updated_at", { ascending: false });
         templates = (data as DocumentTemplate[]) ?? [];
@@ -136,8 +139,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
-    const events = await getAgendaEvents();
-    return <AgendaPage initialEvents={events} />;
+    try { return <AgendaPage initialEvents={await getAgendaEvents()} />; }
+    catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
   if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
@@ -163,7 +166,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const db = await createClient();
     const [clientRes, companyRes] = await Promise.all([
       db.from("clients").select("name,phone,whatsapp,neighborhood,city,state,address").eq("id", path[1]).single(),
-      db.from("profiles").select("company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single(),
+      currentProfile(db, "company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)"),
     ]);
     if (!clientRes.data) return notFound();
     const company = (companyRes.data?.company ?? {}) as VisitSheetData["company"];
@@ -173,7 +176,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     let company: VisitSheetData["company"] = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const db = await createClient();
-      const res = await db.from("profiles").select("company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)").single();
+      const res = await currentProfile(db, "company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)");
       company = (res.data?.company ?? {}) as VisitSheetData["company"];
     }
     return <VisitSheet company={company} backHref="/medicoes" />;
@@ -193,7 +196,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
   if (path[0] === "financeiro") {
     const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
-    const financialPage=Math.max(1,Number((search as {pagina?:string}).pagina??1)||1);
+    const financialPage=pageNumber((search as {pagina?:string}).pagina);
     return <FinancialPage filter={filter} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} page={financialPage}/>;
   }
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
@@ -202,14 +205,14 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
     if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
   const PAGE_SIZE = 50;
-  const page = Math.max(1, Number((search as { pagina?: string }).pagina ?? 1));
+  const page = pageNumber((search as { pagina?: string }).pagina);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE; // fetch one extra to detect hasMore
   let rows: Record<string, unknown>[] = []; let error: string | undefined; let hasMore = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
-    let request = db.from(config.table).select(config.select).range(from, to);
-    if (search.q && config.search.length) request = request.or(config.search.map(k => `${k}.ilike.%${search.q}%`).join(","));
+    let request = db.from(config.table).select(config.select).order("id").range(from, to);
+    if (search.q && config.search.length) request = request.or(searchFilter(config.search, search.q));
     const result = await request;
     const all = (result.data as unknown as Record<string, unknown>[]) ?? [];
     hasMore = all.length > PAGE_SIZE;

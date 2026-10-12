@@ -67,6 +67,7 @@ Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions`
 ## Validação
 
 ```bash
+npm test
 npm run typecheck
 npm run build
 ```
@@ -109,3 +110,18 @@ As regras e os textos podem ser alterados na página **Automações**. O sistema
 - O workflow **Validar CRM Bielenki** executa TypeScript, auditoria de segurança e build em todo push ou pull request para `main`.
 - O Dependabot verifica semanalmente as dependências npm e mensalmente as GitHub Actions.
 - O workflow também pode ser iniciado manualmente pela aba **Actions** do repositório.
+
+
+## Testes operacionais
+
+Execute `npm test` para testar telas, validações, APIs e fluxos transacionais em
+PostgreSQL isolado, sem credenciais e sem tocar em dados reais. O workflow de CI
+executa essa suíte em todo PR.
+
+A suíte Playwright em `tests/e2e` cobre desktop e celular. Configure `E2E_BASE_URL`,
+`E2E_EMAIL` e `E2E_PASSWORD` em variáveis de ambiente/Secrets, instale Chromium com
+`npx playwright install chromium` e execute `npm run test:e2e`. Use uma conta de
+teste autorizada. A suíte não salva registros nem envia mensagens.
+
+O relatório com correções, limites e ordem de aplicação está em [tests/AUDIT.md](tests/AUDIT.md).
+Aplique a migração **042 antes do deploy** desta versão.

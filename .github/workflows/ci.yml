@@ -35,6 +35,9 @@ jobs:
       - name: Validar TypeScript
         run: npm run typecheck
 
+      - name: Testar lógica, telas e transações PostgreSQL
+        run: npm test
+
       - name: Auditar dependências
         run: npm audit --omit=dev --audit-level=high
 

@@ -1,4 +1,6 @@
 "use client";
+import { localISODate } from "@/lib/utils";
+import type { AgendaSource } from "@/lib/agenda";
 
 import { useEffect, useState, useCallback, useTransition } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
@@ -7,7 +9,8 @@ import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents } from "@/a
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type AgendaEvent = {
   id: string;
-  type: "medicao" | "instalacao" | "producao" | "compra" | "reuniao" | "venda" | "pos_venda" | "tarefa" | "lembrete";
+  source: AgendaSource;
+  type: "medicao" | "instalacao" | "producao" | "compra" | "reuniao" | "venda" | "pos_venda" | "tarefa" | "lembrete" | "orcamento" | "manutencao" | "outro";
   title: string;
   subtitle?: string | null;
   client_name?: string | null;
@@ -50,13 +53,13 @@ function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 
 function startOfWeek(d: Date) { const r = new Date(d); r.setDate(d.getDate() - d.getDay()); return r; }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
-function ymd(d: Date) { return d.toISOString().slice(0, 10); }
+function ymd(d: Date) { return localISODate(d); }
 function eventDate(e: AgendaEvent) { return new Date(e.starts_at); }
 function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); }
 function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.getDay()]}, ${d.getDate()} ${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`; }
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
-export function AgendaPage({ initialEvents }: { initialEvents: AgendaEvent[] }) {
+export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents: AgendaEvent[]; initialError?: string }) {
   const [view, setView] = useState<View>("mes");
   const [cursor, setCursor] = useState(new Date());
   const [events, setEvents] = useState<AgendaEvent[]>(initialEvents);
@@ -64,20 +67,21 @@ export function AgendaPage({ initialEvents }: { initialEvents: AgendaEvent[] }) 
   const [createFor, setCreateFor] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(initialError);
 
   const reload = useCallback(() => {
     setLoading(true);
     startTransition(async () => {
-      const data = await getAgendaEvents();
-      setEvents(data);
-      setLoading(false);
+      try { setEvents(await getAgendaEvents()); setLoadError(""); }
+      catch (error) { setLoadError(error instanceof Error ? error.message : "Falha ao carregar agenda"); }
+      finally { setLoading(false); }
     });
   }, []);
 
   const navigate = (n: number) => {
     setCursor(prev => {
       const d = new Date(prev);
-      if (view === "mes")    d.setMonth(d.getMonth() + n);
+      if (view === "mes") { d.setDate(1); d.setMonth(d.getMonth() + n); }
       if (view === "semana") d.setDate(d.getDate() + n * 7);
       if (view === "dia")    d.setDate(d.getDate() + n);
       return d;
@@ -115,9 +119,9 @@ export function AgendaPage({ initialEvents }: { initialEvents: AgendaEvent[] }) 
           </div>
           {/* Navigation */}
           <div className="flex items-center gap-1 rounded-xl border bg-white">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-cream rounded-l-xl"><ChevronLeft className="h-4 w-4" /></button>
+            <button aria-label="Período anterior" onClick={() => navigate(-1)} className="p-2 hover:bg-cream rounded-l-xl"><ChevronLeft className="h-4 w-4" /></button>
             <button onClick={() => setCursor(new Date())} className="px-3 py-2 text-sm font-semibold hover:bg-cream">Hoje</button>
-            <button onClick={() => navigate(1)} className="p-2 hover:bg-cream rounded-r-xl"><ChevronRight className="h-4 w-4" /></button>
+            <button aria-label="Próximo período" onClick={() => navigate(1)} className="p-2 hover:bg-cream rounded-r-xl"><ChevronRight className="h-4 w-4" /></button>
           </div>
           <button onClick={() => setCreateFor(ymd(cursor))}
             className="flex items-center gap-2 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
@@ -132,6 +136,7 @@ export function AgendaPage({ initialEvents }: { initialEvents: AgendaEvent[] }) 
       {/* ── Título do período ── */}
       <p className="mb-4 text-lg font-black text-ink">{titleLabel()}</p>
 
+      {loadError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{loadError}</p>}
       {/* ── Grid ── */}
       {view === "mes"    && <MonthView    cursor={cursor} events={events} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "semana" && <WeekView     cursor={cursor} events={events} onDayClick={setCreateFor} onEventClick={setSelected} />}
@@ -141,9 +146,11 @@ export function AgendaPage({ initialEvents }: { initialEvents: AgendaEvent[] }) 
       {selected && (
         <EventModal event={selected} onClose={() => setSelected(null)}
           onStatusChange={async (id, status) => {
-            await updateAgendaEventStatus(id, status);
-            reload();
-            setSelected(null);
+            try {
+              await updateAgendaEventStatus(id, status, selected.source);
+              reload();
+              setSelected(null);
+            } catch (error) { setLoadError(error instanceof Error ? error.message : "Falha ao atualizar evento"); }
           }} />
       )}
       {createFor && (
@@ -203,7 +210,7 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
   const today = new Date();
   const start = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const hours = Array.from({ length: 13 }, (_, i) => i + 7); // 7h–19h
+  const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
@@ -254,7 +261,7 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
 function DayView({ cursor, events, onEventClick, onNewEvent }:
   { cursor: Date; events: AgendaEvent[]; onEventClick: (e: AgendaEvent) => void; onNewEvent: (d: string) => void }) {
   const dayEvents = events.filter(e => sameDay(eventDate(e), cursor));
-  const hours = Array.from({ length: 14 }, (_, i) => i + 6);
+  const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
@@ -343,7 +350,7 @@ function EventModal({ event, onClose, onStatusChange }:
         </div>
         {/* Ações rápidas */}
         <div className="flex flex-wrap gap-2 border-t px-6 py-4">
-          {event.status !== "concluido" && (
+          {!["concluido","concluida","medicao_concluida"].includes(event.status) && (
             <button onClick={() => onStatusChange(event.id, "concluido")}
               className="flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100">
               <CheckCircle2 className="h-4 w-4" /> Concluir
@@ -389,9 +396,11 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
     const fd = new FormData(e.currentTarget);
     setError("");
     startTransition(async () => {
-      const result = await createAgendaEvent(fd);
-      if (result?.error) { setError(result.error); return; }
-      onCreated();
+      try {
+        const result = await createAgendaEvent(fd);
+        if (result?.error) { setError(result.error); return; }
+        onCreated();
+      } catch { setError("Não foi possível salvar o evento. Tente novamente."); }
     });
   };
 

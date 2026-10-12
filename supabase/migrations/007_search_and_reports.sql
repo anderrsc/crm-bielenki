@@ -7,7 +7,7 @@ create or replace function public.global_search(p_query text)
 returns table(entity_type text,entity_id uuid,title text,subtitle text,status text,href text,priority integer)
 language sql stable security invoker set search_path=public as $$
   with term as (select '%'||trim(p_query)||'%' value), matches as (
-    select 'cliente'::text,c.id,c.name,concat_ws(' · ',nullif(c.whatsapp,''),nullif(c.phone,''),nullif(c.city,''))::text,c.status::text,('/clientes/'||c.id)::text,1
+    select 'cliente'::text,c.id,c.name as title,concat_ws(' · ',nullif(c.whatsapp,''),nullif(c.phone,''),nullif(c.city,''))::text,c.status::text,('/clientes/'||c.id)::text,1 as priority
     from clients c,term where length(trim(p_query))>=2 and (c.name ilike term.value or c.phone ilike term.value or c.whatsapp ilike term.value or c.email ilike term.value or c.tax_id ilike term.value)
     union all
     select 'pedido',o.id,o.order_number,concat_ws(' · ',c.name,st.name),o.operational_status,('/pedidos/'||o.id),2
@@ -49,7 +49,7 @@ select jsonb_build_object(
   'sales_by_type',coalesce((select jsonb_agg(x order by x.total desc) from (select st.name,sum(s.total) total,count(*) quantity from sales s join sale_types st on st.id=s.sale_type_id where s.created_at::date between p_start and p_end group by st.name) x),'[]'::jsonb),
   'quotes_by_status',coalesce((select jsonb_agg(x order by x.quantity desc) from (select status,count(*) quantity,coalesce(sum(total),0) total from quotes where created_at::date between p_start and p_end group by status) x),'[]'::jsonb),
   'pipeline_by_stage',coalesce((select jsonb_agg(x order by x.sort_order) from (select ps.name,ps.color,ps.sort_order,count(l.id) quantity,coalesce(sum(l.estimated_value),0) total from pipeline_stages ps left join leads l on l.stage_id=ps.id and l.status='aberto' group by ps.id) x),'[]'::jsonb),
-  'monthly_sales',coalesce((select jsonb_agg(x order by x.month) from (select date_trunc('month',created_at)::date month,sum(total) total,count(*) quantity from sales where created_at>=date_trunc('month',p_end::timestamp)-interval '5 months' and created_at<date_trunc('month',p_end::timestamp)+interval '1 month' group by 1) x),'[]'::jsonb)
+  'monthly_sales',coalesce((select jsonb_agg(x order by x.month) from (select date_trunc('month',created_at)::date as "month",sum(total) total,count(*) quantity from sales where created_at>=date_trunc('month',p_end::timestamp)-interval '5 months' and created_at<date_trunc('month',p_end::timestamp)+interval '1 month' group by 1) x),'[]'::jsonb)
 )
 $$;
 grant execute on function public.reporting_summary(date,date) to authenticated;

@@ -1,0 +1,14 @@
+import { afterEach, expect, test, vi } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET } from '@/app/api/proxy-image/route';
+import { currentProfile } from '@/lib/supabase/profile';
+
+afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
+test.each(['https://test.supabase.co.evil.example/storage/v1/object/public/logo.png','http://test.supabase.co/storage/v1/object/public/logo.png','https://test.supabase.co/rest/v1/profiles','http://127.0.0.1/','invalid'])('proxy rejects unsafe image URL %s',async url=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');expect((await GET(new NextRequest(`https://crm.example/api/proxy-image?url=${encodeURIComponent(url)}`))).status).toBe(403);});
+test('missing image parameter returns 400',async()=>expect((await GET(new NextRequest('https://crm.example/api/proxy-image'))).status).toBe(400));
+test('image proxy requires configuration',async()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','');expect((await GET(new NextRequest('https://crm.example/api/proxy-image?url=https://example.com/logo.png'))).status).toBe(403);});
+test('valid storage image is proxied',async()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('image',{headers:{'content-type':'image/png'}})));expect((await GET(new NextRequest('https://crm.example/api/proxy-image?url=https://test.supabase.co/storage/v1/object/public/company-assets/logo.png'))).status).toBe(200);});
+test('HTML cannot be proxied as a logo',async()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('<html>',{headers:{'content-type':'text/html'}})));expect((await GET(new NextRequest('https://crm.example/api/proxy-image?url=https://test.supabase.co/storage/v1/object/public/logo.png'))).status).toBe(415);});
+test('upstream errors return 502',async()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('offline')));expect((await GET(new NextRequest('https://crm.example/api/proxy-image?url=https://test.supabase.co/storage/v1/object/public/logo.png'))).status).toBe(502);});
+test('current profile is filtered by signed-in identity when multiple employees exist',async()=>{const single=vi.fn().mockResolvedValue({data:{company_id:'company'},error:null});const eq=vi.fn().mockReturnValue({single});const db={auth:{getUser:async()=>({data:{user:{id:'signed-in'}},error:null})},from:()=>({select:()=>({eq})})};await currentProfile(db as any,'company_id');expect(eq).toHaveBeenCalledWith('id','signed-in');});
+test('missing user does not query colleagues',async()=>{const from=vi.fn();const db={auth:{getUser:async()=>({data:{user:null},error:null})},from};expect((await currentProfile(db as any,'company_id')).data).toBeNull();expect(from).not.toHaveBeenCalled();});

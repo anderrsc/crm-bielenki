@@ -1,9 +1,13 @@
 "use server";
 
+import { currentProfile } from "@/lib/supabase/profile";
+
 import { createClient } from "@/lib/supabase/server";
 import type { AgendaEvent } from "@/components/agenda-page";
 
-const ALLOWED_TYPES = ["medicao","instalacao","producao","compra","reuniao","venda","pos_venda","tarefa","lembrete","orcamento","manutencao","outro"] as const;
+import { agendaTypes, agendaStatus, agendaTimestamp, type AgendaSource } from "@/lib/agenda";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 export async function getAgendaEvents(): Promise<AgendaEvent[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
@@ -12,14 +16,16 @@ export async function getAgendaEvents(): Promise<AgendaEvent[]> {
   // Busca da view unificada
   const { data, error } = await db
     .from("v_operational_agenda")
-    .select("id,event_type,title,client_name,starts_at,ends_at,status,responsible_name,notes")
+    .select("id,event_type,title,client_name,starts_at,ends_at,status,responsible_name,notes,source")
     .order("starts_at", { ascending: true })
     .limit(500);
 
-  if (error || !data) return [];
+  if (error) throw new Error("Não foi possível carregar a agenda. Verifique a conexão e as migrações.");
+  if (!data) return [];
 
   return data.map((e: Record<string, unknown>) => ({
     id: String(e.id ?? ""),
+    source: e.source as AgendaSource,
     type: (e.event_type as AgendaEvent["type"]) ?? "tarefa",
     title: String(e.title ?? "Evento"),
     subtitle: e.notes ? String(e.notes) : null,
@@ -48,18 +54,14 @@ export async function createAgendaEvent(
 
   if (!title || !date) return { error: "Título e data são obrigatórios" };
 
-  const { data: profile } = await db.from("profiles").select("company_id,id").single();
+  const { data: profile } = await currentProfile(db, "company_id,id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
-  // Mapeia tipos não suportados pelo check constraint original para "outro"
-  const ORIGINAL_TYPES = ["medicao","instalacao","orcamento","pos_venda","manutencao","compra","outro"];
-  const TYPE_MAP: Record<string, string> = {
-    producao: "outro", reuniao: "outro", venda: "orcamento",
-    tarefa: "outro", lembrete: "outro",
-  };
-  const event_type = ORIGINAL_TYPES.includes(typeRaw) ? typeRaw : (TYPE_MAP[typeRaw] ?? "outro");
-
-  const startsAt = `${date}T${time}:00`;
+  if (!agendaTypes.includes(typeRaw as typeof agendaTypes[number])) return { error: "Tipo de evento inválido" };
+  if (!["agendado","confirmado","em_andamento","concluido","reagendado","cancelado"].includes(status)) return { error: "Status inválido" };
+  const event_type = typeRaw;
+  let startsAt: string;
+  try { startsAt = agendaTimestamp(date, time); } catch { return { error: "Data ou horário inválidos" }; }
 
   // Tenta buscar client_id pelo nome (opcional)
   let clientId: string | null = null;
@@ -68,7 +70,7 @@ export async function createAgendaEvent(
       .from("clients")
       .select("id")
       .eq("company_id", profile.company_id)
-      .ilike("name", `%${clientName}%`)
+      .eq("name", clientName)
       .limit(1)
       .single();
     clientId = found?.id ?? null;
@@ -77,6 +79,8 @@ export async function createAgendaEvent(
   const { error } = await db.from("operational_events").insert({
     company_id: profile.company_id,
     event_type,
+    client_name: clientName || null,
+    responsible_name: responsibleName || null,
     title,
     notes: description || clientName
       ? [description, clientName ? `Cliente: ${clientName}` : "", responsibleName ? `Resp: ${responsibleName}` : ""].filter(Boolean).join(" | ")
@@ -88,13 +92,18 @@ export async function createAgendaEvent(
   });
 
   if (error) return { error: error.message };
+  revalidatePath("/agenda");
 }
 
-export async function updateAgendaEventStatus(id: string, status: string): Promise<void> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+export async function updateAgendaEventStatus(id: string, status: string, source: AgendaSource): Promise<void> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Supabase não configurado");
+  if (!z.string().uuid().safeParse(id).success || !["operational_events","measurements","installations","tasks"].includes(source)) throw new Error("Evento inválido");
   const db = await createClient();
-  // Tenta atualizar em operational_events, measurements e installations
-  await db.from("operational_events").update({ status }).eq("id", id);
-  await db.from("measurements").update({ status }).eq("id", id);
-  await db.from("installations").update({ status }).eq("id", id);
+  const values: Record<string, unknown> = { status: agendaStatus(source, status) };
+  if (source === "measurements") values.completed_at = status === "concluido" ? new Date().toISOString() : null;
+  if (source === "installations") values.completed_at = status === "concluido" ? new Date().toISOString() : null;
+  const { data, error } = await db.from(source).update(values).eq("id", id).select("id").single();
+  if (error || !data) throw new Error(error?.message ?? "Evento não encontrado ou sem permissão");
+  revalidatePath("/agenda");
+  revalidatePath("/pendencias");
 }

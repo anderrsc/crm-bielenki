@@ -1,5 +1,7 @@
 "use server";
 
+import { currentProfile } from "@/lib/supabase/profile";
+
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { PriceRow } from "@/components/pricing-spreadsheet";
@@ -72,7 +74,7 @@ export async function addPriceRow(): Promise<{ error?: string } | void> {
 export async function getAllPrices(): Promise<PriceRow[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await currentProfile(db, "company_id");
   if (!profile?.company_id) return [];
 
   const { data } = await db

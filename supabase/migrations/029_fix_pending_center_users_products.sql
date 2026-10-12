@@ -1,7 +1,8 @@
 -- Migration 029 — Fix pending_center (id ambíguo) + createUser admin + produtos padrão
 
 -- ─── 1. pending_center corrigido (record_id evita ambiguidade) ───────────────
-CREATE OR REPLACE FUNCTION public.pending_center()
+DROP FUNCTION IF EXISTS public.pending_center();
+CREATE FUNCTION public.pending_center()
 RETURNS TABLE (
   record_id   UUID,
   category    TEXT,
@@ -233,7 +234,7 @@ BEGIN
     (p_company_id,'Frete','0.43',1,0,true),
     (p_company_id,'Deslocamento','0.43',1,0,true),
     (p_company_id,'Manutenção','0.43',1,0,true)
-  ON CONFLICT (company_id, product, thickness, cut_mm) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 END;
 $$;
 

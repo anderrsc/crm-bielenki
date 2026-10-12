@@ -207,7 +207,8 @@ left join public.clients  c on c.id = fe.client_id
 left join public.suppliers s on s.id = fe.supplier_id;
 
 -- 9. calcular_score_triagem (migration 013 — função ausente)
-create or replace function public.calcular_score_triagem(p_session_id uuid)
+drop function if exists public.calcular_score_triagem(uuid);
+create function public.calcular_score_triagem(p_session_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare sess public.triage_sessions; v_score int:=0; v_class text; v_prioridade text;
 begin

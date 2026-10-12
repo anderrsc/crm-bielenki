@@ -1,5 +1,7 @@
 "use server";
 
+import { currentProfile } from "@/lib/supabase/profile";
+
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -50,7 +52,7 @@ export async function createClientRecord(formData: FormData) {
   const db = await createClient();
   const parsed = z.object({ name: text, phone: z.string().optional(), email: z.string().email().or(z.literal("")).optional(), tax_id: z.string().optional(), address: z.string().optional(), city: z.string().optional(), state: z.string().optional(), notes: z.string().optional(), lead_source_id:z.string().uuid().or(z.literal("")).optional() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/clientes/novo?erro=Revise os campos obrigatórios");
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await currentProfile(db, "company_id");
   const { data, error } = await db.from("clients").insert({ ...parsed.data, lead_source_id:parsed.data.lead_source_id||null, company_id: profile?.company_id }).select("id").single();
   if (error) redirect(`/clientes/novo?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/clientes"); redirect(`/clientes/${data.id}`);
@@ -157,7 +159,8 @@ function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) 
 
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
-  const payload = JSON.parse(String(formData.get("payload")));
+  let payload: unknown;
+  try { payload = JSON.parse(String(formData.get("payload"))); } catch { redirect("/orcamentos/calhas?erro=Dados inválidos"); }
   const validUntil = String(formData.get("valid_until") || "").trim() || null;
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
   const parsed = gutterQuotePayloadSchema.safeParse(payload);

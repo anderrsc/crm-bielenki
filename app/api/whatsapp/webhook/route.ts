@@ -104,8 +104,8 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? "marquinhos-crm-verify";
-  if (mode === "subscribe" && token === verifyToken) {
+  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  if (verifyToken && mode === "subscribe" && token === verifyToken && challenge) {
     return new NextResponse(challenge, { status: 200 });
   }
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -113,7 +113,6 @@ export async function GET(req: NextRequest) {
 
 // POST: recebe mensagens do WhatsApp
 export async function POST(req: NextRequest) {
-  const supabase = getSupabase();
   try {
     const body = await req.text();
     const payload = JSON.parse(body);
@@ -181,6 +180,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!from || !clientText) return NextResponse.json({ status: "no_content" });
+    const supabase = getSupabase();
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
     let company: { id: string; name: string; trade_name: string; whatsapp_phone_number_id: string } | null = null;

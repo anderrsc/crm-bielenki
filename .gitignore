@@ -10,3 +10,7 @@ outputs
 .agents
 .codex
 tsconfig.tsbuildinfo
+
+playwright-report
+test-results
+coverage
