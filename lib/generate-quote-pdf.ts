@@ -30,14 +30,14 @@ async function getBrowser() {
   return browserPromise;
 }
 
-export function parseCookieHeader(cookieHeader: string, host: string) {
+export function parseCookieHeader(cookieHeader: string, origin: string) {
   return cookieHeader
     .split(";")
     .map((c) => c.trim())
-    .filter(Boolean)
+    .filter((c) => c.includes("="))
     .map((c) => {
       const idx = c.indexOf("=");
-      return { name: c.slice(0, idx), value: c.slice(idx + 1), domain: host, path: "/" };
+      return { name: c.slice(0, idx), value: c.slice(idx + 1), url: origin };
     });
 }
 
@@ -56,7 +56,7 @@ export async function generateQuotePdfBuffer(params: {
     // A folha e 100% renderizada no servidor; sem JS o Chromium nao precisa
     // baixar/executar os bundles do Next nem hidratar a pagina.
     await page.setJavaScriptEnabled(false);
-    const cookies = parseCookieHeader(params.cookieHeader, params.host);
+    const cookies = parseCookieHeader(params.cookieHeader, params.origin);
     if (cookies.length > 0) await page.setCookie(...cookies);
 
     // Rota de impressao dedicada (app/(print)/orcamentos/[id]/impressao):

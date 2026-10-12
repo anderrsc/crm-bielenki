@@ -4,46 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { headers } from "next/headers";
 import { z } from "zod";
 import { encryptSecret } from "@/lib/encrypt";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
-import { generateQuotePdfBuffer } from "@/lib/generate-quote-pdf";
+import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 
 const text = z.string().trim().min(1);
 
 // Pre-gera o PDF do orcamento em segundo plano assim que ele e salvo, para
 // que o download (rota /api/orcamentos/[id]/pdf) ja encontre o arquivo
-// pronto no storage em vez de precisar abrir o Chromium na hora. Roda via
-// after() para nao atrasar o redirect que o usuario ve apos salvar.
+// pronto no storage. Roda via after() para nao atrasar o redirect.
 async function schedulePdfPregeneration(db: Awaited<ReturnType<typeof createClient>>, quoteId: string) {
-  const hdrs = await headers();
-  const host = hdrs.get("host") || "";
-  const origin = `${hdrs.get("x-forwarded-proto") || "https"}://${host}`;
-  const cookieHeader = hdrs.get("cookie") || "";
-  after(async () => {
-    try {
-      const { data: q, error: qError } = await db.from("quotes").select("company_id").eq("id", quoteId).single();
-      if (qError || !q) { console.error("Pre-geracao de PDF: orcamento nao encontrado", quoteId, qError); return; }
-      const pdfBuffer = await generateQuotePdfBuffer({ origin, quoteId, cookieHeader, host });
-      const storagePath = `${q.company_id}/${quoteId}.pdf`;
-      const { error: uploadError } = await db.storage
-        .from("quote-pdfs")
-        .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
-      if (uploadError) {
-        console.error("Erro ao cachear PDF do orcamento no storage:", storagePath, uploadError);
-      } else {
-        const { error: updateError } = await db
-          .from("quotes")
-          .update({ pdf_generated_at: new Date().toISOString() })
-          .eq("id", quoteId);
-        if (updateError) console.error("Erro ao marcar pdf_generated_at:", updateError);
-        else console.log("PDF pre-gerado com sucesso:", storagePath);
-      }
-    } catch (e) {
-      console.error("Erro ao pre-gerar PDF do orcamento:", e);
-    }
-  });
+  const ctx = await requestContextFromHeaders();
+  after(() => ensureQuotePdfCached(db, quoteId, ctx).catch((e) => console.error("Erro ao pre-gerar PDF do orcamento:", e)));
 }
 
 export async function createClientRecord(formData: FormData) {

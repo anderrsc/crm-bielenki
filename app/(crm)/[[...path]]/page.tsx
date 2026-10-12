@@ -8,6 +8,7 @@ import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote"
 import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
+import { scheduleQuotePdfPrewarm } from "@/lib/quote-pdf-cache";
 import { VisitSheet, type VisitSheetData } from "@/components/visit-sheet";
 import { AutomationSettings } from "@/components/automation-settings";
 import { AutomationsHub } from "@/components/automations-hub";
@@ -190,7 +191,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const initial={...quoteResult.data,notes:quoteResult.data.notes??"",valid_until:quoteResult.data.valid_until??"",installation_deadline:quoteResult.data.installation_deadline??"",hide_unit_prices:quoteResult.data.hide_unit_prices??false,items:(gutterResult.data as unknown as {items:GutterQuoteInitial["items"]}).items,special_items:(specialResult.data??[]) as GutterQuoteInitial["special_items"]} as GutterQuoteInitial;
     return <GutterQuote prices={(priceResult.data as GutterPrice[])??[]} clients={(clientResult.data as QuoteClient[])??[]} initial={initial} error={search.erro}/>;
   }
-  if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") return <QuoteDocument id={path[1]} error={search.erro} />;
+  if (path[0] === "orcamentos" && path[1] && path[1] !== "novo") {
+    await scheduleQuotePdfPrewarm(path[1]);
+    return <QuoteDocument id={path[1]} error={search.erro} />;
+  }
   if (path[0] === "financeiro") {
     const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
     const financialPage=Math.max(1,Number((search as {pagina?:string}).pagina??1)||1);
