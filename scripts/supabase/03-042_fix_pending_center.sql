@@ -1,5 +1,5 @@
 -- Passo 3 de 9 — 042_fix_pending_center.sql
--- Cole no SQL Editor do Supabase e clique Run. Pode ser repetido.
+-- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 042 - Central de Pendencias voltava erro e ficava vazia
 --

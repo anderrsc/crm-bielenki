@@ -11,11 +11,7 @@
 begin;
 
 CREATE OR REPLACE FUNCTION public.advance_production_step(p_production_order_id uuid, p_responsible_id uuid DEFAULT NULL::uuid, p_notes text DEFAULT NULL::text)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 declare po public.production_orders; total_steps integer; step_name text; next_step integer;
 begin
   perform public.require_table_access('production_orders','update');

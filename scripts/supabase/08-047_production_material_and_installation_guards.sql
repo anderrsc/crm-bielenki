@@ -1,5 +1,5 @@
 -- Passo 8 de 9 — 047_production_material_and_installation_guards.sql
--- Cole no SQL Editor do Supabase e clique Run. Pode ser repetido.
+-- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 047 - Regras de producao e instalacao
 --
@@ -14,11 +14,7 @@
 begin;
 
 CREATE OR REPLACE FUNCTION public.advance_production_step(p_production_order_id uuid, p_responsible_id uuid DEFAULT NULL::uuid, p_notes text DEFAULT NULL::text)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 declare po public.production_orders; total_steps integer; step_name text; next_step integer;
 begin
   perform public.require_table_access('production_orders','update');

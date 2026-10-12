@@ -1,5 +1,5 @@
 -- Passo 4 de 9 — 043_seed_new_company_defaults.sql
--- Cole no SQL Editor do Supabase e clique Run. Pode ser repetido.
+-- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 043 - Empresa nova ja nasce com templates e tabela de calhas
 --

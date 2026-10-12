@@ -1,5 +1,5 @@
 -- Passo 7 de 9 — 046_review_operational_fixes.sql
--- Cole no SQL Editor do Supabase e clique Run. Pode ser repetido.
+-- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 046 - Revisao de correcoes operacionais (vindas de uma auditoria externa)
 --
@@ -369,11 +369,7 @@ ALTER FUNCTION public.dashboard_summary() SECURITY INVOKER;
 -- itens operacionais (antes apagava e recriava, perdendo o andamento) e nao
 -- fica exposta para chamada direta (aceitava o id de pedido de outra empresa).
 CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type text DEFAULT 'calhas'::text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   c UUID;
   v_checklist UUID;

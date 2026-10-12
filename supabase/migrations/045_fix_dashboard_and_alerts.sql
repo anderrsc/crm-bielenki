@@ -112,11 +112,7 @@ begin
 end $$;
 
 CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type text DEFAULT 'calhas'::text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   c UUID;
   v_checklist UUID;

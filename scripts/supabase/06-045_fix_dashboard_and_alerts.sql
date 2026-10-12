@@ -1,5 +1,5 @@
 -- Passo 6 de 9 — 045_fix_dashboard_and_alerts.sql
--- Cole no SQL Editor do Supabase e clique Run. Pode ser repetido.
+-- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 045 - Dashboard executivo e alertas operacionais falhavam
 --
@@ -115,11 +115,7 @@ begin
 end $$;
 
 CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type text DEFAULT 'calhas'::text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   c UUID;
   v_checklist UUID;

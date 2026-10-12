@@ -366,11 +366,7 @@ ALTER FUNCTION public.dashboard_summary() SECURITY INVOKER;
 -- itens operacionais (antes apagava e recriava, perdendo o andamento) e nao
 -- fica exposta para chamada direta (aceitava o id de pedido de outra empresa).
 CREATE OR REPLACE FUNCTION public.create_order_checklist(p_order_id uuid, p_type text DEFAULT 'calhas'::text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 DECLARE
   c UUID;
   v_checklist UUID;
