@@ -90,12 +90,14 @@ já existia) com estes ajustes:
 - `orcamentos_pendentes` e `instalacoes_hoje` usam os status reais e o fuso de São Paulo.
 - Chave única de `gutter_prices` e `leads.updated_at` ficam com as migrations 044/045.
 
-**Não aplicadas (regras de negócio, aguardam decisão do responsável):**
+**Regras de negócio aprovadas pelo responsável (migration 047):**
 
-1. Bloquear o avanço da produção enquanto `status='aguardando_material'` ou houver
-   material obrigatório não recebido. Todo pedido nasce `aguardando_material`; sem
-   uma etapa que libere a produção de pedidos sem compra, isso travaria o fluxo.
-2. Impedir concluir a instalação com itens obrigatórios do checklist pendentes.
+1. A produção não avança enquanto houver material obrigatório da ordem ainda não
+   recebido, nem se a ordem estiver cancelada. Diferente do pacote, o status
+   `aguardando_material` sozinho não bloqueia: toda ordem nasce assim e as que não
+   têm material vinculado nunca seriam liberadas.
+2. A instalação não pode ser concluída com itens obrigatórios do checklist pendentes.
 
-Os testes desses dois comportamentos foram retirados de `tests/operations.test.ts`
-até a decisão.
+Testes em `tests/operations.test.ts` (material pendente bloqueia e libera ao
+receber; ordem sem material avança; cancelada não avança; checklist pendente
+impede concluir e libera ao completar).

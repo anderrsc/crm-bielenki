@@ -134,5 +134,5 @@ A suíte Playwright em `tests/e2e/*.spec.ts` cobre desktop e celular. Configure 
 teste autorizada. A suíte não salva registros nem envia mensagens.
 
 O relatório com correções, limites e ordem de aplicação está em [tests/AUDIT.md](tests/AUDIT.md).
-No banco existente, aplique as migrações **040 a 046** (ou `scripts/aplicar-no-supabase.sql`)
+No banco existente, aplique as migrações **040 a 047** (ou `scripts/aplicar-no-supabase.sql`)
 antes do deploy desta versão; depois rode `scripts/verificar-banco-producao.sql`.
