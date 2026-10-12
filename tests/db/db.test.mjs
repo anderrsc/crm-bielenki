@@ -29,7 +29,7 @@ before(async () => {
 });
 after(async () => db?.end());
 
-for (const file of ["040_quote_pdf_cache.sql", "041_quote_pdf_cache_freshness.sql", "042_fix_pending_center.sql", "043_seed_new_company_defaults.sql", "044_gutter_prices_unique_with_color.sql", "045_fix_dashboard_and_alerts.sql"]) {
+for (const file of ["040_quote_pdf_cache.sql", "041_quote_pdf_cache_freshness.sql", "042_fix_pending_center.sql", "043_seed_new_company_defaults.sql", "044_gutter_prices_unique_with_color.sql", "045_fix_dashboard_and_alerts.sql", "046_review_operational_fixes.sql", "047_production_material_and_installation_guards.sql", "048_sync_functions_and_triggers.sql"]) {
   test(`migration ${file} pode ser rodada de novo`, async () => {
     const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations", file), "utf8");
     await db.query(sql.replace(/^\s*(begin|commit);\s*$/gim, "")).catch(async (e) => { await db.query("rollback").catch(() => {}); throw e; });
@@ -126,4 +126,10 @@ test("044 aplica com itens repetidos sem espessura/corte (como no banco de produ
     const idx = (await db.query("select 1 from pg_indexes where indexname='gutter_prices_unique_item_color'")).rowCount;
     assert.equal(idx, 1, "indice deveria ser criado mesmo com repetidos sem espessura/corte");
   } finally { await db.query("rollback"); }
+});
+
+test("verificacao do banco de producao volta vazia no banco com todas as migrations", async () => {
+  const sql = fs.readFileSync(path.join(ROOT, "scripts/verificar-banco-producao.sql"), "utf8");
+  const { rows } = await db.query(sql);
+  assert.deepEqual(rows, []);
 });

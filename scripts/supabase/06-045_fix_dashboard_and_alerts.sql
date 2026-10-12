@@ -1,4 +1,4 @@
--- Passo 6 de 9 — 045_fix_dashboard_and_alerts.sql
+-- Passo 6 de 10 — 045_fix_dashboard_and_alerts.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 045 - Dashboard executivo e alertas operacionais falhavam

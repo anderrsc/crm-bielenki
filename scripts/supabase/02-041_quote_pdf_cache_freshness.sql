@@ -1,4 +1,4 @@
--- Passo 2 de 9 — 041_quote_pdf_cache_freshness.sql
+-- Passo 2 de 10 — 041_quote_pdf_cache_freshness.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 041 - Cache do PDF do orcamento nunca era aproveitado

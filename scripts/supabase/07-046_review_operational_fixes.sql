@@ -1,4 +1,4 @@
--- Passo 7 de 9 — 046_review_operational_fixes.sql
+-- Passo 7 de 10 — 046_review_operational_fixes.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 046 - Revisao de correcoes operacionais (vindas de uma auditoria externa)

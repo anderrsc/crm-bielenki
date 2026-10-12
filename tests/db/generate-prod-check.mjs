@@ -10,8 +10,10 @@ const db = new pg.Client({ connectionString: process.env.DATABASE_URL ?? "postgr
 await db.connect();
 const cols = (await db.query(`select c.table_name, c.column_name from information_schema.columns c
   where c.table_schema = 'public' order by 1, 2`)).rows;
-const fns = (await db.query(`select p.proname, pg_get_function_identity_arguments(p.oid) args from pg_proc p
-  join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' order by 1, 2`)).rows;
+// Funcoes de extensoes (pgcrypto etc.) ficam no schema extensions no Supabase.
+const fns = (await db.query(`select p.proname, pg_get_function_identity_arguments(p.oid) args, md5(p.prosrc) src from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'
+    and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e') order by 1, 2`)).rows;
 const trg = (await db.query(`select c.relname tbl, t.tgname from pg_trigger t join pg_class c on c.oid = t.tgrelid
   join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and not t.tgisinternal order by 1, 2`)).rows;
 await db.end();
@@ -28,8 +30,8 @@ with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
 ${[...byTable].map(([t, cs]) => `    (${q(t)}, ${q(cs.join(","))})`).join(",\n")}
   ) v(t, c)
-), expected_functions(name, args) as (values
-${fns.map((f) => `  (${q(f.proname)}, ${q(f.args)})`).join(",\n")}
+), expected_functions(name, args, src) as (values
+${fns.map((f) => `  (${q(f.proname)}, ${q(f.args)}, ${q(f.src)})`).join(",\n")}
 ), expected_triggers(table_name, trigger_name) as (values
 ${trg.map((t) => `  (${q(t.tbl)}, ${q(t.tgname)})`).join(",\n")}
 )
@@ -42,6 +44,13 @@ select 'funcao', e.name || '(' || e.args || ')'
 from expected_functions e
 where not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = e.name and pg_get_function_identity_arguments(p.oid) = e.args)
+union all
+select 'funcao desatualizada', e.name || '(' || e.args || ')'
+from expected_functions e
+where exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = e.name and pg_get_function_identity_arguments(p.oid) = e.args)
+  and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = e.name and pg_get_function_identity_arguments(p.oid) = e.args and md5(p.prosrc) = e.src)
 union all
 select 'trigger', e.table_name || ': ' || e.trigger_name
 from expected_triggers e

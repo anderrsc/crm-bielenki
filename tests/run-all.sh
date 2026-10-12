@@ -66,7 +66,7 @@ node --test --test-reporter=spec tests/db/db.test.mjs
 
 echo "==> build e start do Next"
 npx next build > "$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log"; exit 1; }
-npx next start -p "${E2E_BASE_URL##*:}" > "$WORK/next.log" 2>&1 & PIDS+=($!)
+./node_modules/.bin/next start -p "${E2E_BASE_URL##*:}" > "$WORK/next.log" 2>&1 & PIDS+=($!)
 for i in $(seq 1 60); do curl -s -o /dev/null "$E2E_BASE_URL/login" && break; sleep 1; done
 
 echo "==> testes de ponta a ponta"

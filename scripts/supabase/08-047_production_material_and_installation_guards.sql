@@ -1,4 +1,4 @@
--- Passo 8 de 9 — 047_production_material_and_installation_guards.sql
+-- Passo 8 de 10 — 047_production_material_and_installation_guards.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 047 - Regras de producao e instalacao

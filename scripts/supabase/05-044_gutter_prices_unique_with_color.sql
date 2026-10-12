@@ -1,4 +1,4 @@
--- Passo 5 de 9 — 044_gutter_prices_unique_with_color.sql
+-- Passo 5 de 10 — 044_gutter_prices_unique_with_color.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 044 - Mesma calha em cores diferentes na tabela de precos

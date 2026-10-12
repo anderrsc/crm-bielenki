@@ -1,4 +1,4 @@
--- Passo 1 de 9 — 040_quote_pdf_cache.sql
+-- Passo 1 de 10 — 040_quote_pdf_cache.sql
 -- Cole no SQL Editor do Supabase (New query, sem nada selecionado) e clique Run. Pode ser repetido.
 
 -- Migration 040 - Cache do PDF do orcamento
