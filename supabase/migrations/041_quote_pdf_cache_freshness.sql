@@ -13,7 +13,10 @@ begin;
 
 create or replace function public.touch_quotes_updated_at() returns trigger language plpgsql as $$
 begin
-  if (to_jsonb(new) - 'pdf_generated_at' - 'updated_at') = (to_jsonb(old) - 'pdf_generated_at' - 'updated_at') then
+  -- "total" e coluna gerada: num trigger BEFORE ela ainda vem nula em NEW,
+  -- entao fica fora da comparacao (ela deriva de subtotal/discount/freight).
+  if (to_jsonb(new) - 'pdf_generated_at' - 'updated_at' - 'total')
+     = (to_jsonb(old) - 'pdf_generated_at' - 'updated_at' - 'total') then
     new.updated_at = old.updated_at;
   else
     new.updated_at = now();

@@ -4,7 +4,7 @@ import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import {
   gutterColors, gutterCuts, gutterThicknesses,
   PRODUCTS_BY_CATEGORY, UNITS_BY_CATEGORY,
-  FABRICATED_CATEGORIES, OTHER_CATEGORIES,
+  FABRICATED_CATEGORIES, OTHER_CATEGORIES, sameThickness,
   type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
 import { localISODate, money } from "@/lib/utils";
@@ -72,7 +72,7 @@ const findPrice = (prices: GutterPrice[], item: Pick<GutterQuoteItem, "product" 
   prices.find(x =>
     x.active &&
     x.product === item.product &&
-    x.thickness === item.thickness &&
+    sameThickness(x.thickness, item.thickness) &&
     x.cut_mm === Number(item.cut.replace(/\D/g, "")) &&
     (x.color ?? "Aluminio Natural") === item.color
   );

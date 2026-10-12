@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, LockKeyhole, Plus, Save, Trash2 } from "lucide-react";
 import { deleteGutterPrice, saveGutterPrice } from "@/app/(crm)/actions";
-import { gutterColors, gutterCuts, gutterFabricationProducts, gutterThicknesses, type GutterPrice } from "@/lib/gutters";
+import { gutterColors, gutterCuts, gutterFabricationProducts, gutterThicknesses, sameThickness, type GutterPrice } from "@/lib/gutters";
 import { createClient } from "@/lib/supabase/server";
 import { money } from "@/lib/utils";
 
@@ -105,13 +105,15 @@ function EditableRow({ price }: { price: GutterPrice }) {
       <td colSpan={8}>
         <form action={saveGutterPrice} className="grid grid-cols-[1.4fr_1fr_.7fr_.9fr_.8fr_1.4fr_.4fr_auto] items-center gap-2 p-3">
           <input type="hidden" name="id" value={price.id} />
+          {/* Mantem o valor gravado mesmo se ele nao estiver na lista padrao,
+              senao salvar a edicao trocaria o produto/espessura sem aviso. */}
           <select className="field" name="product" defaultValue={price.product}>
-            {gutterFabricationProducts.map((product) => (
+            {(gutterFabricationProducts.includes(price.product) ? gutterFabricationProducts : [price.product, ...gutterFabricationProducts]).map((product) => (
               <option key={product}>{product}</option>
             ))}
           </select>
-          <select className="field" name="thickness" defaultValue={price.thickness ?? gutterThicknesses[0]}>
-            {gutterThicknesses.map((thickness) => (
+          <select className="field" name="thickness" defaultValue={gutterThicknesses.find((t) => sameThickness(t, price.thickness)) ?? price.thickness ?? gutterThicknesses[0]}>
+            {(!price.thickness || gutterThicknesses.some((t) => sameThickness(t, price.thickness)) ? gutterThicknesses : [price.thickness, ...gutterThicknesses]).map((thickness) => (
               <option key={thickness}>{thickness}</option>
             ))}
           </select>

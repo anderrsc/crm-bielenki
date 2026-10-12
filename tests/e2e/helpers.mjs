@@ -57,3 +57,29 @@ export async function visit(page, path) {
   const error = findError(text) ?? (pageErrors[0] ? `pageerror: ${pageErrors[0]}` : null);
   return { status: res?.status() ?? 0, finalPath: new URL(page.url()).pathname, error, text, ms };
 }
+
+// Erro devolvido por uma server action via ?erro= na URL, ou mensagem na pagina.
+export async function pageProblem(page) {
+  const url = new URL(page.url());
+  const erro = url.searchParams.get("erro");
+  if (erro) return `?erro=${erro}`;
+  const text = await page.evaluate(() => document.body.innerText);
+  return findError(text);
+}
+
+// Clica num botao (por texto) e espera a navegacao causada pela server action.
+export async function clickAndWait(page, text, { scope = "body" } = {}) {
+  const handle = await page.evaluateHandle((t, sc) => {
+    const root = document.querySelector(sc) ?? document.body;
+    return [...root.querySelectorAll("button, a")].find((el) => el.innerText.trim().toLowerCase().includes(t.toLowerCase()) && !el.disabled) ?? null;
+  }, text, scope);
+  const el = handle.asElement();
+  if (!el) throw new Error(`botao "${text}" nao encontrado em ${page.url()}`);
+  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 }), el.click()]);
+}
+
+export async function selectByText(page, selector, text) {
+  const value = await page.$eval(selector, (sel, t) => [...sel.options].find((o) => o.text.includes(t))?.value ?? null, text);
+  if (value == null) throw new Error(`opcao "${text}" nao encontrada em ${selector}`);
+  await page.select(selector, value);
+}
