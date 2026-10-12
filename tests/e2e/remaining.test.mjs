@@ -4,7 +4,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
-import { launch, login, BASE, pageProblem } from "./helpers.mjs";
+import { launch, login, BASE, pageProblem, settle as settleRequests, trackRequests } from "./helpers.mjs";
 
 const RUN = Date.now().toString(36);
 let browser, page, db, cid, uid;
@@ -15,6 +15,7 @@ before(async () => {
   ({ company_id: cid, id: uid } = (await db.query("select company_id, id from profiles order by created_at limit 1")).rows[0]);
   browser = await launch();
   page = await browser.newPage();
+  trackRequests(page);
   page.on("dialog", (d) => d.accept());
   await login(page, process.env.E2E_EMAIL ?? "admin@teste.local", process.env.E2E_PASSWORD ?? "senha-de-teste-123");
 });
@@ -24,7 +25,7 @@ async function noProblem(step) {
   const problem = await pageProblem(page);
   assert.equal(problem, null, `${step}: ${problem} (${page.url()})`);
 }
-const settle = () => page.waitForNetworkIdle({ idleTime: 700, timeout: 30000 });
+const settle = () => settleRequests(page);
 async function click(selectorOrText, { within } = {}) {
   await page.evaluate((t, w) => {
     const root = w ? [...document.querySelectorAll("tr, article, details, li, .card")].find((r) => r.innerText.includes(w)) : document;

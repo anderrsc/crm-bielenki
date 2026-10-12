@@ -3,7 +3,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
-import { launch, login, BASE, pageProblem, clickAndWait, setByLabel } from "./helpers.mjs";
+import { launch, login, BASE, pageProblem, clickAndWait, setByLabel, settle as settleRequests, trackRequests } from "./helpers.mjs";
 
 const RUN = Date.now().toString(36);
 let browser, page, db;
@@ -17,6 +17,7 @@ before(async () => {
   state.supplier = (await db.query("insert into suppliers(company_id,name) values($1,$2) returning id,name", [cid, `Fornecedor Negocio ${RUN}`])).rows[0];
   browser = await launch();
   page = await browser.newPage();
+  trackRequests(page);
   page.on("dialog", (d) => d.accept());
   await login(page, process.env.E2E_EMAIL ?? "admin@teste.local", process.env.E2E_PASSWORD ?? "senha-de-teste-123");
 });
@@ -127,7 +128,7 @@ test("financeiro: baixa parcial e renegociacao de vencimento", async () => {
   const reason = await page.$("textarea[name=reason], input[name=reason]");
   if (reason) await reason.type("Cliente pediu mais prazo");
   await page.evaluate(() => document.querySelector("input[name=new_due_date]").form.requestSubmit());
-  await page.waitForNetworkIdle({ idleTime: 500 });
+  await settleRequests(page);
   await noProblem("renegociar");
   const after2 = (await db.query("select to_char(due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [state.saleEntry])).rows[0];
   assert.equal(after2.due, newDue);

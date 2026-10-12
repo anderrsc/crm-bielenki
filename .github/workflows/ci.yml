@@ -69,10 +69,14 @@ jobs:
       - name: Instalar cliente do Postgres
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
+      - name: Instalar Chromium (mesmo navegador dos testes locais)
+        run: |
+          npx -y playwright@1.56.1 install --with-deps chromium
+          echo "CHROME_PATH=$(find ~/.cache/ms-playwright -path '*chrome-linux*' -name chrome -type f | head -1)" >> "$GITHUB_ENV"
+
       - name: Rodar todos os testes
         env:
           PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
-          CHROME_PATH: /usr/bin/google-chrome
         run: npm test
 
       - name: Logs em caso de falha

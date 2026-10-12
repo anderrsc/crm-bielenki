@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import pg from "pg";
-import { launch, login, BASE, pageProblem, setByLabel } from "./helpers.mjs";
+import { launch, login, BASE, pageProblem, setByLabel, settle as settleRequests, trackRequests } from "./helpers.mjs";
 
 const RUN = Date.now().toString(36);
 let browser, page, db;
@@ -16,6 +16,7 @@ before(async () => {
   await db.connect();
   browser = await launch();
   page = await browser.newPage();
+  trackRequests(page);
   page.on("dialog", (d) => d.accept());
   await login(page, process.env.E2E_EMAIL ?? "admin@teste.local", process.env.E2E_PASSWORD ?? "senha-de-teste-123");
 });
@@ -30,7 +31,7 @@ const clickText = (t, scope = "body") => page.evaluate((t, s) => {
   if (!el) throw new Error(`"${t}" nao encontrado`);
   el.click();
 }, t, scope);
-const settle = () => page.waitForNetworkIdle({ idleTime: 700, timeout: 30000 });
+const settle = () => settleRequests(page);
 
 test("funcionarios: criar usuario com cargo e editar", async () => {
   await page.goto(`${BASE}/configuracoes/funcionarios`, { waitUntil: "networkidle0" });

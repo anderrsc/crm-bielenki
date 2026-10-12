@@ -104,3 +104,29 @@ export async function setByLabel(page, label, value, nth = 0) {
   }, label, String(value), nth);
   if (!ok) throw new Error(`campo "${label}" (${nth}) nao encontrado ou opcao "${value}" inexistente em ${page.url()}`);
 }
+
+// Espera as requisicoes do proprio app (server actions, RSC) terminarem.
+// Ignora requisicoes de terceiros/do navegador, que no Chrome do CI podem
+// ficar abertas e faziam waitForNetworkIdle estourar. Se estourar o tempo,
+// avisa quais ficaram pendentes e segue: a asserção seguinte decide.
+const inflight = new WeakMap();
+export function trackRequests(page) {
+  const set = new Set();
+  inflight.set(page, set);
+  const own = (r) => r.url().startsWith(BASE);
+  page.on("request", (r) => { if (own(r)) set.add(r); });
+  page.on("requestfinished", (r) => set.delete(r));
+  page.on("requestfailed", (r) => set.delete(r));
+}
+export async function settle(page, { idleTime = 600, timeout = 20000 } = {}) {
+  const set = inflight.get(page);
+  if (!set) throw new Error("chame trackRequests(page) antes de settle(page)");
+  const start = Date.now();
+  let idleSince = set.size === 0 ? Date.now() : null;
+  while (Date.now() - start < timeout) {
+    await new Promise((r) => setTimeout(r, 100));
+    if (set.size === 0) { idleSince ??= Date.now(); if (Date.now() - idleSince >= idleTime) return; }
+    else idleSince = null;
+  }
+  console.warn(`settle: ${set.size} requisicao(oes) ainda pendente(s): ${[...set].map((r) => `${r.method()} ${r.url()}`).join(", ")}`);
+}
