@@ -1,5 +1,6 @@
 "use server";
 
+import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { PriceRow } from "@/components/pricing-spreadsheet";
@@ -49,7 +50,11 @@ export async function bulkSavePrices(
     }));
 
     const { error } = await db.rpc("bulk_save_prices", { p_rows: payload });
-    if (error) return { error: error.message };
+    if (error) {
+      if (error.code === "23505" || error.message.includes("duplicate key"))
+        return { error: "Já existe um preço para esse produto com a mesma espessura, corte e cor." };
+      return { error: error.message };
+    }
   }
 
   revalidatePath("/configuracoes/tabela-calhas");
@@ -72,7 +77,7 @@ export async function addPriceRow(): Promise<{ error?: string } | void> {
 export async function getAllPrices(): Promise<PriceRow[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return [];
 
   const { data } = await db

@@ -1,5 +1,6 @@
 "use server";
 
+import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { MatrixRow } from "@/components/aluminum-matrix";
@@ -7,7 +8,7 @@ import type { MatrixRow } from "@/components/aluminum-matrix";
 export async function getMatrixRows(): Promise<MatrixRow[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return [];
 
   const { data } = await db
@@ -33,7 +34,7 @@ export async function saveMatrixRow(row: {
 }): Promise<{ id?: string; error?: string }> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   if (row.id) {

@@ -83,3 +83,24 @@ export async function selectByText(page, selector, text) {
   if (value == null) throw new Error(`opcao "${text}" nao encontrada em ${selector}`);
   await page.select(selector, value);
 }
+
+// Preenche o campo (input/select/textarea) que segue o <label> com esse texto.
+// Usa o setter nativo + eventos, que e o que componentes React controlados escutam.
+export async function setByLabel(page, label, value, nth = 0) {
+  const ok = await page.evaluate((l, v, n) => {
+    const labels = [...document.querySelectorAll("label")].filter((x) => x.textContent.trim() === l);
+    const el = labels[n]?.parentElement.querySelector("input, select, textarea");
+    if (!el) return false;
+    if (el.tagName === "SELECT" && ![...el.options].some((o) => o.value === v)) {
+      const opt = [...el.options].find((o) => o.text.includes(v));
+      if (!opt) return false;
+      v = opt.value;
+    }
+    const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : el.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value").set.call(el, String(v));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }, label, String(value), nth);
+  if (!ok) throw new Error(`campo "${label}" (${nth}) nao encontrado ou opcao "${value}" inexistente em ${page.url()}`);
+}

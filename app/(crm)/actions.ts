@@ -1,5 +1,6 @@
 "use server";
 
+import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,7 +24,7 @@ export async function createClientRecord(formData: FormData) {
   const db = await createClient();
   const parsed = z.object({ name: text, phone: z.string().optional(), email: z.string().email().or(z.literal("")).optional(), tax_id: z.string().optional(), address: z.string().optional(), city: z.string().optional(), state: z.string().optional(), notes: z.string().optional(), lead_source_id:z.string().uuid().or(z.literal("")).optional() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/clientes/novo?erro=Revise os campos obrigatórios");
-  const { data: profile } = await db.from("profiles").select("company_id").single();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
   const { data, error } = await db.from("clients").insert({ ...parsed.data, lead_source_id:parsed.data.lead_source_id||null, company_id: profile?.company_id }).select("id").single();
   if (error) redirect(`/clientes/novo?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/clientes"); redirect(`/clientes/${data.id}`);
