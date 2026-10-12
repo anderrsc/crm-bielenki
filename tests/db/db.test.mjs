@@ -113,3 +113,17 @@ test("pedido entrando em producao cria o checklist operacional", async () => {
     assert.ok(n > 0);
   } finally { await db.query("rollback"); }
 });
+
+test("044 aplica com itens repetidos sem espessura/corte (como no banco de producao)", async () => {
+  const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations/044_gutter_prices_unique_with_color.sql"), "utf8").replace(/^\s*(begin|commit);\s*$/gim, "");
+  await db.query("begin");
+  try {
+    await db.query("drop index if exists gutter_prices_unique_item_color");
+    for (const price of [10, 12]) {
+      await db.query("insert into gutter_prices(company_id,product,thickness,cut_mm,unit_price) values($1,'Condutor Duplicado',null,null,$2)", [company, price]);
+    }
+    await db.query(sql);
+    const idx = (await db.query("select 1 from pg_indexes where indexname='gutter_prices_unique_item_color'")).rowCount;
+    assert.equal(idx, 1, "indice deveria ser criado mesmo com repetidos sem espessura/corte");
+  } finally { await db.query("rollback"); }
+});

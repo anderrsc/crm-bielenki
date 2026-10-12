@@ -9,6 +9,8 @@
 -- em Pintura Branco depois da versao Aluminio Natural dava
 -- "duplicate key value violates unique constraint". A cor agora faz parte
 -- da chave (cor vazia conta como Aluminio Natural).
+-- Se a rodada anterior desta migration falhou com "could not create unique
+-- index", basta rodar esta versao: nada foi alterado naquela tentativa.
 --
 -- Pode ser rodada mais de uma vez.
 
@@ -16,8 +18,31 @@ begin;
 
 alter table public.gutter_prices drop constraint if exists gutter_prices_company_id_product_thickness_cut_mm_key;
 
-create unique index if not exists gutter_prices_unique_item_color on public.gutter_prices
-  (company_id, product, coalesce(thickness, ''), coalesce(cut_mm, 0), coalesce(color, 'Aluminio Natural'));
+-- Espessura/corte vazios continuam contando como diferentes (igual a chave
+-- antiga): o banco ja tem itens repetidos sem espessura/corte (ex.: condutores)
+-- e trata-los como iguais faria a criacao do indice falhar.
+-- Se ainda houver itens repetidos, a migration nao trava: avisa quais sao
+-- (corrija na Central de Precos e rode esta migration de novo).
+do $$
+declare dup text;
+begin
+  select string_agg(format('%s / %s / %s / %s (%s vezes)', product, coalesce(thickness,'-'), coalesce(cut_mm::text,'-'), coalesce(color,'Aluminio Natural'), n), '; ')
+    into dup
+  from (
+    select product, thickness, cut_mm, color, count(*) n
+    from public.gutter_prices
+    where thickness is not null and cut_mm is not null
+    group by company_id, product, thickness, cut_mm, coalesce(color, 'Aluminio Natural'), color
+    having count(*) > 1
+  ) d;
+  if dup is null then
+    drop index if exists public.gutter_prices_unique_item_color;
+    create unique index gutter_prices_unique_item_color on public.gutter_prices
+      (company_id, product, thickness, cut_mm, coalesce(color, 'Aluminio Natural'));
+  else
+    raise warning 'Indice unico de precos nao criado: itens repetidos na tabela de calhas: %', dup;
+  end if;
+end $$;
 
 -- seed_gutter_products (029) usava ON CONFLICT nas colunas da chave antiga.
 CREATE OR REPLACE FUNCTION public.seed_gutter_products(p_company_id UUID)
