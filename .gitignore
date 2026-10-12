@@ -10,3 +10,4 @@ outputs
 .agents
 .codex
 tsconfig.tsbuildinfo
+.test-work

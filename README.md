@@ -69,7 +69,16 @@ Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions`
 ```bash
 npm run typecheck
 npm run build
+PG_ADMIN_URL=postgres://postgres:postgres@localhost:5432/postgres npm test
 ```
+
+`npm test` (`tests/run-all.sh`, também roda no CI) monta um banco vazio com todas as migrations, sobe PostgREST e um Supabase simulado (`tests/e2e/fake-supabase.mjs`), faz o build do app e roda:
+
+- `tests/static/check-queries.mjs`: confere cada `.from().select/insert/update` e `.rpc()` do código contra o banco (colunas, relações, parâmetros);
+- `tests/db/`: migrations reexecutáveis, varredura que executa todas as funções e triggers, pendências, cache do PDF;
+- `tests/e2e/`: o app no navegador — todas as páginas e links, todos os formulários, e os fluxos de orçamento (PDF A4), venda, compra, estoque, financeiro, funcionários, agenda, preços e identidade.
+
+Para conferir se o banco de produção está em dia, rode `scripts/verificar-banco-producao.sql` no SQL Editor do Supabase (resultado vazio = tudo aplicado). Para regenerá-lo depois de novas migrations: `DATABASE_URL=... node tests/db/generate-prod-check.mjs`.
 
 O sistema não inclui dados fictícios permanentes. Sem conexão Supabase, as telas mostram estados vazios e orientação de configuração.
 

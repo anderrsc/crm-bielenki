@@ -31,7 +31,8 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
   const { data: urlData } = db.storage.from("company-assets").getPublicUrl(path);
   const publicUrl = urlData.publicUrl + `?t=${Date.now()}`;
 
-  await db.from("companies").update({ logo_url: publicUrl }).eq("id", profile.company_id);
+  const { error: updateError } = await db.from("companies").update({ logo_url: publicUrl }).eq("id", profile.company_id);
+  if (updateError) return { error: updateError.message };
 
   revalidatePath("/configuracoes");
   return { url: publicUrl };
@@ -43,7 +44,8 @@ export async function removeLogo(): Promise<{ error?: string }> {
   const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
-  await db.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
+  const { error } = await db.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
+  if (error) return { error: error.message };
   revalidatePath("/configuracoes");
   return {};
 }

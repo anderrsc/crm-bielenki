@@ -104,8 +104,12 @@ test("identidade: enviar logo e salvar configuracoes", async () => {
   const uploadError = await page.$eval("main", (m) => m.querySelector("p.text-red-700, p.text-red-600")?.textContent ?? null);
   assert.equal(uploadError, null, `erro no upload: ${uploadError}`);
   await noProblem("enviar logo");
-  const company = (await db.query("select logo_url from companies c join profiles p on p.company_id=c.id order by p.created_at limit 1")).rows[0];
-  assert.ok(company.logo_url, "logo_url nao gravado");
+  let logoUrl = null;
+  for (let i = 0; i < 20 && !logoUrl; i++) {
+    logoUrl = (await db.query("select logo_url from companies c join profiles p on p.company_id=c.id order by p.created_at limit 1")).rows[0].logo_url;
+    if (!logoUrl) await new Promise((r) => setTimeout(r, 250));
+  }
+  assert.ok(logoUrl, "logo_url nao gravado");
   await clickText("Salvar configurações");
   await settle();
   await noProblem("salvar configuracoes de logo");

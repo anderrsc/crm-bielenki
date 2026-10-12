@@ -23,7 +23,8 @@ async function resolvePaths(paths) {
 }
 
 const PAGES = (process.env.E2E_FORM_PAGES ?? [
-  "/clientes/novo", "/pipeline", "/fornecedores", "/vendas/nova", "/compras/nova", "/orcamentos/esquadrias",
+  // vendas/nova, compras/nova e orcamentos/esquadrias montam o payload em React: ver business.test.mjs
+  "/clientes/novo", "/pipeline", "/fornecedores",
   "/agenda", "/configuracoes", "/configuracoes/funcionarios", "/configuracoes/cargos", "/configuracoes/origens-lead",
   "/configuracoes/identidade", "/configuracoes/templates", "/automacoes", "/automacoes?aba=fluxos", "/automacoes/novo",
   "/agente-ia", "/tabela-calhas?aba=pintura", "/tabela-calhas?aba=pecas-especiais", "/tabela-calhas?aba=servicos",

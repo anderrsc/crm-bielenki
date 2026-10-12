@@ -40,3 +40,41 @@ jobs:
 
       - name: Compilar para produção
         run: npm run build
+
+  test:
+    name: Testes (banco, consultas e ponta a ponta)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar cliente do Postgres
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Rodar todos os testes
+        env:
+          PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm test
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: tail -n 80 .test-work/*.log || true
