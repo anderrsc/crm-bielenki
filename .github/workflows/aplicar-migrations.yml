@@ -1,0 +1,67 @@
+name: Aplicar migrations no Supabase
+
+# Aplica as migrations 040 em diante no banco de producao e roda a verificacao
+# final, sem precisar colar SQL no SQL Editor. Todas as migrations podem ser
+# rodadas mais de uma vez.
+#
+# Requer o secret SUPABASE_DB_URL: Supabase > Project Settings > Database >
+# Connection string > "Session pooler" (URI com a senha do banco). A conexao
+# direta (db.<projeto>.supabase.co) e so IPv6 e nao funciona no GitHub Actions.
+
+on:
+  # Antes do merge: adicionar o label "aplicar-migrations" no PR roda este
+  # workflow com as migrations do proprio PR.
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch ou commit com as migrations"
+        required: true
+        default: main
+      desde:
+        description: "Primeira migration a aplicar (numero)"
+        required: true
+        default: "040"
+
+permissions:
+  contents: read
+
+jobs:
+  aplicar:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'aplicar-migrations'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.ref }}
+
+      - name: Instalar cliente do Postgres
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Aplicar migrations
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DESDE: ${{ inputs.desde || '040' }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::Secret SUPABASE_DB_URL nao configurado"; exit 1; fi
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            n=$(basename "$f" | cut -d_ -f1)
+            if [ "$n" \< "$DESDE" ]; then continue; fi
+            echo "::group::$f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+            echo "ok  $f"
+          done
+
+      - name: Verificar banco (deve voltar vazio)
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          faltando=$(psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -f scripts/verificar-banco-producao.sql)
+          if [ -n "$faltando" ]; then
+            echo "::error::Itens faltando no banco:"; echo "$faltando"; exit 1
+          fi
+          echo "Banco em dia: nada faltando."

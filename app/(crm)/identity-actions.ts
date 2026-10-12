@@ -15,7 +15,7 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
-  const path = `logos/${profile.company_id}/logo.${ext}`;
+  const path = `${profile.company_id}/logo.${ext}`;
   const bytes = await file.arrayBuffer();
 
   const { error: uploadError } = await db.storage
@@ -93,15 +93,7 @@ export async function setTemplateDefault(templateId: string, type: string): Prom
   const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
-  // Remove is_default de outros do mesmo tipo
-  await db.from("document_templates")
-    .update({ is_default: false, status: "rascunho" })
-    .eq("company_id", profile.company_id)
-    .eq("type", type);
-
-  const { error } = await db.from("document_templates")
-    .update({ is_default: true, status: "em_uso" })
-    .eq("id", templateId);
+  const { error } = await db.rpc("set_default_document_template", { p_template_id: templateId, p_type: type });
 
   if (error) return { error: error.message };
   revalidatePath("/configuracoes/templates");

@@ -11,3 +11,6 @@ outputs
 .codex
 tsconfig.tsbuildinfo
 .test-work
+playwright-report
+test-results
+coverage

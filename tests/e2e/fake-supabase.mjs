@@ -122,7 +122,32 @@ export async function startFakeSupabase({ port, databaseUrl, postgrestUrl }) {
     return json(res, 404, { msg: `fake auth: rota nao implementada ${req.method} ${path}` });
   }
 
-  function handleStorage(req, res, url, body) {
+  // Grava a linha em storage.objects como o usuario do JWT, para que as
+  // policies reais do bucket (migrations 004/040) sejam aplicadas.
+  async function storageWrite(claims, key, upsert) {
+    const [bucket, ...rest] = key.split("/");
+    const name = rest.join("/");
+    if (claims.role === "service_role") return null;
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("set local role authenticated");
+      await client.query("select set_config('request.jwt.claim.sub', $1, true)", [claims.sub]);
+      const sql = upsert
+        ? "insert into storage.objects(bucket_id, name, owner) values($1,$2,$3) on conflict (bucket_id, name) do update set updated_at = now()"
+        : "insert into storage.objects(bucket_id, name, owner) values($1,$2,$3)";
+      await client.query(sql, [bucket, name, claims.sub]);
+      await client.query("commit");
+      return null;
+    } catch (e) {
+      await client.query("rollback").catch(() => {});
+      return e.message;
+    } finally {
+      client.release();
+    }
+  }
+
+  async function handleStorage(req, res, url, body) {
     const path = decodeURIComponent(url.pathname.replace("/storage/v1", ""));
     const pub = path.match(/^\/object\/public\/(.+)$/);
     const obj = path.match(/^\/object\/(?:authenticated\/)?(.+)$/);
@@ -135,7 +160,10 @@ export async function startFakeSupabase({ port, databaseUrl, postgrestUrl }) {
       return res.end(file.body);
     }
     if (req.method === "POST" || req.method === "PUT") {
-      if (!bearer(req)) return json(res, 403, { message: "unauthorized" });
+      const claims = bearer(req);
+      if (!claims) return json(res, 403, { message: "unauthorized" });
+      const denied = await storageWrite(claims, key, req.method === "PUT" || req.headers["x-upsert"] === "true");
+      if (denied) return json(res, 403, { statusCode: "403", error: "Unauthorized", message: `new row violates row-level security policy (${denied})` });
       objects.set(key, { type: req.headers["content-type"] || "application/octet-stream", body });
       return json(res, 200, { Key: key, Id: crypto.randomUUID() });
     }
@@ -163,7 +191,7 @@ export async function startFakeSupabase({ port, databaseUrl, postgrestUrl }) {
       const body = await readBody(req);
       if (url.pathname.startsWith("/rest/v1")) return await proxyRest(req, res, url, body);
       if (url.pathname.startsWith("/auth/v1")) return await handleAuth(req, res, url, body);
-      if (url.pathname.startsWith("/storage/v1")) return handleStorage(req, res, url, body);
+      if (url.pathname.startsWith("/storage/v1")) return await handleStorage(req, res, url, body);
       json(res, 404, { msg: "fake supabase: rota desconhecida" });
     } catch (err) {
       console.error("fake supabase erro:", err);

@@ -2,6 +2,7 @@
 
 -- ─── 1. Novos campos em gutter_prices ────────────────────────────────────
 ALTER TABLE public.gutter_prices
+  ADD COLUMN IF NOT EXISTS color TEXT,
   ADD COLUMN IF NOT EXISTS category       TEXT    DEFAULT 'Calhas Padrão',
   ADD COLUMN IF NOT EXISTS unit           TEXT    DEFAULT 'metro',
   ADD COLUMN IF NOT EXISTS labor_price    NUMERIC DEFAULT 0,

@@ -3,18 +3,7 @@ import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, ArrowRight, CalendarCheck, ClipboardList, FileText, Ruler, ShoppingCart, TrendingDown, WalletCards } from "lucide-react";
 import Link from "next/link";
 
-type PendingItem = {
-  record_id: string;
-  category: string;
-  priority: string;
-  title: string;
-  subtitle: string;
-  link: string;
-  due_date: string | null;
-  days_late: number | null;
-  amount: number | null;
-  client_name: string | null;
-};
+import { summarizePending, type PendingItem } from "@/lib/pending";
 
 const CAT_CONFIG: Record<string, { label: string; icon: typeof FileText; color: string }> = {
   orcamento:          { label: "Orçamento",    icon: FileText,      color: "text-blue-600 bg-blue-50 border-blue-200" },
@@ -35,25 +24,16 @@ const PRIORITY_LABEL: Record<string, string> = { high: "URGENTE", medium: "ATEN�
 
 export async function PendingCenter({ category }: { category?: string }) {
   let items: PendingItem[] = [];
-  let loadError = "";
+  let loadError = process.env.NEXT_PUBLIC_SUPABASE_URL ? "" : "Configure a conexão com o Supabase para consultar as pendências.";
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await createClient();
     const { data, error } = await db.rpc("pending_center");
-    if (error) loadError = error.message;
+    if (error) loadError = "Não foi possível carregar as pendências. Verifique a conexão e as migrações do banco.";
     items = (data as PendingItem[]) ?? [];
   }
 
-  const filtered = category
-    ? items.filter(i => i.category === category || i.category.startsWith(`${category}_`))
-    : items;
-
-  const counts: Record<string, number> = {};
-  for (const i of items) {
-    const key = i.category.startsWith("financeiro") ? "financeiro" : i.category;
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-  const totalHigh = items.filter(i => i.priority === "high").length;
+  const { filtered, counts, totalHigh } = summarizePending(items, category);
 
   const TABS = [
     { key: "",           label: "Todos",       count: items.length },
@@ -125,7 +105,7 @@ export async function PendingCenter({ category }: { category?: string }) {
           return (
             <Link
               href={item.link}
-              key={`${item.category}-${item.record_id}`}
+              key={`${item.category}:${item.record_id}`}
               className="card flex items-center gap-4 p-4 transition hover:-translate-y-px hover:shadow-md"
             >
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${cfg.color}`}>

@@ -45,6 +45,7 @@ create table if not exists storage.objects (
   name text, owner uuid, metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now()
 );
 alter table storage.objects enable row level security;
+create unique index if not exists objects_bucket_name on storage.objects(bucket_id, name);
 create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
   select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]
 $$;

@@ -234,7 +234,7 @@ BEGIN
     (p_company_id,'Frete','0.43',1,0,true),
     (p_company_id,'Deslocamento','0.43',1,0,true),
     (p_company_id,'Manutenção','0.43',1,0,true)
-  ON CONFLICT (company_id, product, thickness, cut_mm) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 END;
 $$;
 
