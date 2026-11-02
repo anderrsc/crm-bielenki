@@ -68,6 +68,10 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(initialError);
+  // Datas e horarios dependem do fuso do navegador (o servidor roda em UTC):
+  // o calendario so e montado no cliente para nao divergir na hidratacao.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); setCursor(new Date()); }, []);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -97,6 +101,14 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
     }
     return fmtDate(cursor.toISOString());
   };
+
+  if (!mounted) return (
+    <div className="mx-auto max-w-[1400px]">
+      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
+      <h1 className="mt-1 text-3xl font-black">Agenda</h1>
+      <p className="mt-6 text-sm text-ink/50">Carregando agenda…</p>
+    </div>
+  );
 
   return (
     <div className="mx-auto max-w-[1400px]">
