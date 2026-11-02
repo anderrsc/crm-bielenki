@@ -1,5 +1,14 @@
 # CRM Bielenki
 
+## Catálogo Marquinhos e orçamentos com peças 3D
+
+- A aba **Central de Preços → Catálogo de peças 3D** reúne as 20 peças numeradas do PDF fornecido, com os nomes e modelos do catálogo público `marquinhos-calhas.vercel.app`.
+- Os orçamentos exibem o desenho isométrico original ao lado da peça, além de QR code e link para abrir o modelo interativo. Peças sem correspondência comprovada continuam disponíveis, sem desenho presumido.
+- As migrações `20261102212055_catalogo_marquinhos_20261102.sql` e `20261102212619_harden_catalog_and_internal_access.sql` atualizam a empresa identificada pelo CNPJ 26.887.887/0001-75. A tabela de referência é de 28/10/2026: 52 combinações de corte/espessura e 33 variantes comerciais. Produtos extras e valores dos orçamentos já emitidos são preservados.
+- Os QR codes são gerados localmente e as ilustrações ficam embutidas no PDF. Os modelos interativos exigem internet. As figuras são referências de perfil, não projetos de fabricação com as medidas do pedido.
+- As condições comerciais ficam disponíveis para consulta; descontos não são aplicados cumulativamente de forma automática.
+- As listas de preços são paginadas internamente para carregar catálogos com mais de mil registros.
+
 Sistema operacional multiempresa para vendas, pedidos, compras, produção, estoque, financeiro, instalação e pós-venda.
 
 ## Tecnologias

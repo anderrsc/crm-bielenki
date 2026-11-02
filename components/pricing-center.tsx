@@ -1,3 +1,4 @@
+import { GutterCatalog } from "@/components/gutter-catalog";
 import Link from "next/link";
 import { ArrowLeft, Boxes, Briefcase, History, Package, Palette, Plus, Save, Tag, Trash2, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +45,7 @@ const COMMERCIAL_DEFAULTS = ["Cliente Final","Construtora","Calheiro Parceiro","
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
 const TABS = [
+  { key:"catalogo", label:"Catálogo de peças 3D", icon: Boxes },
   { key:"materia-prima",       label:"Matéria-Prima",        icon: Package    },
   { key:"pintura",             label:"Pintura",               icon: Palette    },
   { key:"pecas-especiais",     label:"Peças Especiais",       icon: Boxes      },
@@ -157,6 +159,8 @@ export async function PricingCenter({
           </Link>
         ))}
       </div>
+
+      {tab === "catalogo" && <GutterCatalog />}
 
       {/* ─── Matéria-Prima ─── */}
       {tab === "materia-prima" && (

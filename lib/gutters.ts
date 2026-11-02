@@ -1,4 +1,6 @@
 // ─── Categorias de orçamento ──────────────────────────────────────────────────
+import { MARQUINHOS_CATALOG, uniqueProductNames } from "./gutter-catalog";
+
 export const FABRICATED_CATEGORIES = ["Calhas", "Rufos", "Pingadeiras"] as const;
 export const OTHER_CATEGORIES = ["Condutores", "Acessórios", "Serviços", "Itens Especiais"] as const;
 export const ALL_QUOTE_CATEGORIES = [...FABRICATED_CATEGORIES, ...OTHER_CATEGORIES] as const;
@@ -87,6 +89,15 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
   ],
 };
 
+// Preserve the legacy/extras list and add the numbered source catalog first.
+for (const category of ALL_QUOTE_CATEGORIES) {
+  PRODUCTS_BY_CATEGORY[category] = uniqueProductNames([
+    ...MARQUINHOS_CATALOG.pieces.filter(p => p.category === category).map(p => p.name),
+    ...MARQUINHOS_CATALOG.extras.filter(p => p.category === category).map(p => p.product),
+    ...PRODUCTS_BY_CATEGORY[category],
+  ]);
+}
+
 // Lista plana de todos os produtos de fabricação própria (para autocomplete)
 export const gutterProducts: string[] = [
   ...PRODUCTS_BY_CATEGORY["Calhas"],
@@ -128,6 +139,8 @@ export type GutterPrice = {
   unit_price: number;
   notes: string | null;
   active: boolean;
+  category?: string | null;
+  unit?: string | null;
 };
 
 export type QuoteClient = {

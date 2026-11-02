@@ -80,13 +80,19 @@ export async function getAllPrices(): Promise<PriceRow[]> {
   const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return [];
 
-  const { data } = await db
+  const data: PriceRow[] = [];
+  for (let start = 0; ; start += 500) {
+  const { data: page, error } = await db
     .from("gutter_prices")
     .select("id,product,category,item_type,thickness,cut_mm,unit,color,unit_price,labor_price,paint_price,install_price,freight_price,min_price,margin_pct,max_discount_pct,notes,active")
     .eq("company_id", profile.company_id)
     .order("category")
     .order("product")
-    .order("thickness");
+    .order("thickness").order("id").range(start, start + 499);
+    if (error) throw new Error(`Não foi possível carregar os preços: ${error.message}`);
+    data.push(...(page ?? []));
+    if (!page || page.length < 500) break;
+  }
 
   return (data ?? []).map(r => ({
     id: r.id,
