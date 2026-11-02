@@ -73,7 +73,7 @@ export async function AuditLogPage({
           href="/auditoria"
           className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
             !tableFilter
-              ? "border-forest bg-forest text-white"
+              ? "border-forest bg-brand-strong text-white"
               : "border-sand hover:bg-sand/50"
           }`}
         >
@@ -85,7 +85,7 @@ export async function AuditLogPage({
             href={`/auditoria?tabela=${t}`}
             className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
               tableFilter === t
-                ? "border-forest bg-forest text-white"
+                ? "border-forest bg-brand-strong text-white"
                 : "border-sand hover:bg-sand/50"
             }`}
           >

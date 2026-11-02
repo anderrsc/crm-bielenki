@@ -1,0 +1,93 @@
+/* Marquinhos Calhas e Esquadrias — design tokens
+   Tema escuro é o padrão; claro via [data-theme="light"]. */
+
+
+:root {
+  /* Vermelho Marquinhos */
+  --red-50: #FEF2F2;  --red-100: #FFE1E1; --red-200: #FFC7C7; --red-300: #FF9C9C;
+  --red-400: #FF5C5C; --red-500: #F61111; --red-600: #D90E0E; --red-700: #B30B0B;
+  --red-800: #8F0D0D; --red-900: #6E1010; --red-950: #3D0505;
+
+  /* Neutros */
+  --n-0: #FFFFFF;   --n-50: #F7F7F8;  --n-100: #EFEFF1; --n-200: #E4E4E7;
+  --n-300: #D1D1D6; --n-400: #A1A1AA; --n-500: #71717A; --n-600: #52525B;
+  --n-700: #3F3F46; --n-800: #27272A; --n-850: #1C1C1F; --n-900: #141416; --n-950: #0A0A0B;
+
+  /* Semânticas */
+  --success: #16A34A; --warning: #F59E0B; --info: #3B82F6; --danger: var(--red-500);
+
+  /* Tema escuro (padrão) */
+  --bg: var(--n-950);
+  --surface: var(--n-900);
+  --surface-2: var(--n-850);
+  --border: var(--n-800);
+  --text: #F5F5F6;
+  --text-muted: var(--n-400);
+  --brand: var(--red-500);
+  --brand-strong: var(--red-500);
+  --brand-soft: rgba(246, 17, 17, .12);
+  --brand-glow: rgba(246, 17, 17, .35);
+  --brand-gradient: linear-gradient(135deg, #F61111 0%, #B30B0B 100%);
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, .04);
+
+  /* Tipografia */
+  --font-display: "Archivo", "Inter", system-ui, sans-serif;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-16: 16px; --fs-18: 18px;
+  --fs-22: 22px; --fs-28: 28px; --fs-36: 36px; --fs-48: 48px;
+  --tracking-caps: .12em;
+
+  /* Forma */
+  --r-sm: 10px; --r-md: 16px; --r-lg: 22px; --r-pill: 999px;
+  --space: 4px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --dur: 180ms;
+}
+
+[data-theme="light"] {
+  --bg: #F4F4F5;
+  --surface: var(--n-0);
+  --surface-2: var(--n-50);
+  --border: var(--n-200);
+  --text: var(--n-950);
+  --text-muted: var(--n-600);
+  --brand-strong: var(--red-600);
+  --brand-soft: var(--red-50);
+  --brand-glow: rgba(246, 17, 17, .18);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .04);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-14);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.caps { text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: 11px; }
+
+/* Theme adapters keep all existing modules on the same semantic palette. */
+:root {
+  --text-rgb: 245 245 246; --surface-rgb: 20 20 22; --surface-2-rgb: 28 28 31;
+  --border-rgb: 39 39 42; --brand-rgb: 246 17 17; --brand-text-rgb: 255 128 128;
+  --brand-strong-rgb: 217 14 14; --brand-strong: var(--red-600);
+  --on-brand: var(--n-0); --brand-text: rgb(var(--brand-text-rgb));
+  --success-soft: rgb(22 163 74 / .13); --success-text: #77DCA0;
+  --warning-soft: rgb(245 158 11 / .13); --warning-text: #F8C66A;
+  --info-soft: rgb(59 130 246 / .13); --info-text: #A2C7FF;
+  --danger-soft: rgb(246 17 17 / .13); --danger-text: #FF9C9C;
+  --overlay: rgb(0 0 0 / .65); --line-soft: rgb(255 255 255 / .05);
+  --paper: var(--n-0); --paper-text: var(--n-950); --paper-muted: var(--n-600);
+  --paper-border: var(--n-200); --paper-soft: var(--n-50);
+  --roof-watermark: url('/brand/roof.svg');
+}
+[data-theme="light"] {
+  --text-rgb: 10 10 11; --surface-rgb: 255 255 255; --surface-2-rgb: 247 247 248;
+  --border-rgb: 228 228 231; --brand-text-rgb: 179 11 11;
+  --success-soft: #EAF7EE; --success-text: #126B32;
+  --warning-soft: #FFF6DD; --warning-text: #825100;
+  --info-soft: #EBF2FF; --info-text: #2457A8;
+  --danger-soft: var(--red-50); --danger-text: var(--red-700);
+  --line-soft: rgb(0 0 0 / .04);
+}

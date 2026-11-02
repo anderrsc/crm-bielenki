@@ -97,7 +97,7 @@ export async function RolesPage({ error, saved }: { error?: string; saved?: bool
                 if (!p) return null;
                 return canManage ? (
                   <form key={role} action={savePermission}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] items-center gap-2 border-b px-4 py-3 last:border-0 hover:bg-ink/[.02]">
+                    className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] items-center gap-2 border-b px-4 py-3 last:border-0 hover:bg-cream/[.02]">
                     <input type="hidden" name="id" value={p.id} />
                     <span className="text-sm font-medium">{ROLE_LABELS[role] ?? role}</span>
                     <div className="flex justify-center"><input type="checkbox" name="can_view" defaultChecked={p.can_view} className="h-4 w-4 cursor-pointer" /></div>

@@ -199,7 +199,7 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
       {/* Gatilho */}
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-forest text-white text-xs font-black">G</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-strong text-white text-xs font-black">G</div>
           <h2 className="text-sm font-bold">Gatilho — quando executar?</h2>
         </div>
         <select className="input" value={triggerType} onChange={e => setTriggerType(e.target.value)}>
@@ -235,7 +235,7 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
           <p className="text-xs text-ink/40 text-center py-4">Sem condições — o fluxo executa para todos os eventos deste gatilho.</p>
         )}
         {conditions.map((cond, i) => (
-          <div key={cond.id} className="mb-2 flex items-center gap-2 rounded-lg bg-ink/[.03] p-3">
+          <div key={cond.id} className="mb-2 flex items-center gap-2 rounded-lg bg-cream/[.03] p-3">
             {i > 0 && <span className="shrink-0 text-xs font-bold text-violet-600 w-6 text-right">E</span>}
             {i === 0 && <span className="shrink-0 text-xs font-bold text-ink/30 w-6 text-right">SE</span>}
             <select className="input flex-1 text-xs" value={cond.field} onChange={e => updateCondition(cond.id, "field", e.target.value)}>
@@ -269,7 +269,7 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
 
         <div className="space-y-3 mb-5">
           {steps.map((step, i) => (
-            <div key={step.id} className="rounded-xl border border-ink/10 bg-ink/[.015] p-4">
+            <div key={step.id} className="rounded-xl border border-ink/10 bg-cream/[.015] p-4">
               <div className="flex items-start gap-3">
                 <div className="flex flex-col gap-1 mt-0.5">
                   <button onClick={() => moveStep(step.id, -1)} disabled={i === 0} className="button-ghost p-0.5 disabled:opacity-20">
@@ -306,7 +306,7 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {STEP_TYPES.map(st => (
               <button key={st.value} onClick={() => addStep(st.value)}
-                className="rounded-lg border border-ink/10 bg-white p-2.5 text-left text-xs hover:border-forest hover:bg-forest/5 transition-colors">
+                className="rounded-lg border border-ink/10 bg-surface p-2.5 text-left text-xs hover:border-forest hover:bg-brand-strong/5 transition-colors">
                 <span className={`font-medium ${st.color}`}>{st.label.split(" ").slice(0, 2).join(" ")}</span>
               </button>
             ))}
@@ -381,7 +381,7 @@ function StepConfig({ step, updateConfig, whatsappTemplates, emailTemplates }: {
         {WAIT_PRESETS.map(p => (
           <button key={p.label} type="button"
             onClick={() => { upd("hours", p.hours); upd("preset", p.label); }}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${String(step.config.preset) === p.label ? "bg-forest text-white border-forest" : "border-ink/10 hover:border-forest/40"}`}>
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${String(step.config.preset) === p.label ? "bg-brand-strong text-white border-forest" : "border-ink/10 hover:border-forest/40"}`}>
             {p.label}
           </button>
         ))}

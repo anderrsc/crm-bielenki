@@ -1,4 +1,5 @@
 "use client";
+import { DraftQuoteAttachments } from "./quote-attachments";
 
 import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import {
@@ -258,6 +259,7 @@ export function GutterQuote({
 
       {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+      <nav className="quote-steps" aria-label="Etapas do orçamento"><a href="#quote-client">1. Cliente</a><a href="#quote-items">2. Itens</a><a href="#quote-attachments">3. Anexos internos</a><a href="#quote-conditions">4. Condições e revisão</a></nav>
       <form action={initial ? updateGutterQuote : saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
         {initial && <input type="hidden" name="quote_id" value={initial.id} />}
         <input type="hidden" name="payload" value={payload} />
@@ -266,7 +268,7 @@ export function GutterQuote({
 
         <div className="space-y-4">
           {/* Cliente */}
-          <div className="card p-5">
+          <div id="quote-client" className="card p-5">
             <label className="label">Cliente</label>
             <select className="field" value={clientId} onChange={e => setClientId(e.target.value)} required>
               <option value="">Selecione o cliente</option>
@@ -283,11 +285,12 @@ export function GutterQuote({
 
           {/* ── Itens Fabricados agrupados ── */}
           {!items.length && (
-            <div className="rounded-2xl border border-dashed border-sand bg-white p-5 text-sm text-ink/55">
+            <div className="rounded-2xl border border-dashed border-sand bg-surface p-5 text-sm text-ink/55">
               Sem itens de fabricação própria. O orçamento será montado apenas com complementares, serviços ou itens especiais.
             </div>
           )}
 
+          <span id="quote-items" />
           {fabricatedByCat.map(({ cat, rows }) => (
             <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
               <div className="flex items-center justify-between">
@@ -364,8 +367,9 @@ export function GutterQuote({
           </div>
         </div>
 
+        <div className="xl:col-start-1"><DraftQuoteAttachments /></div>
         {/* ── Sidebar de resumo ── */}
-        <aside className="card h-fit p-5 xl:sticky xl:top-24">
+        <aside id="quote-conditions" className="card h-fit p-5 xl:col-start-2 xl:row-start-1 xl:sticky xl:top-24">
           <h2 className="text-lg font-black">Resumo</h2>
           <div className="mt-5 space-y-4">
             {/* Subtotais por bloco */}
@@ -442,7 +446,7 @@ function FabricatedItemCard({
   const subtotal = item.quantity * item.meters * item.unit_price;
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border bg-surface p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Select
@@ -504,7 +508,7 @@ function OtherItemCard({
     : SPECIAL_UNITS;
 
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border bg-surface p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <Select
           label=""

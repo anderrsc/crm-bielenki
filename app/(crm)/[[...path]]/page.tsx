@@ -1,3 +1,5 @@
+import { DesignSystem } from "@/components/design-system";
+import { QuoteWorkspace } from "@/components/quote-workspace";
 import { loadActiveGutterPrices } from "@/lib/load-gutter-prices";
 import { selectOwnProfile } from "@/lib/own-profile";
 import { pageNumber, searchFilter } from "@/lib/query";
@@ -55,6 +57,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const path = (await params).path ?? [];
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
+  if (path[0] === "design-system") return <DesignSystem />;
+  const quoteStatus = (search as {status?:string}).status;
   if (path[0] === "dashboard") { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   if (path[0] === "tabela-calhas") {
     const s = search as { aba?: string; espessura?: string; salvo?: string; q?: string };
@@ -228,6 +232,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     // (ordenar so por id, que e UUID, embaralhava as listas).
     const [orderColumn, ascending] = LIST_ORDER[config.table] ?? ["created_at", false];
     let request = db.from(config.table).select(config.select).order(orderColumn, { ascending }).order("id").range(from, to);
+    if (path[0] === "orcamentos" && quoteStatus && ["rascunho","enviado","aprovado","recusado","cancelado"].includes(quoteStatus)) request = request.eq("status", quoteStatus);
     if (search.q && config.search.length) request = request.or(searchFilter(config.search, search.q));
     const result = await request;
     const all = (result.data as unknown as Record<string, unknown>[]) ?? [];
@@ -235,7 +240,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     rows = hasMore ? all.slice(0, PAGE_SIZE) : all;
     error = result.error?.message;
   }
+  if (path[0] === "orcamentos") return <QuoteWorkspace rows={rows} error={error} query={search.q} page={page} hasMore={hasMore} status={quoteStatus} />;
   return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} page={page} hasMore={hasMore} />;
 }
 
-function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-bold uppercase tracking-widest text-forest">CRM Bielenki</p><h1 className="mt-2 text-3xl font-black capitalize">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }
+function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-bold uppercase tracking-widest text-forest">Marquinhos Calhas e Esquadrias</p><h1 className="mt-2 text-3xl font-black capitalize">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }

@@ -5,13 +5,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#18221e",
-        cream: "#f4f1e9",
-        forest: "#234d3c",
-        lime: "#b9d349",
-        sand: "#ded7c7",
+        ink: "rgb(var(--text-rgb) / <alpha-value>)",
+        cream: "rgb(var(--surface-2-rgb) / <alpha-value>)",
+        forest: "rgb(var(--brand-text-rgb) / <alpha-value>)",
+        lime: "rgb(var(--brand-rgb) / <alpha-value>)",
+        sand: "rgb(var(--border-rgb) / <alpha-value>)",
+        surface: "rgb(var(--surface-rgb) / <alpha-value>)",
+        brand: "rgb(var(--brand-text-rgb) / <alpha-value>)",
+        "brand-strong": "rgb(var(--brand-strong-rgb) / <alpha-value>)",
       },
-      boxShadow: { soft: "0 20px 50px rgba(24,34,30,.08)" },
+      boxShadow: { soft: "var(--shadow-card)" },
     },
   },
   plugins: [],

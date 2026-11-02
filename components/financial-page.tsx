@@ -63,7 +63,7 @@ export async function FinancialPage({ filter, error, received, page = 1 }: { fil
         <nav className="flex gap-2">
           {TABS.map(t => (
             <Link key={t.key} href={t.href}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${(filter ?? "") === t.key ? "bg-forest text-white border-forest" : "bg-white border-sand hover:bg-cream"}`}>
+              className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${(filter ?? "") === t.key ? "bg-brand-strong text-white border-forest" : "bg-surface border-sand hover:bg-cream"}`}>
               {t.label}
             </Link>
           ))}
@@ -91,12 +91,12 @@ export async function FinancialPage({ filter, error, received, page = 1 }: { fil
           <span className="text-sm text-ink/50">Página {page}</span>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page - 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-white px-3 py-2 text-sm font-semibold hover:bg-cream">
+              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page - 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
                 <ChevronLeft className="h-4 w-4" /> Anterior
               </Link>
             )}
             {hasNext && (
-              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page + 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-white px-3 py-2 text-sm font-semibold hover:bg-cream">
+              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page + 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
                 Próxima <ChevronRight className="h-4 w-4" />
               </Link>
             )}

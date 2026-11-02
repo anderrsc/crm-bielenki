@@ -1,0 +1,77 @@
+/* Customer document stays on white paper in both application themes. */
+.quote-paper-scroll { overflow-x:auto; border-radius:var(--r-lg); }
+.quote-sheet {
+ --quote-primary:var(--red-500); --quote-secondary:var(--n-950);
+ --text-rgb:10 10 11; --surface-rgb:255 255 255; --surface-2-rgb:247 247 248;
+ --border-rgb:228 228 231; --brand-text-rgb:179 11 11;
+ --text-muted:var(--paper-muted); --surface:var(--paper); --surface-2:var(--paper-soft); --text:var(--paper-text);
+ color-scheme:light; background:var(--paper)!important; color:var(--paper-text); font-family:var(--font-ui);
+ width:100%; min-width:700px; max-width:210mm; padding:10mm 12mm; margin:auto;
+}
+.quote-sheet img { display:block; }
+.quote-header { grid-template-columns:58mm 1fr 24mm; gap:5mm; padding-bottom:5mm; }
+.quote-logo-img { width:57mm; height:22mm; max-width:100%; }
+.quote-company-col { border:0; padding:0; min-height:0; font-size:8px; line-height:1.4; overflow-wrap:anywhere; }
+.quote-company-name { font-size:10px; padding-bottom:1mm; margin-bottom:1mm; }
+.quote-company-lines p { margin:.7mm 0; }
+.quote-qr-col { width:24mm; }
+.quote-qr-box { width:22mm; height:22mm; padding:1mm; border:1px solid var(--paper-border); }
+.quote-qr-caption { font-size:7px; line-height:1.4; margin-top:1mm; }
+.quote-bar { grid-template-columns:1.8fr .85fr .85fr 1.1fr 1fr; border-radius:2mm; min-height:13mm; }
+.quote-bar-numero { padding:2mm 3mm; font-family:var(--font-display); font-size:10px; white-space:normal; overflow-wrap:anywhere; }
+.quote-bar-meta { padding:2mm 1mm; }
+.quote-bar-label { font-size:6px; }
+.quote-bar-value { font-size:8px; max-height:none; -webkit-line-clamp:unset; }
+.quote-seller-button { font-size:8px; }
+.quote-client-box,.quote-with-pieces .quote-client-box { min-height:0; padding:4mm; margin-top:4mm; background:var(--paper-soft); }
+.quote-client-box::after { content:''; position:absolute; right:0; bottom:-12mm; width:60mm; height:55mm; background:var(--roof-watermark) center/contain no-repeat; opacity:.045; pointer-events:none; }
+.quote-client-title,.quote-with-pieces .quote-client-title { font-family:var(--font-display); font-size:9px; margin-bottom:3mm; }
+.quote-client-title::before { display:none; }
+.quote-client-grid,.quote-with-pieces .quote-client-grid { position:relative; z-index:1; width:100%; grid-template-columns:18mm 1fr 23mm 1fr; column-gap:2mm; row-gap:2mm; font-size:8px; line-height:1.5; }
+.quote-client-obs,.quote-with-pieces .quote-client-obs { width:100%; margin-top:2mm; font-size:8px; }
+.quote-table,.quote-with-pieces .quote-table { table-layout:fixed; margin-top:4mm; font-size:8px; }
+.quote-table thead th { font-size:7px; padding:2mm 1mm; letter-spacing:0; }
+.quote-table tbody td { height:auto; padding:3mm 1.4mm; border-color:var(--paper-border); overflow-wrap:anywhere; }
+.quote-table tbody tr:nth-child(even) { background:var(--paper-soft); }
+.quote-table tbody .quote-td-desc { text-align:left; font-size:8px; line-height:1.6; }
+.quote-table .quote-td-total,.quote-unit-value { font-variant-numeric:tabular-nums; font-size:7px; }
+.quote-piece-link { flex-direction:column; gap:1mm; }
+.quote-piece-link > span { display:block; font-size:6px; }
+.quote-piece-image { width:24mm; height:13mm; object-fit:contain; }
+.quote-piece-qr { width:14mm; height:14mm; object-fit:contain; }
+.quote-installed-image { width:100%; height:27mm; object-fit:contain; background:var(--paper); }
+.quote-table td.quote-piece-cell,.quote-table td.quote-installed-cell { padding:1.5mm .5mm; }
+.quote-piece-note { font-size:7px; line-height:1.5; margin:2mm 0 0; }
+.quote-bottom-grid,.quote-with-pieces .quote-bottom-grid { gap:4mm; margin-top:4mm; }
+.quote-obs-box { padding:3mm; min-height:0; background:var(--paper-soft); }
+.quote-obs-title { font-size:8px; margin-bottom:2mm; }
+.quote-obs-box ul { font-size:8px; line-height:1.6; }
+.quote-obs-box p { font-size:8px; }
+.quote-fin-box { flex:1.1; }
+.quote-fin-row { font-size:8px; padding:2mm 3mm; }
+.quote-fin-total { font-size:12px; padding:3mm; gap:2mm; white-space:nowrap; }
+.quote-footer-grid,.quote-with-pieces .quote-footer-grid { margin-top:5mm; padding-top:4mm; gap:4mm; }
+.quote-pay-title { font-size:8px; }
+.quote-pay-icons { gap:2mm; flex-wrap:wrap; }
+.quote-pay-item { border:1px solid var(--paper-border); border-radius:1mm; padding:1mm 2mm; margin:0; font-size:8px; gap:1mm; }
+.quote-pay-item input { margin:0; }
+.quote-sign-block { padding:7mm 0 0; border:0; font-size:8px; }
+.quote-sign-line { width:60mm; }
+.quote-paper-credit { display:flex; justify-content:space-between; align-items:center; margin-top:5mm; padding-top:2mm; border-top:1px solid var(--paper-border); font-size:7px; color:var(--paper-muted); }
+.quote-paper-credit .author-signature { font-size:7px; color:var(--paper-muted); }
+.quote-steps { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 24px; }
+.quote-steps a { padding:10px 16px; font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:var(--r-pill); background:var(--surface); }
+.quote-steps a:hover { color:var(--brand-text); border-color:var(--brand); }
+[id^="quote-"] { scroll-margin-top:100px; }
+.measure-sheet { --text-rgb:10 10 11; --text-muted:var(--paper-muted); --text:var(--paper-text); color:var(--paper-text); color-scheme:light; }
+.measure-credit { padding-top:2mm; text-align:right; color:var(--paper-muted); font-size:7px; }
+.measure-credit .author-signature { font-size:7px; color:var(--paper-muted); }
+@page { size:A4; margin:12mm 12mm 16mm; }
+@media print {
+ html,body { width:auto!important; min-height:0!important; }
+ .quote-paper-scroll { overflow:visible; }
+ .quote-sheet { width:100%; min-width:0; max-width:none; padding:0; }
+ .quote-header,.quote-bar,.quote-client-box,.quote-footer-grid,.quote-bottom-grid,.quote-table tr { break-inside:avoid; }
+ .quote-table thead { display:table-header-group; }
+ .quote-sheet[data-pdf-document="true"] .quote-paper-credit { display:none; }
+}

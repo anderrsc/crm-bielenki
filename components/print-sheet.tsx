@@ -1,7 +1,8 @@
 "use client";
+import { AuthorSignature } from "./brand-logo";
 
 import { FileDown, Printer, X } from "lucide-react";
-import { proxyLogoUrl, shortDate } from "@/lib/utils";
+import { shortDate } from "@/lib/utils";
 
 type Company = {
   trade_name?: string | null;
@@ -50,7 +51,7 @@ export function PrintSheet({ client, company, qty = 1 }: { client?: Client; comp
           <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream">
             <Printer className="h-4 w-4" /> Imprimir
           </button>
-          <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-[#234d3c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
+          <button type="button" onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong">
             <FileDown className="h-4 w-4" /> Gerar PDF
           </button>
           <a href={client ? "/clientes" : "/medicoes"} className="flex items-center gap-2 rounded-xl border border-sand bg-white px-3 py-2 text-sm font-semibold hover:bg-cream" title="Fechar">
@@ -74,7 +75,7 @@ export function PrintSheet({ client, company, qty = 1 }: { client?: Client; comp
 }
 
 function MeasurePage({ client, company, pageBreak }: { client?: Client; company: Company; pageBreak?: boolean }) {
-  const red = company.primary_color || "#d71920";
+  const red = "var(--red-500)";
   const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
   const legalName = company.name && company.name !== tradeName ? company.name : "Marcus Luiz Keil";
   const phone = client?.whatsapp || client?.phone || "";
@@ -94,12 +95,7 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
     >
       <header className="measure-header">
         <div className="measure-logo-wrap">
-          {company.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt={tradeName} src={proxyLogoUrl(company.logo_url)!} className="measure-logo-img" />
-          ) : (
-            <div className="measure-logo-fallback">Marquinhos</div>
-          )}
+          <img alt={tradeName} src="/brand/marquinhos-logo.svg" className="measure-logo-img" />
         </div>
         <div className="measure-company">
           <h1>{tradeName}</h1>
@@ -131,6 +127,7 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
       </section>
 
       <section className="measure-lines" aria-label="Area para medidas" />
+      <div className="measure-credit"><AuthorSignature/></div>
     </article>
   );
 }

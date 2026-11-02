@@ -152,14 +152,14 @@ export async function ProductionFlowPage({
               return (
                 <div
                   key={stepNum}
-                  className={`flex items-center gap-4 p-4 ${isCurrent ? "bg-lime/10" : ""}`}
+                  className={`flex items-center gap-4 p-4 ${isCurrent ? "bg-brand-strong/10" : ""}`}
                 >
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                       isDone
                         ? "bg-emerald-500 text-white"
                         : isCurrent
-                        ? "bg-forest text-white"
+                        ? "bg-brand-strong text-white"
                         : "bg-sand text-ink/40"
                     }`}
                   >
@@ -181,7 +181,7 @@ export async function ProductionFlowPage({
                     )}
                   </div>
                   {isCurrent && (
-                    <span className="rounded-lg bg-forest px-2 py-1 text-xs font-bold text-white">
+                    <span className="rounded-lg bg-brand-strong px-2 py-1 text-xs font-bold text-white">
                       Em andamento
                     </span>
                   )}
@@ -270,7 +270,7 @@ export async function ProductionFlowPage({
           <Link
             href="/producao"
             className={`rounded-xl border px-4 py-2 text-sm font-bold ${
-              !filter ? "border-forest bg-forest text-white" : "border-sand hover:bg-sand/50"
+              !filter ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"
             }`}
           >
             Todas
@@ -278,7 +278,7 @@ export async function ProductionFlowPage({
           <Link
             href="/producao?tipo=calhas"
             className={`rounded-xl border px-4 py-2 text-sm font-bold ${
-              filter === "calhas" ? "border-forest bg-forest text-white" : "border-sand hover:bg-sand/50"
+              filter === "calhas" ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"
             }`}
           >
             Calhas
@@ -287,7 +287,7 @@ export async function ProductionFlowPage({
             href="/producao?tipo=esquadrias"
             className={`rounded-xl border px-4 py-2 text-sm font-bold ${
               filter === "esquadrias"
-                ? "border-forest bg-forest text-white"
+                ? "border-forest bg-brand-strong text-white"
                 : "border-sand hover:bg-sand/50"
             }`}
           >
@@ -355,7 +355,7 @@ export async function ProductionFlowPage({
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sand">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      isFinished ? "bg-emerald-500" : isOverdue ? "bg-red-500" : "bg-forest"
+                      isFinished ? "bg-emerald-500" : isOverdue ? "bg-red-500" : "bg-brand-strong"
                     }`}
                     style={{ width: `${pct}%` }}
                   />

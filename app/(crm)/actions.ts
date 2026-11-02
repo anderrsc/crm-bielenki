@@ -1,4 +1,6 @@
 "use server";
+import { saveDraftQuoteAttachments } from "@/lib/quote-attachments";
+
 
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
@@ -167,6 +169,7 @@ export async function saveGutterQuote(formData: FormData) {
       })));
     }
   }
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, data);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
@@ -204,6 +207,7 @@ export async function updateGutterQuote(formData: FormData) {
       hide_unit_prices: parsed.data.hide_unit_prices,
     }).eq("id", quoteId);
   }
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
@@ -352,6 +356,7 @@ export async function createWindowQuote(formData:FormData){
   const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
   const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if(data)await schedulePdfPregeneration(db,String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }

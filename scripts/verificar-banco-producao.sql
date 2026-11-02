@@ -5,6 +5,7 @@
 
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
+    ('quote_internal_attachments', 'id,company_id,quote_id,original_name,file_path,content_type,size_bytes,uploaded_by,created_at'),
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
     ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,groq_api_key,id,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('aluminum_price_matrix', 'company_id,cut_mm,id,price_per_meter,thickness,updated_at'),

@@ -113,7 +113,7 @@ export function AluminumMatrix({
                 {canManage && (
                   <button
                     onClick={() => addRow(th)}
-                    className="flex items-center gap-1 rounded-lg border border-sand px-2 py-1 text-xs font-semibold hover:bg-white"
+                    className="flex items-center gap-1 rounded-lg border border-sand px-2 py-1 text-xs font-semibold hover:bg-surface"
                   >
                     <Plus className="h-3 w-3" /> Corte
                   </button>
@@ -131,7 +131,7 @@ export function AluminumMatrix({
                     {canManage ? (
                       <input
                         type="number"
-                        className="w-16 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm font-bold text-ink focus:border-forest focus:bg-white focus:outline-none"
+                        className="w-16 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm font-bold text-ink focus:border-forest focus:bg-surface focus:outline-none"
                         value={row.cut_mm || ""}
                         placeholder="mm"
                         onChange={(e) => handleChange(row.id, "cut_mm", Number(e.target.value))}
@@ -151,7 +151,7 @@ export function AluminumMatrix({
                           type="number"
                           step="0.01"
                           min="0"
-                          className="w-full rounded-lg border border-transparent bg-transparent py-1 pl-7 pr-1 text-sm font-black text-forest focus:border-forest focus:bg-white focus:outline-none"
+                          className="w-full rounded-lg border border-transparent bg-transparent py-1 pl-7 pr-1 text-sm font-black text-forest focus:border-forest focus:bg-surface focus:outline-none"
                           value={row.price_per_meter || ""}
                           placeholder="0,00"
                           onChange={(e) => handleChange(row.id, "price_per_meter", Number(e.target.value))}
@@ -180,7 +180,7 @@ export function AluminumMatrix({
                         <button
                           onClick={() => handleSave(row)}
                           disabled={!!saving[row.id]}
-                          className="rounded p-1 text-forest opacity-0 transition group-hover:opacity-100 hover:bg-lime/20"
+                          className="rounded p-1 text-forest opacity-0 transition group-hover:opacity-100 hover:bg-brand-strong/20"
                           title="Salvar"
                         >
                           <Save className="h-3 w-3" />

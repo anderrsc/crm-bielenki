@@ -4,6 +4,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
+import fs from "node:fs";
+import path from "node:path";
 import { launch, login, BASE, pageProblem, clickAndWait, selectByText } from "./helpers.mjs";
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5499/crm";
@@ -79,12 +81,21 @@ test("criar orcamento de calhas com preco automatico da tabela", async () => {
   await selectByText(page, "select.field", CLIENT);
   assert.equal(Number(await readNumberByLabel("R$/metro")), 95, "preco da tabela nao foi aplicado (espessura 0.5mm x 0.50 mm)");
   await setNumberByLabel("Metros", 10);
+  const fixture=path.resolve('.test-work',`medidas-internas-${RUN}.txt`);
+  fs.mkdirSync(path.dirname(fixture),{recursive:true});fs.writeFileSync(fixture,'MEDIDAS INTERNAS DE TESTE: largura 10 m.');
+  await (await page.$('input[name="quote_attachments"]')).uploadFile(fixture);
   await clickAndWait(page, "Salvar orçamento");
   await noProblem("salvar orcamento");
   assert.match(page.url(), /\/orcamentos\/[0-9a-f-]{36}$/);
   state.quoteId = page.url().split("/").pop();
   const { rows } = await db.query("select total, status from quotes where id=$1", [state.quoteId]);
   assert.equal(Number(rows[0].total), 950);
+  const files=(await db.query('select original_name,file_path from quote_internal_attachments where quote_id=$1',[state.quoteId])).rows;
+  assert.equal(files.length,1,'arquivo interno não ficou vinculado ao orçamento');
+  assert.match(files[0].original_name,/medidas-internas-/);
+  const printed=await page.evaluate(async id=>(await fetch(`/orcamentos/${id}/impressao`)).text(),state.quoteId);
+  assert.ok(!printed.includes(files[0].original_name),'nome do anexo interno vazou para o documento do cliente');
+  assert.ok(!printed.includes(files[0].file_path),'caminho do anexo interno vazou para o documento do cliente');
 });
 
 // Clica no botao (confere que a tela nao mostra erro) e baixa o mesmo PDF pela pagina.

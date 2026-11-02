@@ -42,6 +42,29 @@ afterEach(async()=>{await db.exec('rollback');});
 afterAll(async()=>{if(db) await db.close();});
 
 describe('quotes → sales → orders',()=>{
+  test('internal attachments stay private and isolated by company',async()=>{
+    const id=await quote();
+    expect((await first("select public from storage.buckets where id='quote-internal-attachments'")).public).toBe(false);
+    await db.exec('set local role authenticated');
+    await db.query('insert into quote_internal_attachments(company_id,quote_id,original_name,file_path,content_type,size_bytes,uploaded_by) values($1,$2,$3,$4,$5,123,$6)',[company,id,'medidas.pdf',`${company}/${id}/medidas.pdf`,'application/octet-stream',admin]);
+    expect((await rows('select original_name from quote_internal_attachments where quote_id=$1',[id])).length).toBe(1);
+    await actAs(otherAdmin);
+    expect(await rows('select id from quote_internal_attachments')).toEqual([]);
+    expect(await rows('delete from quote_internal_attachments where quote_id=$1 returning id',[id])).toEqual([]);
+  });
+  test('attachment cannot claim a quote belonging to another company',async()=>{
+    const id=await quote();await actAs(otherAdmin);await db.exec('set local role authenticated');
+    await expect(db.query('insert into quote_internal_attachments(company_id,quote_id,original_name,file_path,content_type,size_bytes,uploaded_by) values($1,$2,$3,$4,$5,123,$6)',[otherCompany,id,'forged.pdf',`${otherCompany}/${id}/forged.pdf`,'application/octet-stream',otherAdmin])).rejects.toThrow(/row-level security/);
+  });
+  test('internal storage objects enforce the quote company boundary',async()=>{
+    const id=await quote();
+    await db.exec('grant usage on schema storage to authenticated; grant select,insert,delete on storage.objects to authenticated; set local role authenticated');
+    await db.query("insert into storage.objects(bucket_id,name) values('quote-internal-attachments',$1)",[`${company}/${id}/measurements.pdf`]);
+    expect((await rows("select name from storage.objects where bucket_id='quote-internal-attachments'")).length).toBe(1);
+    await actAs(otherAdmin);
+    expect(await rows("select name from storage.objects where bucket_id='quote-internal-attachments'")).toEqual([]);
+    await expect(db.query("insert into storage.objects(bucket_id,name) values('quote-internal-attachments',$1)",[`${otherCompany}/${id}/forged.pdf`])).rejects.toThrow(/row-level security/);
+  });
   test('fabricated quantities produce exact total',async()=>{const id=await quote();const q=await first('select subtotal,total from quotes where id=$1',[id]);expect(Number(q.total)).toBe(100);});
   test('approval creates sale, order, receivable and production once',async()=>{
     const id=await quote();const sale=(await first('select approve_quote($1) id',[id])).id;

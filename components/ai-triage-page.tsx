@@ -139,7 +139,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
 
         {/* Resumo executivo */}
         {session.resumo_executivo && (
-          <div className="mx-5 mt-4 rounded-xl bg-forest/5 border border-forest/15 p-4">
+          <div className="mx-5 mt-4 rounded-xl bg-brand-strong/5 border border-forest/15 p-4">
             <p className="text-xs font-bold uppercase tracking-widest text-forest mb-2">Resumo Executivo</p>
             <pre className="text-xs text-ink/80 whitespace-pre-wrap font-sans">{session.resumo_executivo}</pre>
           </div>
@@ -177,7 +177,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
                   m.role === "user"
-                    ? "bg-forest text-white rounded-br-sm"
+                    ? "bg-brand-strong text-white rounded-br-sm"
                     : "bg-gray-100 text-ink rounded-bl-sm"
                 }`}>
                   {m.content}
@@ -336,7 +336,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
                 { value: "groq", label: "🚀 Groq", badge: "GRÁTIS", desc: "Llama 3.3 70B · 14.400 req/dia · Sem cartão" },
                 { value: "openai", label: "OpenAI", badge: "PAGO", desc: "GPT-4o · ~R$0,03 por triagem" },
               ].map(opt => (
-                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-forest/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
+                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
                   <input type="radio" name="ai_provider" value={opt.value} checked={aiProvider === opt.value} onChange={() => setAiProvider(opt.value)} className="mt-0.5" />
                   <div>
                     <div className="flex items-center gap-2">
@@ -393,7 +393,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
                 { value: "evolution", label: "📱 Evolution API", badge: "GRÁTIS", desc: "QR code · Sem aprovação Meta · Open source" },
                 { value: "meta", label: "Meta Business API", badge: "OFICIAL", desc: "Requer aprovação Meta Business · Gratuito até 1.000 conv/mês" },
               ].map(opt => (
-                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${wppProvider === opt.value ? "border-forest bg-forest/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
+                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${wppProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
                   <input type="radio" name="wpp_provider" value={opt.value} checked={wppProvider === opt.value} onChange={() => setWppProvider(opt.value)} className="mt-0.5" />
                   <div>
                     <div className="flex items-center gap-2">
@@ -423,7 +423,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
                   <label className="block text-xs font-semibold text-ink/50 mb-1">API Key da Evolution</label>
                   <input name="evolution_api_key" type="password" defaultValue={config?.evolution_api_key ?? ""} className="input w-full font-mono text-sm" placeholder="sua-api-key" />
                 </div>
-                <p className="text-xs text-green-700">Webhook para configurar na Evolution API: <code className="bg-white rounded px-1">POST /agente-ia/webhook</code> apontando para <code className="bg-white rounded px-1">https://seu-site.com/api/whatsapp/webhook</code></p>
+                <p className="text-xs text-green-700">Webhook para configurar na Evolution API: <code className="bg-surface rounded px-1">POST /agente-ia/webhook</code> apontando para <code className="bg-surface rounded px-1">https://seu-site.com/api/whatsapp/webhook</code></p>
               </div>
             )}
 
@@ -457,8 +457,8 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
             <label className="flex items-center gap-3 cursor-pointer">
               <div className="relative">
                 <input name="active" type="checkbox" defaultChecked={config?.active ?? false} className="sr-only peer" id="agent-active" />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-forest transition-colors" />
-                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-brand-strong transition-colors" />
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-surface rounded-full shadow peer-checked:translate-x-5 transition-transform" />
               </div>
               <span className="text-sm font-semibold">{config?.active ? "Agente ativo" : "Agente inativo"}</span>
             </label>

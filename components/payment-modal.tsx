@@ -12,7 +12,7 @@ export function PaymentModal({ entryId, openAmount }: { entryId: string; openAmo
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-forest px-3 py-1 text-xs font-bold text-white hover:opacity-80 transition"
+        className="rounded-lg bg-brand-strong px-3 py-1 text-xs font-bold text-white hover:opacity-80 transition"
       >
         Dar baixa
       </button>
@@ -20,7 +20,7 @@ export function PaymentModal({ entryId, openAmount }: { entryId: string; openAmo
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-black text-ink">Registrar pagamento</h3>
               <button onClick={() => setOpen(false)} className="rounded-lg p-1 hover:bg-cream">

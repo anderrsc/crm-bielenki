@@ -68,7 +68,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
       {canManage && (
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-strong text-white">
               <Plus className="h-4 w-4" />
             </div>
             <div>
@@ -101,7 +101,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
               <label className="label mb-2 block">Cargos / Acessos</label>
               <div className="flex flex-wrap gap-3">
                 {ALL_ROLES.map(r => (
-                  <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-lime/10 has-[:checked]:border-forest has-[:checked]:bg-lime/20">
+                  <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-brand-strong/10 has-[:checked]:border-forest has-[:checked]:bg-brand-strong/20">
                     <input type="checkbox" name="roles" value={r.value} className="accent-forest" />
                     {r.label}
                   </label>
@@ -136,7 +136,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`hidden rounded-full px-2 py-0.5 text-xs font-bold sm:inline ${p.status === "ativo" ? "bg-lime/30 text-forest" : "bg-ink/10 text-ink/40"}`}>
+                  <span className={`hidden rounded-full px-2 py-0.5 text-xs font-bold sm:inline ${p.status === "ativo" ? "bg-brand-strong/30 text-forest" : "bg-cream/10 text-ink/40"}`}>
                     {p.status === "ativo" ? "Ativo" : "Inativo"}
                   </span>
                   <span className="text-xs text-ink/40">{p.phone || ""}</span>
@@ -180,7 +180,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                     <p className="label mb-3">Cargos / Acessos</p>
                     <div className="flex flex-wrap gap-2 mb-4">
                       {ALL_ROLES.map(r => (
-                        <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-lime/10 has-[:checked]:border-forest has-[:checked]:bg-lime/20">
+                        <label key={r.value} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/10 px-3 py-2 text-sm font-medium hover:border-forest hover:bg-brand-strong/10 has-[:checked]:border-forest has-[:checked]:bg-brand-strong/20">
                           <input type="checkbox" name="roles" value={r.value} defaultChecked={myRoles.includes(r.value)} className="accent-forest" />
                           {r.label}
                         </label>
