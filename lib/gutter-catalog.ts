@@ -7,6 +7,10 @@ export const normalizeProductName = (name: string) => name.normalize("NFD").repl
 // Similar profiles are not interchangeable: match documented names/aliases only.
 export function catalogPieceForProduct(product: string): CatalogPiece | undefined {
   const name = normalizeProductName(product);
+  // "Rufo" alone does not identify which of the documented profiles was sold.
+  if (name === "rufo") return undefined;
+  const commercial = catalog.extras.find(item => normalizeProductName(item.product) === name);
+  if (commercial && name.startsWith("calha de beiral c/")) return catalog.pieces.find(piece => piece.id === "calha-beiral");
   return catalog.pieces.find(piece => [piece.name, ...piece.aliases].some(alias => normalizeProductName(alias) === name));
 }
 export function catalogModelUrl(piece: CatalogPiece) {
