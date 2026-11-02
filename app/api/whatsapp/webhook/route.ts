@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
+import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 
 function getSupabase() {
   return createClient(
@@ -212,8 +213,9 @@ export async function POST(req: NextRequest) {
       .eq("company_id", company.id)
       .single();
 
-    const hasAiKey = agentConfig?.groq_api_key || agentConfig?.openai_api_key;
-    if (!agentConfig?.active || !hasAiKey) {
+    const aiProvider = parseAiProvider(agentConfig?.ai_provider);
+    const companyAiKey = aiProvider === "groq" ? (agentConfig?.groq_api_key ?? agentConfig?.openai_api_key) : agentConfig?.openai_api_key;
+    if (!agentConfig?.active || !aiKeyAvailable(aiProvider, companyAiKey)) {
       console.log("Agente IA não configurado/ativo para empresa:", company.id);
       return NextResponse.json({ status: "agent_inactive" });
     }
@@ -274,7 +276,7 @@ export async function POST(req: NextRequest) {
       { role: "user", content: clientText, timestamp: new Date().toISOString() }
     ];
 
-    // Monta histórico para o OpenAI
+    // Monta histórico da conversa para a IA
     const conversationHistory = updatedMessages.map(m => ({
       role: m.role as "user" | "assistant" | "system",
       content: m.content
@@ -286,44 +288,25 @@ export async function POST(req: NextRequest) {
       ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.`
       : "";
 
-    // Determina provedor de IA (Groq grátis ou OpenAI pago)
-    const provider = agentConfig.ai_provider || "groq";
-    const isGroq = provider === "groq";
-    const aiBaseUrl = isGroq
-      ? "https://api.groq.com/openai/v1/chat/completions"
-      : "https://api.openai.com/v1/chat/completions";
-    const aiKey = isGroq
-      ? secretValue(agentConfig.groq_api_key ?? agentConfig.openai_api_key)
-      : secretValue(agentConfig.openai_api_key);
-    const aiModel = agentConfig.openai_model || (isGroq ? "llama-3.3-70b-versatile" : "gpt-4o");
-
-    // Chama IA (Groq ou OpenAI — API compatível)
-    const openaiResponse = await fetch(aiBaseUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${aiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: aiModel,
+    // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI)
+    let aiContent: string;
+    try {
+      aiContent = await aiChat({
+        provider: aiProvider,
+        model: agentConfig.openai_model,
+        apiKey: secretValue(companyAiKey),
         temperature: Number(agentConfig.temperature ?? 0.3),
-        response_format: { type: "json_object" },
+        json: true,
+        maxTokens: 1000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT + contextMsg },
-          ...conversationHistory
+          ...conversationHistory,
         ],
-        max_tokens: 1000
-      })
-    });
-
-    if (!openaiResponse.ok) {
-      const errText = await openaiResponse.text();
-      console.error("OpenAI error:", errText);
+      });
+    } catch (error) {
+      console.error("Erro do provedor de IA:", error instanceof AiError ? `${error.provider} ${error.status}: ${error.message}` : error);
       return NextResponse.json({ error: "AI provider request failed" }, { status: 502 });
     }
-
-    const aiData = await openaiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content ?? "{}";
 
     let aiResult: {
       mensagem: string;

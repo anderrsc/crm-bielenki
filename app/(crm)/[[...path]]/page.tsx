@@ -120,7 +120,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
         whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
       } : null;
-      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
+      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
     }
     return <AiTriagePage config={null} sessions={[]} tab={tab} />;
   }
@@ -148,7 +148,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   }
   if (path[0] === "automacoes") {
     const tab = (search as { aba?: string }).aba ?? "fluxos";
-    return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} />;
+    return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro}/>;
   }
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
