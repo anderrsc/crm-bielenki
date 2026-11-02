@@ -1,9 +1,10 @@
 "use client";
 
+import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ChevronDown, FileDown, Printer, Users } from "lucide-react";
-import { proxyLogoUrl, shortDate } from "@/lib/utils";
+import { shortDate } from "@/lib/utils";
 
 export type VisitSheetData = {
   clientId?: string;
@@ -39,7 +40,7 @@ const QTY_OPTIONS = [1, 5, 10, 20, 50, 100];
 export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }: VisitSheetData) {
   const [qty, setQty] = useState(1);
   const [showQty, setShowQty] = useState(false);
-  const red = company.primary_color || "#d71920";
+  const red = "var(--red-500)";
   const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
   const legalName = company.name && company.name !== tradeName ? company.name : "Marcus Luiz Keil";
   const phone = client?.whatsapp || client?.phone || "";
@@ -86,7 +87,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
           <Link href={printHref} target="_blank" className="flex items-center gap-2 rounded-xl border border-sand bg-white px-4 py-2 text-sm font-semibold hover:bg-cream">
             <Printer className="h-4 w-4" /> Imprimir
           </Link>
-          <Link href={printHref} target="_blank" className="flex items-center gap-2 rounded-xl bg-[#234d3c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
+          <Link href={printHref} target="_blank" className="flex items-center gap-2 rounded-xl bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong">
             <FileDown className="h-4 w-4" /> Gerar PDF
           </Link>
         </div>
@@ -95,12 +96,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
       <article className="measure-sheet print-sheet bg-white shadow-md" style={{ "--measure-primary": red } as React.CSSProperties}>
         <header className="measure-header">
           <div className="measure-logo-wrap">
-            {company.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img alt={tradeName} src={proxyLogoUrl(company.logo_url)!} className="measure-logo-img" />
-            ) : (
-              <div className="measure-logo-fallback">Marquinhos</div>
-            )}
+            <img alt={tradeName} src="/brand/marquinhos-logo.svg" className="measure-logo-img" />
           </div>
           <div className="measure-company">
             <h1>{tradeName}</h1>
@@ -132,6 +128,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
         </section>
 
         <section className="measure-lines" aria-label="Área para medidas" />
+      <div className="measure-credit"><AuthorSignature/></div>
       </article>
     </div>
   );

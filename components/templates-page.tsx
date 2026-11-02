@@ -179,26 +179,26 @@ function TemplateCard({ template, type, printHref }: { template: DocumentTemplat
         <div className="flex flex-wrap gap-2 shrink-0">
           {/* Visualizar */}
           <Link href={printHref} target="_blank"
-            className="flex items-center gap-1.5 rounded-xl border border-sand bg-white px-3 py-2 text-xs font-semibold hover:bg-cream">
+            className="flex items-center gap-1.5 rounded-xl border border-sand bg-surface px-3 py-2 text-xs font-semibold hover:bg-cream">
             <Eye className="h-3.5 w-3.5" /> Visualizar
           </Link>
 
           {/* Imprimir prévia */}
           <Link href={printHref} target="_blank"
-            className="flex items-center gap-1.5 rounded-xl border border-sand bg-white px-3 py-2 text-xs font-semibold hover:bg-cream">
+            className="flex items-center gap-1.5 rounded-xl border border-sand bg-surface px-3 py-2 text-xs font-semibold hover:bg-cream">
             <Printer className="h-3.5 w-3.5" /> Imprimir
           </Link>
 
           {/* Duplicar */}
           <button onClick={handleDuplicate} disabled={isPending}
-            className="flex items-center gap-1.5 rounded-xl border border-sand bg-white px-3 py-2 text-xs font-semibold hover:bg-cream disabled:opacity-50">
+            className="flex items-center gap-1.5 rounded-xl border border-sand bg-surface px-3 py-2 text-xs font-semibold hover:bg-cream disabled:opacity-50">
             <Copy className="h-3.5 w-3.5" />
             {duplicated ? "Duplicado!" : "Duplicar"}
           </button>
 
           {/* Restaurar padrão */}
           <button onClick={handleRestore} disabled={isPending}
-            className="flex items-center gap-1.5 rounded-xl border border-sand bg-white px-3 py-2 text-xs font-semibold hover:bg-cream disabled:opacity-50">
+            className="flex items-center gap-1.5 rounded-xl border border-sand bg-surface px-3 py-2 text-xs font-semibold hover:bg-cream disabled:opacity-50">
             <RotateCcw className="h-3.5 w-3.5" />
             {restored ? "Restaurado!" : "Restaurar"}
           </button>
@@ -206,7 +206,7 @@ function TemplateCard({ template, type, printHref }: { template: DocumentTemplat
           {/* Definir como padrão */}
           {!isDefault && (
             <button onClick={handleSetDefault} disabled={isPending}
-              className="flex items-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-semibold text-white hover:bg-[#18221e] disabled:opacity-50">
+              className="flex items-center gap-1.5 rounded-xl bg-brand-strong px-3 py-2 text-xs font-semibold text-white hover:bg-[#18221e] disabled:opacity-50">
               <Star className="h-3.5 w-3.5" /> Definir padrão
             </button>
           )}

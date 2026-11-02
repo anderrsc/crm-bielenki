@@ -132,7 +132,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={logoUrl} alt="Logo" className="max-h-[120px] max-w-[260px] object-contain p-4" />
                   {uploading && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/80">
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-surface/80">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-forest border-t-transparent" />
                     </div>
                   )}
@@ -150,7 +150,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
 
             <div className="flex gap-2">
               <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-sand bg-white py-2 text-sm font-semibold hover:bg-cream disabled:opacity-50">
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-sand bg-surface py-2 text-sm font-semibold hover:bg-cream disabled:opacity-50">
                 <Upload className="h-4 w-4" /> {logoUrl ? "Trocar logo" : "Enviar logo"}
               </button>
               {logoUrl && (
@@ -195,7 +195,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
                   { v: "right",  icon: AlignRight,   label: "Direita" },
                 ] as const).map(({ v, icon: Icon, label }) => (
                   <button key={v} onClick={() => setAlign(v)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${align === v ? "border-forest bg-lime/20 text-forest" : "border-sand bg-white text-ink/60 hover:bg-cream"}`}>
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${align === v ? "border-forest bg-brand-strong/20 text-forest" : "border-sand bg-surface text-ink/60 hover:bg-cream"}`}>
                     <Icon className="h-4 w-4" /> {label}
                   </button>
                 ))}
@@ -233,7 +233,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
               { v: "ficha",     label: "Ficha de Medição" },
             ] as const).map(({ v, label }) => (
               <button key={v} onClick={() => setPreviewType(v)}
-                className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition-colors ${previewType === v ? "border-forest bg-forest text-white" : "border-sand bg-white text-ink/60 hover:bg-cream"}`}>
+                className={`rounded-xl border px-4 py-1.5 text-sm font-semibold transition-colors ${previewType === v ? "border-forest bg-brand-strong text-white" : "border-sand bg-surface text-ink/60 hover:bg-cream"}`}>
                 {label}
               </button>
             ))}

@@ -76,13 +76,13 @@ export async function PendingCenter({ category }: { category?: string }) {
             href={t.key ? `/pendencias?categoria=${t.key}` : "/pendencias"}
             className={`flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition
               ${(category ?? "") === t.key
-                ? "bg-forest text-white border-forest"
-                : "bg-white border-sand hover:bg-cream text-ink"}`}
+                ? "bg-brand-strong text-white border-forest"
+                : "bg-surface border-sand hover:bg-cream text-ink"}`}
           >
             {t.label}
             {t.count > 0 && (
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none
-                ${(category ?? "") === t.key ? "bg-white/20 text-white" : "bg-ink/10 text-ink"}`}>
+                ${(category ?? "") === t.key ? "bg-surface/20 text-white" : "bg-cream/10 text-ink"}`}>
                 {t.count}
               </span>
             )}

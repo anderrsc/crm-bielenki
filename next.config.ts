@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-      outputFileTracingIncludes: { "/*": ["./public/catalogo/pecas/*.png"] },
+      experimental: { serverActions: { bodySizeLimit: "12mb" } },
+      outputFileTracingIncludes: { "/*": ["./public/catalogo/pecas/*.png", "./public/catalogo/obra/*.png", "./public/brand/*.svg", "./public/fonts/*"] },
       serverExternalPackages: ["@sparticuz/chromium-min", "puppeteer-core"],
 };
       

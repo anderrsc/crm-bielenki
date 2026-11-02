@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveAiAgentConfig } from "@/app/(crm)/actions";
+import { saveAiAgentConfig, testAiAgent } from "@/app/(crm)/actions";
 
 type TriageSession = {
   id: string;
@@ -49,6 +49,8 @@ type Props = {
   tab: string;
   saved?: boolean;
   error?: string;
+  /** OLLAMA_API_KEY configurada no servidor (o valor nunca vem para o navegador). */
+  ollamaReady?: boolean;
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -139,7 +141,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
 
         {/* Resumo executivo */}
         {session.resumo_executivo && (
-          <div className="mx-5 mt-4 rounded-xl bg-forest/5 border border-forest/15 p-4">
+          <div className="mx-5 mt-4 rounded-xl bg-brand-strong/5 border border-forest/15 p-4">
             <p className="text-xs font-bold uppercase tracking-widest text-forest mb-2">Resumo Executivo</p>
             <pre className="text-xs text-ink/80 whitespace-pre-wrap font-sans">{session.resumo_executivo}</pre>
           </div>
@@ -177,7 +179,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
                   m.role === "user"
-                    ? "bg-forest text-white rounded-br-sm"
+                    ? "bg-brand-strong text-white rounded-br-sm"
                     : "bg-gray-100 text-ink rounded-bl-sm"
                 }`}>
                   {m.content}
@@ -191,12 +193,14 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
   );
 }
 
-export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
+export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady = false }: Props) {
   const [activeTab, setActiveTab] = useState(tab);
   const [selectedSession, setSelectedSession] = useState<TriageSession | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showKeyWarning, setShowKeyWarning] = useState(false);
-  const [aiProvider, setAiProvider] = useState(config?.ai_provider ?? "groq");
+  const [aiProvider, setAiProvider] = useState(config?.ai_provider ?? "ollama");
+  const [aiTest, setAiTest] = useState<{ reply?: string; error?: string } | null>(null);
+  const [testingAi, startAiTest] = useTransition();
   const [wppProvider, setWppProvider] = useState(config?.wpp_provider ?? "evolution");
 
   const emAndamento = sessions.filter(s => s.status === "em_andamento");
@@ -331,23 +335,40 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
           {/* Seção: Provedor de IA */}
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Provedor de IA</p>
-            <div className="grid gap-3 sm:grid-cols-2 mb-4">
+            <div className="grid gap-3 sm:grid-cols-3 mb-4">
               {[
+                { value: "ollama", label: "🦙 Ollama Cloud", badge: "MODELOS ABERTOS", desc: "GLM e outros modelos abertos · chave no servidor" },
                 { value: "groq", label: "🚀 Groq", badge: "GRÁTIS", desc: "Llama 3.3 70B · 14.400 req/dia · Sem cartão" },
                 { value: "openai", label: "OpenAI", badge: "PAGO", desc: "GPT-4o · ~R$0,03 por triagem" },
               ].map(opt => (
-                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-forest/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
+                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
                   <input type="radio" name="ai_provider" value={opt.value} checked={aiProvider === opt.value} onChange={() => setAiProvider(opt.value)} className="mt-0.5" />
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{opt.label}</span>
-                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "groq" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{opt.badge}</span>
+                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "openai" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>{opt.badge}</span>
                     </div>
                     <p className="text-xs text-ink/50 mt-0.5">{opt.desc}</p>
                   </div>
                 </label>
               ))}
             </div>
+
+            {aiProvider === "ollama" && (
+              <div className="space-y-3">
+                <div className={`rounded-xl border px-4 py-3 text-sm ${ollamaReady ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  {ollamaReady
+                    ? "✅ Chave da Ollama configurada no servidor (OLLAMA_API_KEY)."
+                    : <>⚠️ Falta a chave da Ollama. Crie em <a href="https://ollama.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline">ollama.com/settings/keys</a> e cadastre como <code>OLLAMA_API_KEY</code> nas variáveis de ambiente da Vercel.</>}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo</label>
+                  <input name="openai_model" list="ollama-models" defaultValue={config?.ai_provider === "ollama" && config.openai_model ? config.openai_model : "glm-5.3-flash"} className="input w-full font-mono" />
+                  <datalist id="ollama-models"><option value="glm-5.3-flash" /></datalist>
+                  <p className="mt-1 text-xs text-ink/40">Nomes disponíveis em ollama.com/api/tags.</p>
+                </div>
+              </div>
+            )}
 
             {aiProvider === "groq" && (
               <div className="space-y-3">
@@ -383,6 +404,16 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
               </div>
             )}
             {showKeyWarning && <p className="text-xs text-amber-600 mt-1">⚠️ Chave salva de forma segura. Nunca a compartilhe.</p>}
+            <div className="mt-4 rounded-xl border border-forest/10 bg-gray-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-ink/55">Envia uma mensagem de teste usando a configuração <b>salva</b>.</p>
+                <button type="button" disabled={testingAi} onClick={() => startAiTest(async () => setAiTest(await testAiAgent()))} className="rounded-xl border border-forest/20 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                  {testingAi ? "Testando..." : "Testar IA"}
+                </button>
+              </div>
+              {aiTest?.reply && <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" data-ai-test="ok">Resposta da IA: {aiTest.reply}</p>}
+              {aiTest?.error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" data-ai-test="erro">⚠️ {aiTest.error}</p>}
+            </div>
           </div>
 
           {/* Seção: WhatsApp */}
@@ -393,7 +424,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
                 { value: "evolution", label: "📱 Evolution API", badge: "GRÁTIS", desc: "QR code · Sem aprovação Meta · Open source" },
                 { value: "meta", label: "Meta Business API", badge: "OFICIAL", desc: "Requer aprovação Meta Business · Gratuito até 1.000 conv/mês" },
               ].map(opt => (
-                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${wppProvider === opt.value ? "border-forest bg-forest/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
+                <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${wppProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
                   <input type="radio" name="wpp_provider" value={opt.value} checked={wppProvider === opt.value} onChange={() => setWppProvider(opt.value)} className="mt-0.5" />
                   <div>
                     <div className="flex items-center gap-2">
@@ -423,7 +454,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
                   <label className="block text-xs font-semibold text-ink/50 mb-1">API Key da Evolution</label>
                   <input name="evolution_api_key" type="password" defaultValue={config?.evolution_api_key ?? ""} className="input w-full font-mono text-sm" placeholder="sua-api-key" />
                 </div>
-                <p className="text-xs text-green-700">Webhook para configurar na Evolution API: <code className="bg-white rounded px-1">POST /agente-ia/webhook</code> apontando para <code className="bg-white rounded px-1">https://seu-site.com/api/whatsapp/webhook</code></p>
+                <p className="text-xs text-green-700">Webhook para configurar na Evolution API: <code className="bg-surface rounded px-1">POST /agente-ia/webhook</code> apontando para <code className="bg-surface rounded px-1">https://seu-site.com/api/whatsapp/webhook</code></p>
               </div>
             )}
 
@@ -457,8 +488,8 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
             <label className="flex items-center gap-3 cursor-pointer">
               <div className="relative">
                 <input name="active" type="checkbox" defaultChecked={config?.active ?? false} className="sr-only peer" id="agent-active" />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-forest transition-colors" />
-                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-brand-strong transition-colors" />
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-surface rounded-full shadow peer-checked:translate-x-5 transition-transform" />
               </div>
               <span className="text-sm font-semibold">{config?.active ? "Agente ativo" : "Agente inativo"}</span>
             </label>
@@ -494,7 +525,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error }: Props) {
               <li>Acesse <strong>Meta for Developers → Meu App → WhatsApp → Configuração</strong></li>
               <li>Em Webhooks, cole a URL acima e o Verify Token</li>
               <li>Selecione os campos: <code>messages</code></li>
-              <li>Configure a chave OpenAI na aba Configurações</li>
+              <li>Escolha o provedor de IA na aba Configurações e clique em <b>Testar IA</b></li>
               <li>Ative o agente e teste enviando "Olá" para o número</li>
             </ol>
           </div>

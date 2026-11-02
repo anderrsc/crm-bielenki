@@ -13,8 +13,9 @@ export function chromePath() {
   return found;
 }
 
+// Navegador no fuso dos usuarios (Brasil): a agenda agrupa eventos pelo dia local.
 export async function launch() {
-  return puppeteer.launch({ executablePath: chromePath(), headless: true, args: ["--no-sandbox"], defaultViewport: { width: 1366, height: 900 } });
+  return puppeteer.launch({ executablePath: chromePath(), headless: true, args: ["--no-sandbox"], env: { ...process.env, TZ: "America/Sao_Paulo" }, defaultViewport: { width: 1366, height: 900 } });
 }
 
 // Textos que indicam erro na pagina renderizada.

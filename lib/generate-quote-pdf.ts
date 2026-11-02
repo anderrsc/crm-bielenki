@@ -69,12 +69,19 @@ export async function generateQuotePdfBuffer(params: {
 
     await page.emulateMediaType("print");
 
+    await page.evaluate(()=>document.fonts.ready);
+    if(!await page.$('.quote-sheet'))throw new Error('Documento indisponível. Entre novamente para gerar o PDF.');
+    const number=await page.$eval('.quote-sheet',el=>el.getAttribute('data-quote-number')||'');
+    const safeNumber=number.replace(/[&<>"']/g,'');
     const pdfBuffer = await page.pdf({
       width: "210mm",
       height: "297mm",
       printBackground: true,
       preferCSSPageSize: false,
-      margin: { top: "0mm", bottom: "0mm", left: "0mm", right: "0mm" },
+      margin: { top: "12mm", bottom: "16mm", left: "12mm", right: "12mm" },
+      displayHeaderFooter:true,
+      headerTemplate:'<span></span>',
+      footerTemplate:`<div style="font:8px Arial;width:100%;margin:0 12mm;border-top:1px solid #ddd;padding-top:5px;display:flex;justify-content:space-between;color:#555"><span>Orçamento ${safeNumber} · by Anderson Bielenki</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>`,
     });
 
     return Buffer.from(pdfBuffer);

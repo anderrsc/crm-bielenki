@@ -121,10 +121,10 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl bg-ink/5 p-1">
+      <div className="mb-6 flex gap-1 rounded-xl bg-cream/5 p-1">
         {tabs.map(t => (
           <Link key={t.key} href={`/automacoes?aba=${t.key}`}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-ink" : "text-ink/50 hover:text-ink"}`}>
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === t.key ? "bg-surface shadow-sm text-ink" : "text-ink/50 hover:text-ink"}`}>
             {t.icon}{t.label}
           </Link>
         ))}
@@ -230,7 +230,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
                 const triggerData = ex.trigger_data as Record<string, unknown>;
                 const dataPreview = Object.entries(triggerData).slice(0, 2).map(([k, v]) => `${k}: ${String(v).slice(0, 20)}`).join(" · ");
                 return (
-                  <div key={ex.id} className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-4 border-b px-4 py-3 last:border-0 hover:bg-ink/[.02]">
+                  <div key={ex.id} className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-4 border-b px-4 py-3 last:border-0 hover:bg-cream/[.02]">
                     <div title={ex.status}>{statusIcon}</div>
                     <div>
                       <p className="text-sm font-medium truncate">{wf?.name ?? "Fluxo removido"}</p>
@@ -279,7 +279,7 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
   return (
     <div className="card p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 shrink-0 rounded-lg bg-ink/5 p-2"><TriggerIcon className="h-4 w-4 text-ink/50" /></div>
+        <div className="mt-0.5 shrink-0 rounded-lg bg-cream/5 p-2"><TriggerIcon className="h-4 w-4 text-ink/50" /></div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-sm">{wf.name}</span>
@@ -298,11 +298,11 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
           {steps.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {steps.slice(0, 5).map((s, i) => (
-                <span key={i} className="rounded bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink/60">
+                <span key={i} className="rounded bg-cream/5 px-2 py-0.5 text-[11px] font-medium text-ink/60">
                   {STEP_TYPE_LABELS[s.type] ?? s.type}
                 </span>
               ))}
-              {steps.length > 5 && <span className="rounded bg-ink/5 px-2 py-0.5 text-[11px] text-ink/40">+{steps.length - 5}</span>}
+              {steps.length > 5 && <span className="rounded bg-cream/5 px-2 py-0.5 text-[11px] text-ink/40">+{steps.length - 5}</span>}
             </div>
           )}
         </div>

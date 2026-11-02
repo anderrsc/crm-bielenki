@@ -38,7 +38,8 @@
     "/configuracoes/identidade",
     "/configuracoes/templates",
     "/configuracoes/origens-lead",
-    "/configuracoes/tabela-calhas"
+    "/configuracoes/tabela-calhas",
+    "/design-system"
   ],
   "errorSignatures": [
     "Application error",

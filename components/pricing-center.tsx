@@ -154,7 +154,7 @@ export async function PricingCenter({
         {TABS.map(({ key, label, icon: Icon }) => (
           <Link key={key} href={tabHref(key)}
             className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition",
-              tab === key ? "bg-white shadow text-ink" : "text-ink/50 hover:text-ink")}>
+              tab === key ? "bg-surface shadow text-ink" : "text-ink/50 hover:text-ink")}>
             <Icon className="h-4 w-4" />{label}
           </Link>
         ))}
@@ -386,12 +386,12 @@ export async function PricingCenter({
                       <p className="font-black">{c.name}</p>
                       {c.description && <p className="mt-0.5 text-xs text-ink/50">{c.description}</p>}
                     </div>
-                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", c.active ? "bg-emerald-50 text-emerald-700" : "bg-ink/5 text-ink/40")}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", c.active ? "bg-emerald-50 text-emerald-700" : "bg-cream/5 text-ink/40")}>
                       {c.active ? "Ativo" : "Inativo"}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center gap-3">
-                    <span className="rounded-lg bg-forest/10 px-3 py-1 text-xs font-bold text-forest">
+                    <span className="rounded-lg bg-brand-strong/10 px-3 py-1 text-xs font-bold text-forest">
                       {c.adjustment_type === "desconto" ? "Desconto" : c.adjustment_type === "acrescimo" ? "Acréscimo" : "Multiplicador"}
                     </span>
                     <span className="text-xl font-black">
@@ -468,7 +468,7 @@ export async function PricingCenter({
                         <td className="px-4 py-3 text-xs text-ink/60">{shortDate(l.created_at)}</td>
                         <td className="px-4 py-3">{l.user?.full_name ?? "Sistema"}</td>
                         <td className="px-4 py-3 text-xs">
-                          <span className="rounded bg-ink/5 px-2 py-0.5 font-mono">{l.table_name.replace("pricing_","")}</span>
+                          <span className="rounded bg-cream/5 px-2 py-0.5 font-mono">{l.table_name.replace("pricing_","")}</span>
                           <span className="ml-2 text-ink/50">{String(itemName)}</span>
                         </td>
                         <td className="px-4 py-3">

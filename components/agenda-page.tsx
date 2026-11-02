@@ -68,6 +68,10 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(initialError);
+  // Datas e horarios dependem do fuso do navegador (o servidor roda em UTC):
+  // o calendario so e montado no cliente para nao divergir na hidratacao.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); setCursor(new Date()); }, []);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -98,6 +102,14 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
     return fmtDate(cursor.toISOString());
   };
 
+  if (!mounted) return (
+    <div className="mx-auto max-w-[1400px]">
+      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
+      <h1 className="mt-1 text-3xl font-black">Agenda</h1>
+      <p className="mt-6 text-sm text-ink/50">Carregando agenda…</p>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-[1400px]">
       {/* ── Header ── */}
@@ -109,25 +121,25 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* View selector */}
-          <div className="flex rounded-xl border bg-white">
+          <div className="flex rounded-xl border bg-surface">
             {(["mes","semana","dia"] as View[]).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={`px-4 py-2 text-sm font-semibold capitalize transition-colors first:rounded-l-xl last:rounded-r-xl ${view===v?"bg-forest text-white":"text-ink/60 hover:bg-cream"}`}>
+                className={`px-4 py-2 text-sm font-semibold capitalize transition-colors first:rounded-l-xl last:rounded-r-xl ${view===v?"bg-brand-strong text-white":"text-ink/60 hover:bg-cream"}`}>
                 {v === "mes" ? "Mês" : v === "semana" ? "Semana" : "Dia"}
               </button>
             ))}
           </div>
           {/* Navigation */}
-          <div className="flex items-center gap-1 rounded-xl border bg-white">
+          <div className="flex items-center gap-1 rounded-xl border bg-surface">
             <button aria-label="Período anterior" onClick={() => navigate(-1)} className="p-2 hover:bg-cream rounded-l-xl"><ChevronLeft className="h-4 w-4" /></button>
             <button onClick={() => setCursor(new Date())} className="px-3 py-2 text-sm font-semibold hover:bg-cream">Hoje</button>
             <button aria-label="Próximo período" onClick={() => navigate(1)} className="p-2 hover:bg-cream rounded-r-xl"><ChevronRight className="h-4 w-4" /></button>
           </div>
           <button onClick={() => setCreateFor(ymd(cursor))}
-            className="flex items-center gap-2 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
+            className="flex items-center gap-2 rounded-xl bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
             <Plus className="h-4 w-4" /> Novo evento
           </button>
-          <button onClick={reload} className={`p-2 rounded-xl border bg-white hover:bg-cream ${loading?"opacity-50":""}`}>
+          <button onClick={reload} className={`p-2 rounded-xl border bg-surface hover:bg-cream ${loading?"opacity-50":""}`}>
             <RefreshCw className={`h-4 w-4 ${loading?"animate-spin":""}`} />
           </button>
         </div>
@@ -170,7 +182,7 @@ function MonthView({ cursor, events, onDayClick, onEventClick }:
   const cells: Date[] = Array.from({ length: 42 }, (_, i) => addDays(start, i));
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border bg-surface shadow-sm">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b bg-cream">
         {DAYS_PT.map(d => <div key={d} className="py-2 text-center text-xs font-bold text-ink/50 uppercase tracking-wider">{d}</div>)}
@@ -183,9 +195,9 @@ function MonthView({ cursor, events, onDayClick, onEventClick }:
           const dayEvents = events.filter(e => sameDay(eventDate(e), day));
           return (
             <div key={i} onClick={() => onDayClick(ymd(day))}
-              className={`min-h-[110px] p-2 cursor-pointer transition-colors hover:bg-lime/10 ${!isCurrentMonth ? "bg-gray-50/70" : ""}`}>
+              className={`min-h-[110px] p-2 cursor-pointer transition-colors hover:bg-brand-strong/10 ${!isCurrentMonth ? "bg-gray-50/70" : ""}`}>
               <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold transition-colors
-                ${isToday ? "bg-forest text-white" : isCurrentMonth ? "text-ink" : "text-ink/30"}`}>
+                ${isToday ? "bg-brand-strong text-white" : isCurrentMonth ? "text-ink" : "text-ink/30"}`}>
                 {day.getDate()}
               </span>
               <div className="mt-1 space-y-0.5">
@@ -213,7 +225,7 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border bg-surface shadow-sm">
       {/* Day headers */}
       <div className="grid grid-cols-8 border-b bg-cream">
         <div className="py-3" />
@@ -223,8 +235,8 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
             <div key={i} className="py-3 text-center">
               <p className="text-xs font-bold text-ink/40 uppercase">{DAYS_PT[d.getDay()]}</p>
               <span onClick={() => onDayClick(ymd(d))}
-                className={`mt-1 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-lg font-black transition-colors hover:bg-lime/20
-                  ${isToday ? "bg-forest text-white" : "text-ink"}`}>
+                className={`mt-1 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-lg font-black transition-colors hover:bg-brand-strong/20
+                  ${isToday ? "bg-brand-strong text-white" : "text-ink"}`}>
                 {d.getDate()}
               </span>
             </div>
@@ -243,7 +255,7 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
               });
               return (
                 <div key={di} onClick={() => onDayClick(ymd(d))}
-                  className="min-h-[52px] border-l p-1 cursor-pointer hover:bg-lime/10 transition-colors">
+                  className="min-h-[52px] border-l p-1 cursor-pointer hover:bg-brand-strong/10 transition-colors">
                   {dayEvents.map(e => (
                     <EventChip key={e.id} event={e} onClick={ev => { ev.stopPropagation(); onEventClick(e); }} />
                   ))}
@@ -264,14 +276,14 @@ function DayView({ cursor, events, onEventClick, onNewEvent }:
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border bg-surface shadow-sm">
       <div className="border-b bg-cream px-6 py-3 flex items-center justify-between">
         <p className="font-bold text-ink">{fmtDate(cursor.toISOString())}</p>
         <p className="text-sm text-ink/50">{dayEvents.length} evento{dayEvents.length !== 1 ? "s" : ""}</p>
       </div>
       {/* All-day / sem horário */}
       {dayEvents.filter(e => !e.starts_at.includes("T") || e.starts_at.endsWith("00:00:00+00")).map(e => (
-        <div key={e.id} onClick={() => onEventClick(e)} className="border-b px-6 py-3 cursor-pointer hover:bg-lime/10">
+        <div key={e.id} onClick={() => onEventClick(e)} className="border-b px-6 py-3 cursor-pointer hover:bg-brand-strong/10">
           <EventChip event={e} />
         </div>
       ))}
@@ -282,7 +294,7 @@ function DayView({ cursor, events, onEventClick, onNewEvent }:
           return (
             <div key={h} className="flex border-b min-h-[60px]" onClick={() => onNewEvent(ymd(cursor))}>
               <div className="w-20 shrink-0 py-2 pr-3 text-right text-xs text-ink/35 font-medium">{h}:00</div>
-              <div className="flex-1 border-l p-2 cursor-pointer hover:bg-lime/10 transition-colors space-y-1">
+              <div className="flex-1 border-l p-2 cursor-pointer hover:bg-brand-strong/10 transition-colors space-y-1">
                 {slotEvents.map(e => (
                   <div key={e.id} onClick={ev => { ev.stopPropagation(); onEventClick(e); }}>
                     <EventChip event={e} />
@@ -319,7 +331,7 @@ function EventModal({ event, onClose, onStatusChange }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
         <div className={`rounded-t-2xl px-6 py-4 ${cfg.bg}`}>
           <div className="flex items-start justify-between">
             <div>
@@ -406,13 +418,13 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between rounded-t-2xl bg-forest px-6 py-4">
+      <div className="w-full max-w-lg rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between rounded-t-2xl bg-brand-strong px-6 py-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-white/70" />
             <h2 className="text-lg font-black text-white">Novo evento</h2>
           </div>
-          <button onClick={onClose} className="rounded-xl p-1.5 hover:bg-white/10"><X className="h-5 w-5 text-white" /></button>
+          <button onClick={onClose} className="rounded-xl p-1.5 hover:bg-surface/10"><X className="h-5 w-5 text-white" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}

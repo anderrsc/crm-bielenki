@@ -17,11 +17,11 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 const AUTONOMY_LEVELS = [
-  { level: 0, label: "Desativada", desc: "IA inativa. Apenas disponível para consultas.", color: "bg-ink/20 text-ink/50", dot: "bg-ink/30" },
+  { level: 0, label: "Desativada", desc: "IA inativa. Apenas disponível para consultas.", color: "bg-cream/20 text-ink/50", dot: "bg-cream/30" },
   { level: 1, label: "Observadora", desc: "Monitora o sistema e informa alertas. Não executa nada.", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
   { level: 2, label: "Assistente", desc: "Sugere ações. Toda ação exige aprovação humana.", color: "bg-yellow-100 text-yellow-700", dot: "bg-yellow-500" },
   { level: 3, label: "Semi-Autônoma", desc: "Executa automações aprovadas. Ações críticas exigem aprovação.", color: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
-  { level: 4, label: "Operacional", desc: "Executa todas as automações autorizadas. Registro completo.", color: "bg-lime/30 text-forest", dot: "bg-lime" },
+  { level: 4, label: "Operacional", desc: "Executa todas as automações autorizadas. Registro completo.", color: "bg-brand-strong/30 text-forest", dot: "bg-brand-strong" },
 ];
 
 const MOCK_KNOWLEDGE = [
@@ -90,13 +90,13 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
             <Bot className="h-6 w-6 text-forest" />
             <h1 className="text-2xl font-black">Central de Controle da IA</h1>
           </div>
-          <p className="mt-1 text-sm text-ink/50">CRM Bielenki OS — Versão Profissional</p>
+          <p className="mt-1 text-sm text-ink/50">Marquinhos Calhas e Esquadrias OS — Versão Profissional</p>
         </div>
         <button
           onClick={() => setPaused(!paused)}
           className={cn(
             "flex items-center gap-2 rounded-xl px-5 py-3 font-bold text-sm transition",
-            paused ? "bg-lime text-forest" : "bg-red-600 text-white hover:bg-red-700"
+            paused ? "bg-brand-strong text-forest" : "bg-red-600 text-white hover:bg-red-700"
           )}
         >
           {paused ? <><Play className="h-4 w-4" /> REATIVAR IA</> : <><Pause className="h-4 w-4" /> PAUSAR IA</>}
@@ -123,7 +123,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
               onClick={() => setTab(t.id)}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
-                tab === t.id ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"
+                tab === t.id ? "bg-surface text-ink shadow-sm" : "text-ink/50 hover:text-ink"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -210,7 +210,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                   onClick={() => setAutonomyLevel(lvl.level)}
                   className={cn(
                     "w-full flex items-center gap-4 rounded-xl border-2 p-4 text-left transition",
-                    autonomyLevel === lvl.level ? "border-forest bg-lime/10" : "border-cream hover:border-ink/20"
+                    autonomyLevel === lvl.level ? "border-forest bg-brand-strong/10" : "border-cream hover:border-ink/20"
                   )}
                 >
                   <div className={cn("h-10 w-10 rounded-full flex items-center justify-center font-black text-lg shrink-0", lvl.color)}>
@@ -253,9 +253,9 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setKnowledge(prev => prev.map(x => x.id === k.id ? { ...x, status: !x.status } : x))}
-                      className={cn("relative h-6 w-11 rounded-full transition", k.status ? "bg-forest" : "bg-ink/20")}
+                      className={cn("relative h-6 w-11 rounded-full transition", k.status ? "bg-brand-strong" : "bg-cream/20")}
                     >
-                      <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white transition-all", k.status ? "left-6" : "left-1")} />
+                      <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-surface transition-all", k.status ? "left-6" : "left-1")} />
                     </button>
                   </div>
                 </div>
@@ -264,7 +264,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
           </div>
 
           {showTeachModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-cream/50 p-4">
               <div className="card w-full max-w-lg p-6 space-y-4">
                 <h3 className="font-black text-lg">Ensinar IA</h3>
                 <div className="space-y-3">
@@ -311,9 +311,9 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                   </div>
                   <button
                     onClick={() => setRules(prev => prev.map(x => x.id === r.id ? { ...x, status: !x.status } : x))}
-                    className={cn("relative h-6 w-11 rounded-full transition shrink-0", r.status ? "bg-forest" : "bg-ink/20")}
+                    className={cn("relative h-6 w-11 rounded-full transition shrink-0", r.status ? "bg-brand-strong" : "bg-cream/20")}
                   >
-                    <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white transition-all", r.status ? "left-6" : "left-1")} />
+                    <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-surface transition-all", r.status ? "left-6" : "left-1")} />
                   </button>
                 </div>
               </div>
@@ -337,7 +337,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold">{a.name}</span>
                       <span className="rounded-full bg-cream px-2 py-0.5 text-xs font-bold text-ink/50">{a.category}</span>
-                      <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", a.status ? "bg-lime/30 text-forest" : "bg-ink/10 text-ink/40")}>
+                      <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", a.status ? "bg-brand-strong/30 text-forest" : "bg-cream/10 text-ink/40")}>
                         {a.status ? "✓ Ativo" : "Pausado"}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                       <div><p className="text-xs text-ink/40">Taxa de sucesso</p>
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 flex-1 rounded-full bg-cream overflow-hidden">
-                            <div className="h-full bg-forest rounded-full" style={{ width: `${a.successRate}%` }} />
+                            <div className="h-full bg-brand-strong rounded-full" style={{ width: `${a.successRate}%` }} />
                           </div>
                           <span className="font-bold text-xs">{a.successRate}%</span>
                         </div>
@@ -363,9 +363,9 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                     </button>
                     <button
                       onClick={() => setAutomations(prev => prev.map(x => x.id === a.id ? { ...x, status: !x.status } : x))}
-                      className={cn("relative h-6 w-11 rounded-full transition", a.status ? "bg-forest" : "bg-ink/20")}
+                      className={cn("relative h-6 w-11 rounded-full transition", a.status ? "bg-brand-strong" : "bg-cream/20")}
                     >
-                      <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white transition-all", a.status ? "left-6" : "left-1")} />
+                      <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-surface transition-all", a.status ? "left-6" : "left-1")} />
                     </button>
                   </div>
                 </div>
@@ -374,7 +374,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
           </div>
 
           {showTestModal !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-cream/50 p-4">
               <div className="card w-full max-w-lg p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <TestTube className="h-5 w-5 text-blue-600" />
@@ -389,7 +389,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                     Executar Simulação
                   </button>
                 ) : (
-                  <div className="rounded-xl bg-ink p-4 text-sm text-white font-mono whitespace-pre-line">{testResult}</div>
+                  <div className="rounded-xl bg-cream p-4 text-sm text-white font-mono whitespace-pre-line">{testResult}</div>
                 )}
                 <button onClick={() => setShowTestModal(null)} className="button-ghost w-full">Fechar</button>
               </div>
@@ -420,7 +420,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                     <p className="text-sm text-ink/60 mt-0.5">{log.detail}</p>
                   </div>
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", {
-                    "bg-lime/30 text-forest": log.type === "success",
+                    "bg-brand-strong/30 text-forest": log.type === "success",
                     "bg-red-100 text-red-700": log.type === "alert",
                     "bg-yellow-100 text-yellow-700": log.type === "warning",
                     "bg-blue-100 text-blue-700": log.type === "info",
@@ -461,7 +461,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                       <p className="text-xs font-bold text-ink/40 mb-1">AÇÃO RECOMENDADA</p>
                       <p className="font-medium">{d.action}</p>
                     </div>
-                    <div className="rounded-lg bg-lime/20 p-3 text-sm">
+                    <div className="rounded-lg bg-brand-strong/20 p-3 text-sm">
                       <p className="text-xs font-bold text-ink/40 mb-1">IMPACTO ESPERADO</p>
                       <p className="font-medium text-forest">{d.impact}</p>
                     </div>
@@ -498,7 +498,7 @@ export function AiControlPanel({ tab: initialTab = "dashboard" }: { tab?: string
                     </div>
                     <p className="mt-2 text-sm text-ink/60">{m.desc}</p>
                   </div>
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold shrink-0", m.status === "aprovado" ? "bg-lime/30 text-forest" : "bg-yellow-100 text-yellow-700")}>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold shrink-0", m.status === "aprovado" ? "bg-brand-strong/30 text-forest" : "bg-yellow-100 text-yellow-700")}>
                     {m.status === "aprovado" ? "✓ Aprovado" : "Pendente"}
                   </span>
                 </div>

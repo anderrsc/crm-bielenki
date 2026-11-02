@@ -12,15 +12,15 @@ export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string;
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1 rounded-lg border border-sand bg-white px-2 py-1 text-xs font-semibold text-ink/60 hover:border-forest hover:text-forest transition"
+        className="flex items-center gap-1 rounded-lg border border-sand bg-surface px-2 py-1 text-xs font-semibold text-ink/60 hover:border-forest hover:text-forest transition"
         title="Renegociar vencimento"
       >
         <CalendarClock className="h-3.5 w-3.5" />
       </button>
       {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <button className="absolute inset-0 bg-cream/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="font-black text-lg">Renegociar vencimento</h2>

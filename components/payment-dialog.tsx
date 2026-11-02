@@ -19,12 +19,12 @@ export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountA
   }, [open]);
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="rounded-lg bg-forest px-3 py-1 text-xs font-bold text-white transition hover:opacity-80">
+    <button type="button" onClick={() => setOpen(true)} className="rounded-lg bg-brand-strong px-3 py-1 text-xs font-bold text-white transition hover:opacity-80">
       Dar baixa
     </button>
     {open && createPortal(
-      <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-ink/60 p-4" role="presentation" onMouseDown={() => setOpen(false)}>
-        <section role="dialog" aria-modal="true" aria-labelledby={`payment-${entryId}`} className="my-auto w-full max-w-md rounded-2xl border border-sand bg-white p-5 shadow-2xl" onMouseDown={event => event.stopPropagation()}>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-cream/60 p-4" role="presentation" onMouseDown={() => setOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby={`payment-${entryId}`} className="my-auto w-full max-w-md rounded-2xl border border-sand bg-surface p-5 shadow-2xl" onMouseDown={event => event.stopPropagation()}>
           <div className="mb-5 flex items-center justify-between">
             <h2 id={`payment-${entryId}`} className="text-xl font-black">Dar baixa</h2>
             <button type="button" aria-label="Fechar" onClick={() => setOpen(false)} className="button-ghost p-2"><X className="h-4 w-4" /></button>

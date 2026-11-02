@@ -207,14 +207,14 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
         <div className="flex-1" />
         {canManage && (
           <>
-            <button onClick={addRow} className="flex h-9 items-center gap-1.5 rounded-xl border border-sand bg-white px-3 text-sm font-semibold hover:bg-cream">
+            <button onClick={addRow} className="flex h-9 items-center gap-1.5 rounded-xl border border-sand bg-surface px-3 text-sm font-semibold hover:bg-cream">
               <Plus className="h-4 w-4" /> Novo
             </button>
             <button
               onClick={handleSave}
               disabled={isPending || (!dirty.size && !deleted.size)}
               className={`flex h-9 items-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition-all disabled:opacity-40 ${
-                dirty.size || deleted.size ? "bg-forest hover:bg-[#18221e] shadow-md" : "bg-ink/25"
+                dirty.size || deleted.size ? "bg-brand-strong hover:bg-[#18221e] shadow-md" : "bg-cream/25"
               }`}
             >
               <Save className="h-4 w-4" />
@@ -253,9 +253,9 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
               {canManage && <th className="w-10 border-b px-2 py-2.5" />}
             </tr>
           </thead>
-          <tbody className="divide-y bg-white">
+          <tbody className="divide-y bg-surface">
             {visible.map((row) => (
-              <tr key={row.id} className={`group transition-colors hover:bg-lime/5 ${dirty.has(row.id) ? "bg-amber-50/60" : ""} ${!row.active ? "opacity-50" : ""}`}>
+              <tr key={row.id} className={`group transition-colors hover:bg-brand-strong/5 ${dirty.has(row.id) ? "bg-amber-50/60" : ""} ${!row.active ? "opacity-50" : ""}`}>
                 {COLS.map((col) => (
                   <CellEditor
                     key={col.key}
@@ -348,7 +348,7 @@ function CellEditor({
         {col.type === "select" ? (
           <select
             autoFocus
-            className="w-full rounded border-2 border-forest bg-white px-2 py-1 text-xs outline-none"
+            className="w-full rounded border-2 border-forest bg-surface px-2 py-1 text-xs outline-none"
             defaultValue={String(val ?? "")}
             onChange={(e) => commit(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
@@ -365,7 +365,7 @@ function CellEditor({
             type={col.type === "number" ? "number" : "text"}
             step={col.type === "number" ? "0.01" : undefined}
             defaultValue={String(val ?? "")}
-            className="w-full rounded border-2 border-forest bg-white px-2 py-1 text-xs font-mono outline-none"
+            className="w-full rounded border-2 border-forest bg-surface px-2 py-1 text-xs font-mono outline-none"
             onBlur={(e) => commit(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === "Tab") commit((e.target as HTMLInputElement).value);

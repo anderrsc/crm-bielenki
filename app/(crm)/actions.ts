@@ -1,4 +1,6 @@
 "use server";
+import { saveDraftQuoteAttachments } from "@/lib/quote-attachments";
+
 
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
@@ -6,7 +8,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
-import { encryptSecret } from "@/lib/encrypt";
+import { decryptSecret, encryptSecret } from "@/lib/encrypt";
+import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 
@@ -167,6 +170,7 @@ export async function saveGutterQuote(formData: FormData) {
       })));
     }
   }
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, data);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
@@ -204,6 +208,7 @@ export async function updateGutterQuote(formData: FormData) {
       hide_unit_prices: parsed.data.hide_unit_prices,
     }).eq("id", quoteId);
   }
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
@@ -352,6 +357,7 @@ export async function createWindowQuote(formData:FormData){
   const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
   const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
+  if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if(data)await schedulePdfPregeneration(db,String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
@@ -610,11 +616,11 @@ export async function saveAiAgentConfig(formData: FormData) {
     company_id: profile.company_id,
     active: formData.get("active") === "on",
     agent_name: String(formData.get("agent_name") || "Ana").trim(),
-    openai_model: String(formData.get("openai_model") || "llama-3.3-70b-versatile"),
+    openai_model: String(formData.get("openai_model") || "").trim() || DEFAULT_AI_MODEL[parseAiProvider(formData.get("ai_provider"))],
     temperature: Number(formData.get("temperature") ?? 0.3),
     auto_create_lead: formData.get("auto_create_lead") === "on",
     notify_on_premium: formData.get("notify_on_premium") === "on",
-    ai_provider: String(formData.get("ai_provider") || "groq"),
+    ai_provider: parseAiProvider(formData.get("ai_provider")),
     wpp_provider: String(formData.get("wpp_provider") || "evolution"),
     updated_at: new Date().toISOString(),
   } as Record<string, unknown>;
@@ -644,6 +650,30 @@ export async function saveAiAgentConfig(formData: FormData) {
   if (error) redirect(`/agente-ia?aba=configuracoes&erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/agente-ia");
   redirect("/agente-ia?aba=configuracoes&salvo=1");
+}
+
+/** Testa a IA com a configuracao salva da empresa. Roda no servidor; a chave nao sai daqui. */
+export async function testAiAgent(): Promise<{ reply?: string; error?: string }> {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) return { error: "Empresa não encontrada." };
+  const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", profile.company_id).maybeSingle();
+  const provider = parseAiProvider(config?.ai_provider);
+  const storedKey = provider === "groq" ? (config?.groq_api_key ?? config?.openai_api_key) : config?.openai_api_key;
+  try {
+    const reply = await aiChat({
+      provider,
+      model: config?.openai_model,
+      apiKey: storedKey ? decryptSecret(storedKey) : null,
+      maxTokens: 200,
+      messages: [{ role: "user", content: "Teste de conexão do CRM. Responda em uma frase curta, em português, confirmando que está funcionando." }],
+    });
+    return reply.trim() ? { reply: reply.trim() } : { error: "A IA respondeu sem texto." };
+  } catch (error) {
+    return { error: aiErrorMessage(error) };
+  }
 }
 
 // ── Central de Preços ─────────────────────────────────────────────────────────

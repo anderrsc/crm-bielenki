@@ -1,3 +1,4 @@
+import { DashboardOverview } from "@/components/dashboard-overview";
 import Link from "next/link";
 import {
   AlertCircle, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Bell,
@@ -10,17 +11,22 @@ import { money, shortDate } from "@/lib/utils";
 async function loadDashboard() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
   const db = await createClient();
-  const [summaryRes, execRes, actionsRes, alertsRes] = await Promise.all([
+  const date = new Date().toISOString().slice(0,10);
+  const [summaryRes, execRes, actionsRes, alertsRes, reportRes, upcomingRes] = await Promise.all([
     db.rpc("dashboard_summary"),
     db.rpc("dashboard_executivo"),
     db.from("v_order_overview").select("*").neq("operational_status","finalizado").order("next_action_date",{ascending:true}).limit(6),
     db.from("operational_alerts").select("*").eq("resolved",false).order("created_at",{ascending:false}).limit(5),
+    db.rpc("reporting_summary", {p_start: date.slice(0,4)+"-01-01", p_end:date}),
+    db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name").gte("starts_at",date).order("starts_at").limit(30),
   ]);
   return {
     ...(summaryRes.data as Record<string,unknown> ?? {}),
     ...(execRes.data  as Record<string,unknown> ?? {}),
     actions: actionsRes.data,
     alerts:  alertsRes.data,
+    report: reportRes.data,
+    upcoming: upcomingRes.data,
   };
 }
 
@@ -60,7 +66,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pulso da operação</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Dashboard</h1>
+          <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
           <p className="mt-1 text-sm text-ink/50">Visão completa — do comercial à instalação.</p>
         </div>
         <div className="flex gap-2">
@@ -91,7 +97,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         {ABAS.map(a => (
           <Link key={a.key} href={`/dashboard?aba=${a.key}`}
             className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition
-              ${aba === a.key ? "bg-forest text-white border-forest" : "bg-white border-sand hover:bg-cream"}`}>
+              ${aba === a.key ? "bg-brand-strong text-white border-forest" : "bg-surface border-sand hover:bg-cream"}`}>
             {a.label}
           </Link>
         ))}
@@ -106,7 +112,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
             ["A pagar",        money(despesas), CircleDollarSign, "text-orange-700 bg-orange-50"],
             ["Saldo previsto", money(saldo),    ArrowUpRight,     saldo >= 0 ? "text-violet-700 bg-violet-50" : "text-red-700 bg-red-50"],
           ] as const).map(([label, value, Icon, color]) => (
-            <div className="card p-5" key={label}>
+            <div className={"card p-5"+(label==="Vendas do mês"?" kpi-highlight":"")} key={label}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-ink/55">{label}</p>
                 <span className={`rounded-xl p-2.5 ${color}`}><Icon className="h-5 w-5" /></span>
@@ -116,6 +122,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
           ))}
         </section>
 
+        <DashboardOverview report={d?.report} upcoming={d?.upcoming ?? []} />
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b p-5">
@@ -185,7 +192,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
               {(d?.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[] | null)?.length
                 ? (d.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[]).map((v, i) => (
                   <div key={v.nome} className="flex items-center gap-4 p-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-forest/10 text-sm font-black text-forest">{i+1}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-strong/10 text-sm font-black text-forest">{i+1}</span>
                     <div className="flex-1"><p className="font-bold">{v.nome}</p><p className="text-xs text-ink/45">{v.qtd_vendas} venda{v.qtd_vendas !== 1 ? "s" : ""}</p></div>
                     <p className="font-black text-emerald-700">{money(v.total_vendido)}</p>
                   </div>
@@ -296,7 +303,7 @@ function FunnelRow({ label, value, total, color }: { label:string; value:number;
         <span className="font-medium">{label}</span>
         <span className="font-black">{value} <span className="font-normal text-ink/40">({pct}%)</span></span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-ink/10">
+      <div className="h-2 overflow-hidden rounded-full bg-cream/10">
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
       </div>
     </div>

@@ -1,3 +1,9 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import QRCode from "qrcode";
+import { QuoteAttachments } from "./quote-attachments";
+import type { InternalAttachment } from "@/lib/quote-attachments";
+import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { approveQuote, deleteQuote, duplicateQuote } from "@/app/(crm)/actions";
@@ -7,16 +13,9 @@ import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
-import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
-import { imageDataUri } from "@/lib/image-data-uri";
-import { quotePieceMedia } from "@/lib/quote-piece-media";
+import { money, shortDate } from "@/lib/utils";
 
-// Quantidade-base de linhas (preenchidas + vazias) que cabem com folga em
-// uma folha A4 com o layout atual. Quando há poucos itens, completa até
-// este número para manter a estética da tabela. Quando há mais itens do
-// que isso, a tabela cresce com os itens reais (sem linhas vazias extras)
-// e o CSS de impressão permite quebra de página controlada nesse caso.
-const MIN_LINHAS_VISUAIS = 13;
+import { quotePieceMedia } from "@/lib/quote-piece-media";
 
 type Row = Record<string, unknown>;
 
@@ -31,6 +30,7 @@ type CompanyData = {
   neighborhood?: string | null;
   city?: string | null;
   state?: string | null;
+  website?: string | null;
   logo_url?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
@@ -76,6 +76,7 @@ type QuoteItem = {
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
+  boleto: "Boleto",
   pix: "PIX",
   cartao: "Cartão",
   cheque: "Cheque",
@@ -187,16 +188,24 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     : quoteItems;
 
   const company = quote.company;
-  const qrSrc = company.qr_code_url
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(company.qr_code_url)}`
-    : null;
-  // Na folha de impressao (PDF) as imagens vao embutidas no HTML.
-  const [logoSrc, qrImgSrc] = printOnly
-    ? await Promise.all([imageDataUri(company.logo_url), imageDataUri(qrSrc)])
-    : [proxyLogoUrl(company.logo_url), qrSrc];
+  const portfolio = /^https?:\/\//i.test(company.qr_code_url||'') ? company.qr_code_url! : "https://marquinhos-calhas.vercel.app/";
+  const [qrImgSrc, logoBuffer] = await Promise.all([
+    QRCode.toDataURL(portfolio,{errorCorrectionLevel:"M",width:240,margin:4}),
+    printOnly ? readFile(path.join(process.cwd(),"public/brand/marquinhos-logo.svg")) : null,
+  ]);
+  const logoSrc=logoBuffer ? 'data:image/svg+xml;base64,'+logoBuffer.toString('base64') : '/brand/marquinhos-logo.svg';
   const client = quote.client;
-  const primary = company.primary_color || "#D71920";
-  const secondary = company.secondary_color || "#111111";
+  // Internal files are not queried or serialized in the customer print route.
+  let attachments:InternalAttachment[]=[];
+  let canManageAttachments=false;
+  if(!printOnly){
+    const [files,permission]=await Promise.all([
+      db.from('quote_internal_attachments').select('id,original_name,size_bytes,created_at').eq('quote_id',id).order('created_at',{ascending:false}),
+      db.rpc('has_table_access',{resource:'quotes',action:'update'}),
+    ]);
+    attachments=(files.data||[]) as InternalAttachment[];
+    canManageAttachments=Boolean(permission.data);
+  }
   const availablePayments = company.payment_methods_available?.length
     ? company.payment_methods_available
     : ["pix", "cartao", "cheque", "dinheiro"];
@@ -210,15 +219,15 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
   const itemMedia = await Promise.all(items.map(item => quotePieceMedia(item.product, printOnly)));
   const hasPieceMedia = itemMedia.some(Boolean);
-  const totalLinhas = hasPieceMedia ? items.length : Math.max(MIN_LINHAS_VISUAIS, items.length);
+
 
   return (
     <div className={printOnly ? undefined : "mx-auto max-w-5xl"}>
-      {!printOnly && <div className="no-print mb-5 flex items-center justify-between">
+      {!printOnly && <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-4">
         <Link href="/orcamentos" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55">
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {/* A tela de edicao so existe para orcamentos de calhas. */}
           {isGutter && quote.status !== "aprovado" && (
             <Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>
@@ -247,19 +256,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
       {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <article
+      {!printOnly && <QuoteAttachments quoteId={id} attachments={attachments} canManage={canManageAttachments} />}
+      <div className={printOnly?undefined:"quote-paper-scroll"}><article
         className={`quote-sheet print-sheet relative bg-white${hasPieceMedia ? " quote-with-pieces" : ""}`}
-        style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
+        data-quote-number={quote.quote_number}
+        data-pdf-document={printOnly?"true":undefined}
       >
-        {logoSrc && (
-          <div className="quote-watermark-wrap" aria-hidden>
-            <div
-              className="quote-watermark-tile"
-              style={{ backgroundImage: `url(${logoSrc})` }}
-            />
-          </div>
-        )}
-
         <div className="relative">
           {/* ── Cabeçalho 3 colunas ── */}
           <header className="quote-header">
@@ -273,7 +275,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                   crossOrigin="anonymous"
                 />
               ) : (
-                <div className="quote-logo-fallback" style={{ background: secondary }}>
+                <div className="quote-logo-fallback">
                   {(company.trade_name || company.name || "MC").slice(0, 2).toUpperCase()}
                 </div>
               )}
@@ -293,6 +295,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                 {company.phone && <p>{company.phone}</p>}
                 {company.whatsapp && company.whatsapp !== company.phone && <p>{company.whatsapp}</p>}
                 {company.email && <p>{company.email}</p>}
+                {company.website && <p>{company.website}</p>}
               </div>
             </div>
 
@@ -334,7 +337,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </div>
             <div className="quote-bar-meta">
               <span className="quote-bar-label">VENDEDOR</span>
-              <QuoteSellerField quoteId={quote.id} sellerName={quote.seller_name || ""} />
+              {printOnly?<span className="quote-bar-value">{quote.seller_name||"—"}</span>:<QuoteSellerField quoteId={quote.id} sellerName={quote.seller_name || ""} />}
             </div>
           </div>
 
@@ -343,7 +346,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <p className="quote-client-title">DADOS DO CLIENTE</p>
             <div className="quote-client-grid">
               <span className="quote-client-lbl">NOME:</span>
-              <span className="quote-client-val">{String(client.name)}</span>
+              <span className="quote-client-val">{String(client.name||"—")}</span>
               <span className="quote-client-lbl">TELEFONE:</span>
               <span className="quote-client-val">{String(client.whatsapp || client.phone || "—")}</span>
               <span className="quote-client-lbl">ENDEREÇO:</span>
@@ -363,67 +366,20 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Tabela de itens ── */}
           <table className="quote-table">
-            <thead>
-              <tr>
-                <th style={{ width: "7%" }}>ITEM</th>
-                <th className="quote-th-desc" style={{ width: hasPieceMedia ? "28%" : hideUnitPrices ? "45%" : "37%" }}>
-                  DESCRIÇÃO
-                </th>
-                {hasPieceMedia && <th style={{ width: "25%" }}>PEÇA / MODELO 3D</th>}
-                <th style={{ width: hasPieceMedia ? "8%" : "13%" }}>TIPO</th>
-                <th style={{ width: hasPieceMedia ? "9%" : "15%" }}>QUANTIDADE</th>
-                {!hideUnitPrices && <th style={{ width: "13%" }}>VLR. UNIT.</th>}
-                <th style={{ width: hideUnitPrices ? "20%" : "15%" }}>TOTAL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: totalLinhas }).map((_, i) => {
-                const item = items[i];
-                if (!item) {
-                  return (
-                    <tr key={i} className="quote-empty-row">
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      {hasPieceMedia && <td>&nbsp;</td>}
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      {!hideUnitPrices && <td>&nbsp;</td>}
-                      <td>&nbsp;</td>
-                    </tr>
-                  );
-                }
-                const { tipo, quantidade } = buildTipoQuantidade(item, isGutter);
-                const unitPriceDisplay = isGutter && !isSpecialItem(item)
-                  ? money(item.unit_price) + "/m"
-                  : money(item.unit_price);
-                return (
-                  <tr key={i}>
-                    <td className="quote-td-item">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="quote-td-desc">{buildDescription(item, isGutter)}</td>
-                    {hasPieceMedia && <td className="quote-piece-cell">
-                      {itemMedia[i] ? <a href={itemMedia[i]!.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link">
-                        <span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={itemMedia[i]!.image} alt={itemMedia[i]!.piece.name} className="quote-piece-image" />
-                          <span>Peça {itemMedia[i]!.piece.code}</span>
-                        </span>
-                        <span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={itemMedia[i]!.qr} alt={`QR code do modelo 3D: ${itemMedia[i]!.piece.name}`} className="quote-piece-qr" />
-                          <span>Ver em 3D</span>
-                        </span>
-                      </a> : <span className="quote-piece-unavailable">Sem modelo no catálogo</span>}
-                    </td>}
-                    <td>{tipo}</td>
-                    <td>{quantidade}</td>
-                    {!hideUnitPrices && <td>{unitPriceDisplay}</td>}
-                    <td className="quote-td-total">{money(quoteItemTotal(item, isGutter))}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+            <colgroup><col style={{width:'5%'}}/><col style={{width:hasPieceMedia?'24%':hideUnitPrices?'55%':'43%'}}/>{hasPieceMedia&&<><col style={{width:'16%'}}/><col style={{width:'18%'}}/></>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<col style={{width:'10%'}}/>}<col style={{width:hideUnitPrices?'21%':'11%'}}/></colgroup>
+            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<><th>PEÇA 3D</th><th>NA OBRA</th></>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
+            <tbody>{items.map((item,i)=>{
+              const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
+              const unitPriceDisplay=money(item.unit_price)+(isGutter&&!isSpecialItem(item)?'/m':'');
+              return <tr key={i}>
+                <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
+                <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
+                {hasPieceMedia&&<><td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td><td className="quote-installed-cell">{media?<img src={media.installed} alt={'Referência de instalação: '+media.piece.name} className="quote-installed-image"/>:<span className="quote-piece-unavailable">—</span>}</td></>}
+                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{unitPriceDisplay}</td>}<td className="quote-td-total">{money(quoteItemTotal(item,isGutter))}</td>
+              </tr>;
+            })}</tbody>
           </table>
-          {hasPieceMedia && <p className="quote-piece-note">Ilustrações de referência. Confira medidas, corte e detalhes antes da fabricação. Aponte a câmera para o QR code ou clique na imagem para abrir o modelo 3D.</p>}
+          {hasPieceMedia&&<p className="quote-piece-note">Ilustrações de referência de instalação. Confira medidas, corte e detalhes antes da fabricação. Aponte a câmera para o QR code ou clique na peça para abrir o modelo 3D.</p>}
 
           {/* ── Observações + Resumo financeiro ── */}
           <div className="quote-bottom-grid">
@@ -464,12 +420,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           <div className="quote-footer-grid">
             <div className="quote-pay-block">
               <p className="quote-pay-title">FORMA DE PAGAMENTO</p>
-              <QuotePaymentMethods
-                quoteId={quote.id}
-                available={availablePayments}
-                selected={selectedPayments}
-                labels={PAYMENT_LABELS}
-              />
+              {printOnly?<div className="quote-pay-icons">{selectedPayments.map(method=><span className="quote-pay-item" key={method}>{PAYMENT_LABELS[method]||method}</span>)}</div>:<QuotePaymentMethods quoteId={quote.id} available={availablePayments} selected={selectedPayments} labels={PAYMENT_LABELS}/>}
             </div>
             <div className="quote-sign-block">
               <div className="quote-sign-line" />
@@ -478,7 +429,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </div>
           </div>
         </div>
-      </article>
+          <div className="quote-paper-credit"><span>Marquinhos Calhas e Esquadrias</span><AuthorSignature/></div>
+      </article></div>
     </div>
   );
 }
