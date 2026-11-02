@@ -10,6 +10,9 @@ import {
 import { localISODate, money } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { GutterPiecePreview } from "@/components/gutter-piece-preview";
+import { uniqueProductNames, normalizeProductName } from "@/lib/gutter-catalog";
+import { gutterCategoryForProduct } from "@/lib/gutters";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type GutterQuoteItem = {
@@ -71,7 +74,7 @@ const CAT_BADGE: Record<string, string> = {
 const findPrice = (prices: GutterPrice[], item: Pick<GutterQuoteItem, "product" | "thickness" | "cut" | "color">) =>
   prices.find(x =>
     x.active &&
-    x.product === item.product &&
+    normalizeProductName(x.product) === normalizeProductName(item.product) &&
     sameThickness(x.thickness, item.thickness) &&
     x.cut_mm === Number(item.cut.replace(/\D/g, "")) &&
     (x.color ?? "Aluminio Natural") === item.color
@@ -83,13 +86,20 @@ const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[]): G
   return { ...item, unit_price: Number(findPrice(prices, item)?.unit_price ?? 0) };
 };
 
-const blankOther = (item_type: OtherCategory): SpecialItem => ({
+const specialPrice = (prices: GutterPrice[], product: string) => prices.find(p => p.active && normalizeProductName(p.product) === normalizeProductName(product) && !p.thickness && !p.cut_mm);
+const productOptions = (category: FabricatedCategory | OtherCategory, prices: GutterPrice[], current = "") => uniqueProductNames([
+  ...PRODUCTS_BY_CATEGORY[category],
+  ...prices.filter(p => (p.category || gutterCategoryForProduct(p.product)) === category).map(p => p.product),
+  ...(current ? [current] : []),
+]).reduce<string[]>((names, name) => [...names, current && normalizeProductName(current) === normalizeProductName(name) ? current : name], []);
+
+const blankOther = (item_type: OtherCategory, prices: GutterPrice[]): SpecialItem => ({
   item_type,
   product: PRODUCTS_BY_CATEGORY[item_type][0],
   description: "",
-  unit: UNITS_BY_CATEGORY[item_type][0],
+  unit: specialPrice(prices, PRODUCTS_BY_CATEGORY[item_type][0])?.unit || UNITS_BY_CATEGORY[item_type][0],
   quantity: 1,
-  unit_price: 0,
+  unit_price: Number(specialPrice(prices, PRODUCTS_BY_CATEGORY[item_type][0])?.unit_price ?? 0),
 });
 
 const otherCategoryFromRecord = (item: Partial<SpecialItem>): OtherCategory => {
@@ -198,6 +208,11 @@ export function GutterQuote({
         if (key === "item_type") {
           next.product = PRODUCTS_BY_CATEGORY[value as OtherCategory][0];
           next.unit = UNITS_BY_CATEGORY[value as OtherCategory][0];
+        }
+        if (key === "product" || key === "item_type") {
+          const price = specialPrice(prices, next.product);
+          next.unit_price = Number(price?.unit_price ?? 0);
+          next.unit = price?.unit || next.unit;
         }
         return next;
       })
@@ -314,6 +329,7 @@ export function GutterQuote({
                   key={idx}
                   item={item}
                   index={idx}
+                  prices={prices}
                   onChange={changeOther}
                   onRemove={() => setSpecialItems(c => c.filter((_, i) => i !== idx))}
                 />
@@ -339,7 +355,7 @@ export function GutterQuote({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setSpecialItems(c => [...c, blankOther(cat)])}
+                onClick={() => setSpecialItems(c => [...c, blankOther(cat, prices)])}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
@@ -449,7 +465,7 @@ function FabricatedItemCard({
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
         <div className="sm:col-span-2">
           <Select label="Produto" value={item.product}
-            options={PRODUCTS_BY_CATEGORY[item.category]}
+            options={productOptions(item.category, prices, item.product)}
             onChange={v => onChange(index, "product", v)} />
         </div>
         <Select label="Espessura" value={item.thickness} options={gutterThicknesses} onChange={v => onChange(index, "thickness", v)} />
@@ -460,6 +476,7 @@ function FabricatedItemCard({
         <NumberField label="R$/metro" value={item.unit_price} onChange={v => onChange(index, "unit_price", v)} />
       </div>
 
+      <GutterPiecePreview product={item.product} />
       <div className="mt-3 flex items-center justify-between text-sm">
         <span className="text-xs text-ink/40">{item.quantity} un × {item.meters}m × {money(item.unit_price)}/m</span>
         <b className="text-forest">{money(subtotal)}</b>
@@ -470,16 +487,17 @@ function FabricatedItemCard({
 
 /* ─── Card de outros itens (Condutores / Acessórios / Serviços / Especiais) ── */
 function OtherItemCard({
-  item, index, onChange, onRemove,
+  item, index, prices, onChange, onRemove,
 }: {
   item: SpecialItem;
+  prices: GutterPrice[];
   index: number;
   onChange: (i: number, k: keyof SpecialItem, v: string) => void;
   onRemove: () => void;
 }) {
   const isOtherCat = OTHER_CATEGORIES.includes(item.item_type as OtherCategory);
   const productList = isOtherCat
-    ? PRODUCTS_BY_CATEGORY[item.item_type as OtherCategory]
+    ? productOptions(item.item_type as OtherCategory, prices, item.product)
     : [];
   const unitList = isOtherCat
     ? UNITS_BY_CATEGORY[item.item_type as OtherCategory]

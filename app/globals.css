@@ -326,6 +326,18 @@ input:focus, select:focus, textarea:focus { border-color: #234d3c; box-shadow: 0
 
 /* ===== Tabela de itens — grade dinâmica (mín. 16 linhas) ===== */
 .quote-table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-top: 4mm; }
+.quote-piece-link { display: flex; align-items: center; justify-content: center; gap: 1mm; text-decoration: none; color: #111; }
+.quote-piece-link > span { display: flex; flex-direction: column; align-items: center; font-size: 7px; line-height: 1.3; }
+.quote-piece-image { width: 24mm; height: 16mm; object-fit: contain; background: white; }
+.quote-piece-qr { width: 19mm; height: 19mm; object-fit: contain; background: white; }
+.quote-piece-unavailable { font-size: 8px; color: #555; }
+.quote-piece-note { margin: 2mm 0 0; font-size: 8px; line-height: 1.4; color: #555; }
+.quote-with-pieces .quote-client-box { min-height: 0; padding: 3mm 4mm; }
+.quote-with-pieces .quote-client-title { margin-bottom: 2mm; }
+.quote-with-pieces .quote-client-grid { width: 100%; grid-template-columns: 22mm 1fr 25mm 1fr; row-gap: 2mm; }
+.quote-with-pieces .quote-client-obs { width: 100%; }
+.quote-with-pieces .quote-footer-grid { margin-top: 3mm; padding-top: 3mm; }
+.quote-table td.quote-piece-cell { padding: 1.5mm .5mm; }
 .quote-table thead th {
   background: var(--quote-secondary, #111111); color: #fff;
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px;

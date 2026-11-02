@@ -1,0 +1,499 @@
+{
+  "source": "https://marquinhos-calhas.vercel.app/",
+  "sourceDate": "28/10/2026",
+  "pieces": [
+    {
+      "id": "platibanda",
+      "code": "01",
+      "name": "Calha platibanda",
+      "category": "Calhas",
+      "aliases": [
+        "Calha Platibanda"
+      ]
+    },
+    {
+      "id": "coletora",
+      "code": "02",
+      "name": "Calha coletora / condutora",
+      "category": "Calhas",
+      "aliases": [
+        "Calha Coletora",
+        "Calha Condutora"
+      ]
+    },
+    {
+      "id": "calha-central",
+      "code": "03",
+      "name": "Calha central (fundo reto)",
+      "category": "Calhas",
+      "aliases": []
+    },
+    {
+      "id": "calha-central-v",
+      "code": "04",
+      "name": "Calha central (fundo em V)",
+      "category": "Calhas",
+      "aliases": []
+    },
+    {
+      "id": "calha-beiral",
+      "code": "05",
+      "name": "Calha de beiral",
+      "category": "Calhas",
+      "aliases": []
+    },
+    {
+      "id": "calha-pingadeira",
+      "code": "06",
+      "name": "Calha com pingadeira",
+      "category": "Calhas",
+      "aliases": []
+    },
+    {
+      "id": "agua-furtada",
+      "code": "07",
+      "name": "Água furtada",
+      "category": "Calhas",
+      "aliases": [
+        "Calha Água Furtada",
+        "Rufo Água Furtada"
+      ]
+    },
+    {
+      "id": "rufo-condutor",
+      "code": "08",
+      "name": "Rufo condutor",
+      "category": "Rufos",
+      "aliases": []
+    },
+    {
+      "id": "rufo-convencional",
+      "code": "09",
+      "name": "Rufo convencional",
+      "category": "Rufos",
+      "aliases": [
+        "Rufo"
+      ]
+    },
+    {
+      "id": "rufo-acabamento",
+      "code": "10",
+      "name": "Rufo acabamento de telha",
+      "category": "Rufos",
+      "aliases": [
+        "Rufo de Acabamento"
+      ]
+    },
+    {
+      "id": "rufo-testeira",
+      "code": "11",
+      "name": "Rufo testeira",
+      "category": "Rufos",
+      "aliases": []
+    },
+    {
+      "id": "cumeeira",
+      "code": "12",
+      "name": "Rufo de cumeeira",
+      "category": "Rufos",
+      "aliases": []
+    },
+    {
+      "id": "rufo-chapeu",
+      "code": "13",
+      "name": "Rufo chapéu (galpão)",
+      "category": "Rufos",
+      "aliases": [
+        "Rufo Chapéu"
+      ]
+    },
+    {
+      "id": "rufo-pingadeira",
+      "code": "14",
+      "name": "Rufo com pingadeira",
+      "category": "Rufos",
+      "aliases": []
+    },
+    {
+      "id": "rufo-pingadeira-duplo",
+      "code": "15",
+      "name": "Rufo com pingadeira duplo",
+      "category": "Rufos",
+      "aliases": []
+    },
+    {
+      "id": "pingadeira",
+      "code": "16",
+      "name": "Pingadeira",
+      "category": "Pingadeiras",
+      "aliases": []
+    },
+    {
+      "id": "pingadeira-marquise",
+      "code": "17",
+      "name": "Pingadeira marquise",
+      "category": "Pingadeiras",
+      "aliases": [
+        "Pingadeira de Marquise"
+      ]
+    },
+    {
+      "id": "pingadeira-rufo",
+      "code": "18",
+      "name": "Pingadeira com rufo (degrau)",
+      "category": "Pingadeiras",
+      "aliases": []
+    },
+    {
+      "id": "pingadeira-rufo-reta",
+      "code": "19",
+      "name": "Pingadeira com rufo (aba reta)",
+      "category": "Pingadeiras",
+      "aliases": []
+    },
+    {
+      "id": "pingadeira-rufo-inclinado",
+      "code": "20",
+      "name": "Pingadeira com rufo (inclinado)",
+      "category": "Pingadeiras",
+      "aliases": []
+    }
+  ],
+  "cuts": [
+    [
+      150,
+      31,
+      34,
+      39,
+      49
+    ],
+    [
+      200,
+      36,
+      39,
+      43,
+      66
+    ],
+    [
+      250,
+      41,
+      44,
+      55,
+      82
+    ],
+    [
+      300,
+      46,
+      50,
+      60,
+      98
+    ],
+    [
+      350,
+      51,
+      59,
+      68,
+      123
+    ],
+    [
+      400,
+      56,
+      62,
+      76,
+      131
+    ],
+    [
+      500,
+      67,
+      75,
+      88,
+      164
+    ],
+    [
+      600,
+      79,
+      87,
+      102,
+      196
+    ],
+    [
+      700,
+      87,
+      94,
+      111,
+      278
+    ],
+    [
+      800,
+      96,
+      99,
+      116,
+      294
+    ],
+    [
+      900,
+      104,
+      128,
+      152,
+      310
+    ],
+    [
+      1000,
+      117,
+      137,
+      162,
+      327
+    ],
+    [
+      1200,
+      138,
+      162,
+      192,
+      392
+    ]
+  ],
+  "thicknesses": [
+    "0.5",
+    "0.6",
+    "0.7",
+    "1.0"
+  ],
+  "extras": [
+    {
+      "product": "Calha de beiral c/ 300 mm — Simples",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 70,
+      "section": "Calha de beiral"
+    },
+    {
+      "product": "Calha de beiral c/ 300 mm — Dois pisos",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 75,
+      "section": "Calha de beiral"
+    },
+    {
+      "product": "Calha de beiral c/ 400 mm — Simples",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 85,
+      "section": "Calha de beiral"
+    },
+    {
+      "product": "Calha de beiral c/ 400 mm — Dois pisos",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 90,
+      "section": "Calha de beiral"
+    },
+    {
+      "product": "Cano de alumínio com conexão — barra de 3,00 m",
+      "category": "Condutores",
+      "unit": "metro",
+      "price": 70,
+      "section": "Canos e conexões"
+    },
+    {
+      "product": "Cano PVC — barra de 6,00 m",
+      "category": "Condutores",
+      "unit": "metro",
+      "price": 40,
+      "section": "Canos e conexões"
+    },
+    {
+      "product": "Conexões PVC",
+      "category": "Condutores",
+      "unit": "unidade",
+      "price": 15,
+      "section": "Canos e conexões"
+    },
+    {
+      "product": "Corrente em alumínio",
+      "category": "Condutores",
+      "unit": "metro",
+      "price": 15,
+      "section": "Canos e conexões"
+    },
+    {
+      "product": "Cotonete Ø 300 mm — Cor alumínio",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 300,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Cotonete Ø 300 mm — Com pintura",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 350,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Cano simples sem cotonete Ø 300 mm — Cor alumínio",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 250,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Cano simples sem cotonete Ø 300 mm — Com pintura",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 300,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Chaminé Ø 200 mm — Cor alumínio",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 200,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Chaminé Ø 200 mm — Com pintura",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 300,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Coifa — Cor alumínio",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 330,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Coifa — Com pintura",
+      "category": "Itens Especiais",
+      "unit": "metro",
+      "price": 450,
+      "section": "Chaminé e coifa"
+    },
+    {
+      "product": "Saída de 75",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 6,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Saída de 100",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 7,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Saída de 150",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 12,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Saída de corrente",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 7,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Caneco corrente",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 5,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Braçadeira 100 e 75",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 4.5,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Corrente alumínio",
+      "category": "Acessórios",
+      "unit": "metro",
+      "price": 15,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Gancho torcido médio",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 8,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Gancho grande",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 10,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Redução de alumínio para PVC 100 e 75 mm",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 16,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Calha de beiral c/ 300 mm (sem acessórios)",
+      "category": "Acessórios",
+      "unit": "metro",
+      "price": 35,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Calha de beiral c/ 400 mm (sem acessórios)",
+      "category": "Acessórios",
+      "unit": "metro",
+      "price": 44,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Cabeceira calha beiral",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 5,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Proteção de canto",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 7,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Tubo vedante PU sachê 600",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 50,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Silicone incolor",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 30,
+      "section": "Acessórios"
+    },
+    {
+      "product": "Silicone incolor neutro",
+      "category": "Acessórios",
+      "unit": "unidade",
+      "price": 33,
+      "section": "Acessórios"
+    }
+  ],
+  "conditions": [
+    "5% de desconto em pedidos acima de R$ 1.200,00.",
+    "25% de desconto para retirada.",
+    "Pedidos acima de R$ 5.000,00: 50% de entrada em Pix ou dinheiro e restante em até 6x sem juros no cartão."
+  ]
+}

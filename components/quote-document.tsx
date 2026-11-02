@@ -9,6 +9,7 @@ import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { createClient } from "@/lib/supabase/server";
 import { money, proxyLogoUrl, shortDate } from "@/lib/utils";
 import { imageDataUri } from "@/lib/image-data-uri";
+import { quotePieceMedia } from "@/lib/quote-piece-media";
 
 // Quantidade-base de linhas (preenchidas + vazias) que cabem com folga em
 // uma folha A4 com o layout atual. Quando há poucos itens, completa até
@@ -207,7 +208,9 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const totalLinhas = Math.max(MIN_LINHAS_VISUAIS, items.length);
+  const itemMedia = await Promise.all(items.map(item => quotePieceMedia(item.product, printOnly)));
+  const hasPieceMedia = itemMedia.some(Boolean);
+  const totalLinhas = hasPieceMedia ? items.length : Math.max(MIN_LINHAS_VISUAIS, items.length);
 
   return (
     <div className={printOnly ? undefined : "mx-auto max-w-5xl"}>
@@ -245,7 +248,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
       {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <article
-        className="quote-sheet print-sheet relative bg-white"
+        className={`quote-sheet print-sheet relative bg-white${hasPieceMedia ? " quote-with-pieces" : ""}`}
         style={{ "--quote-primary": primary, "--quote-secondary": secondary } as React.CSSProperties}
       >
         {logoSrc && (
@@ -363,11 +366,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <thead>
               <tr>
                 <th style={{ width: "7%" }}>ITEM</th>
-                <th className="quote-th-desc" style={{ width: hideUnitPrices ? "45%" : "37%" }}>
+                <th className="quote-th-desc" style={{ width: hasPieceMedia ? "28%" : hideUnitPrices ? "45%" : "37%" }}>
                   DESCRIÇÃO
                 </th>
-                <th style={{ width: "13%" }}>TIPO</th>
-                <th style={{ width: "15%" }}>QUANTIDADE</th>
+                {hasPieceMedia && <th style={{ width: "25%" }}>PEÇA / MODELO 3D</th>}
+                <th style={{ width: hasPieceMedia ? "8%" : "13%" }}>TIPO</th>
+                <th style={{ width: hasPieceMedia ? "9%" : "15%" }}>QUANTIDADE</th>
                 {!hideUnitPrices && <th style={{ width: "13%" }}>VLR. UNIT.</th>}
                 <th style={{ width: hideUnitPrices ? "20%" : "15%" }}>TOTAL</th>
               </tr>
@@ -380,6 +384,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                     <tr key={i} className="quote-empty-row">
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
+                      {hasPieceMedia && <td>&nbsp;</td>}
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
                       {!hideUnitPrices && <td>&nbsp;</td>}
@@ -395,6 +400,20 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                   <tr key={i}>
                     <td className="quote-td-item">{String(i + 1).padStart(2, "0")}</td>
                     <td className="quote-td-desc">{buildDescription(item, isGutter)}</td>
+                    {hasPieceMedia && <td className="quote-piece-cell">
+                      {itemMedia[i] ? <a href={itemMedia[i]!.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link">
+                        <span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={itemMedia[i]!.image} alt={itemMedia[i]!.piece.name} className="quote-piece-image" />
+                          <span>Peça {itemMedia[i]!.piece.code}</span>
+                        </span>
+                        <span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={itemMedia[i]!.qr} alt={`QR code do modelo 3D: ${itemMedia[i]!.piece.name}`} className="quote-piece-qr" />
+                          <span>Ver em 3D</span>
+                        </span>
+                      </a> : <span className="quote-piece-unavailable">Sem modelo no catálogo</span>}
+                    </td>}
                     <td>{tipo}</td>
                     <td>{quantidade}</td>
                     {!hideUnitPrices && <td>{unitPriceDisplay}</td>}
@@ -404,6 +423,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               })}
             </tbody>
           </table>
+          {hasPieceMedia && <p className="quote-piece-note">Ilustrações de referência. Confira medidas, corte e detalhes antes da fabricação. Aponte a câmera para o QR code ou clique na imagem para abrir o modelo 3D.</p>}
 
           {/* ── Observações + Resumo financeiro ── */}
           <div className="quote-bottom-grid">
