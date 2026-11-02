@@ -118,7 +118,7 @@ test("identidade: enviar logo e salvar configuracoes", async () => {
 
 test("agente de IA: salvar configuracoes", async () => {
   await page.goto(`${BASE}/agente-ia`, { waitUntil: "networkidle0" });
-  await clickText("Configurações");
+  await clickText("Configurações", "main");
   await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.innerText.includes("Salvar configurações")));
   await clickText("Salvar configurações");
   await settle();
