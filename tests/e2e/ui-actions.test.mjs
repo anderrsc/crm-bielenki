@@ -125,6 +125,17 @@ test("agente de IA: salvar configuracoes", async () => {
   await noProblem("salvar agente de IA");
 });
 
+test("agente de IA: Testar IA usa o provedor escolhido na tela, sem salvar", async () => {
+  await page.goto(`${BASE}/agente-ia?aba=configuracoes`, { waitUntil: "networkidle0" });
+  await page.evaluate(() => document.querySelector("input[name=ai_provider][value=groq]").click());
+  await page.evaluate(() => document.querySelector("input[name=ai_provider][value=ollama]").click());
+  await clickText("Testar IA");
+  await page.waitForSelector("[data-ai-test]", { timeout: 15000 });
+  const msg = await page.$eval("[data-ai-test]", (el) => el.textContent);
+  // O ambiente de teste nao tem OLLAMA_API_KEY: o erro tem que ser do Ollama.
+  assert.match(msg, /Ollama: OLLAMA_API_KEY/);
+});
+
 test("automacoes: salvar fluxo como rascunho", async () => {
   await page.goto(`${BASE}/automacoes/novo`, { waitUntil: "networkidle0" });
   const nameInput = await page.$("input[name=name], input[placeholder*='ome']");
