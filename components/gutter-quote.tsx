@@ -556,7 +556,7 @@ function Select({ label, value, options, onChange, className }: {
         value={value}
         onChange={e => onChange(e.target.value)}
       >
-        {options.map(x => <option key={x}>{x}</option>)}
+        {(value && !options.includes(value) ? [value, ...options] : options).map(x => <option key={x}>{x}</option>)}
       </select>
     </div>
   );

@@ -136,7 +136,7 @@ function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string
     if (unit === "serviço" || unit === "servico") return { tipo: "SERVIÇO", quantidade: String(item.quantity) };
     return { tipo: "UNIDADE", quantidade: String(item.quantity) };
   }
-  return { tipo: "METRO", quantidade: Number(item.meters ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
+  return { tipo: "METRO", quantidade: (Number(item.quantity || 0) * Number(item.meters || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) };
 }
 
 // printOnly: renderiza so a folha do orcamento (sem botoes), usada pela rota
