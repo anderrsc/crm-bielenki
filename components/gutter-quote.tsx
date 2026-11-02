@@ -81,7 +81,7 @@ const findPrice = (prices: GutterPrice[], item: Pick<GutterQuoteItem, "product" 
   );
 
 const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[]): GutterQuoteItem => {
-  const product = PRODUCTS_BY_CATEGORY[category][0];
+  const product = category === "Calhas" ? "Calha de beiral" : PRODUCTS_BY_CATEGORY[category][0];
   const item = { category, product, thickness: "0.5mm", cut: "200 mm", color: "Aluminio Natural", quantity: 1, meters: 1, unit_price: 0 };
   return { ...item, unit_price: Number(findPrice(prices, item)?.unit_price ?? 0) };
 };
@@ -190,7 +190,7 @@ export function GutterQuote({
           next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
         }
         if (key === "category") {
-          next.product = PRODUCTS_BY_CATEGORY[value as FabricatedCategory][0];
+          next.product = blankFabricated(value as FabricatedCategory, prices).product;
           next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
         }
         return next;
