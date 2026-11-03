@@ -71,14 +71,12 @@ export async function generateQuotePdfBuffer(params: {
 
     await page.evaluate(()=>document.fonts.ready);
     if(!await page.$('.quote-sheet'))throw new Error('Documento indisponível. Entre novamente para gerar o PDF.');
-    // Folha A4 exata (210 x 297 mm), com a mesma largura e laterais da folha
-    // da tela; 10mm em cima/embaixo de cada pagina (igual ao padding da tela).
+    // A regra @page do orçamento define o papel e as margens também no
+    // diálogo de impressão do navegador.
     const pdfBuffer = await page.pdf({
-      width: "210mm",
-      height: "297mm",
+      format: "A4",
       printBackground: true,
-      preferCSSPageSize: false,
-      margin: { top: "10mm", bottom: "10mm", left: "0", right: "0" },
+      preferCSSPageSize: true,
     });
 
     return Buffer.from(pdfBuffer);
