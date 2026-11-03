@@ -22,7 +22,7 @@ test("beiral uses its own rate and never falls back to the shared matrix", () =>
   expect(fabricatedMeterPrice([], rates, { ...item, cut: "250 mm" })).toBeUndefined();
 });
 
-test("painting groups quantities by color, skips natural and marks missing tariffs", () => {
+test("painting groups quantities by color, skips natural and always costs R$ 40/m", () => {
   const items = [
     { color: "Pintura Preto", quantity: 2, meters: 5 },
     { color: "Preto", quantity: 1, meters: 3 },
@@ -30,8 +30,8 @@ test("painting groups quantities by color, skips natural and marks missing tarif
     { color: "Pintura Branco", quantity: 1, meters: 2 },
   ];
   expect(automaticPaintItems(items, { ...rates, paints: [{ color: "Preto", price_per_meter: 10 }] })).toMatchObject([
-    { product: "Mão de obra e materiais necessários para pintura na cor Preto", quantity: 13, unit_price: 10, rateMissing: false },
-    { product: "Mão de obra e materiais necessários para pintura na cor Branco", quantity: 2, unit_price: 0, rateMissing: true },
+    { product: "Mão de obra e materiais necessários para pintura na cor Preto", quantity: 13, unit_price: 40, rateMissing: false },
+    { product: "Mão de obra e materiais necessários para pintura na cor Branco", quantity: 2, unit_price: 40, rateMissing: false },
   ]);
   expect(automaticPaintItems(items.slice(2, 3), rates)).toEqual([]);
 });

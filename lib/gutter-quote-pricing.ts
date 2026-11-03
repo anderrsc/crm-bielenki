@@ -11,11 +11,12 @@ export const automaticPaintPrefix = "Mão de obra e materiais necessários para 
 const natural = "aluminio natural";
 const colorKey = (color: string | null | undefined) => normalizeProductName(normalizeGutterColor(color));
 
-export function paintMeterPrice(rates: GutterQuoteRates, color: string): number | undefined {
+// Pintura: preço único por metro para qualquer cor (definido pela Marquinhos).
+export const PAINT_PRICE_PER_METER = 40;
+
+export function paintMeterPrice(_rates: GutterQuoteRates, color: string): number | undefined {
   if (colorKey(color) === natural) return undefined;
-  const key = colorKey(color).replace(/^pintura /, "");
-  const rate = rates.paints.find(row => colorKey(row.color).replace(/^pintura /, "") === key);
-  return rate ? Number(rate.price_per_meter) : undefined;
+  return PAINT_PRICE_PER_METER;
 }
 
 export function automaticPaintItems(items: { color: string; quantity: number; meters: number }[], rates: GutterQuoteRates) {
