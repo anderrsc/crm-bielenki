@@ -16,6 +16,7 @@ import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 
 import { quotePieceMedia } from "@/lib/quote-piece-media";
+import { quoteWatermarkUrl } from "@/lib/quote-watermark";
 
 type Row = Record<string, unknown>;
 
@@ -262,6 +263,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
         data-quote-number={quote.quote_number}
         data-pdf-document={printOnly?"true":undefined}
       >
+        <div className="quote-watermark" aria-hidden="true" style={{ backgroundImage: quoteWatermarkUrl(String(quote.quote_number)) }} />
         <div className="relative">
           {/* ── Cabeçalho 3 colunas ── */}
           <header className="quote-header">
