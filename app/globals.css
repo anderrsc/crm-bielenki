@@ -84,7 +84,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   margin: 0 0 1mm;
   font-size: 15.5px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.25px;
 }
 .measure-company p {
@@ -93,7 +93,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   color: #111;
 }
 .measure-contact {
-  font-size: 8.2px;
+  font-size: 9.5px;
   line-height: 1.4;
   color: #111;
 }
@@ -102,7 +102,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   display: inline-block;
   width: 11px;
   color: #111;
-  font-weight: 800;
+  font-weight: 400;
   margin-right: 4px;
   text-align: center;
 }
@@ -114,7 +114,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .measure-date {
   margin: 0 0 2mm;
   text-align: right;
-  font-size: 8.8px;
+  font-size: 9.5px;
   color: #666;
 }
 .measure-grid {
@@ -134,20 +134,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .measure-card-label {
   margin: 0 0 0.75mm;
   color: #555;
-  font-size: 7.5px;
-  font-weight: 900;
-  letter-spacing: .06em;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: .025em;
 }
 .measure-card-value {
   margin: 0;
   color: #111;
-  font-size: 9px;
+  font-size: 10.5px;
   line-height: 1.45;
-  font-weight: 800;
+  font-weight: 400;
 }
 .measure-card-value-strong {
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 600;
 }
 .measure-card-line {
   margin-top: 4.5mm;
