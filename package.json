@@ -30,6 +30,7 @@
     "lucide-react": "^0.468.0",
     "next": "15.5.28",
     "ollama": "0.6.4",
+    "pdf-lib": "1.17.1",
     "puppeteer-core": "25.16.0",
     "qrcode": "1.5.4",
     "react": "19.0.0",

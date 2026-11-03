@@ -5,10 +5,9 @@ import { QuoteAttachments } from "./quote-attachments";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Printer } from "lucide-react";
 import { approveQuote, deleteQuote, duplicateQuote } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
-import { PrintButton } from "@/components/print-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
@@ -262,7 +261,10 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               <ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton>
             </form>
           )}
-          <PrintButton /><QuotePdfButton quoteId={id} fileName={`orcamento-${quote.quote_number}.pdf`} />
+          <a className="button no-print" href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer">
+            <Printer className="h-4 w-4" /> Abrir para imprimir
+          </a>
+          <QuotePdfButton quoteId={id} fileName={`orcamento-${quote.quote_number}.pdf`} />
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>
               <input type="hidden" name="quote_id" value={id} />
@@ -459,7 +461,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </div>
           </div>
         </div>
-          <div className="quote-paper-credit"><span>Marquinhos Calhas e Esquadrias</span><AuthorSignature/></div>
+          <div className="quote-paper-credit no-print"><span>Marquinhos Calhas e Esquadrias</span><AuthorSignature/></div>
       </article></div>
     </div>
   );

@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium-min";
 import puppeteer from "puppeteer-core";
+import { addQuotePdfCredit } from "./quote-pdf-credit";
 
 const CHROMIUM_PACK_URL = "https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar";
 
@@ -71,15 +72,17 @@ export async function generateQuotePdfBuffer(params: {
 
     await page.evaluate(()=>document.fonts.ready);
     if(!await page.$('.quote-sheet'))throw new Error('Documento indisponível. Entre novamente para gerar o PDF.');
-    // A regra @page do orçamento define o papel e as margens também no
-    // diálogo de impressão do navegador.
+    const credit = await page.$eval(".quote-paper-credit", (element) =>
+      Array.from(element.children, (child) => child.textContent?.trim() ?? ""),
+    );
+    // A margem inferior do @page reserva espaço para o crédito do PDF.
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: true,
     });
 
-    return Buffer.from(pdfBuffer);
+    return Buffer.from(await addQuotePdfCredit(pdfBuffer, credit[0], credit[1]));
   } finally {
     await page.close();
   }
