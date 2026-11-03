@@ -49,8 +49,17 @@ describe('lib/ai/chat', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.groq.com/openai/v1/chat/completions');
     expect(init.headers.Authorization).toBe('Bearer gsk_x');
-    expect(JSON.parse(init.body)).toMatchObject({ model: 'llama-3.3-70b-versatile', response_format: { type: 'json_object' } });
+    expect(JSON.parse(init.body)).toMatchObject({ model: 'openai/gpt-oss-120b', response_format: { type: 'json_object' }, reasoning_effort: 'low' });
     await expect(aiChat({ provider: 'openai', apiKey: '', messages })).rejects.toThrow(/Chave/);
+  });
+
+  test('Groq: modelo antigo fora de linha cai no modelo padrao atual', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{"error":{"code":"model_decommissioned"}}', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await aiChat({ provider: 'groq', model: 'llama-3.3-70b-versatile', apiKey: 'gsk_x', messages })).toBe('ok');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('openai/gpt-oss-120b');
   });
 
   test('provedor desconhecido cai no Ollama', () => {

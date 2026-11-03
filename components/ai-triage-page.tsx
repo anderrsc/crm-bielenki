@@ -338,7 +338,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             <div className="grid gap-3 sm:grid-cols-3 mb-4">
               {[
                 { value: "ollama", label: "🦙 Ollama Cloud", badge: "MODELOS ABERTOS", desc: "GLM e outros modelos abertos · chave no servidor" },
-                { value: "groq", label: "🚀 Groq", badge: "GRÁTIS", desc: "Llama 3.3 70B · 14.400 req/dia · Sem cartão" },
+                { value: "groq", label: "🚀 Groq", badge: "GRÁTIS", desc: "GPT OSS 120B · plano gratuito · sem cartão" },
                 { value: "openai", label: "OpenAI", badge: "PAGO", desc: "GPT-4o · ~R$0,03 por triagem" },
               ].map(opt => (
                 <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
@@ -378,12 +378,12 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo</label>
-                  <select name="openai_model" defaultValue={config?.openai_model ?? "llama-3.3-70b-versatile"} className="input w-full">
-                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recomendado)</option>
-                    <option value="llama-3.1-8b-instant">Llama 3.1 8B (Mais rápido)</option>
-                    <option value="gemma2-9b-it">Gemma 2 9B</option>
-                    <option value="qwen-qwq-32b">Qwen 32B Reasoning</option>
-                  </select>
+<input name="openai_model" list="groq-models" defaultValue={config?.ai_provider === "groq" && config.openai_model && !config.openai_model.startsWith("llama-") ? config.openai_model : "openai/gpt-oss-120b"} className="input w-full font-mono" />
+                  <datalist id="groq-models">
+                    <option value="openai/gpt-oss-120b">GPT OSS 120B (recomendado)</option>
+                    <option value="openai/gpt-oss-20b">GPT OSS 20B (mais rápido)</option>
+                  </datalist>
+                  <p className="mt-1 text-xs text-ink/40">Use o nome do modelo como aparece em console.groq.com/docs/models.</p>
                 </div>
               </div>
             )}

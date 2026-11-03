@@ -11,7 +11,7 @@ export type AiMessage = { role: "system" | "user" | "assistant"; content: string
 export const AI_PROVIDERS: AiProvider[] = ["ollama", "groq", "openai"];
 export const DEFAULT_AI_MODEL: Record<AiProvider, string> = {
   ollama: "glm-5.3-flash",
-  groq: "llama-3.3-70b-versatile",
+  groq: "openai/gpt-oss-120b",
   openai: "gpt-4o",
 };
 
@@ -87,19 +87,29 @@ export async function aiChat(request: {
   }
 
   if (!request.apiKey) throw new AiError("Chave de API não configurada.", null, provider);
+  const send = (modelName: string) => fetch(OPENAI_COMPATIBLE_URL[provider], {
+    method: "POST",
+    headers: { Authorization: `Bearer ${request.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: modelName,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+      // Modelos de raciocinio (GPT OSS) gastam tokens pensando antes de
+      // responder; esforco baixo deixa a resposta rapida e dentro do limite.
+      ...(modelName.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {}),
+    }),
+  });
   let response: Response;
   try {
-    response = await fetch(OPENAI_COMPATIBLE_URL[provider], {
-      method: "POST",
-      headers: { Authorization: `Bearer ${request.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages,
-        ...(json ? { response_format: { type: "json_object" } } : {}),
-      }),
-    });
+    response = await send(model);
+    // O Groq tira modelos de linha (ex.: Llama 3.x): configuracoes antigas
+    // passam a usar o modelo padrao atual em vez de parar a triagem.
+    if (provider === "groq" && model !== DEFAULT_AI_MODEL.groq && (response.status === 404
+      || (response.status === 400 && /decommission|model_not_found|does not exist/i.test(await response.clone().text())))) {
+      response = await send(DEFAULT_AI_MODEL.groq);
+    }
   } catch (error) {
     throw new AiError(error instanceof Error ? error.message : String(error), null, provider);
   }
