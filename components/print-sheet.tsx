@@ -127,7 +127,7 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
         <MeasureCard label="ENDERECO" value={address || ""} />
         <label className="measure-card min-w-0">
           <span className="measure-card-label block">DISPONIBILIDADE DE HORÁRIO</span>
-          <input className="w-full border-b border-black bg-transparent text-xs print:hidden" value={availability}
+          <input className="measure-card-value w-full border-b border-black bg-transparent print:hidden" value={availability}
             maxLength={100} placeholder="Ex. após as 14h" onChange={event => setAvailability(event.target.value)} />
           <span className="hidden print:block">
             {availability.trim()

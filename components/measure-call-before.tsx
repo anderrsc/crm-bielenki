@@ -8,7 +8,7 @@ export function MeasureCallBefore({ interactive = true }: { interactive?: boolea
   return (
     <fieldset className="measure-card min-w-0" aria-label="Ligar antes de ir?">
       <p className="measure-card-label">LIGAR ANTES DE IR?</p>
-      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] font-semibold">
+      <div className="measure-card-value mt-1 flex flex-wrap gap-x-2 gap-y-1">
         {["Sim", "Não"].map(option => (
           <label key={option} className="inline-flex items-center gap-1">
             <input type="radio" name={name} value={option} disabled={!interactive}
