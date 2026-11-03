@@ -7,6 +7,23 @@ import pg from "pg";
 import fs from "node:fs";
 import path from "node:path";
 import { launch, login, BASE, pageProblem, clickAndWait, selectByText } from "./helpers.mjs";
+import zlib from "node:zlib";
+
+// Largura x altura (pt) da 1a pagina. O Chromium pode gravar o /MediaBox
+// dentro de "object streams" compactados, entao os blocos FlateDecode sao
+// descompactados antes de procurar.
+function pdfMediaBox(buffer) {
+  const raw = buffer.toString("latin1");
+  let text = raw;
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const start = m.index + m[0].length;
+    const end = raw.indexOf("endstream", start);
+    if (end < 0) continue;
+    try { text += zlib.inflateSync(buffer.subarray(start, end)).toString("latin1"); } catch { /* imagem ou outro filtro */ }
+  }
+  const box = text.match(/MediaBox\s*\[\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*\]/);
+  return box ? [Number(box[3]) - Number(box[1]), Number(box[4]) - Number(box[2])] : null;
+}
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5499/crm";
 const RUN = Date.now().toString(36);
@@ -126,8 +143,8 @@ test("baixar PDF do orcamento em A4 (e segundo download vem do cache)", { timeou
   const pdf = first.body.toString("latin1");
   assert.ok(pdf.startsWith("%PDF"), "nao e PDF: " + pdf.slice(0, 300));
   // A4 = 595,28 x 841,89 pt; o Chrome arredonda para pixels (ex.: 594,96 ou 595,92).
-  const box = pdf.match(/MediaBox\s*\[0 0 ([\d.]+) ([\d.]+)\]/);
-  assert.ok(box && Math.abs(Number(box[1]) - 595.28) < 1 && Math.abs(Number(box[2]) - 841.89) < 1, `PDF nao esta em A4: ${box?.[0]}`);
+  const box = pdfMediaBox(first.body);
+  assert.ok(box && Math.abs(box[0] - 595.28) < 1 && Math.abs(box[1] - 841.89) < 1, `PDF nao esta em A4: ${box}`);
   assert.equal((pdf.match(/\/Type\s*\/Page[^s]/g) || []).length, 1, "orcamento curto deve caber em 1 pagina");
   const { rows } = await db.query("select pdf_generated_at >= updated_at fresh from quotes where id=$1", [state.quoteId]);
   assert.equal(rows[0].fresh, true, "cache do PDF nao ficou valido apos gerar");
