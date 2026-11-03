@@ -77,8 +77,9 @@ export async function generateQuotePdfBuffer(params: {
       width: "210mm",
       height: "297mm",
       printBackground: true,
+      // Tamanho A4 daqui; as margens (10mm em cima/embaixo) vem do @page do
+      // proprio orcamento, o mesmo usado por "Imprimir"/"Salvar como PDF".
       preferCSSPageSize: false,
-      margin: { top: "10mm", bottom: "10mm", left: "0", right: "0" },
     });
 
     return Buffer.from(pdfBuffer);

@@ -29,8 +29,8 @@
 .quote-table .quote-td-total,.quote-unit-value { font-variant-numeric:tabular-nums; font-size:7px; }
 .quote-piece-link { flex-direction:column; gap:1mm; }
 .quote-piece-link > span { display:block; font-size:6px; }
-.quote-piece-image { width:24mm; height:13mm; object-fit:contain; }
-.quote-piece-qr { width:14mm; height:14mm; object-fit:contain; }
+.quote-piece-image { width:24mm; height:13mm; object-fit:contain; background:transparent; }
+.quote-piece-qr { width:14mm; height:14mm; object-fit:contain; background:#fff; }
 .quote-piece-note { font-size:7px; line-height:1.5; margin:2mm 0 0; }
 .quote-bottom-grid,.quote-with-pieces .quote-bottom-grid { gap:4mm; margin-top:4mm; }
 .quote-obs-box { padding:3mm; min-height:0; background:var(--paper-soft); }
@@ -87,4 +87,4 @@
 
 /* Marca d'agua (lib/quote-watermark.ts): por cima do conteudo, quase
    transparente, repetida na folha inteira (todas as paginas do PDF). */
-.quote-sheet .quote-watermark { position:absolute; inset:0; z-index:5; pointer-events:none; user-select:none; background-repeat:repeat; background-size:85mm 45mm; }
+.quote-sheet .quote-watermark { position:absolute; inset:0; z-index:5; pointer-events:none; user-select:none; background-repeat:repeat; background-size:70mm 42mm; }

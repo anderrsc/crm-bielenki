@@ -31,10 +31,11 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   const logo=Buffer.from(html.match(/class="quote-logo-img"[^>]*src="data:image\/svg\+xml;base64,([^"]+)"|src="data:image\/svg\+xml;base64,([^"]+)"[^>]*class="quote-logo-img"/)?.slice(1).find(Boolean)??'','base64').toString();
   expect(logo).toContain('<svg');
   expect(logo).not.toContain('aria-label="CALHAS E ESQUADRIAS"');
-  // Marca d'agua com a empresa e o numero do orcamento.
-  const wm=html.match(/class="quote-watermark"[^>]*background-image:url\(&quot;data:image\/svg\+xml;base64,([^&]+)&quot;\)/)?.[1];
-  expect(Buffer.from(wm??'','base64').toString()).toContain('PROPOSTA MARQUINHOS CALHAS E ESQUADRIAS');
-  expect(Buffer.from(wm??'','base64').toString()).toContain('EXEMPLO-001');
+  // Marca d'agua: logo original da Marquinhos, quase invisivel.
+  const wm=Buffer.from(html.match(/class="quote-watermark"[^>]*background-image:url\(&quot;data:image\/svg\+xml;base64,([^&]+)&quot;\)/)?.[1]??'','base64').toString();
+  expect(wm).toContain('opacity="0.04"');
+  expect(Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString()).toContain('<svg');
+  expect(html).toContain('@page{size:210mm 297mm;margin:10mm 0}');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
   expect(html).not.toContain('quote_attachments');

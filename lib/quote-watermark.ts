@@ -1,13 +1,18 @@
-// Marca d'agua do orcamento: texto pequeno e quase transparente repetido na
-// diagonal por toda a folha, com o numero do orcamento. Identifica a proposta
-// como da Marquinhos mesmo se o PDF for repassado ou recortado.
-const xml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-export function quoteWatermarkUrl(quoteNumber: string) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="170">`
-    + `<g transform="rotate(-24 160 85)" font-family="Arial,Helvetica,sans-serif" fill="#b30b0b" fill-opacity="0.05" text-anchor="middle">`
-    + `<text x="160" y="80" font-size="9" font-weight="700" letter-spacing="0.6">PROPOSTA MARQUINHOS CALHAS E ESQUADRIAS</text>`
-    + `<text x="160" y="93" font-size="7">${xml(quoteNumber)} · uso exclusivo do cliente</text>`
+// Marca d'agua do orcamento: o logo original da Marquinhos, bem pequeno e
+// quase invisivel, repetido na diagonal por toda a folha (tela, impressao e
+// todas as paginas do PDF). Identifica a proposta mesmo se o PDF for
+// repassado ou recortado.
+let logo: string | null = null;
+
+export function quoteWatermarkUrl() {
+  logo ??= readFileSync(path.join(process.cwd(), "public", "brand", "original", "marquinhos-logo.svg")).toString("base64");
+  // Ladrilho 70 x 42 mm: um logo de 22mm, girado, com opacidade de 4%.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420">`
+    + `<g transform="rotate(-18 350 210)" opacity="0.04">`
+    + `<image href="data:image/svg+xml;base64,${logo}" x="240" y="172" width="220" height="75"/>`
     + `</g></svg>`;
   return `url("data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}")`;
 }
