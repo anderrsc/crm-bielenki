@@ -101,3 +101,7 @@
  /* O tema escuro do sistema pintava as margens da folha de preto. */
  html { color-scheme:light; background:#fff!important; }
 }
+
+/* Marca d'agua (lib/quote-watermark.ts): logo oficial, reto, em linhas
+   alternadas, quase invisivel, por cima do conteudo e em todas as paginas. */
+.quote-sheet .quote-watermark { position:absolute; inset:0; z-index:5; pointer-events:none; user-select:none; background-repeat:repeat; background-size:33.3333% auto; background-position:left top; }
