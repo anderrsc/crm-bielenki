@@ -1,5 +1,6 @@
 "use client";
 
+import { MeasureCallBefore } from "./measure-call-before";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { useState } from "react";
@@ -121,10 +122,11 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
           <MeasureCard label="CIDADE" value={city || ""} />
         </section>
 
-        <section className="measure-grid measure-grid-3">
+        <section className="measure-grid measure-grid-visit">
           <MeasureCard label="ENDEREÇO" value={address || ""} />
           <MeasureCard label="DISPONIBILIDADE DE HORÁRIO" blank />
           <MeasureCard label="MEDIDOR" blank />
+          <MeasureCallBefore interactive={false} />
         </section>
 
         <section className="measure-lines" aria-label="Área para medidas" />
