@@ -234,7 +234,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
   const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
-    if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} />;
+    if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} error={search.erro} />;
   const PAGE_SIZE = 50;
   const page = pageNumber((search as { pagina?: string }).pagina);
   const from = (page - 1) * PAGE_SIZE;

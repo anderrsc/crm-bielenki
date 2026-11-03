@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft, Check, Circle, Clock3, ClipboardPenLine } from "lucide-react";
-import { deactivateClient, toggleChecklistItem } from "@/app/(crm)/actions";
+import { deactivateClient, deleteClientRecord, toggleChecklistItem } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ModuleConfig } from "@/lib/modules";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 
-export async function DetailPage({ config, id }: { config: ModuleConfig; id: string; subpage?: string }) {
+export async function DetailPage({ config, id, error: actionError }: { config: ModuleConfig; id: string; subpage?: string; error?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
   const db = await getRequestClient();
   const { data, error } = await db.from(config.table).select(config.table === "clients" ? `${config.select},address,neighborhood,postal_code` : config.select).eq("id", id).single();
@@ -29,8 +29,9 @@ export async function DetailPage({ config, id }: { config: ModuleConfig; id: str
 
   return <div className="mx-auto max-w-6xl">
     <Link href={`/${config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+    {actionError && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
     <div className="card p-6 lg:p-8">
-      {config.table === "clients" && <div className="no-print mb-5 flex flex-wrap justify-end gap-2"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form></div>}
+      {config.table === "clients" && <div className="no-print mb-5 flex flex-wrap justify-end gap-2"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deleteClientRecord} message="Apagar este cliente de vez? Esta ação não pode ser desfeita. Clientes com orçamento, venda ou lançamento no financeiro não podem ser apagados (use Desativar)." className="button-ghost text-red-700">Apagar cliente</ConfirmButton></form></div>}
       <p className="text-xs font-bold uppercase tracking-widest text-forest">{config.singular}</p><h1 className="mt-2 text-3xl font-black">{title}</h1>
       <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{config.columns.slice(0, 8).map((column) => <div className="rounded-xl bg-cream/70 p-4" key={column.key}><p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">{column.label}</p><p className="mt-1 font-bold">{format(get(record, column.key), column.kind)}</p></div>)}</div>
       {clientAddress && <div className="mt-4 rounded-xl bg-cream/70 p-4">

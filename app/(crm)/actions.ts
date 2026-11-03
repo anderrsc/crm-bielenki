@@ -63,6 +63,14 @@ export async function deactivateClient(formData: FormData) {
   revalidatePath("/clientes");redirect("/clientes");
 }
 
+export async function deleteClientRecord(formData: FormData) {
+  const db=await createClient();const id=String(formData.get("id")||"");
+  if(!z.string().uuid().safeParse(id).success)redirect("/clientes?erro=Cliente inválido");
+  const {error}=await db.rpc("delete_client",{p_client_id:id});
+  if(error)redirect(`/clientes/${id}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/clientes");redirect("/clientes");
+}
+
 export async function registerPayment(formData: FormData) {
   const db = await createClient();
   const requestedBack = String(formData.get("_back") || "/financeiro");

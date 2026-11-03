@@ -97,6 +97,13 @@ describe('quotes → sales → orders',()=>{
     await db.query("select register_payment_with_adjustment($1, 10, current_date, 'pix', null, 0, 0, 1, current_date)",[e.id]);
     await expect(db.query('select revert_quote_approval($1)',[id])).rejects.toThrow(/pagamento/);
   });
+  test('client without quotes can be deleted; with quotes it is blocked',async()=>{
+    const c=await first("insert into clients(company_id,name) values($1,'Duplicado teste') returning id",[company]);
+    await db.query('select delete_client($1)',[c.id]);
+    expect(Number((await first('select count(*) n from clients where id=$1',[c.id])).n)).toBe(0);
+    await quote();
+    await expect(db.query('select delete_client($1)',[client])).rejects.toThrow(/orçamentos/);
+  });
   test('approved quote cannot be edited',async()=>{const id=await quote();await db.query('select approve_quote($1)',[id]);await expect(db.query('select update_gutter_quote($1,$2::jsonb)',[id,JSON.stringify({client_id:client,items:[]})])).rejects.toThrow(/aprovado/);});
   test('duplicate preserves lines and total',async()=>{const id=await quote();const copy=(await first('select duplicate_quote($1) id',[id])).id;expect(copy).not.toBe(id);expect(Number((await first('select total from quotes where id=$1',[copy])).total)).toBe(100);});
   test('empty quote is rejected',async()=>{await expect(quote({items:[]})).rejects.toThrow();});
