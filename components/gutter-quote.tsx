@@ -5,9 +5,10 @@ import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
 import {
   gutterColors, gutterCuts, gutterThicknesses,
   PRODUCTS_BY_CATEGORY, UNITS_BY_CATEGORY,
-  FABRICATED_CATEGORIES, OTHER_CATEGORIES, sameThickness,
+  FABRICATED_CATEGORIES, OTHER_CATEGORIES,
   type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
+import { fabricatedMeterPrice, type GutterQuoteRates } from "@/lib/gutter-quote-pricing";
 import { money, addDaysISO, todayISO } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -72,19 +73,10 @@ const CAT_BADGE: Record<string, string> = {
   "Itens Especiais": "bg-gray-100 text-gray-700",
 };
 
-const findPrice = (prices: GutterPrice[], item: Pick<GutterQuoteItem, "product" | "thickness" | "cut" | "color">) =>
-  prices.find(x =>
-    x.active &&
-    normalizeProductName(x.product) === normalizeProductName(item.product) &&
-    sameThickness(x.thickness, item.thickness) &&
-    x.cut_mm === Number(item.cut.replace(/\D/g, "")) &&
-    (x.color ?? "Aluminio Natural") === item.color
-  );
-
-const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[]): GutterQuoteItem => {
+const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[], rates: GutterQuoteRates): GutterQuoteItem => {
   const product = category === "Calhas" ? "Calha de beiral" : PRODUCTS_BY_CATEGORY[category][0];
   const item = { category, product, thickness: "0.5mm", cut: "200 mm", color: "Aluminio Natural", quantity: 1, meters: 1, unit_price: 0 };
-  return { ...item, unit_price: Number(findPrice(prices, item)?.unit_price ?? 0) };
+  return { ...item, unit_price: Number(fabricatedMeterPrice(prices, rates, item) ?? 0) };
 };
 
 const specialPrice = (prices: GutterPrice[], product: string) => prices.find(p => p.active && normalizeProductName(p.product) === normalizeProductName(product) && !p.thickness && !p.cut_mm);
@@ -133,17 +125,21 @@ const cleanOtherDescription = (description?: string | null) => {
 /* ─── Componente principal ───────────────────────────────────────────────── */
 export function GutterQuote({
   prices,
+  rates,
   clients,
   initial,
   error,
 }: {
   prices: GutterPrice[];
+  rates: GutterQuoteRates;
   clients: QuoteClient[];
   initial?: GutterQuoteInitial;
   error?: string;
 }) {
   const [items, setItems] = useState<GutterQuoteItem[]>(() =>
-    initial?.items.length ? initial.items : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices)]
+    initial?.items.length ? initial.items.map(item => ({
+      ...item, unit_price: Number(item.unit_price) || fabricatedMeterPrice(prices, rates, item) || 0,
+    })) : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices, rates)]
   );
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() =>
     (initial?.special_items ?? []).map((item) => {
@@ -189,11 +185,11 @@ export function GutterQuote({
           [key]: ["quantity", "meters", "unit_price"].includes(key) ? Number(value) : value,
         } as GutterQuoteItem;
         if (["product", "thickness", "cut", "color"].includes(key)) {
-          next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
+          next.unit_price = Number(fabricatedMeterPrice(prices, rates, next) ?? 0);
         }
         if (key === "category") {
-          next.product = blankFabricated(value as FabricatedCategory, prices).product;
-          next.unit_price = Number(findPrice(prices, next)?.unit_price ?? 0);
+          next.product = blankFabricated(value as FabricatedCategory, prices, rates).product;
+          next.unit_price = Number(fabricatedMeterPrice(prices, rates, next) ?? 0);
         }
         return next;
       })
@@ -308,6 +304,7 @@ export function GutterQuote({
                   item={item}
                   index={idx}
                   prices={prices}
+                  rates={rates}
                   onChange={changeFab}
                   onDuplicate={() => setItems(c => [...c.slice(0, idx + 1), { ...item }, ...c.slice(idx + 1)])}
                   onRemove={() => setItems(c => c.filter((_, i) => i !== idx))}
@@ -347,7 +344,7 @@ export function GutterQuote({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setItems(c => [...c, blankFabricated(cat, prices)])}
+                onClick={() => setItems(c => [...c, blankFabricated(cat, prices, rates)])}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
@@ -433,17 +430,18 @@ export function GutterQuote({
 
 /* ─── Card de item fabricado (Calhas / Rufos / Pingadeiras) ─────────────── */
 function FabricatedItemCard({
-  item, index, prices, onChange, onDuplicate, onRemove, canRemove,
+  item, index, prices, rates, onChange, onDuplicate, onRemove, canRemove,
 }: {
   item: GutterQuoteItem;
   index: number;
   prices: GutterPrice[];
+  rates: GutterQuoteRates;
   onChange: (i: number, k: keyof GutterQuoteItem, v: string) => void;
   onDuplicate: () => void;
   onRemove: () => void;
   canRemove: boolean;
 }) {
-  const tablePrice = findPrice(prices, item);
+  const tablePrice = fabricatedMeterPrice(prices, rates, item);
   const subtotal = item.quantity * item.meters * item.unit_price;
 
   return (
@@ -457,7 +455,7 @@ function FabricatedItemCard({
             onChange={v => onChange(index, "category", v)}
             className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
           />
-          {tablePrice
+          {tablePrice !== undefined
             ? <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700"><Database className="h-3 w-3" />Da tabela</span>
             : <span className="text-[10px] text-amber-700">Sem preço cadastrado — informe manualmente</span>}
         </div>
