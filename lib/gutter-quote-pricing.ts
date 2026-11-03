@@ -1,4 +1,4 @@
-import { catalogPieceForProduct, normalizeProductName } from "./gutter-catalog";
+import { MARQUINHOS_CATALOG, catalogPieceForProduct, normalizeProductName } from "./gutter-catalog";
 import { normalizeGutterColor, sameThickness, type GutterPrice } from "./gutters";
 
 export type GutterQuoteRates = {
@@ -56,7 +56,10 @@ export function fabricatedMeterPrice(prices: GutterPrice[], rates: GutterQuoteRa
   const naturalRate = matches.find(row => colorKey(row.color) === natural);
 
   if (catalogPieceForProduct(item.product)?.id === "calha-beiral" || product.startsWith("calha de beiral")) {
-    return naturalRate ? Number(naturalRate.unit_price) : undefined;
+    if (naturalRate) return Number(naturalRate.unit_price);
+    // Sem linha na tabela: preço comercial da versão simples para o corte.
+    const commercial = MARQUINHOS_CATALOG.extras.find(extra => normalizeProductName(extra.product) === normalizeProductName(`Calha de beiral c/ ${cut} mm — Simples`));
+    return commercial ? Number(commercial.price) : undefined;
   }
 
   const base = rates.matrix.find(row => sameThickness(row.thickness, item.thickness) && row.cut_mm === cut);

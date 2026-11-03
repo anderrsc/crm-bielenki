@@ -51,6 +51,10 @@ test("catalog import updates reference prices, preserves extras and other tenant
     expect((await db.query("select unit_price::float price from gutter_prices where company_id=$1 and product='Calha central (fundo em V)' and thickness='1.0mm' and cut_mm=1200",[company])).rows[0]).toEqual({price:392});
     expect((await db.query("select unit,unit_price::float price from gutter_prices where company_id=$1 and product='Cano PVC — barra de 6,00 m'",[company])).rows[0]).toEqual({unit:'metro',price:40});
     expect((await db.query("select unit_price::float price from gutter_prices where company_id=$1 and product='Calha de beiral c/ 300 mm — Dois pisos'",[company])).rows[0]).toEqual({price:75});
+    const beiralFix=readFileSync(`supabase/migrations/${readdirSync('supabase/migrations').find(f=>f.endsWith('_beiral_commercial_price.sql'))!}`,'utf8');
+    await db.exec(beiralFix);await db.exec(beiralFix);
+    expect((await db.query("select distinct unit_price::float price from gutter_prices where company_id=$1 and product='Calha de beiral' and cut_mm=300",[company])).rows).toEqual([{price:70}]);
+    expect((await db.query("select distinct unit_price::float price from gutter_prices where company_id=$1 and product='Calha de beiral' and cut_mm=400",[company])).rows).toEqual([{price:85}]);
     for (const name of ['v_workflow_analytics','v_installation_checklist_alerts']) {
       expect((await db.query<{options:string[]}>("select reloptions as options from pg_class where oid=$1::regclass",[`public.${name}`])).rows[0].options).toContain('security_invoker=true');
       expect((await db.query<{allowed:boolean}>("select has_table_privilege('anon',$1,'select') allowed",[`public.${name}`])).rows[0].allowed).toBe(false);

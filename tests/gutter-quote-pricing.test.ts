@@ -17,7 +17,9 @@ test("a configured paint rate is separate from the matrix price", () => {
 test("beiral uses its own rate and never falls back to the shared matrix", () => {
   const item = { ...piece, product: beiral.product };
   expect(fabricatedMeterPrice([beiral], rates, item)).toBe(80);
-  expect(fabricatedMeterPrice([], rates, item)).toBeUndefined();
+  expect(fabricatedMeterPrice([], rates, item)).toBe(70);
+  expect(fabricatedMeterPrice([], rates, { ...item, cut: "400 mm", thickness: "0.7mm" })).toBe(85);
+  expect(fabricatedMeterPrice([], rates, { ...item, cut: "250 mm" })).toBeUndefined();
 });
 
 test("painting groups quantities by color, skips natural and marks missing tariffs", () => {
