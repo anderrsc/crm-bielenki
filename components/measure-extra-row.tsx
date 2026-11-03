@@ -1,5 +1,12 @@
-/* Linha extra da ficha de medidas: tipo de serviço (marcar à mão) e observações. */
+"use client";
+
+import { useState } from "react";
+
+/* Linha extra da ficha de medidas: tipo de serviço e observações.
+   Na tela dá para digitar a observação; na impressão sai o texto (ou linhas em branco). */
 export function MeasureExtraRow() {
+  const [notes, setNotes] = useState("");
+  const text = notes.trim();
   return (
     <section className="measure-grid measure-grid-extra">
       <fieldset className="measure-card min-w-0" aria-label="Tipo de serviço">
@@ -14,11 +21,16 @@ export function MeasureExtraRow() {
           ))}
         </div>
       </fieldset>
-      <div className="measure-card min-w-0">
-        <p className="measure-card-label">OBSERVAÇÕES</p>
-        <div className="measure-card-line measure-obs-line" />
-        <div className="measure-card-line measure-obs-line" />
-      </div>
+      <label className="measure-card min-w-0">
+        <span className="measure-card-label block">OBSERVAÇÕES</span>
+        <textarea className="measure-card-value measure-obs-input print:hidden" rows={2} maxLength={300} value={notes}
+          placeholder="Digite aqui antes de imprimir (opcional)" onChange={event => setNotes(event.target.value)} />
+        <span className="hidden print:block">
+          {text
+            ? <span className="measure-card-value measure-obs-text">{text}</span>
+            : <><span className="measure-card-line measure-obs-line block" /><span className="measure-card-line measure-obs-line block" /></>}
+        </span>
+      </label>
     </section>
   );
 }
