@@ -18,7 +18,7 @@ const ALL_ROLES: { value: string; label: string }[] = [
   { value: "atendente", label: "Atendente" },
 ];
 
-export async function EmployeesPage({ error, saved }: { error?: string; saved?: boolean }) {
+export async function EmployeesPage({ error, saved, passwordFor }: { error?: string; saved?: boolean; passwordFor?: string }) {
   let profiles: Profile[] = [];
   let userRoles: UserRole[] = [];
   let loadError = "";
@@ -57,6 +57,11 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
 
       {(error || loadError) && (
         <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error || loadError}</div>
+      )}
+      {passwordFor && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
+          ✓ Senha de {passwordFor} alterada. Informe a nova senha ao usuário — ela já vale para entrar.
+        </div>
       )}
       {saved && (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
@@ -166,12 +171,16 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
                   )}
                 </form>
                 {canManage && (
-                  <form action={resetUserPassword} className="border-t pt-4 flex items-center gap-3">
+                  <form action={resetUserPassword} className="border-t pt-4 flex flex-wrap items-end gap-3">
                     <input type="hidden" name="profile_id" value={p.id} />
-                    <p className="text-xs text-ink/50 flex-1">Enviar e-mail de redefinição de senha para este usuário</p>
+                    <div className="min-w-[200px] flex-1">
+                      <label className="label">Nova senha <span className="font-normal normal-case text-ink/50">(mín. 6 caracteres)</span></label>
+                      <input className="field" type="text" name="new_password" minLength={6} required autoComplete="off" placeholder="Digite a nova senha" />
+                    </div>
                     <button className="button-ghost flex items-center gap-2 text-xs">
                       <KeyRound className="h-3.5 w-3.5" /> Redefinir senha
                     </button>
+                    <p className="w-full text-xs text-ink/50">A senha muda na hora. Passe a nova senha para o usuário; não é enviado e-mail.</p>
                   </form>
                 )}
                 {canManage && (

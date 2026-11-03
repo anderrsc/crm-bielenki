@@ -796,25 +796,27 @@ export async function deleteCommercialTable(formData: FormData) {
 }
 
 export async function resetUserPassword(formData: FormData) {
+  const back = "/configuracoes/funcionarios";
   const profileId = String(formData.get("profile_id") || "");
-  if (!profileId) redirect("/configuracoes/funcionarios?erro=ID inválido");
-  const { createClient: createAdmin } = await import("@supabase/supabase-js");
-  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const password = String(formData.get("new_password") || "").trim();
+  if (!profileId) redirect(`${back}?erro=ID inválido`);
+  if (password.length < 6) redirect(`${back}?erro=${encodeURIComponent("A nova senha deve ter no mínimo 6 caracteres")}`);
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) redirect(`${back}?erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login");
   const { data: actorRoles } = await db.from("user_roles").select("role").eq("profile_id", user.id).in("role", ["administrador", "gerente"]);
-  if (!actorRoles?.length) redirect("/configuracoes/funcionarios?erro=Sem permissão");
+  if (!actorRoles?.length) redirect(`${back}?erro=Sem permissão`);
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { data: actorProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
-  const { data: targetProfile } = await admin.from("profiles").select("company_id").eq("id", profileId).single();
-  if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect("/configuracoes/funcionarios?erro=Usuário inválido");
-  const { data: target } = await admin.auth.admin.getUserById(profileId);
-  if (!target?.user?.email) redirect("/configuracoes/funcionarios?erro=Usuário sem e-mail");
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
-  const { error } = await admin.auth.resetPasswordForEmail(target.user.email, { redirectTo: siteUrl ? `${siteUrl}/login` : undefined });
-  if (error) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/configuracoes/funcionarios");
-  redirect("/configuracoes/funcionarios?salvo=1");
+  const { data: targetProfile } = await admin.from("profiles").select("company_id,full_name").eq("id", profileId).single();
+  if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect(`${back}?erro=Usuário inválido`);
+  // Define a senha direto (sem depender de e-mail), como no cadastro do usuário.
+  const { error } = await admin.auth.admin.updateUserById(profileId, { password });
+  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(back);
+  redirect(`${back}?senha=${encodeURIComponent(targetProfile?.full_name || "usuário")}`);
 }
 
 export async function advanceProductionStep(formData: FormData) {
