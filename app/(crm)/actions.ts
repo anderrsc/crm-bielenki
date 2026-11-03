@@ -281,6 +281,15 @@ export async function approveQuote(formData: FormData) {
   revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
 }
 
+export async function revertQuoteApproval(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id"));
+  const { error } = await db.rpc("revert_quote_approval", { p_quote_id: quoteId });
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/orcamentos"); revalidatePath("/vendas"); revalidatePath("/pedidos"); revalidatePath("/financeiro");
+  redirect(`/orcamentos/${quoteId}`);
+}
+
 export async function saveAutomationRule(formData: FormData) {
   const db = await createClient();
   const ruleId = String(formData.get("rule_id")); const templateId = String(formData.get("template_id"));

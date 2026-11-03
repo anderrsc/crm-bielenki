@@ -82,6 +82,21 @@ describe('quotes → sales → orders',()=>{
     expect(Number((await first('select count(*) n from financial_entries where sale_id=$1',[sale])).n)).toBe(1);
     expect(Number((await first('select count(*) n from production_orders p join orders o on o.id=p.order_id where o.sale_id=$1',[sale])).n)).toBe(1);
   });
+  test('approval can be reverted and approved again',async()=>{
+    const id=await quote();const sale=(await first('select approve_quote($1) id',[id])).id;
+    await db.query('select revert_quote_approval($1)',[id]);
+    const q=await first('select status,sale_id,approved_at from quotes where id=$1',[id]);
+    expect(q).toEqual({status:'enviado',sale_id:null,approved_at:null});
+    for(const t of ['sales where id','orders where sale_id','financial_entries where sale_id']) expect(Number((await first(`select count(*) n from ${t}=$1`,[sale])).n)).toBe(0);
+    expect(Number((await first('select count(*) n from production_orders p where not exists(select 1 from orders o where o.id=p.order_id)')).n)).toBe(0);
+    const again=(await first('select approve_quote($1) id',[id])).id;expect(again).not.toBe(sale);
+  });
+  test('approval cannot be reverted after a payment',async()=>{
+    const id=await quote();const sale=(await first('select approve_quote($1) id',[id])).id;
+    const e=await first('select id from financial_entries where sale_id=$1',[sale]);
+    await db.query("select register_payment_with_adjustment($1, 10, current_date, 'pix', null, 0, 0, 1, current_date)",[e.id]);
+    await expect(db.query('select revert_quote_approval($1)',[id])).rejects.toThrow(/pagamento/);
+  });
   test('approved quote cannot be edited',async()=>{const id=await quote();await db.query('select approve_quote($1)',[id]);await expect(db.query('select update_gutter_quote($1,$2::jsonb)',[id,JSON.stringify({client_id:client,items:[]})])).rejects.toThrow(/aprovado/);});
   test('duplicate preserves lines and total',async()=>{const id=await quote();const copy=(await first('select duplicate_quote($1) id',[id])).id;expect(copy).not.toBe(id);expect(Number((await first('select total from quotes where id=$1',[copy])).total)).toBe(100);});
   test('empty quote is rejected',async()=>{await expect(quote({items:[]})).rejects.toThrow();});

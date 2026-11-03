@@ -6,7 +6,7 @@ import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Printer } from "lucide-react";
-import { approveQuote, deleteQuote, duplicateQuote } from "@/app/(crm)/actions";
+import { approveQuote, deleteQuote, duplicateQuote, revertQuoteApproval } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
@@ -256,6 +256,15 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <input type="hidden" name="quote_id" value={id} />
             <button formAction={duplicateQuote} className="button-ghost">Duplicar</button>
           </form>
+          {quote.status === "aprovado" && (
+            <form>
+              <input type="hidden" name="quote_id" value={id} />
+              <ConfirmButton formAction={revertQuoteApproval} className="button-ghost text-red-700"
+                message="Reverter a aprovação? A venda, o pedido, a conta a receber e a produção gerados por este orçamento serão apagados e o orçamento volta para Enviado.">
+                Reverter aprovação
+              </ConfirmButton>
+            </form>
+          )}
           {quote.status !== "aprovado" && (
             <form>
               <input type="hidden" name="quote_id" value={id} />
