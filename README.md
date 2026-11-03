@@ -73,6 +73,13 @@ Sistema operacional multiempresa para vendas, pedidos, compras, produção, esto
 
 Todas as tabelas operacionais usam `company_id` e RLS. A matriz em `permissions` restringe visualização e escrita por função; administrador e gerente possuem acesso integral.
 
+## Desempenho
+
+- O banco do Supabase fica em São Paulo (`sa-east-1`); `vercel.json` coloca as funções da Vercel em São Paulo (`gru1`). Funções em outra região somam a viagem de ida e volta a cada consulta.
+- Regras de RLS usam `(select função())` para serem avaliadas uma vez por consulta, e toda chave estrangeira tem índice (testado em `tests/db/db.test.mjs`).
+- Componentes de servidor usam `getRequestClient()` e `getAuthUser()` (`lib/supabase/server.ts`): um cliente e uma verificação de login por página.
+- Datas são calculadas e formatadas no fuso `America/Sao_Paulo` (`todayISO`, `APP_TIME_ZONE` em `lib/utils.ts`), porque o servidor roda em UTC.
+
 ## Validação
 
 ```bash
