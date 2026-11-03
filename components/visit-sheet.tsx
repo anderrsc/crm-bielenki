@@ -114,7 +114,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
         </header>
 
         <div className="measure-red-line" />
-        <p className="measure-date">Data: {shortDate(todayISO())}</p>
+        {client && <p className="measure-date">Data: {shortDate(todayISO())}</p>}
 
         <section className="measure-grid measure-grid-4">
           <MeasureCard label="CLIENTE" value={client?.name || ""} strong />
