@@ -42,3 +42,18 @@ test('agenda rejects impossible date',async()=>{expect(await createAgendaEvent(f
 test('agenda update changes only the originating table',async()=>{await updateAgendaEventStatus('00000000-0000-4000-8000-000000000010','concluido','measurements');expect(state.from).toHaveBeenCalledTimes(1);expect(state.from).toHaveBeenCalledWith('measurements');expect(state.update).toHaveBeenCalledWith(expect.objectContaining({status:'medicao_concluida'}));});
 test('agenda denied update surfaces error',async()=>{state.result={data:null,error:{message:'Sem permissão'}};await expect(updateAgendaEventStatus('00000000-0000-4000-8000-000000000010','concluido','tasks')).rejects.toThrow('Sem permissão');expect(state.revalidate).not.toHaveBeenCalled();});
 test('agenda invalid origin never issues update',async()=>{await expect(updateAgendaEventStatus('00000000-0000-4000-8000-000000000010','concluido','companies' as any)).rejects.toThrow('Evento inválido');expect(state.from).not.toHaveBeenCalled();});
+
+test('client address saves optional neighborhood and an unformatted CEP', async () => {
+  await expect(createClientRecord(form({ name: 'Cliente', address: ' Rua A, 20 ', neighborhood: ' Centro ', postal_code: '89251-000', state: 'sc' })))
+    .rejects.toThrow('REDIRECT:/clientes/');
+  expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({
+    address: 'Rua A, 20', neighborhood: 'Centro', postal_code: '89251000', state: 'SC',
+  }));
+});
+
+test('client can be saved with no address, but a partial CEP is rejected', async () => {
+  await expect(createClientRecord(form({ name: 'Cliente', postal_code: '892' }))).rejects.toThrow('Revise os campos');
+  expect(state.insert).not.toHaveBeenCalled();
+  await expect(createClientRecord(form({ name: 'Cliente', postal_code: '' }))).rejects.toThrow('REDIRECT:/clientes/');
+  expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({ postal_code: null }));
+});
