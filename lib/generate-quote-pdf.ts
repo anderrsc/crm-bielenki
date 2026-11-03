@@ -71,17 +71,14 @@ export async function generateQuotePdfBuffer(params: {
 
     await page.evaluate(()=>document.fonts.ready);
     if(!await page.$('.quote-sheet'))throw new Error('Documento indisponível. Entre novamente para gerar o PDF.');
-    const number=await page.$eval('.quote-sheet',el=>el.getAttribute('data-quote-number')||'');
-    const safeNumber=number.replace(/[&<>"']/g,'');
+    // Folha A4 exata (210 x 297 mm), com a mesma largura e laterais da folha
+    // da tela; 10mm em cima/embaixo de cada pagina (igual ao padding da tela).
     const pdfBuffer = await page.pdf({
       width: "210mm",
       height: "297mm",
       printBackground: true,
       preferCSSPageSize: false,
-      margin: { top: "12mm", bottom: "16mm", left: "12mm", right: "12mm" },
-      displayHeaderFooter:true,
-      headerTemplate:'<span></span>',
-      footerTemplate:`<div style="font:8px Arial;width:100%;margin:0 12mm;border-top:1px solid #ddd;padding-top:5px;display:flex;justify-content:space-between;color:#555"><span>Orçamento ${safeNumber} · by Anderson Bielenki</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>`,
+      margin: { top: "10mm", bottom: "10mm", left: "0", right: "0" },
     });
 
     return Buffer.from(pdfBuffer);

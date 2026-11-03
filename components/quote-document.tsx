@@ -191,9 +191,9 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   const portfolio = /^https?:\/\//i.test(company.qr_code_url||'') ? company.qr_code_url! : "https://marquinhos-calhas.vercel.app/";
   const [qrImgSrc, logoBuffer] = await Promise.all([
     QRCode.toDataURL(portfolio,{errorCorrectionLevel:"M",width:240,margin:4}),
-    printOnly ? readFile(path.join(process.cwd(),"public/brand/marquinhos-logo.svg")) : null,
+    printOnly ? readFile(path.join(process.cwd(),"public/brand/original/marquinhos-logo.svg")) : null,
   ]);
-  const logoSrc=logoBuffer ? 'data:image/svg+xml;base64,'+logoBuffer.toString('base64') : '/brand/marquinhos-logo.svg';
+  const logoSrc=logoBuffer ? 'data:image/svg+xml;base64,'+logoBuffer.toString('base64') : '/brand/original/marquinhos-logo.svg';
   const client = quote.client;
   // Internal files are not queried or serialized in the customer print route.
   let attachments:InternalAttachment[]=[];
@@ -366,20 +366,20 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Tabela de itens ── */}
           <table className="quote-table">
-            <colgroup><col style={{width:'5%'}}/><col style={{width:hasPieceMedia?'24%':hideUnitPrices?'55%':'43%'}}/>{hasPieceMedia&&<><col style={{width:'16%'}}/><col style={{width:'18%'}}/></>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<col style={{width:'10%'}}/>}<col style={{width:hideUnitPrices?'21%':'11%'}}/></colgroup>
-            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<><th>PEÇA 3D</th><th>NA OBRA</th></>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
+            <colgroup><col style={{width:'5%'}}/><col style={{width:hasPieceMedia?'40%':'58%'}}/>{hasPieceMedia&&<col style={{width:'18%'}}/>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<col style={{width:'10%'}}/>}<col style={{width:hideUnitPrices?'21%':'11%'}}/></colgroup>
+            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
             <tbody>{items.map((item,i)=>{
               const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
               const unitPriceDisplay=money(item.unit_price)+(isGutter&&!isSpecialItem(item)?'/m':'');
               return <tr key={i}>
                 <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
                 <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
-                {hasPieceMedia&&<><td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td><td className="quote-installed-cell">{media?<img src={media.installed} alt={'Referência de instalação: '+media.piece.name} className="quote-installed-image"/>:<span className="quote-piece-unavailable">—</span>}</td></>}
+                {hasPieceMedia&&<td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td>}
                 <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{unitPriceDisplay}</td>}<td className="quote-td-total">{money(quoteItemTotal(item,isGutter))}</td>
               </tr>;
             })}</tbody>
           </table>
-          {hasPieceMedia&&<p className="quote-piece-note">Ilustrações de referência de instalação. Confira medidas, corte e detalhes antes da fabricação. Aponte a câmera para o QR code ou clique na peça para abrir o modelo 3D.</p>}
+          {hasPieceMedia&&<p className="quote-piece-note">Ilustrações de referência. Confira medidas, corte e detalhes antes da fabricação. Aponte a câmera para o QR code ou clique na peça para ver o modelo 3D e a peça instalada na obra.</p>}
 
           {/* ── Observações + Resumo financeiro ── */}
           <div className="quote-bottom-grid">
