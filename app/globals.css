@@ -326,7 +326,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .quote-seller-input {
   font-size: 11px; font-weight: 700; border: 1px solid var(--quote-primary, #d71920);
   border-radius: 4px; padding: 2px 6px; width: 140px;
+  /* a barra do cabeçalho é vermelha com texto branco; o campo precisa de cores próprias */
+  background: #fff; color: #1f2427; caret-color: #1f2427; -webkit-text-fill-color: #1f2427;
 }
+.quote-seller-input::placeholder { color: #8a9096; -webkit-text-fill-color: #8a9096; }
 .quote-seller-save {
   background: var(--quote-primary, #d71920); color: #fff; border-radius: 4px;
   padding: 3px 5px; display: flex; align-items: center;
