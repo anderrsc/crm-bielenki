@@ -165,8 +165,10 @@ test("pintura: cadastrar e excluir", async () => {
 });
 
 test("agenda: atualizar status do evento", async () => {
+  // Meio-dia de hoje em Brasilia: a visao "Dia" mostra o dia local, entao
+  // "agora + 1h" caia no dia seguinte quando o teste rodava depois das 23h.
   const title = `Evento Status ${RUN}`;
-  const ev = (await db.query("insert into operational_events(company_id,event_type,title,starts_at,status) values($1,'reuniao',$2,now()+interval '1 hour','agendado') returning id", [cid, title])).rows[0];
+  const ev = (await db.query("insert into operational_events(company_id,event_type,title,starts_at,status) values($1,'reuniao',$2,(date_trunc('day', now() at time zone 'America/Sao_Paulo') + interval '12 hours') at time zone 'America/Sao_Paulo','agendado') returning id", [cid, title])).rows[0];
   await page.goto(`${BASE}/agenda`, { waitUntil: "networkidle0" });
   await click("Dia");
   await settle();
