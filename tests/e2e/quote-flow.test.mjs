@@ -125,7 +125,9 @@ test("baixar PDF do orcamento em A4 (e segundo download vem do cache)", { timeou
   assert.equal(first.type, "application/pdf");
   const pdf = first.body.toString("latin1");
   assert.ok(pdf.startsWith("%PDF"), "nao e PDF: " + pdf.slice(0, 300));
-  assert.match(pdf, /MediaBox\s*\[0 0 595\.9\d* 841\.9\d*\]/, "PDF nao esta em A4");
+  // A4 = 595,28 x 841,89 pt; o Chrome arredonda para pixels (ex.: 594,96 ou 595,92).
+  const box = pdf.match(/MediaBox\s*\[0 0 ([\d.]+) ([\d.]+)\]/);
+  assert.ok(box && Math.abs(Number(box[1]) - 595.28) < 1 && Math.abs(Number(box[2]) - 841.89) < 1, `PDF nao esta em A4: ${box?.[0]}`);
   assert.equal((pdf.match(/\/Type\s*\/Page[^s]/g) || []).length, 1, "orcamento curto deve caber em 1 pagina");
   const { rows } = await db.query("select pdf_generated_at >= updated_at fresh from quotes where id=$1", [state.quoteId]);
   assert.equal(rows[0].fresh, true, "cache do PDF nao ficou valido apos gerar");

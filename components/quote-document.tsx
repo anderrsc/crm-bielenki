@@ -283,9 +283,6 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
         data-quote-number={quote.quote_number}
         data-pdf-document={printOnly?"true":undefined}
       >
-        {/* Margens da folha A4 na impressao/PDF so nas paginas do orcamento
-            (a regra geral do sistema zera as margens para a ficha de visita). */}
-        <style>{"@page{size:210mm 297mm;margin:10mm 0}"}</style>
         <div className="quote-watermark" aria-hidden="true" style={{ backgroundImage: quoteWatermarkUrl() }} />
         <div className="relative">
           {/* ── Cabeçalho 3 colunas ── */}

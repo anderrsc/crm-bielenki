@@ -35,7 +35,6 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   const wm=Buffer.from(html.match(/class="quote-watermark"[^>]*background-image:url\(&quot;data:image\/svg\+xml;base64,([^&]+)&quot;\)/)?.[1]??'','base64').toString();
   expect(wm).toContain('opacity="0.04"');
   expect(Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString()).toContain('<svg');
-  expect(html).toContain('@page{size:210mm 297mm;margin:10mm 0}');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
   expect(html).not.toContain('quote_attachments');

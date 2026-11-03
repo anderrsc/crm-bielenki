@@ -115,6 +115,11 @@ export async function startFakeSupabase({ port, databaseUrl, postgrestUrl }) {
       return json(res, 200, await createUser(data));
     }
     const adminUser = path.match(/^\/admin\/users\/([0-9a-f-]+)$/);
+    if (adminUser && req.method === "DELETE") {
+      if (bearer(req)?.role !== "service_role") return json(res, 403, { msg: "forbidden" });
+      await pool.query("delete from auth.users where id=$1", [adminUser[1]]);
+      return json(res, 200, {});
+    }
     if (adminUser && req.method === "GET") {
       const user = await loadUser(adminUser[1]);
       return user ? json(res, 200, user) : json(res, 404, { msg: "User not found" });

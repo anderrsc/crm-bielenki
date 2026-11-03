@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
+import { safeExternalUrl } from "@/lib/safe-url";
 import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
@@ -436,13 +437,20 @@ export async function inviteUser(formData: FormData) {
   if (createError) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(createError.message)}`);
 
   const profileId = newUser.user?.id;
-  if (profileId) {
-    await admin.from("profiles").upsert(
-      { id: profileId, company_id: myProfile.company_id, full_name: fullName, email, status: "ativo" },
-      { onConflict: "id" },
-    );
-    const inserts = (roles.length ? roles : ["atendente"]).map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
-    await admin.from("user_roles").insert(inserts);
+  if (!profileId) redirect("/configuracoes/funcionarios?erro=Usuário não foi criado. Tente novamente.");
+  const profile = await admin.from("profiles").upsert(
+    { id: profileId, company_id: myProfile.company_id, full_name: fullName, email, status: "ativo" },
+    { onConflict: "id" },
+  );
+  const inserts = (roles.length ? roles : ["atendente"]).map(role => ({ company_id: myProfile.company_id, profile_id: profileId, role }));
+  // O gatilho de novo usuario ja pode ter criado um cargo: sem duplicar.
+  const roleResult = profile.error ? null : await admin.from("user_roles").upsert(inserts, { onConflict: "profile_id,role", ignoreDuplicates: true });
+  const failure = profile.error ?? roleResult?.error;
+  if (failure) {
+    // Sem perfil ou sem cargos o funcionario nao consegue usar o sistema:
+    // desfaz o usuario para o cadastro poder ser repetido.
+    await admin.auth.admin.deleteUser(profileId);
+    redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Não foi possível concluir o cadastro: " + failure.message)}`);
   }
 
   revalidatePath("/configuracoes/funcionarios");
@@ -639,7 +647,11 @@ export async function saveAiAgentConfig(formData: FormData) {
   if (token && !token.startsWith("***") && !token.startsWith("enc:")) values.whatsapp_token = encryptSecret(token);
 
   const evoUrl = String(formData.get("evolution_api_url") || "").trim();
-  if (evoUrl) values.evolution_api_url = evoUrl;
+  if (evoUrl) {
+    const safe = safeExternalUrl(evoUrl);
+    if (!safe) redirect("/agente-ia?aba=configuracoes&erro=" + encodeURIComponent("URL da Evolution API inválida: use um endereço HTTPS público."));
+    values.evolution_api_url = safe;
+  }
 
   const evoKey = String(formData.get("evolution_api_key") || "").trim();
   if (evoKey && !evoKey.startsWith("***") && !evoKey.startsWith("enc:")) values.evolution_api_key = encryptSecret(evoKey);

@@ -9,13 +9,18 @@ Deno.serve(async (request) => {
   const url = Deno.env.get("SUPABASE_URL"); const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); const token = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
   if (!url || !serviceKey || !token) return json({ error: "missing_environment" }, 500);
   const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+  // Reservas interrompidas (processo caiu no meio) voltam para a fila.
+  await db.from("outbound_messages").update({ status: "pending" }).eq("status", "processing").lt("scheduled_at", new Date(Date.now() - 15 * 60_000).toISOString());
   const { data: queued, error: queueError } = await db.rpc("enqueue_due_automations");
   if (queueError) return json({ error: queueError.message }, 500);
   const { data: messages, error } = await db.from("outbound_messages").select("id,company_id,phone,body,attempts,companies!inner(whatsapp_phone_number_id)").eq("status", "pending").lte("scheduled_at", new Date().toISOString()).order("scheduled_at").limit(50);
   if (error) return json({ error: error.message }, 500);
   const apiVersion = Deno.env.get("WHATSAPP_API_VERSION") || "v23.0"; let sent = 0; let failed = 0;
   for (const message of messages ?? []) {
-    await db.from("outbound_messages").update({ status: "processing", attempts: message.attempts + 1 }).eq("id", message.id).eq("status", "pending");
+    // Reserva atomica: so envia quem conseguiu trocar pending -> processing
+    // (dois despachantes ao mesmo tempo nao enviam a mesma mensagem).
+    const { data: reserved } = await db.from("outbound_messages").update({ status: "processing", attempts: message.attempts + 1, scheduled_at: new Date().toISOString() }).eq("id", message.id).eq("status", "pending").select("id");
+    if (!reserved?.length) continue;
     const company = message.companies as unknown as { whatsapp_phone_number_id?: string }; const phoneNumberId = company?.whatsapp_phone_number_id || Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
     if (!phoneNumberId) { await db.from("outbound_messages").update({ status: "failed", error_message: "WhatsApp Phone Number ID não configurado" }).eq("id", message.id); failed++; continue; }
     try {

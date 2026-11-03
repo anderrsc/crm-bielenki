@@ -49,6 +49,8 @@
     "Internal Server Error",
     "Falha ao consultar os dados:",
     "Não foi possível carregar as pendências",
-    "Não foi possível carregar a agenda"
+    "Não foi possível carregar a agenda",
+    "Não foi possível carregar esta página",
+    "Tentar novamente"
   ]
 }
