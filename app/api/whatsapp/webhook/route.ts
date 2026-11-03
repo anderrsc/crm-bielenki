@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
 
     // Adiciona mensagem do cliente ao histórico
     const updatedMessages = [
-      ...(session.messages as Array<{ role: string; content: string; timestamp: string }>),
+      ...((Array.isArray(session.messages) ? session.messages : []) as Array<{ role: string; content: string; timestamp: string }>),
       { role: "user", content: clientText, timestamp: new Date().toISOString() }
     ];
 
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
     }));
 
     // Adiciona contexto dos dados já coletados
-    const dadosAtuais = session.dados_coletados as Record<string, unknown>;
+    const dadosAtuais = (session.dados_coletados && typeof session.dados_coletados === "object" ? session.dados_coletados : {}) as Record<string, unknown>;
     const contextMsg = Object.keys(dadosAtuais).length > 0
       ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.`
       : "";
