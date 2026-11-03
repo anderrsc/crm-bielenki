@@ -86,6 +86,8 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Suporte viga U (galpão)",
     "Saída tipo Funil de 150x100 (galpão)",
     "Tubo Vedante PU MS40",
+    "Silicone incolor",
+    "Silicone incolor neutro",
   ],
 };
 

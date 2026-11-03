@@ -189,6 +189,19 @@
         "Sachê PU MS40"
       ],
       "model": "insumos-3d.html#tubo-pu-ms40"
+    },
+    {
+      "id": "tubo-silicone",
+      "code": "22",
+      "name": "Tubo de Silicone",
+      "category": "Itens Especiais",
+      "aliases": [
+        "Silicone",
+        "Silicone Neutro",
+        "Silicone incolor",
+        "Silicone incolor neutro"
+      ],
+      "model": "insumos-3d.html#tubo-silicone"
     }
   ],
   "cuts": [

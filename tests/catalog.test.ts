@@ -6,14 +6,15 @@ import { PRODUCTS_BY_CATEGORY } from "@/lib/gutters";
 import { quotePieceMedia } from "@/lib/quote-piece-media";
 
 test("all documented profiles have original drawings and distinct model links", async () => {
-  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(21);
+  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(22);
   const links = new Set<string>();
   for (const piece of MARQUINHOS_CATALOG.pieces) {
     expect(existsSync(`public${catalogImagePath(piece)}`)).toBe(true);
     expect(catalogPieceForProduct(piece.name)?.id).toBe(piece.id);
     links.add(catalogModelUrl(piece));
   }
-  expect(links.size).toBe(21);
+  expect(links.size).toBe(22);
+  expect(catalogPieceForProduct("Silicone incolor neutro")?.id).toBe("tubo-silicone");
   expect(catalogModelUrl(catalogPieceForProduct("PU MS40")!)).toBe("https://marquinhos-calhas.vercel.app/insumos-3d.html#tubo-pu-ms40");
   expect(PRODUCTS_BY_CATEGORY["Itens Especiais"]).toContain("Tubo Vedante PU MS40");
   expect(catalogPieceForProduct("Calha central (fundo reto)")?.id).not.toBe(catalogPieceForProduct("Calha central (fundo em V)")?.id);
