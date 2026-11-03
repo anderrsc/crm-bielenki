@@ -25,10 +25,19 @@ async function schedulePdfPregeneration(db: Awaited<ReturnType<typeof createClie
   after(() => ensureQuotePdfCached(db, quoteId, ctx).catch((e) => console.error("Erro ao pre-gerar PDF do orcamento:", e)));
 }
 
+const clientAddressFields = {
+  address: z.string().trim().optional(),
+  neighborhood: z.string().trim().optional(),
+  city: z.string().trim().optional(),
+  state: z.string().trim().toUpperCase().max(2).optional(),
+  postal_code: z.string().trim().regex(/^(?:\d{5}-?\d{3})?$/)
+    .transform(value => value.replace("-", "") || null).optional(),
+};
+
 export async function createClientRecord(formData: FormData) {
   const db = await createClient();
-  const parsed = z.object({ name: text, phone: z.string().optional(), email: z.string().email().or(z.literal("")).optional(), tax_id: z.string().optional(), address: z.string().optional(), city: z.string().optional(), state: z.string().optional(), notes: z.string().optional(), lead_source_id:z.string().uuid().or(z.literal("")).optional() }).safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/clientes/novo?erro=Revise os campos obrigatórios");
+  const parsed = z.object({ name: text, phone: z.string().optional(), email: z.string().email().or(z.literal("")).optional(), tax_id: z.string().optional(), ...clientAddressFields, notes: z.string().optional(), lead_source_id:z.string().uuid().or(z.literal("")).optional() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/clientes/novo?erro=Revise os campos de nome, e-mail e CEP, se informado");
   const { data: profile } = await selectOwnProfile(db, "company_id");
   const { data, error } = await db.from("clients").insert({ ...parsed.data, lead_source_id:parsed.data.lead_source_id||null, company_id: profile?.company_id }).select("id").single();
   if (error) redirect(`/clientes/novo?erro=${encodeURIComponent(error.message)}`);
@@ -38,8 +47,8 @@ export async function createClientRecord(formData: FormData) {
 export async function updateClientRecord(formData: FormData) {
   const db=await createClient();
   const id=String(formData.get("id")||"");
-  const parsed=z.object({name:text,phone:z.string().optional(),email:z.string().email().or(z.literal("")).optional(),tax_id:z.string().optional(),address:z.string().optional(),city:z.string().optional(),state:z.string().max(2).optional(),notes:z.string().optional(),lead_source_id:z.string().uuid().or(z.literal("")).optional()}).safeParse(Object.fromEntries(formData));
-  if(!z.string().uuid().safeParse(id).success||!parsed.success)redirect(`/clientes/${id}/editar?erro=Revise os campos`);
+  const parsed=z.object({name:text,phone:z.string().optional(),email:z.string().email().or(z.literal("")).optional(),tax_id:z.string().optional(),...clientAddressFields,notes:z.string().optional(),lead_source_id:z.string().uuid().or(z.literal("")).optional()}).safeParse(Object.fromEntries(formData));
+  if(!z.string().uuid().safeParse(id).success||!parsed.success)redirect(`/clientes/${id}/editar?erro=Revise os campos de nome, e-mail e CEP, se informado`);
   const {error}=await db.from("clients").update({...parsed.data,lead_source_id:parsed.data.lead_source_id||null,updated_at:new Date().toISOString()}).eq("id",id);
   if(error)redirect(`/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/clientes");redirect(`/clientes/${id}`);

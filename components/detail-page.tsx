@@ -9,7 +9,7 @@ import { money, shortDate } from "@/lib/utils";
 export async function DetailPage({ config, id }: { config: ModuleConfig; id: string; subpage?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
   const db = await getRequestClient();
-  const { data, error } = await db.from(config.table).select(config.select).eq("id", id).single();
+  const { data, error } = await db.from(config.table).select(config.table === "clients" ? `${config.select},address,neighborhood,postal_code` : config.select).eq("id", id).single();
   if (error || !data) return <Missing message={error?.message} />;
 
   const record = data as unknown as Record<string, unknown>;
@@ -22,12 +22,21 @@ export async function DetailPage({ config, id }: { config: ModuleConfig; id: str
   }
   const title = String(record.name ?? record.order_number ?? record.sale_number ?? record.quote_number ?? config.singular);
 
+  const postalCode = typeof record.postal_code === "string" ? record.postal_code.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "";
+  const clientAddress = config.table === "clients"
+    ? [record.address, record.neighborhood, [record.city, record.state].filter(Boolean).join(" / "), postalCode].filter(Boolean).join(" · ")
+    : "";
+
   return <div className="mx-auto max-w-6xl">
     <Link href={`/${config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
     <div className="card p-6 lg:p-8">
       {config.table === "clients" && <div className="no-print mb-5 flex flex-wrap justify-end gap-2"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form></div>}
       <p className="text-xs font-bold uppercase tracking-widest text-forest">{config.singular}</p><h1 className="mt-2 text-3xl font-black">{title}</h1>
       <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{config.columns.slice(0, 8).map((column) => <div className="rounded-xl bg-cream/70 p-4" key={column.key}><p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">{column.label}</p><p className="mt-1 font-bold">{format(get(record, column.key), column.kind)}</p></div>)}</div>
+      {clientAddress && <div className="mt-4 rounded-xl bg-cream/70 p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">Endereço</p>
+        <p className="mt-1 font-bold">{clientAddress}</p>
+      </div>}
     </div>
     {config.table === "v_order_overview" && <div className="card mt-5 overflow-hidden">
       <div className="border-b p-5"><h2 className="font-black">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
