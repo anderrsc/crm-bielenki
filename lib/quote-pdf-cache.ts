@@ -7,7 +7,7 @@ type Db = Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient
 export type PdfRequestContext = { origin: string; host: string; cookieHeader: string };
 
 export function quotePdfPath(companyId: string, quoteId: string) {
-  return `${companyId}/${quoteId}-marquinhos-v11.pdf`;
+  return `${companyId}/${quoteId}-marquinhos-v12.pdf`;
 }
 
 export function isQuotePdfFresh(quote: { pdf_generated_at: string | null; updated_at: string }) {

@@ -433,7 +433,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-ink/40">Nenhuma observação cadastrada para este orçamento.</p>
+                <p className="text-xs text-[#8f8f8f]">Nenhuma observação cadastrada para este orçamento.</p>
               )}
             </div>
 
