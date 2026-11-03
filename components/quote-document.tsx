@@ -86,6 +86,22 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const COMPLEMENTARY_PREFIXES = new Set(["condutores", "acessorios", "servicos", "itens especiais"]);
 
+function formatCompanyPhone(value?: string | null) {
+  const text = value?.trim() ?? "";
+  if (!/^[\d\s()+.-]+$/.test(text)) return text;
+  const digits = text.replace(/\D/g, "");
+  const local = /^(?:55)(?:\d{10}|\d{11})$/.test(digits) ? digits.slice(2) : digits;
+  if (!/^\d{10,11}$/.test(local)) return text;
+  return `(${local.slice(0, 2)}) ${local.slice(2, -4)}-${local.slice(-4)}`;
+}
+
+function formatCompanyTaxId(value?: string | null) {
+  const text = value?.trim() ?? "";
+  if (!/^[\d.\s/-]+$/.test(text)) return text;
+  const digits = text.replace(/\D/g, "");
+  return digits.length === 14 ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : text;
+}
+
 function normalizeLabel(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -189,6 +205,10 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     : quoteItems;
 
   const company = quote.company;
+  const phone = formatCompanyPhone(company.phone);
+  const whatsapp = formatCompanyPhone(company.whatsapp);
+  const taxId = formatCompanyTaxId(company.tax_id);
+  const neighborhood = /^rau$/i.test(company.neighborhood?.trim() ?? "") ? "Rau" : company.neighborhood;
   const portfolio = /^https?:\/\//i.test(company.qr_code_url||'') ? company.qr_code_url! : "https://marquinhos-calhas.vercel.app/";
   const [qrImgSrc, logoBuffer] = await Promise.all([
     QRCode.toDataURL(portfolio,{errorCorrectionLevel:"M",width:240,margin:4}),
@@ -289,18 +309,26 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <div className="quote-company-col">
               <p className="quote-company-name">{(company.trade_name || company.name || "").toUpperCase()}</p>
               <div className="quote-company-lines">
-                {company.tax_id && <p>CNPJ: {company.tax_id}</p>}
+                {taxId && <p className="quote-company-tax">CNPJ {taxId}</p>}
                 {(company.address || company.neighborhood || company.city) && (
                   <p>
-                    {[company.address, company.neighborhood, [company.city, company.state].filter(Boolean).join(" - ")]
+                    {[company.address, neighborhood, [company.city, company.state].filter(Boolean).join(" - ")]
                       .filter(Boolean)
                       .join(", ")}
                   </p>
                 )}
-                {company.phone && <p>{company.phone}</p>}
-                {company.whatsapp && company.whatsapp !== company.phone && <p>{company.whatsapp}</p>}
-                {company.email && <p>{company.email}</p>}
-                {company.website && <p>{company.website}</p>}
+                {(phone || whatsapp) && (
+                  <div className="quote-company-contacts">
+                    {phone && phone !== whatsapp && <span><b>Telefone</b> {phone}</span>}
+                    {whatsapp && <span><b>WhatsApp</b> {whatsapp}</span>}
+                  </div>
+                )}
+                {(company.email || company.website) && (
+                  <div className="quote-company-links">
+                    {company.email && <span>{company.email}</span>}
+                    {company.website && <span>{company.website}</span>}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -348,6 +376,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Dados do cliente ── */}
           <section className="quote-client-box">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="quote-client-watermark" src={logoSrc} alt="" />
             <p className="quote-client-title">DADOS DO CLIENTE</p>
             <div className="quote-client-grid">
               <span className="quote-client-lbl">NOME:</span>
