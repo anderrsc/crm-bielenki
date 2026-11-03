@@ -1,4 +1,5 @@
 "use client";
+import { MeasureCallBefore } from "./measure-call-before";
 import { AuthorSignature } from "./brand-logo";
 
 import { FileDown, Printer, X } from "lucide-react";
@@ -120,10 +121,11 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
         <MeasureCard label="CIDADE" value={city || ""} />
       </section>
 
-      <section className="measure-grid measure-grid-3">
+      <section className="measure-grid measure-grid-visit">
         <MeasureCard label="ENDERECO" value={address || ""} />
         <MeasureCard label="DISPONIBILIDADE DE HORARIO" blank />
         <MeasureCard label="MEDIDOR" blank />
+        <MeasureCallBefore />
       </section>
 
       <section className="measure-lines" aria-label="Area para medidas" />
