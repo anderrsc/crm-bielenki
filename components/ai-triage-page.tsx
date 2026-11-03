@@ -116,7 +116,7 @@ function SessionCard({ session, onClick }: { session: TriageSession; onClick: ()
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-ink/40">
         <span>{session.messages.length} mensagens</span>
-        <span>{new Date(session.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+        <span>{new Date(session.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { saveSupplier, deleteSupplier } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 type Supplier = { id: string; name: string; tax_id: string | null; phone: string | null; whatsapp: string | null; email: string | null; city: string | null; state: string | null; payment_terms: string | null; notes: string | null; status: string };
 const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
@@ -10,7 +10,7 @@ const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG"
 export async function SuppliersPage({ error, saved, backHref = "/configuracoes", selfHref = "/configuracoes/fornecedores" }: { error?: string; saved?: boolean; backHref?: string; selfHref?: string }) {
   let suppliers: Supplier[] = []; let loadError = ""; let canManage = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const [perm, result] = await Promise.all([
       db.rpc("has_table_access", { resource: "suppliers", action: "update" }),
       db.from("suppliers").select("id,name,tax_id,phone,whatsapp,email,city,state,payment_terms,notes,status").is("deleted_at", null).order("name"),

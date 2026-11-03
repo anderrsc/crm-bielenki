@@ -133,3 +133,30 @@ test("verificacao do banco de producao volta vazia no banco com todas as migrati
   const { rows } = await db.query(sql);
   assert.deepEqual(rows, []);
 });
+
+test("migration de desempenho pode ser rodada de novo", async () => {
+  const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261103000000_performance_rls_and_indexes.sql"), "utf8");
+  await db.query(sql);
+});
+
+test("RLS: funcoes de sessao avaliadas uma vez por consulta (envolvidas em select)", async () => {
+  const { rows } = await db.query(`select c.relname || '.' || p.polname nome from pg_policy p join pg_class c on c.oid = p.polrelid
+    where c.relnamespace = 'public'::regnamespace
+      and (coalesce(pg_get_expr(polqual, polrelid), '') || coalesce(pg_get_expr(polwithcheck, polrelid), ''))
+        ~ '(?<!SELECT )(current_company_id|has_table_access|has_role)\\(|(?<!SELECT )auth\\.uid\\('`);
+  assert.deepEqual(rows.map((r) => r.nome), [], "policy nova sem (select ...): rode a logica da migration 20261103000000");
+});
+
+test("toda chave estrangeira tem indice", async () => {
+  const { rows } = await db.query(`select co.conrelid::regclass || '.' || co.conname nome from pg_constraint co
+    where co.contype = 'f' and co.connamespace = 'public'::regnamespace
+      and not exists (select 1 from pg_index i where i.indrelid = co.conrelid and (i.indkey::int2[])[0] = co.conkey[1])`);
+  assert.deepEqual(rows.map((r) => r.nome), []);
+});
+
+test("session_access devolve status, cargos e acesso numa consulta", () => asUser(async () => {
+  const r = (await db.query("select session_access('clients') a")).rows[0].a;
+  assert.equal(r.status, "ativo");
+  assert.ok(Array.isArray(r.roles) && r.roles.length > 0);
+  assert.equal(typeof r.allowed, "boolean");
+}));

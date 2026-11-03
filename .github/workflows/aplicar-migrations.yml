@@ -47,6 +47,8 @@ jobs:
           DESDE: ${{ inputs.desde || '040' }}
         run: |
           if [ -z "$DATABASE_URL" ]; then echo "::error::Secret SUPABASE_DB_URL nao configurado"; exit 1; fi
+          # So o nome da regiao (ex.: aws-0-sa-east-1), para alinhar a regiao das funcoes da Vercel.
+          echo "Regiao do banco: $(echo "$DATABASE_URL" | grep -oE 'aws-[0-9]+-[a-z]+-[a-z]+-[0-9]+' | head -1)"
           for f in $(ls supabase/migrations/*.sql | sort); do
             n=$(basename "$f" | cut -d_ -f1)
             if [ "$n" \< "$DESDE" ]; then continue; fi

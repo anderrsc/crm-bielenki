@@ -12,6 +12,7 @@ import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
+import { todayISO } from "@/lib/utils";
 
 const text = z.string().trim().min(1);
 
@@ -60,7 +61,7 @@ export async function registerPayment(formData: FormData) {
   const interest = Number(formData.get("interest")||0);
   const discount = Number(formData.get("discount")||0);
   const installments = Number(formData.get("installments")||1);
-  const paidAt = String(formData.get("paid_at") || new Date().toISOString().slice(0, 10));
+  const paidAt = String(formData.get("paid_at") || todayISO());
   const firstDueDate = String(formData.get("first_due_date")||paidAt);
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
   if(!parsed.success) redirect(`${back}?erro=Revise+os+dados+do+pagamento`);

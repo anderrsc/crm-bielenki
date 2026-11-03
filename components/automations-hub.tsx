@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { Plus, Play, Pause, Trash2, Zap, Clock, CheckCircle2, XCircle, ArrowRight, MessageSquare, Webhook, BarChart3, UserPlus, UserCheck, FileText, Send, CheckSquare, Wrench, CalendarCheck, AlertTriangle, CircleDollarSign, Link2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toggleWorkflow, deleteWorkflow } from "@/app/(crm)/actions";
@@ -72,7 +72,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
   let loadError = "";
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const [wfRes, exRes, tplRes] = await Promise.all([
       db.from("workflows").select("id,name,description,status,trigger_type,runs_count,success_count,last_run_at,created_at,steps").is("deleted_at", null).order("created_at", { ascending: false }),
       db.from("workflow_executions").select("id,workflow_id,status,trigger_type,started_at,completed_at,duration_ms,trigger_data").order("started_at", { ascending: false }).limit(50),
@@ -238,7 +238,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
                     </div>
                     <p className="text-xs text-ink/40 truncate">{dataPreview || "—"}</p>
                     <span className="text-sm text-ink/50">{duration}</span>
-                    <span className="text-xs text-ink/40 whitespace-nowrap">{new Date(ex.started_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-xs text-ink/40 whitespace-nowrap">{new Date(ex.started_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 );
               })}
@@ -293,7 +293,7 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
             <span>• {steps.length} passo{steps.length !== 1 ? "s" : ""}</span>
             {wf.runs_count > 0 && <span>• {wf.runs_count} execuções</span>}
             {rate !== null && <span>• {rate}% sucesso</span>}
-            {wf.last_run_at && <span>• Última execução {new Date(wf.last_run_at).toLocaleDateString("pt-BR")}</span>}
+            {wf.last_run_at && <span>• Última execução {new Date(wf.last_run_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>}
           </div>
           {steps.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">

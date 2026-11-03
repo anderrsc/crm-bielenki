@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { QuoteDocument } from "@/components/quote-document";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const db = await createClient();
+  const db = await getRequestClient();
   const { data } = await db.from("quotes").select("quote_number").eq("id", id).maybeSingle();
   return { title: data?.quote_number ? `Orçamento ${data.quote_number}` : "Orçamento" };
 }

@@ -1,4 +1,4 @@
-﻿import { createClient } from "@/lib/supabase/server";
+﻿import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import Link from "next/link";
@@ -36,7 +36,7 @@ const TABS = [
 const PAGE_SIZE = 60;
 
 export async function FinancialPage({ filter, error, received, page = 1 }: { filter?: string; error?: string; received?: boolean; page?: number }) {
-  const db = await createClient();
+  const db = await getRequestClient();
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
   const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);

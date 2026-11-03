@@ -173,7 +173,7 @@ export async function ProductionFlowPage({
                       <p className="text-xs text-ink/50">
                         {log.responsible.full_name}
                         {log.completed_at &&
-                          ` — ${new Date(log.completed_at).toLocaleDateString("pt-BR")}`}
+                          ` — ${new Date(log.completed_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
                       </p>
                     )}
                     {log?.notes && (
@@ -363,7 +363,7 @@ export async function ProductionFlowPage({
               </div>
               <div className="text-right text-xs text-ink/40">
                 {order.planned_end
-                  ? new Date(order.planned_end).toLocaleDateString("pt-BR")
+                  ? new Date(order.planned_end).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
                   : "—"}
               </div>
             </Link>

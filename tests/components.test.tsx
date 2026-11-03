@@ -9,7 +9,7 @@ import { modules } from '@/lib/modules';
 import { AgendaPage } from '@/components/agenda-page';
 
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),getAgenda:vi.fn().mockResolvedValue([]),updateAgenda:vi.fn(),createAgenda:vi.fn()}));
-vi.mock('@/lib/supabase/server',()=>({createClient:async()=>({rpc:mocks.rpc})}));
+vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:mocks.rpc});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
 vi.mock('@/app/(crm)/actions',()=>({createManualSale:vi.fn(),createManualPurchase:vi.fn()}));
 vi.mock('@/app/(crm)/agenda-actions',()=>({getAgendaEvents:mocks.getAgenda,updateAgendaEventStatus:mocks.updateAgenda,createAgendaEvent:mocks.createAgenda}));
 afterEach(()=>{cleanup();vi.unstubAllEnvs();vi.clearAllMocks();});

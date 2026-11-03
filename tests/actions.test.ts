@@ -7,7 +7,7 @@ vi.mock('next/cache',()=>({revalidatePath:state.revalidate}));
 vi.mock('next/server',()=>({after:vi.fn()}));
 vi.mock('next/headers',()=>({headers:async()=>({get:()=>null})}));
 vi.mock('@/lib/generate-quote-pdf',()=>({generateQuotePdfBuffer:vi.fn()}));
-vi.mock('@/lib/supabase/server',()=>({createClient:async()=>({rpc:state.rpc,from:state.from,auth:{getUser:async()=>({data:{user:{id:'00000000-0000-4000-8000-000000000001'}},error:null})}})}));
+vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:state.rpc,from:state.from,auth:{getUser:async()=>({data:{user:{id:'00000000-0000-4000-8000-000000000001'}},error:null})}});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
 import { registerPayment, rescheduleEntry, saveGutterQuote, createManualSale, createManualPurchase, createWindowQuote, createClientRecord } from '@/app/(crm)/actions';
 import { createAgendaEvent, updateAgendaEventStatus } from '@/app/(crm)/agenda-actions';
 

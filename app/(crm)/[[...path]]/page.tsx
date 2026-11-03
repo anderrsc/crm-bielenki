@@ -14,7 +14,7 @@ const LIST_ORDER: Record<string, [string, boolean]> = {
 };
 import { ModuleTable } from "@/components/module-table";
 import { modules } from "@/lib/modules";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { FinancialPage } from "@/components/financial-page";
 import { ClientForm } from "@/components/client-form";
@@ -68,7 +68,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "configuracoes" && path[1] === "identidade") {
     let company: LogoConfig = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
+      const db = await getRequestClient();
       const { data: p } = await selectOwnProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("companies").select("trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color,logo_width,logo_max_height,logo_align,logo_margin_top,logo_margin_bottom,quote_footer").eq("id", p.company_id).single();
@@ -80,7 +80,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "configuracoes" && path[1] === "templates") {
     let templates: DocumentTemplate[] = [];
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
+      const db = await getRequestClient();
       const { data: p } = await selectOwnProfile(db, "company_id");
       if (p?.company_id) {
         const { data } = await db.from("document_templates").select("id,name,type,status,is_default,config,updated_at").eq("company_id", p.company_id).order("type").order("updated_at", { ascending: false });
@@ -105,8 +105,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "agente-ia") {
     const tab = (search as { aba?: string }).aba ?? "triagens";
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
-      const { data: { user } } = await db.auth.getUser();
+      const db = await getRequestClient();
+      const user = await getAuthUser();
       const { data: profile } = user ? await db.from("profiles").select("company_id").eq("id", user.id).single() : { data: null };
       const companyId = profile?.company_id;
       const [configRes, sessionsRes] = await Promise.all([
@@ -127,7 +127,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "automacoes" && path[1] === "novo") {
     let templates: { id: string; name: string; channel: string }[] = [];
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
+      const db = await getRequestClient();
       const { data } = await db.from("message_templates").select("id,name,channel").eq("active", true).order("name");
       templates = data ?? [];
     }
@@ -136,7 +136,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "automacoes" && path[1] && path[2] === "editar") {
     let wf = null; let templates: { id: string; name: string; channel: string }[] = [];
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
+      const db = await getRequestClient();
       const [wfRes, tplRes] = await Promise.all([
         db.from("workflows").select("id,name,description,status,trigger_type,trigger_config,conditions,steps").eq("id", path[1]).single(),
         db.from("message_templates").select("id,name,channel").eq("active", true).order("name"),
@@ -163,21 +163,21 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "producao" && path[1] && path[1] !== "materiais-do-pedido") return <ProductionFlowPage id={path[1]} error={search.erro} />;
   if (path[0] === "producao") return <ProductionFlowPage filter={(search as { tipo?: string }).tipo} error={search.erro} />;
   if (path[0] === "instalacoes" && path[1]) return <InstallationChecklistPage id={path[1]} error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
-  if (path[0] === "clientes" && path[1] === "novo") {let sources:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const result=await db.from("lead_sources").select("id,name").eq("active",true).order("sort_order");sources=result.data??[];}return <ClientForm error={search.erro} sources={sources}/>;}
-  if (path[0] === "clientes" && path[1] && path[2] === "editar") {if(!process.env.NEXT_PUBLIC_SUPABASE_URL)return notFound();const db=await createClient();const [clientResult,sourceResult]=await Promise.all([db.from("clients").select("id,name,tax_id,phone,email,address,city,state,notes,lead_source_id").eq("id",path[1]).single(),db.from("lead_sources").select("id,name").eq("active",true).order("sort_order")]);if(!clientResult.data)return notFound();return <ClientForm error={search.erro} sources={sourceResult.data??[]} client={clientResult.data}/>;}
+  if (path[0] === "clientes" && path[1] === "novo") {let sources:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const result=await db.from("lead_sources").select("id,name").eq("active",true).order("sort_order");sources=result.data??[];}return <ClientForm error={search.erro} sources={sources}/>;}
+  if (path[0] === "clientes" && path[1] && path[2] === "editar") {if(!process.env.NEXT_PUBLIC_SUPABASE_URL)return notFound();const db=await getRequestClient();const [clientResult,sourceResult]=await Promise.all([db.from("clients").select("id,name,tax_id,phone,email,address,city,state,notes,lead_source_id").eq("id",path[1]).single(),db.from("lead_sources").select("id,name").eq("active",true).order("sort_order")]);if(!clientResult.data)return notFound();return <ClientForm error={search.erro} sources={sourceResult.data??[]} client={clientResult.data}/>;}
   if (path[0] === "vendas" && path[1] === "nova") {
     let clients:{id:string;name:string}[]=[];let saleTypes:{id:string;name:string}[]=[];
-    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [clientResult,typeResult]=await Promise.all([db.from("clients").select("id,name").eq("status","ativo").order("name"),db.from("sale_types").select("id,name").eq("active",true).order("name")]);clients=clientResult.data??[];saleTypes=typeResult.data??[];}
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [clientResult,typeResult]=await Promise.all([db.from("clients").select("id,name").eq("status","ativo").order("name"),db.from("sale_types").select("id,name").eq("active",true).order("name")]);clients=clientResult.data??[];saleTypes=typeResult.data??[];}
     return <ManualSaleForm clients={clients} saleTypes={saleTypes} error={search.erro}/>;
   }
   if (path[0] === "compras" && path[1] === "nova") {
     let suppliers:{id:string;name:string}[]=[];let materials:{id:string;name:string;unit:string}[]=[];
-    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [supplierResult,materialResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("materials").select("id,name,unit").eq("active",true).order("name")]);suppliers=supplierResult.data??[];materials=materialResult.data??[];}
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [supplierResult,materialResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("materials").select("id,name,unit").eq("active",true).order("name")]);suppliers=supplierResult.data??[];materials=materialResult.data??[];}
     return <ManualPurchaseForm suppliers={suppliers} materials={materials} error={search.erro}/>;
   }
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return notFound();
-    const db = await createClient();
+    const db = await getRequestClient();
     const [clientRes, companyRes] = await Promise.all([
       db.from("clients").select("name,phone,whatsapp,neighborhood,city,state,address").eq("id", path[1]).single(),
       selectOwnProfile(db, "company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)"),
@@ -189,7 +189,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "medicoes" && path[1] === "ficha-em-branco") {
     let company: VisitSheetData["company"] = {};
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const db = await createClient();
+      const db = await getRequestClient();
       const res = await selectOwnProfile(db, "company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)");
       company = (res.data?.company ?? {}) as VisitSheetData["company"];
     }
@@ -197,12 +197,12 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   }
   if (path[0] === "orcamentos" && path[1] === "calhas") {
     let prices:GutterPrice[]=[];let clients:QuoteClient[]=[];
-    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [priceResult,clientResult]=await Promise.all([loadActiveGutterPrices(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);prices=priceResult;clients=(clientResult.data as QuoteClient[])??[];}
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [priceResult,clientResult]=await Promise.all([loadActiveGutterPrices(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name")]);prices=priceResult;clients=(clientResult.data as QuoteClient[])??[];}
     return <GutterQuote prices={prices} clients={clients} error={search.erro}/>;
   }
-  if(path[0]==="orcamentos"&&path[1]==="esquadrias"){let clients:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const result=await db.from("clients").select("id,name").eq("status","ativo").order("name");clients=result.data??[];}return <WindowQuote clients={clients} error={search.erro}/>;}
+  if(path[0]==="orcamentos"&&path[1]==="esquadrias"){let clients:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const result=await db.from("clients").select("id,name").eq("status","ativo").order("name");clients=result.data??[];}return <WindowQuote clients={clients} error={search.erro}/>;}
   if(path[0]==="orcamentos"&&path[1]&&path[2]==="editar"){
-    const db=await createClient();const [quoteResult,gutterResult,priceResult,clientResult,specialResult]=await Promise.all([db.from("quotes").select("id,client_id,discount,freight,notes,valid_until,installation_deadline,hide_unit_prices,status").eq("id",path[1]).single(),db.from("gutter_quotes").select("items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price)").eq("quote_id",path[1]).single(),loadActiveGutterPrices(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name"),db.from("quote_items").select("product,description,unit,quantity,unit_price,item_type").eq("quote_id",path[1]).neq("item_type","calha").neq("item_type","esquadria")]);
+    const db=await getRequestClient();const [quoteResult,gutterResult,priceResult,clientResult,specialResult]=await Promise.all([db.from("quotes").select("id,client_id,discount,freight,notes,valid_until,installation_deadline,hide_unit_prices,status").eq("id",path[1]).single(),db.from("gutter_quotes").select("items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price)").eq("quote_id",path[1]).single(),loadActiveGutterPrices(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name"),db.from("quote_items").select("product,description,unit,quantity,unit_price,item_type").eq("quote_id",path[1]).neq("item_type","calha").neq("item_type","esquadria")]);
     if(!quoteResult.data||!gutterResult.data||quoteResult.data.status==="aprovado")return notFound();
     const initial={...quoteResult.data,notes:quoteResult.data.notes??"",valid_until:quoteResult.data.valid_until??"",installation_deadline:quoteResult.data.installation_deadline??"",hide_unit_prices:quoteResult.data.hide_unit_prices??false,items:(gutterResult.data as unknown as {items:GutterQuoteInitial["items"]}).items,special_items:(specialResult.data??[]) as GutterQuoteInitial["special_items"]} as GutterQuoteInitial;
     return <GutterQuote prices={priceResult} clients={(clientResult.data as QuoteClient[])??[]} initial={initial} error={search.erro}/>;
@@ -227,7 +227,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const to = from + PAGE_SIZE; // fetch one extra to detect hasMore
   let rows: Record<string, unknown>[] = []; let error: string | undefined; let hasMore = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     // Ordem estavel para a paginacao: mais recentes primeiro; "id" so desempata
     // (ordenar so por id, que e UUID, embaralhava as listas).
     const [orderColumn, ascending] = LIST_ORDER[config.table] ?? ["created_at", false];

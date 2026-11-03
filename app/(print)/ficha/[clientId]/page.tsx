@@ -1,11 +1,11 @@
 import { selectOwnProfile } from "@/lib/own-profile";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { PrintSheet } from "@/components/print-sheet";
 
 export default async function FichaClientePage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params;
-  const db = await createClient();
+  const db = await getRequestClient();
   const [clientRes, companyRes] = await Promise.all([
     db.from("clients").select("name,phone,whatsapp,neighborhood,city,state,address").eq("id", clientId).single(),
     selectOwnProfile(db, "company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)"),

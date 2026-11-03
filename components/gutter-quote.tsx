@@ -8,7 +8,7 @@ import {
   FABRICATED_CATEGORIES, OTHER_CATEGORIES, sameThickness,
   type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
-import { localISODate, money } from "@/lib/utils";
+import { money, addDaysISO, todayISO } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
@@ -160,8 +160,7 @@ export function GutterQuote({
   const [clientId, setClientId] = useState(initial?.client_id ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
-  const today = new Date(); today.setDate(today.getDate() + 30);
-  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? localISODate(today));
+  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? addDaysISO(todayISO(), 30));
   const [installationDeadline, setInstallationDeadline] = useState(
     initial?.installation_deadline ?? "Até 15 dias"
   );

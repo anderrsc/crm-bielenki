@@ -1,7 +1,7 @@
 import { GutterCatalog } from "@/components/gutter-catalog";
 import Link from "next/link";
 import { ArrowLeft, Boxes, Briefcase, History, Package, Palette, Plus, Save, Tag, Trash2, Search } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate, cn } from "@/lib/utils";
 import { gutterProducts, gutterThicknesses, gutterCuts, gutterColors } from "@/lib/gutters";
 import {
@@ -91,12 +91,13 @@ export async function PricingCenter({
   let logs: LogRow[] = [];
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
-    const { data: { user } } = await db.auth.getUser();
-    const { data: profile } = user ? await db.from("profiles").select("company_id").eq("id", user.id).single() : { data: null };
+    const db = await getRequestClient();
+    const user = await getAuthUser(db);
+    const [{ data: profile }, perm] = await Promise.all([
+      user ? db.from("profiles").select("company_id").eq("id", user.id).single() : Promise.resolve({ data: null }),
+      db.rpc("has_table_access", { resource: "gutter_prices", action: "update" }),
+    ]);
     const cid = profile?.company_id;
-
-    const [perm] = await Promise.all([db.rpc("has_table_access", { resource: "gutter_prices", action: "update" })]);
     canManage = Boolean(perm.data);
 
     if (cid) {
