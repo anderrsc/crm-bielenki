@@ -79,7 +79,16 @@ const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[], ra
   return { ...item, unit_price: Number(fabricatedMeterPrice(prices, rates, item) ?? 0) };
 };
 
-const specialPrice = (prices: GutterPrice[], product: string) => prices.find(p => p.active && normalizeProductName(p.product) === normalizeProductName(product) && !p.thickness && !p.cut_mm);
+const specialPriceDefaults: Record<string, { unit: string; unit_price: number }> = {
+  "suporte viga u (galpao)": { unit: "unidade", unit_price: 25 },
+  "saida tipo funil de 150x100 (galpao)": { unit: "unidade", unit_price: 20 },
+};
+
+const specialPrice = (prices: GutterPrice[], product: string) => {
+  const name = normalizeProductName(product);
+  return prices.find(price => price.active && normalizeProductName(price.product) === name && !price.thickness && !price.cut_mm)
+    ?? (Object.hasOwn(specialPriceDefaults, name) ? specialPriceDefaults[name] : undefined);
+};
 const retiredProducts = new Set(["rufo", "rufo externo", "rufo interno"]);
 const productOptions = (category: FabricatedCategory | OtherCategory, prices: GutterPrice[], current = "") => uniqueProductNames([
   ...PRODUCTS_BY_CATEGORY[category],
