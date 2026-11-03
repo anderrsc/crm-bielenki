@@ -88,11 +88,13 @@ const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[]): G
 };
 
 const specialPrice = (prices: GutterPrice[], product: string) => prices.find(p => p.active && normalizeProductName(p.product) === normalizeProductName(product) && !p.thickness && !p.cut_mm);
+const retiredProducts = new Set(["rufo", "rufo externo", "rufo interno"]);
 const productOptions = (category: FabricatedCategory | OtherCategory, prices: GutterPrice[], current = "") => uniqueProductNames([
   ...PRODUCTS_BY_CATEGORY[category],
   ...prices.filter(p => (p.category || gutterCategoryForProduct(p.product)) === category).map(p => p.product),
   ...(current ? [current] : []),
-]).reduce<string[]>((names, name) => [...names, current && normalizeProductName(current) === normalizeProductName(name) ? current : name], []);
+]).filter(name => !retiredProducts.has(normalizeProductName(name)) || normalizeProductName(current) === normalizeProductName(name))
+  .reduce<string[]>((names, name) => [...names, current && normalizeProductName(current) === normalizeProductName(name) ? current : name], []);
 
 const blankOther = (item_type: OtherCategory, prices: GutterPrice[]): SpecialItem => ({
   item_type,

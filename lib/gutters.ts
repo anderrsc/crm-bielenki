@@ -20,9 +20,6 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Calha Quadrada",
   ],
   "Rufos": [
-    "Rufo",
-    "Rufo Externo",
-    "Rufo Interno",
     "Rufo de Marquise",
     "Rufo com Pingadeira",
     "Rufo Chapéu",

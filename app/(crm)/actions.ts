@@ -479,7 +479,7 @@ export async function savePermission(formData:FormData) {
   const db=await createClient();const {data:allowed}=await db.rpc("has_role",{roles:["administrador"]});if(!allowed)redirect("/configuracoes/cargos?erro=Sem permissão");const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/cargos?erro=ID inválido");
   const values={can_view:formData.get("can_view")==="on",can_create:formData.get("can_create")==="on",can_update:formData.get("can_update")==="on",can_delete:formData.get("can_delete")==="on"};
   const {error}=await db.from("permissions").update(values).eq("id",id);if(error)redirect(`/configuracoes/cargos?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/configuracoes/cargos");redirect("/configuracoes/cargos?salvo=1");
+  revalidatePath("/", "layout");redirect("/configuracoes/cargos?salvo=1");
 }
 
 export async function updateQuoteSeller(formData: FormData) {

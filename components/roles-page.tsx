@@ -66,7 +66,7 @@ export async function RolesPage({ error, saved }: { error?: string; saved?: bool
       <div className="mb-7">
         <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pessoas</p>
         <h1 className="mt-2 text-3xl font-black">Cargos e Permissões</h1>
-        <p className="mt-1 text-sm text-ink/50">Defina o que cada cargo pode ver, criar, editar e excluir.</p>
+        <p className="mt-1 text-sm text-ink/50">Defina o que os cargos operacionais podem ver, criar, editar e excluir. Administrador e Gerente têm acesso de gestão.</p>
       </div>
       {(error || loadError) && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || loadError}</p>}
       {saved && <p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Permissão salva.</p>}
