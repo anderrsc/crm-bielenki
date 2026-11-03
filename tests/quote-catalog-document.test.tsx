@@ -33,11 +33,19 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect(logo).not.toContain('aria-label="CALHAS E ESQUADRIAS"');
   // Marca d'agua: logo original da Marquinhos, quase invisivel.
   const wm=Buffer.from(html.match(/class="quote-watermark"[^>]*background-image:url\(&quot;data:image\/svg\+xml;base64,([^&]+)&quot;\)/)?.[1]??'','base64').toString();
-  expect(wm).toContain('opacity="0.04"');
+  expect(wm).toContain('opacity="0.03"');
   expect(Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString()).toContain('<svg');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
   expect(html).not.toContain('quote_attachments');
   expect(html).not.toContain('quote-empty-row');
   if(process.env.CATALOG_PREVIEW_DIR){mkdirSync(process.env.CATALOG_PREVIEW_DIR,{recursive:true});writeFileSync(path.join(process.env.CATALOG_PREVIEW_DIR,`quote-${count}.html`),html);}
+});
+
+test("estilo da marca d'agua presente (cobre a folha inteira, por cima do conteudo)", () => {
+  const css = require("node:fs").readFileSync(path.join(process.cwd(), "app/quote-paper.css"), "utf8") as string;
+  const rule = css.match(/\.quote-watermark\s*\{([^}]*)\}/)?.[1] ?? "";
+  expect(rule).toMatch(/position:\s*absolute/);
+  expect(rule).toMatch(/inset:\s*0/);
+  expect(rule).toMatch(/pointer-events:\s*none/);
 });
