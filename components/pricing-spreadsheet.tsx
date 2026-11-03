@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Check, Plus, Save, Search, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { bulkSavePrices } from "@/app/(crm)/pricing-actions";
 import {
@@ -58,6 +58,8 @@ const COLS: { key: keyof PriceRow; label: string; width: string; type: "text" | 
 ];
 
 const money = (v: number) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(v);
+const PAGE_SIZE = 50;
+const productOrder = new Intl.Collator("pt-BR", { numeric: true });
 const newId = () => `new-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function validCategory(category?: string | null) {
@@ -127,6 +129,12 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const [editCell, setEditCell] = useState<{ id: string; col: keyof PriceRow } | null>(null);
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const tableScroll = useRef<HTMLDivElement>(null);
+  const changePage = (next: number) => {
+    setPage(next);
+    if (tableScroll.current) tableScroll.current.scrollTop = 0;
+  };
   const [catFilter, setCatFilter] = useState("Todos");
   const [saveResult, setSaveResult] = useState<{ ok?: boolean; error?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -137,8 +145,14 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
       .filter((row) => !deleted.has(row.id))
       .filter((row) => catFilter === "Todos" || row.category === catFilter)
       .filter((row) => !query || row.product.toLowerCase().includes(query) || (row.notes ?? "").toLowerCase().includes(query))
-      .sort((a, b) => `${a.category}-${a.product}`.localeCompare(`${b.category}-${b.product}`, "pt-BR", { numeric: true }));
+      .sort((a, b) => Number(b.id.startsWith("new-")) - Number(a.id.startsWith("new-"))
+        || productOrder.compare(`${a.category}-${a.product}`, `${b.category}-${b.product}`));
   }, [rows, deleted, catFilter, filter]);
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const offset = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = visible.slice(offset, offset + PAGE_SIZE);
 
   const counts = useMemo(() => {
     const activeRows = rows.filter((row) => !deleted.has(row.id));
@@ -156,6 +170,9 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
 
   const addRow = () => {
     const row = emptyRow();
+    setFilter("");
+    setCatFilter("Todos");
+    changePage(1);
     setRows((current) => [row, ...current]);
     setDirty((current) => new Set([...current, row.id]));
     setEditCell({ id: row.id, col: "product" });
@@ -194,9 +211,9 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1 max-w-sm">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink/35" />
-          <input className="field h-9 pl-9 text-sm" placeholder="Buscar produto..." value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input className="field h-9 pl-9 text-sm" placeholder="Buscar produto..." value={filter} onChange={(e) => { setFilter(e.target.value); changePage(1); }} />
         </div>
-        <select className="field h-9 min-w-[220px] text-sm" value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+        <select className="field h-9 min-w-[220px] text-sm" value={catFilter} onChange={(e) => { setCatFilter(e.target.value); changePage(1); }}>
           <option value="Todos">Todos ({counts.Todos})</option>
           {CATEGORIES.map((category) => (
             <option key={category} value={category}>
@@ -241,7 +258,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
         </div>
       )}
 
-      <div className="overflow-auto rounded-2xl border shadow-sm" style={{ maxHeight: "70vh" }}>
+      <div ref={tableScroll} className="overflow-auto rounded-2xl border shadow-sm" style={{ maxHeight: "70vh" }}>
         <table className="text-left text-xs" style={{ minWidth: COLS.reduce((sum, col) => sum + parseInt(col.width), 0) + 80 }}>
           <thead className="sticky top-0 z-10 bg-cream/95 backdrop-blur">
             <tr>
@@ -254,7 +271,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
             </tr>
           </thead>
           <tbody className="divide-y bg-surface">
-            {visible.map((row) => (
+            {pageRows.map((row) => (
               <tr key={row.id} className={`group transition-colors hover:bg-brand-strong/5 ${dirty.has(row.id) ? "bg-amber-50/60" : ""} ${!row.active ? "opacity-50" : ""}`}>
                 {COLS.map((col) => (
                   <CellEditor
@@ -288,11 +305,15 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-ink/40">
-        <span>
-          {visible.length} de {rows.length - deleted.size} itens
-        </span>
-        <span>Campos não aplicáveis ficam bloqueados automaticamente.</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/50">
+        <span>{visible.length ? `${offset + 1}–${offset + pageRows.length} de ${visible.length} itens` : "0 itens"}</span>
+        {pageCount > 1 && (
+          <nav aria-label="Páginas da planilha de preços" className="flex items-center gap-2">
+            <button type="button" className="button-ghost disabled:opacity-40" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>Anterior</button>
+            <span>Página {currentPage} de {pageCount}</span>
+            <button type="button" className="button-ghost disabled:opacity-40" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}>Próxima</button>
+          </nav>
+        )}
       </div>
     </div>
   );
