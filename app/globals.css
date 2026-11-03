@@ -50,9 +50,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
    MODELO DE FICHA DE MEDIÇÃO - referência Marquinhos
 ========================================================================= */
 .measure-sheet {
+  display: flex;
+  flex-direction: column;
   width: 210mm;
   min-height: 297mm;
-  padding: 12mm 8mm 11mm;
+  padding: 12mm 8mm 7mm;
   box-sizing: border-box;
   font-family: "Segoe UI", Inter, system-ui, sans-serif;
   color: #111;
@@ -152,7 +154,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   border-bottom: 1px solid #111;
   height: 1px;
 }
+.measure-sheet > * { flex-shrink: 0; }
 .measure-lines {
+  flex: 1 0 auto;
   margin-top: 1mm;
   min-height: 194mm;
   border: 1px solid #d8d8d8;
@@ -164,7 +168,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 }
 @page measure {
   size: A4 portrait;
-  margin: 10mm 12mm;
+  margin: 10mm 12mm 7mm;
 }
 
 @media print {
@@ -176,17 +180,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   body:has(.measure-sheet) .app-content { min-height: 0; }
 
   .measure-sheet {
-    display: flex;
-    flex-direction: column;
     width: 100%;
     min-height: 0;
     /* A4 minus the page margins and 2 mm for print rounding. */
-    height: 275mm;
+    height: 278mm;
     padding: 0;
     break-inside: avoid;
     overflow-wrap: anywhere;
   }
-  .measure-sheet > * { flex-shrink: 0; }
   .measure-sheet .measure-contact p { white-space: normal; }
   .measure-sheet .measure-lines {
     flex: 1 1 0;
