@@ -179,18 +179,6 @@
       "model": "pecas-3d.html#pingadeira-rufo-inclinado"
     },
     {
-      "id": "tubo-pu-ms40",
-      "code": "21",
-      "name": "Tubo Vedante PU MS40",
-      "category": "Itens Especiais",
-      "aliases": [
-        "PU MS40",
-        "Tubo PU MS40",
-        "Sachê PU MS40"
-      ],
-      "model": "insumos-3d.html#tubo-pu-ms40"
-    },
-    {
       "id": "tubo-silicone",
       "code": "22",
       "name": "Tubo de Silicone",
