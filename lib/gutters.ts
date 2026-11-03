@@ -84,6 +84,7 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Peça Sob Medida",
     "Corte e Dobra Especial",
     "Suporte viga U (galpão)",
+    "Saída tipo Funil de 150x10 (galpão)",
   ],
 };
 
