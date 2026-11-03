@@ -14,7 +14,7 @@ import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
 import { uniqueProductNames, normalizeProductName } from "@/lib/gutter-catalog";
-import { gutterCategoryForProduct } from "@/lib/gutters";
+import { gutterCategoryForProduct, PRODUCT_RENAMES } from "@/lib/gutters";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type GutterQuoteItem = {
@@ -84,15 +84,16 @@ const specialPriceDefaults: Record<string, { unit: string; unit_price: number }>
   "saida tipo funil de 150x100 (galpao)": { unit: "unidade", unit_price: 20 },
 };
 
+const officialName = (product: string) => PRODUCT_RENAMES[normalizeProductName(product)] ?? product;
 const specialPrice = (prices: GutterPrice[], product: string) => {
-  const name = normalizeProductName(product);
-  return prices.find(price => price.active && normalizeProductName(price.product) === name && !price.thickness && !price.cut_mm)
+  const name = normalizeProductName(officialName(product));
+  return prices.find(price => price.active && normalizeProductName(officialName(price.product)) === name && !price.thickness && !price.cut_mm)
     ?? (Object.hasOwn(specialPriceDefaults, name) ? specialPriceDefaults[name] : undefined);
 };
 const retiredProducts = new Set(["rufo", "rufo externo", "rufo interno"]);
 const productOptions = (category: FabricatedCategory | OtherCategory, prices: GutterPrice[], current = "") => uniqueProductNames([
   ...PRODUCTS_BY_CATEGORY[category],
-  ...prices.filter(p => (p.category || gutterCategoryForProduct(p.product)) === category).map(p => p.product),
+  ...prices.filter(p => (p.category || gutterCategoryForProduct(p.product)) === category).map(p => officialName(p.product)),
   ...(current ? [current] : []),
 ]).filter(name => !retiredProducts.has(normalizeProductName(name)) || normalizeProductName(current) === normalizeProductName(name))
   .reduce<string[]>((names, name) => [...names, current && normalizeProductName(current) === normalizeProductName(name) ? current : name], []);
@@ -569,6 +570,7 @@ function OtherItemCard({
           <p className="text-sm text-ink/50">Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b></p>
         </div>
       </div>
+      <GutterPiecePreview product={item.product} />
     </div>
   );
 }

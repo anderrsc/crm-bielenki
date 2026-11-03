@@ -9,7 +9,8 @@
       "category": "Calhas",
       "aliases": [
         "Calha Platibanda"
-      ]
+      ],
+      "model": "pecas-3d.html#platibanda"
     },
     {
       "id": "coletora",
@@ -19,35 +20,40 @@
       "aliases": [
         "Calha Coletora",
         "Calha Condutora"
-      ]
+      ],
+      "model": "pecas-3d.html#coletora"
     },
     {
       "id": "calha-central",
       "code": "03",
       "name": "Calha central (fundo reto)",
       "category": "Calhas",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#calha-central"
     },
     {
       "id": "calha-central-v",
       "code": "04",
       "name": "Calha central (fundo em V)",
       "category": "Calhas",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#calha-central-v"
     },
     {
       "id": "calha-beiral",
       "code": "05",
       "name": "Calha de beiral",
       "category": "Calhas",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#calha-beiral"
     },
     {
       "id": "calha-pingadeira",
       "code": "06",
       "name": "Calha com pingadeira",
       "category": "Calhas",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#calha-pingadeira"
     },
     {
       "id": "agua-furtada",
@@ -57,14 +63,16 @@
       "aliases": [
         "Calha Água Furtada",
         "Rufo Água Furtada"
-      ]
+      ],
+      "model": "pecas-3d.html#agua-furtada"
     },
     {
       "id": "rufo-condutor",
       "code": "08",
       "name": "Rufo condutor",
       "category": "Rufos",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#rufo-condutor"
     },
     {
       "id": "rufo-convencional",
@@ -73,7 +81,8 @@
       "category": "Rufos",
       "aliases": [
         "Rufo"
-      ]
+      ],
+      "model": "pecas-3d.html#rufo-convencional"
     },
     {
       "id": "rufo-acabamento",
@@ -82,21 +91,24 @@
       "category": "Rufos",
       "aliases": [
         "Rufo de Acabamento"
-      ]
+      ],
+      "model": "pecas-3d.html#rufo-acabamento"
     },
     {
       "id": "rufo-testeira",
       "code": "11",
       "name": "Rufo testeira",
       "category": "Rufos",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#rufo-testeira"
     },
     {
       "id": "cumeeira",
       "code": "12",
       "name": "Rufo de cumeeira",
       "category": "Rufos",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#cumeeira"
     },
     {
       "id": "rufo-chapeu",
@@ -105,28 +117,32 @@
       "category": "Rufos",
       "aliases": [
         "Rufo Chapéu"
-      ]
+      ],
+      "model": "pecas-3d.html#rufo-chapeu"
     },
     {
       "id": "rufo-pingadeira",
       "code": "14",
       "name": "Rufo com pingadeira",
       "category": "Rufos",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#rufo-pingadeira"
     },
     {
       "id": "rufo-pingadeira-duplo",
       "code": "15",
       "name": "Rufo com pingadeira duplo",
       "category": "Rufos",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#rufo-pingadeira-duplo"
     },
     {
       "id": "pingadeira",
       "code": "16",
       "name": "Pingadeira",
       "category": "Pingadeiras",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#pingadeira"
     },
     {
       "id": "pingadeira-marquise",
@@ -135,28 +151,44 @@
       "category": "Pingadeiras",
       "aliases": [
         "Pingadeira de Marquise"
-      ]
+      ],
+      "model": "pecas-3d.html#pingadeira-marquise"
     },
     {
       "id": "pingadeira-rufo",
       "code": "18",
       "name": "Pingadeira com rufo (degrau)",
       "category": "Pingadeiras",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#pingadeira-rufo"
     },
     {
       "id": "pingadeira-rufo-reta",
       "code": "19",
       "name": "Pingadeira com rufo (aba reta)",
       "category": "Pingadeiras",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#pingadeira-rufo-reta"
     },
     {
       "id": "pingadeira-rufo-inclinado",
       "code": "20",
       "name": "Pingadeira com rufo (inclinado)",
       "category": "Pingadeiras",
-      "aliases": []
+      "aliases": [],
+      "model": "pecas-3d.html#pingadeira-rufo-inclinado"
+    },
+    {
+      "id": "tubo-pu-ms40",
+      "code": "21",
+      "name": "Tubo Vedante PU MS40",
+      "category": "Itens Especiais",
+      "aliases": [
+        "PU MS40",
+        "Tubo PU MS40",
+        "Sachê PU MS40"
+      ],
+      "model": "insumos-3d.html#tubo-pu-ms40"
     }
   ],
   "cuts": [

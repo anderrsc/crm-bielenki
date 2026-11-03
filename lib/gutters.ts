@@ -85,7 +85,13 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Corte e Dobra Especial",
     "Suporte viga U (galpão)",
     "Saída tipo Funil de 150x100 (galpão)",
+    "Tubo Vedante PU MS40",
   ],
+};
+
+// Nomes antigos da tabela de preços exibidos com o nome oficial do produto.
+export const PRODUCT_RENAMES: Record<string, string> = {
+  "pu ms40": "Tubo Vedante PU MS40",
 };
 
 // Preserve the legacy/extras list and add the numbered source catalog first.

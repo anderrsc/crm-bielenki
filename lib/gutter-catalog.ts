@@ -14,7 +14,7 @@ export function catalogPieceForProduct(product: string): CatalogPiece | undefine
   return catalog.pieces.find(piece => [piece.name, ...piece.aliases].some(alias => normalizeProductName(alias) === name));
 }
 export function catalogModelUrl(piece: CatalogPiece) {
-  return `${catalog.source}pecas-3d.html#${piece.id}`;
+  return `${catalog.source}${piece.model}`;
 }
 export function catalogImagePath(piece: CatalogPiece) {
   return `/catalogo/pecas/${piece.id}.png`;
