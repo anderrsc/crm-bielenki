@@ -145,23 +145,26 @@ export function AluminumMatrix({
 
                     {/* Preço */}
                     {canManage ? (
-                      <div className="relative flex-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ink/40">R$</span>
+                      <div className="relative min-w-0 flex-1">
+                        {row.price_per_meter > 0 && (
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ink/40">R$</span>
+                        )}
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          className="w-full rounded-lg border border-transparent bg-transparent py-1 pl-7 pr-1 text-sm font-black text-forest focus:border-forest focus:bg-surface focus:outline-none"
+                          className={`w-full rounded-lg border border-transparent bg-transparent py-1 pr-1 focus:border-forest focus:bg-surface focus:outline-none ${row.price_per_meter > 0 ? "pl-7 text-sm font-black text-forest" : "px-1 text-xs text-ink placeholder:text-ink/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}`}
+                          aria-label={`Preço por metro para corte de ${row.cut_mm || "novo"} mm, espessura ${th}`}
                           value={row.price_per_meter || ""}
-                          placeholder="0,00"
+                          placeholder="Sem preço cadastrado"
                           onChange={(e) => handleChange(row.id, "price_per_meter", Number(e.target.value))}
                           onBlur={() => handleSave(row)}
                           onKeyDown={(e) => { if (e.key === "Enter") handleSave(row); }}
                         />
                       </div>
                     ) : (
-                      <span className="flex-1 text-right text-sm font-black text-forest">
-                        {money(row.price_per_meter)}/m
+                      <span className={`flex-1 text-right ${row.price_per_meter > 0 ? "text-sm font-black text-forest" : "text-xs text-ink/50"}`}>
+                        {row.price_per_meter > 0 ? `R$ ${money(row.price_per_meter)}/m` : "Sem preço cadastrado"}
                       </span>
                     )}
 
