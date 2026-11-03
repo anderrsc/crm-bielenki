@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 type Address = { postal_code: string; address: string; neighborhood: string; city: string; state: string };
+type AddressForm = Address & { number: string; complement: string };
+
 type ViaCep = { cep?: string; logradouro?: string; bairro?: string; localidade?: string; uf?: string; erro?: boolean | string };
 
 const states = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
@@ -12,9 +14,14 @@ const digits = (cep: string) => cep.replace(/\D/g, "").slice(0, 8);
 const mask = (cep: string) => cep.length > 5 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep;
 
 export function ClientAddressFields({ initial }: { initial?: { [K in keyof Address]?: string | null } }) {
-  const [value, setValue] = useState<Address>({
+  const savedAddress = initial?.address ?? "";
+  const parts = /^(.*?),\s*(\d[^,]*|s\/?n)(?:,\s*(.*))?$/i.exec(savedAddress);
+  const complementOnly = /^(.*?),\s*Complemento:\s*(.*)$/i.exec(savedAddress);
+  const [value, setValue] = useState<AddressForm>({
+    number: parts?.[2]?.trim() ?? "",
+    complement: parts?.[3]?.trim() ?? complementOnly?.[2]?.trim() ?? "",
     postal_code: mask(digits(initial?.postal_code ?? "")),
-    address: initial?.address ?? "",
+    address: parts?.[1]?.trim() ?? complementOnly?.[1]?.trim() ?? savedAddress,
     neighborhood: initial?.neighborhood ?? "",
     city: initial?.city ?? "",
     state: initial?.state?.trim().toUpperCase() ?? "",
@@ -25,7 +32,7 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
 
-  function change(key: keyof Address, next: string) {
+  function change(key: keyof AddressForm, next: string) {
     request.current?.abort();
     setLoading(false);
     setMatches([]);
@@ -34,18 +41,14 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
   }
 
   function apply(result: ViaCep) {
-    setValue(current => {
-      // Keep the number and complement when the user has already entered them.
-      const comma = current.address.indexOf(",");
-      const suffix = comma === -1 ? "" : current.address.slice(comma);
-      return {
-        postal_code: result.cep ?? current.postal_code,
-        address: result.logradouro ? result.logradouro + suffix : current.address,
-        neighborhood: result.bairro || current.neighborhood,
-        city: result.localidade || current.city,
-        state: result.uf || current.state,
-      };
-    });
+    setValue(current => ({
+      ...current,
+      postal_code: result.cep ?? current.postal_code,
+      address: result.logradouro || current.address,
+      neighborhood: result.bairro || current.neighborhood,
+      city: result.localidade || current.city,
+      state: result.uf || current.state,
+    }));
     setMatches([]);
     setMessage("Endereço encontrado. Confira e acrescente o número, se houver.");
   }
@@ -87,9 +90,16 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
     void lookup([value.state, city, street].map(encodeURIComponent).join("/"));
   }
 
+  const street = value.address.trim();
+  const number = value.number.trim();
+  const complement = value.complement.trim();
+  const formattedAddress = [street, number, complement && (number ? complement : `Complemento: ${complement}`)]
+    .filter(Boolean).join(", ");
+
   return (
     <fieldset className="rounded-xl border p-4 sm:col-span-2">
       <legend className="px-2 text-sm font-bold">Endereço <span className="font-normal text-ink/60">(opcional)</span></legend>
+      <input type="hidden" name="address" value={formattedAddress} />
       <div className="grid gap-4 sm:grid-cols-6">
         <label className="sm:col-span-2">
           <span className="label">CEP</span>
@@ -113,9 +123,17 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
           </select>
         </label>
         <label className="sm:col-span-4">
-          <span className="label">Rua, número e complemento</span>
-          <input className="field" name="address" autoComplete="street-address" placeholder="Ex. Rua Vicente Bernardes, 120, sala 2"
+          <span className="label">Rua / Logradouro</span>
+          <input className="field" autoComplete="address-line1" placeholder="Ex. Rua Vicente Bernardes"
             value={value.address} onChange={event => change("address", event.target.value)} />
+        </label>
+        <label className="sm:col-span-2">
+          <span className="label">Número</span>
+          <input className="field" placeholder="Ex. 120 ou S/N" value={value.number} onChange={event => change("number", event.target.value)} />
+        </label>
+        <label className="sm:col-span-4">
+          <span className="label">Complemento</span>
+          <input className="field" autoComplete="address-line2" placeholder="Ex. Sala 2" value={value.complement} onChange={event => change("complement", event.target.value)} />
         </label>
         <label className="sm:col-span-2">
           <span className="label">Bairro</span>
