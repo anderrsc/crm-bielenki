@@ -62,13 +62,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 }
 .measure-header {
   display: grid;
-  grid-template-columns: 27mm minmax(0, 1fr) 48mm;
+  grid-template-columns: 32mm minmax(0, 1fr) 48mm;
   align-items: center;
   gap: 4mm;
   min-height: 16mm;
 }
 .measure-logo-wrap { display: flex; align-items: center; justify-content: flex-start; }
-.measure-logo-img { width: 25mm; max-height: 17mm; object-fit: contain; }
+.measure-logo-img { width: 31mm; max-height: 17mm; object-fit: contain; }
 .measure-logo-fallback {
   width: 25mm;
   height: 15mm;
