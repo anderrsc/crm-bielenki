@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 function getSupabase() {
   return createClient(
@@ -183,6 +184,15 @@ export async function POST(req: NextRequest) {
 
     if (!from || !clientText) return NextResponse.json({ status: "no_content" });
     const supabase = getSupabase();
+
+    // Provedores reenviam o mesmo evento: cada mensagem e processada uma vez.
+    const eventId = String((isEvolution ? payload?.data?.key?.id : payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id) ?? "");
+    if (eventId) {
+      const { data: novo, error: dedupeError } = await supabase.from("whatsapp_webhook_events")
+        .upsert({ provider: isEvolution ? "evolution" : "meta", event_id: eventId }, { onConflict: "provider,event_id", ignoreDuplicates: true })
+        .select("event_id");
+      if (!dedupeError && !novo?.length) return NextResponse.json({ status: "duplicate" });
+    }
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
     let company: { id: string; name: string; trade_name: string; whatsapp_phone_number_id: string } | null = null;
@@ -422,10 +432,13 @@ async function sendWhatsAppMessage(p: SendParams) {
   // Evolution API (grátis, QR code)
   if (p.provider === "evolution") {
     if (!p.evolutionUrl || !p.evolutionInstance) {
-      console.log("[DEV/Evolution] Mensagem para", p.to, ":", p.text.slice(0, 80));
+      console.warn("WhatsApp (Evolution) nao configurado: resposta nao enviada.");
       return;
     }
-    const response = await fetch(`${p.evolutionUrl}/message/sendText/${p.evolutionInstance}`, {
+    const base = safeExternalUrl(p.evolutionUrl);
+    if (!base) throw new Error("URL da Evolution API invalida: use um endereco HTTPS publico.");
+    const response = await fetch(`${base}/message/sendText/${encodeURIComponent(p.evolutionInstance)}`, {
+      redirect: "error",
       method: "POST",
       headers: { "apikey": p.evolutionKey, "Content-Type": "application/json" },
       body: JSON.stringify({ number: p.to, text: p.text })
@@ -436,7 +449,7 @@ async function sendWhatsAppMessage(p: SendParams) {
 
   // Meta WhatsApp Business API (oficial)
   if (!p.metaToken || !p.phoneNumberId) {
-    console.log("[DEV/Meta] Mensagem para", p.to, ":", p.text.slice(0, 80));
+    console.warn("WhatsApp (Meta) nao configurado: resposta nao enviada.");
     return;
   }
   const response = await fetch(`https://graph.facebook.com/v19.0/${p.phoneNumberId}/messages`, {

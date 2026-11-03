@@ -48,7 +48,7 @@ import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
 import { WindowQuote } from "@/components/window-quote";
-import { maskSecret } from "@/lib/encrypt";
+import { encryptSecret, maskSecret } from "@/lib/encrypt";
 import { AgendaPage } from "@/components/agenda-page";
 import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
 import { CompanyIdentityEditor, type LogoConfig } from "@/components/company-identity";
@@ -114,6 +114,17 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         companyId ? db.from("ai_agent_config").select("*").eq("company_id", companyId).single() : Promise.resolve({ data: null }),
         companyId ? db.from("triage_sessions").select("id,phone,nome,status,produto,tipo_servico,score,prioridade,probabilidade,prazo,necessita_visita,possui_projeto,possui_fotos,eh_manutencao,resumo_executivo,created_at,completed_at,messages").eq("company_id", companyId).order("created_at", { ascending: false }).limit(50) : Promise.resolve({ data: [] }),
       ]);
+      // Chaves gravadas sem criptografia (versoes antigas) sao criptografadas
+      // na primeira vez que um gestor abre a pagina.
+      if (configRes.data && companyId) {
+        const plain = Object.fromEntries((["groq_api_key", "openai_api_key", "evolution_api_key", "whatsapp_token"] as const)
+          .filter((k) => typeof configRes.data[k] === "string" && configRes.data[k] && !configRes.data[k].startsWith("enc:"))
+          .map((k) => [k, encryptSecret(configRes.data[k])]));
+        if (Object.keys(plain).length) await db.from("ai_agent_config").update(plain).eq("company_id", companyId);
+      }
+      const errorOf = (r: object) => ("error" in r ? (r.error as { code?: string; message: string } | null) : null);
+      const loadError = [errorOf(configRes)?.code === "PGRST116" ? null : errorOf(configRes), errorOf(sessionsRes)]
+        .filter(Boolean).map((e) => (e as { message: string }).message).join(" · ");
       const safeConfig = configRes.data ? {
         ...configRes.data,
         groq_api_key: maskSecret(configRes.data.groq_api_key ?? ""),
@@ -121,7 +132,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
         whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
       } : null;
-      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []).map(normalizeTriageSession) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
+      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []).map(normalizeTriageSession) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro ?? (loadError ? `Falha ao consultar os dados: ${loadError}` : undefined)} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
     }
     return <AiTriagePage config={null} sessions={[]} tab={tab} />;
   }

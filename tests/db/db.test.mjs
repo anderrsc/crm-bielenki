@@ -29,7 +29,10 @@ before(async () => {
 });
 after(async () => db?.end());
 
-for (const file of ["040_quote_pdf_cache.sql", "041_quote_pdf_cache_freshness.sql", "042_fix_pending_center.sql", "043_seed_new_company_defaults.sql", "044_gutter_prices_unique_with_color.sql", "045_fix_dashboard_and_alerts.sql", "046_review_operational_fixes.sql", "047_production_material_and_installation_guards.sql", "048_sync_functions_and_triggers.sql", "20261103010000_triage_sessions_defaults.sql"]) {
+// Todas a partir da 040, em ordem (como o workflow de migrations): reaplicar
+// uma so (ex.: a 048, que regrava todas as funcoes) desfaria as posteriores.
+const REAPLICAVEIS = fs.readdirSync(path.join(ROOT, "supabase/migrations")).filter((f) => f.endsWith(".sql") && f >= "040").sort();
+for (const file of REAPLICAVEIS) {
   test(`migration ${file} pode ser rodada de novo`, async () => {
     const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations", file), "utf8");
     await db.query(sql.replace(/^\s*(begin|commit);\s*$/gim, "")).catch(async (e) => { await db.query("rollback").catch(() => {}); throw e; });
@@ -134,10 +137,6 @@ test("verificacao do banco de producao volta vazia no banco com todas as migrati
   assert.deepEqual(rows, []);
 });
 
-test("migration de desempenho pode ser rodada de novo", async () => {
-  const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261103000000_performance_rls_and_indexes.sql"), "utf8");
-  await db.query(sql);
-});
 
 test("RLS: funcoes de sessao avaliadas uma vez por consulta (envolvidas em select)", async () => {
   const { rows } = await db.query(`select c.relname || '.' || p.polname nome from pg_policy p join pg_class c on c.oid = p.polrelid
@@ -159,4 +158,76 @@ test("session_access devolve status, cargos e acesso numa consulta", () => asUse
   assert.equal(r.status, "ativo");
   assert.ok(Array.isArray(r.roles) && r.roles.length > 0);
   assert.equal(typeof r.allowed, "boolean");
+}));
+
+// ── Seguranca (auditoria de 02/11/2026) ─────────────────────────────────────
+// Cria um usuario de teste com o cargo informado e executa fn como ele, com o
+// papel "authenticated" de verdade (RLS aplicado). Tudo e desfeito no fim.
+async function asNewUser(role, fn, { status = "ativo" } = {}) {
+  await db.query("begin");
+  try {
+    const id = (await db.query("insert into auth.users(email) values ('seg-' || gen_random_uuid() || '@teste.local') returning id")).rows[0].id;
+    await db.query("insert into profiles(id, company_id, full_name, status) values ($1, $2, 'Teste Seguranca', $3) on conflict (id) do update set company_id = excluded.company_id, status = excluded.status", [id, company, status]);
+    await db.query("delete from user_roles where profile_id = $1", [id]);
+    await db.query("insert into user_roles(company_id, profile_id, role) values ($1, $2, $3)", [company, id, role]);
+    await db.query("set local role authenticated");
+    await db.query("select set_config('request.jwt.claim.sub', $1, true)", [id]);
+    return await fn(id);
+  } finally {
+    await db.query("rollback");
+  }
+}
+
+test("A02: nenhuma funcao privilegiada (SECURITY DEFINER) executavel sem login", async () => {
+  const { rows } = await db.query(`select proname from pg_proc p where pronamespace = 'public'::regnamespace and prosecdef
+    and has_function_privilege('anon', p.oid, 'execute')`);
+  assert.deepEqual(rows.map((r) => r.proname), []);
+});
+
+test("A02: rotinas internas so pelo servidor", async () => {
+  for (const fn of ["enqueue_due_automations()", "bootstrap_company(text,text,uuid)", "trigger_workflow_event(uuid,text,jsonb)", "seed_gutter_products(uuid)"]) {
+    const ok = (await db.query("select to_regprocedure($1) p", [`public.${fn}`])).rows[0].p;
+    if (!ok) continue;
+    const { rows } = await db.query("select has_function_privilege('authenticated', $1::regprocedure, 'execute') pode", [`public.${fn}`]);
+    assert.equal(rows[0].pode, false, `${fn} executavel por usuario logado`);
+  }
+});
+
+test("A02: funcoes chamadas pelo aplicativo continuam liberadas para usuarios logados", async () => {
+  const usadas = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261103020000_security_hardening.sql"), "utf8");
+  for (const fn of ["approve_quote", "create_gutter_quote", "pending_center", "session_access", "has_table_access", "current_company_id"]) {
+    assert.match(usadas, new RegExp(`'${fn}'`));
+    const { rows } = await db.query("select bool_and(has_function_privilege('authenticated', p.oid, 'execute')) pode from pg_proc p where proname = $1 and pronamespace = 'public'::regnamespace", [fn]);
+    assert.equal(rows[0].pode, true, fn);
+  }
+});
+
+for (const tabela of ["ai_agent_config", "triage_sessions", "workflow_executions"]) {
+  test(`A01/A04: vendedor nao le nem altera ${tabela}`, () => asNewUser("vendedor", async () => {
+    assert.equal((await db.query(`select count(*)::int n from ${tabela}`)).rows[0].n, 0);
+    assert.equal((await db.query(`update ${tabela} set company_id = company_id`)).rowCount, 0);
+  }));
+}
+
+test("A01: gerente le a configuracao do Agente IA", () => asNewUser("gerente", async () => {
+  await db.query("select * from ai_agent_config");
+}));
+
+test("A03: usuario nao altera o proprio status", () => asNewUser("vendedor", async (id) => {
+  await assert.rejects(db.query("update profiles set status = 'inativo' where id = $1", [id]), /proprio status|status ou empresa/);
+}));
+
+test("A03: usuario inativo nao ve dados da empresa", () => asNewUser("administrador", async () => {
+  assert.equal((await db.query("select count(*)::int n from clients")).rows[0].n, 0);
+  assert.equal((await db.query("select current_company_id() c")).rows[0].c, null);
+}, { status: "inativo" }));
+
+test("A03: administrador altera o status de outro funcionario", () => asNewUser("administrador", async () => {
+  const outro = (await db.query("select id from profiles where id <> auth.uid() and company_id = current_company_id() limit 1")).rows[0];
+  if (!outro) return;
+  await db.query("update profiles set status = status where id = $1", [outro.id]);
+}));
+
+test("A07: eventos do WhatsApp so pelo servidor", () => asNewUser("administrador", async () => {
+  await assert.rejects(db.query("select * from whatsapp_webhook_events"), /permission denied/);
 }));

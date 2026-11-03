@@ -1,10 +1,14 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
+// Chave AES-256: ENCRYPTION_KEY (64 hexadecimais). Sem ela, deriva da
+// SUPABASE_SERVICE_ROLE_KEY (segredo que so existe no servidor) em vez de
+// derrubar a pagina ao salvar uma chave de API.
 function getKey(): Buffer {
-  const k = process.env.ENCRYPTION_KEY ?? "";
-  const hex = k.replace(/[^0-9a-fA-F]/g, "");
-  if (hex.length !== 64) throw new Error("ENCRYPTION_KEY deve conter exatamente 64 caracteres hexadecimais");
-  return Buffer.from(hex, "hex");
+  const hex = (process.env.ENCRYPTION_KEY ?? "").replace(/[^0-9a-fA-F]/g, "");
+  if (hex.length === 64) return Buffer.from(hex, "hex");
+  const fallback = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (fallback) return createHash("sha256").update(`crm-bielenki:${fallback}`).digest();
+  throw new Error("Configure ENCRYPTION_KEY (64 caracteres hexadecimais) nas variáveis de ambiente.");
 }
 
 export function encryptSecret(text: string): string {

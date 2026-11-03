@@ -16,3 +16,4 @@ test('smoke routes cover every navigation destination',()=>{
   expect(urls.length).toBeGreaterThan(20);
   expect(urls.filter(url=>!ROUTES.includes(url))).toEqual([]);
 });
+test('tela de erro generica com HTTP 200 e falha (falso positivo da auditoria A06)',async()=>expect((await checkRoute('','/agente-ia','https://test.example',async()=>new Response('<p>Não foi possível carregar esta página.</p><button>Tentar novamente</button>'))).ok).toBe(false));
