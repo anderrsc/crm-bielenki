@@ -25,7 +25,12 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect(html).not.toContain('src="/catalogo/');
   expect(html).toContain('pecas-3d.html#platibanda');
   expect(html).not.toContain('api.qrserver.com');
-  expect((html.match(/class="quote-installed-image"/g)||[]).length).toBe(count);
+  // So a peca e o QR code; a foto "na obra" aparece no modelo 3D (via QR).
+  expect(html).not.toContain("quote-installed-image");
+  // Logo original no orcamento (sem os textos redesenhados do menu).
+  const logo=Buffer.from(html.match(/class="quote-logo-img"[^>]*src="data:image\/svg\+xml;base64,([^"]+)"|src="data:image\/svg\+xml;base64,([^"]+)"[^>]*class="quote-logo-img"/)?.slice(1).find(Boolean)??'','base64').toString();
+  expect(logo).toContain('<svg');
+  expect(logo).not.toContain('aria-label="CALHAS E ESQUADRIAS"');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
   expect(html).not.toContain('quote_attachments');

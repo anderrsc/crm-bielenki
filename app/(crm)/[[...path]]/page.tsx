@@ -42,6 +42,7 @@ import { SuppliersPage } from "@/components/suppliers-page";
 import { EmployeesPage } from "@/components/employees-page";
 import { RolesPage } from "@/components/roles-page";
 import { AiTriagePage } from "@/components/ai-triage-page";
+import { normalizeTriageSession } from "@/lib/triage";
 import { AiControlPanel } from "@/components/ai-control-panel";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
@@ -120,7 +121,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
         whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
       } : null;
-      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
+      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []).map(normalizeTriageSession) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
     }
     return <AiTriagePage config={null} sessions={[]} tab={tab} />;
   }
