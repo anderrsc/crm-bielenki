@@ -83,6 +83,7 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Chaminé em Inox 304 Ø150mm",
     "Peça Sob Medida",
     "Corte e Dobra Especial",
+    "Suporte viga U (galpão)",
   ],
 };
 
