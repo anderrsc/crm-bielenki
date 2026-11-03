@@ -67,3 +67,9 @@ jobs:
             echo "::error::Itens faltando no banco:"; echo "$faltando"; exit 1
           fi
           echo "Banco em dia: nada faltando."
+
+      - name: Diagnostico do Agente IA (so tipos e contagens)
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$DATABASE_URL" -At -v ON_ERROR_STOP=1 -f scripts/diagnostico-agente-ia.sql
