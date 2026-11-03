@@ -23,12 +23,12 @@ export function MeasureExtraRow() {
       </fieldset>
       <label className="measure-card min-w-0">
         <span className="measure-card-label block">OBSERVAÇÕES</span>
-        <textarea className="measure-card-value measure-obs-input print:hidden" rows={2} maxLength={300} value={notes}
+        <input className="measure-card-value measure-obs-input print:hidden" maxLength={140} value={notes}
           placeholder="Digite aqui antes de imprimir (opcional)" onChange={event => setNotes(event.target.value)} />
         <span className="hidden print:block">
           {text
             ? <span className="measure-card-value measure-obs-text">{text}</span>
-            : <><span className="measure-card-line measure-obs-line block" /><span className="measure-card-line measure-obs-line block" /></>}
+            : <span className="measure-card-line block" />}
         </span>
       </label>
     </section>
