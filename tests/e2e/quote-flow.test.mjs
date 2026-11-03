@@ -12,7 +12,7 @@ import zlib from "node:zlib";
 // Largura x altura (pt) da 1a pagina. O Chromium pode gravar o /MediaBox
 // dentro de "object streams" compactados, entao os blocos FlateDecode sao
 // descompactados antes de procurar.
-function pdfMediaBox(buffer) {
+function pdfText(buffer) {
   const raw = buffer.toString("latin1");
   let text = raw;
   for (const m of raw.matchAll(/stream\r?\n/g)) {
@@ -21,7 +21,10 @@ function pdfMediaBox(buffer) {
     if (end < 0) continue;
     try { text += zlib.inflateSync(buffer.subarray(start, end)).toString("latin1"); } catch { /* imagem ou outro filtro */ }
   }
-  const box = text.match(/MediaBox\s*\[\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*\]/);
+  return text;
+}
+function pdfMediaBox(buffer) {
+  const box = pdfText(buffer).match(/MediaBox\s*\[\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*\]/);
   return box ? [Number(box[3]) - Number(box[1]), Number(box[4]) - Number(box[2])] : null;
 }
 
@@ -145,7 +148,7 @@ test("baixar PDF do orcamento em A4 (e segundo download vem do cache)", { timeou
   // A4 = 595,28 x 841,89 pt; o Chrome arredonda para pixels (ex.: 594,96 ou 595,92).
   const box = pdfMediaBox(first.body);
   assert.ok(box && Math.abs(box[0] - 595.28) < 1 && Math.abs(box[1] - 841.89) < 1, `PDF nao esta em A4: ${box}`);
-  assert.equal((pdf.match(/\/Type\s*\/Page[^s]/g) || []).length, 1, "orcamento curto deve caber em 1 pagina");
+  assert.equal((pdfText(first.body).match(/\/Type\s*\/Page[^s]/g) || []).length, 1, "orcamento curto deve caber em 1 pagina");
   const { rows } = await db.query("select pdf_generated_at >= updated_at fresh from quotes where id=$1", [state.quoteId]);
   assert.equal(rows[0].fresh, true, "cache do PDF nao ficou valido apos gerar");
   const second = await downloadPdf();
