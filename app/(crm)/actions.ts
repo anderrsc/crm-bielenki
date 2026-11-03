@@ -481,6 +481,26 @@ export async function saveEmployee(formData:FormData) {
   const full_name=String(formData.get("full_name")||"").trim();if(!full_name)redirect("/configuracoes/funcionarios?erro=Informe o nome");
   const values={full_name,phone:String(formData.get("phone")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
   const {error}=await db.from("profiles").update(values).eq("id",id);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
+  // E-mail é o login: troca no Supabase Auth e no perfil.
+  const email=String(formData.get("email")||"").trim().toLowerCase();
+  if(email){
+    const {data:current}=await db.from("profiles").select("email,company_id").eq("id",id).single();
+    if(current&&email!==(current.email||"").toLowerCase()){
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("E-mail inválido")}`);
+      if(!process.env.SUPABASE_SERVICE_ROLE_KEY)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
+      const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
+      const {data:mine}=await db.from("profiles").select("company_id").eq("id",user.id).single();
+      if(!mine?.company_id||mine.company_id!==current.company_id)redirect("/configuracoes/funcionarios?erro=Usuário inválido");
+      const {createClient:createAdmin}=await import("@supabase/supabase-js");
+      const admin=createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const {data:taken}=await admin.from("profiles").select("id").eq("email",email).neq("id",id).maybeSingle();
+      if(taken)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Este e-mail já está cadastrado no sistema")}`);
+      const {error:authError}=await admin.auth.admin.updateUserById(id,{email,email_confirm:true});
+      if(authError)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(authError.message)}`);
+      const {error:emailError}=await admin.from("profiles").update({email}).eq("id",id);
+      if(emailError)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(emailError.message)}`);
+    }
+  }
   revalidatePath("/configuracoes/funcionarios");redirect("/configuracoes/funcionarios?salvo=1");
 }
 

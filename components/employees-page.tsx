@@ -65,7 +65,7 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
       )}
       {saved && (
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
-          ✓ Usuário criado com sucesso. Informe a senha definida ao novo usuário — o acesso já está liberado.
+          ✓ Alterações salvas. Se você criou um usuário novo, informe a senha definida — o acesso já está liberado.
         </div>
       )}
 
@@ -153,6 +153,10 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
                   <div>
                     <label className="label">Nome completo</label>
                     <input className="field" name="full_name" defaultValue={p.full_name} disabled={!canManage} required />
+                  </div>
+                  <div>
+                    <label className="label">E-mail (login)</label>
+                    <input className="field" type="email" name="email" defaultValue={p.email ?? ""} disabled={!canManage} />
                   </div>
                   <div>
                     <label className="label">Telefone</label>
