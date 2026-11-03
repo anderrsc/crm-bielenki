@@ -168,7 +168,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 }
 @page measure {
   size: A4 portrait;
-  margin: 10mm 12mm 7mm;
+  /* Keep margins inside the sheet so the browser has no header/footer area. */
+  margin: 0;
 }
 
 @media print {
@@ -182,9 +183,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   .measure-sheet {
     width: 100%;
     min-height: 0;
-    /* A4 minus the page margins and 2 mm for print rounding. */
-    height: 278mm;
-    padding: 0;
+    /* Leave 2 mm for print rounding. */
+    height: 295mm;
+    padding: 10mm 12mm 7mm;
     break-inside: avoid;
     overflow-wrap: anywhere;
   }
