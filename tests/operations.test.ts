@@ -81,6 +81,24 @@ describe('quotes → sales → orders',()=>{
 });
 
 describe('financial daily use',()=>{
+  test('manual payables and receivables enter the ledger and can be settled', async () => {
+    await db.exec('set local role authenticated');
+    const entries = await rows(`
+      insert into financial_entries (company_id, entry_type, origin, client_id, supplier_id, description, total_amount, due_date)
+      values ($1, 'pagar', 'manual', null, $3, 'Aluguel', 50.25, current_date + 3),
+             ($1, 'receber', 'manual', $2, null, 'Instalação', 80.50, current_date + 3)
+      returning id, entry_type
+    `, [company, client, supplier]);
+    const payable = entries.find(entry => entry.entry_type === 'pagar')!;
+    const receivable = entries.find(entry => entry.entry_type === 'receber')!;
+    const listed = await rows('select id, open_amount::float as balance from v_financial_entries where id in ($1,$2)', [payable.id, receivable.id]);
+    expect(listed).toEqual(expect.arrayContaining([{ id: payable.id, balance: 50.25 }, { id: receivable.id, balance: 80.5 }]));
+    await db.query("select register_payment_with_adjustment($1, 50.25, current_date, 'pix', null, 0, 0, 1, current_date)", [payable.id]);
+    expect((await first('select open_amount::float as balance from v_financial_entries where id=$1', [payable.id])).balance).toBe(0);
+    await actAs(otherAdmin);
+    expect(await rows('select id from v_financial_entries where id in ($1,$2)', [payable.id, receivable.id])).toEqual([]);
+  });
+
   test('manual sale creates receivable and records entry payment',async()=>{const sale=await manualSale(30);const e=await first('select paid_amount,open_amount from financial_entries where sale_id=$1',[sale]);expect(Number(e.paid_amount)).toBe(30);expect(Number(e.open_amount)).toBe(70);});
   test('partial then full payment keeps balances synchronized',async()=>{
     const sale=await manualSale();const e=await first('select id from financial_entries where sale_id=$1',[sale]);

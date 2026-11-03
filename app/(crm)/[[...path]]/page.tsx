@@ -16,6 +16,7 @@ import { ModuleTable } from "@/components/module-table";
 import { modules } from "@/lib/modules";
 import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { FinancialEntryForm } from "@/components/financial-entry-form";
 import { FinancialPage } from "@/components/financial-page";
 import { ClientForm } from "@/components/client-form";
 import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote";
@@ -54,7 +55,7 @@ import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
 import { CompanyIdentityEditor, type LogoConfig } from "@/components/company-identity";
 import { TemplatesPage, type DocumentTemplate } from "@/components/templates-page";
 
-export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string }> }) {
+export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string; criado?: string }> }) {
   const path = (await params).path ?? [];
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
@@ -224,9 +225,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <QuoteDocument id={path[1]} error={search.erro} />;
   }
   if (path[0] === "financeiro") {
-    const filter = ["receber","pagar"].includes(path[1]) ? path[1] : undefined;
+    const filter = path[1] === "receber" || path[1] === "pagar" ? path[1] : undefined;
+    if (filter && path[2] === "novo") return <FinancialEntryForm type={filter} error={search.erro} />;
     const financialPage=pageNumber((search as {pagina?:string}).pagina);
-    return <FinancialPage filter={filter} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} page={financialPage}/>;
+    return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} page={financialPage}/>;
   }
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
   const config = modules[key];
