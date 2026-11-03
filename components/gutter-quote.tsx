@@ -8,7 +8,7 @@ import {
   FABRICATED_CATEGORIES, OTHER_CATEGORIES,
   type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
-import { fabricatedMeterPrice, type GutterQuoteRates } from "@/lib/gutter-quote-pricing";
+import { automaticPaintItems, automaticPaintPrefix, fabricatedMeterPrice, paintMeterPrice, type GutterQuoteRates } from "@/lib/gutter-quote-pricing";
 import { money, addDaysISO, todayISO } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -136,13 +136,19 @@ export function GutterQuote({
   initial?: GutterQuoteInitial;
   error?: string;
 }) {
+  const hasSavedPaint = initial?.special_items?.some(item => item.product.startsWith(automaticPaintPrefix));
   const [items, setItems] = useState<GutterQuoteItem[]>(() =>
-    initial?.items.length ? initial.items.map(item => ({
-      ...item, unit_price: Number(item.unit_price) || fabricatedMeterPrice(prices, rates, item) || 0,
-    })) : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices, rates)]
+    initial?.items.length ? initial.items.map(item => {
+      const base = fabricatedMeterPrice(prices, rates, item);
+      const saved = Number(item.unit_price);
+      const paint = paintMeterPrice(rates, item.color) ?? 0;
+      // Older drafts may have the current paint rate embedded in the piece price.
+      const embedded = !hasSavedPaint && base !== undefined && paint > 0 && Math.abs(saved - (base + paint)) < 0.005;
+      return { ...item, unit_price: embedded || !saved ? base ?? 0 : saved };
+    }) : initial?.special_items?.length ? [] : [blankFabricated("Calhas", prices, rates)]
   );
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() =>
-    (initial?.special_items ?? []).map((item) => {
+    (initial?.special_items ?? []).filter(item => !item.product.startsWith(automaticPaintPrefix)).map((item) => {
       const item_type = otherCategoryFromRecord(item);
       return {
         ...item,
@@ -168,10 +174,8 @@ export function GutterQuote({
     () => items.reduce((t, i) => t + i.quantity * i.meters * i.unit_price, 0),
     [items]
   );
-  const subtotalOther = useMemo(
-    () => specialItems.reduce((t, i) => t + i.quantity * i.unit_price, 0),
-    [specialItems]
-  );
+  const paintItems = useMemo(() => automaticPaintItems(items, rates), [items, rates]);
+  const subtotalOther = [...specialItems, ...paintItems].reduce((total, item) => total + item.quantity * item.unit_price, 0);
   const subtotal = subtotalFab + subtotalOther;
   const total = Math.max(0, subtotal - discount + freight);
 
@@ -223,7 +227,7 @@ export function GutterQuote({
     notes,
     hide_unit_prices: hideUnitPrices,
     items,
-    special_items: specialItems,
+    special_items: [...specialItems, ...paintItems],
   });
 
   /* ── Agrupamento para exibição ── */
@@ -337,6 +341,19 @@ export function GutterQuote({
               ))}
             </div>
           ))}
+
+          {paintItems.length > 0 && (
+            <section className="card space-y-2 p-4">
+              <h2 className="font-bold">Pintura adicionada automaticamente</h2>
+              {paintItems.map(item => (
+                <div key={item.product} className="flex flex-wrap items-center justify-between gap-x-3 border-t pt-2 text-sm">
+                  <span>{item.product}</span>
+                  <span className="font-semibold">{item.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} m × {money(item.unit_price)}/m · {money(item.quantity * item.unit_price)}</span>
+                  {item.rateMissing && <p className="w-full text-xs text-amber-700">Tarifa de pintura ainda não cadastrada para esta cor.</p>}
+                </div>
+              ))}
+            </section>
+          )}
 
           {/* ── Botões para adicionar ── */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
