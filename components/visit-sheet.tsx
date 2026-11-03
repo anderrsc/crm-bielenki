@@ -1,6 +1,7 @@
 "use client";
 
 import { MeasureCallBefore } from "./measure-call-before";
+import { MeasureExtraRow } from "./measure-extra-row";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { useState } from "react";
@@ -128,6 +129,8 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
           <MeasureCard label="MEDIDOR" blank />
           <MeasureCallBefore interactive={false} />
         </section>
+
+        <MeasureExtraRow />
 
         <section className="measure-lines" aria-label="Área para medidas" />
       <div className="measure-credit"><AuthorSignature/></div>

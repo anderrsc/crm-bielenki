@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { MeasureCallBefore } from "./measure-call-before";
+import { MeasureExtraRow } from "./measure-extra-row";
 import { AuthorSignature } from "./brand-logo";
 
 import { FileDown, Printer, X } from "lucide-react";
@@ -138,6 +139,8 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
         <MeasureCard label="MEDIDOR" blank />
         <MeasureCallBefore />
       </section>
+
+      <MeasureExtraRow />
 
       <section className="measure-lines" aria-label="Area para medidas" />
       <div className="measure-credit"><AuthorSignature/></div>
