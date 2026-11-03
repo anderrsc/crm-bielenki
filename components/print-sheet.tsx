@@ -60,7 +60,7 @@ export function PrintSheet({ client, company, qty = 1 }: { client?: Client; comp
         </div>
       </div>
 
-      <div className="flex min-h-screen flex-col items-center gap-4 bg-[#f0f0f0] pb-8 pt-[72px] print:block print:bg-white print:p-0">
+      <div className="flex min-h-screen flex-col items-center gap-4 bg-[#f0f0f0] pb-8 pt-[72px] print:block print:min-h-0 print:bg-white print:p-0">
         {Array.from({ length: Math.max(1, qty) }).map((_, index) => (
           <MeasurePage
             key={index}
