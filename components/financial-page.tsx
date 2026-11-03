@@ -1,6 +1,6 @@
 ﻿import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
-import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
 import Link from "next/link";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { RescheduleDialog } from "@/components/reschedule-dialog";
@@ -35,12 +35,15 @@ const TABS = [
 
 const PAGE_SIZE = 60;
 
-export async function FinancialPage({ filter, error, received, page = 1 }: { filter?: string; error?: string; received?: boolean; page?: number }) {
+export async function FinancialPage({ filter, error, received, created, page = 1 }: { filter?: string; error?: string; received?: boolean; created?: boolean; page?: number }) {
   const db = await getRequestClient();
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
   const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);
-  const { data } = filter ? await q.eq("entry_type", filter) : await q;
+  const [{ data }, { data: canCreate }] = await Promise.all([
+    filter ? q.eq("entry_type", filter) : q,
+    db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
+  ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
 
@@ -70,6 +73,13 @@ export async function FinancialPage({ filter, error, received, page = 1 }: { fil
         </nav>
       </div>
 
+      {canCreate === true && (
+        <div className="mb-5 flex flex-wrap gap-2">
+          {(!filter || filter === "pagar") && <Link className="button" href="/financeiro/pagar/novo"><Plus className="h-4 w-4" /> Nova conta a pagar</Link>}
+          {(!filter || filter === "receber") && <Link className="button" href="/financeiro/receber/novo"><Plus className="h-4 w-4" /> Nova conta a receber</Link>}
+        </div>
+      )}
+      {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {received && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">Pagamento registrado com sucesso.</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
 
