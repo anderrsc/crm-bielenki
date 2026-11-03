@@ -384,8 +384,6 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Dados do cliente ── */}
           <section className="quote-client-box">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="quote-client-watermark" src={logoSrc} alt="" />
             <p className="quote-client-title">DADOS DO CLIENTE</p>
             <div className="quote-client-grid">
               <span className="quote-client-lbl">NOME:</span>

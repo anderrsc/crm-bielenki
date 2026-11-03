@@ -33,8 +33,12 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect(logo).not.toContain('aria-label="CALHAS E ESQUADRIAS"');
   // Marca d'agua: logo original da Marquinhos, quase invisivel.
   const wm=Buffer.from(html.match(/class="quote-watermark"[^>]*background-image:url\(&quot;data:image\/svg\+xml;base64,([^&]+)&quot;\)/)?.[1]??'','base64').toString();
-  expect(wm).toContain('opacity="0.03"');
-  expect(Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString()).toContain('<svg');
+  // Sem transparencia (senao o Windows rasteriza a folha e o texto sai borrado).
+  expect(wm).not.toContain('opacity');
+  const wmLogo=Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString();
+  expect(wmLogo).toContain('<svg');
+  expect(wmLogo).toContain('fill="#efefef"');
+  expect(wmLogo).not.toContain('fill="#000000"');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
   expect(html).not.toContain('quote_attachments');

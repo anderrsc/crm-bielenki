@@ -26,13 +26,11 @@
 .quote-sheet .quote-table thead th { background:var(--paper-soft); color:var(--paper-text); border-block:1px solid var(--paper-border); font-size:7px; padding:2mm 1mm; letter-spacing:.04em; }
 .quote-sheet .quote-table thead .quote-th-desc { text-align:left; padding-left:1.4mm; }
 .quote-table tbody td { height:auto; padding:3mm 1.4mm; border-width:0 0 1px; border-color:var(--paper-border); overflow-wrap:anywhere; }
-.quote-table tbody tr:nth-child(even) { background:var(--paper-soft); }
 .quote-table tbody .quote-td-desc { text-align:left; font-size:8px; line-height:1.6; }
 .quote-table .quote-td-total,.quote-unit-value { font-variant-numeric:tabular-nums; font-size:7px; }
 .quote-piece-link { display:grid; grid-template-columns:minmax(0,1fr) 14mm; align-items:center; justify-items:center; gap:.4mm .8mm; }
 .quote-piece-link > span { display:block; grid-column:1 / -1; font-size:6px; }
 .quote-piece-image { width:100%; height:14mm; object-fit:contain; }
-.quote-table tbody tr:nth-child(even) .quote-piece-image { background:transparent; mix-blend-mode:multiply; }
 .quote-piece-qr { width:14mm; height:14mm; object-fit:contain; }
 .quote-piece-note { font-size:7px; line-height:1.5; margin:2mm 0 0; }
 .quote-bottom-grid,.quote-with-pieces .quote-bottom-grid { gap:4mm; margin-top:4mm; }
@@ -104,4 +102,10 @@
 
 /* Marca d'agua (lib/quote-watermark.ts): logo oficial, reto, em linhas
    alternadas, quase invisivel, por cima do conteudo e em todas as paginas. */
-.quote-sheet .quote-watermark { position:absolute; inset:0; z-index:5; pointer-events:none; user-select:none; background-repeat:repeat; background-size:33.3333% auto; background-position:left top; }
+.quote-sheet .quote-watermark { position:absolute; inset:0; z-index:0; pointer-events:none; user-select:none; background-repeat:repeat; background-size:33.3333% auto; background-position:left top; }
+
+/* Nada transparente no orcamento: opacity/rgba/blend fazem o "Microsoft Print
+   to PDF" e varias impressoras rasterizarem a folha (texto borrado). */
+.quote-sheet .quote-pay-item[data-checked="false"] { opacity:1; color:#b8b8b8; border-color:#e6e6e6; }
+.quote-sheet .quote-qr-box--empty { opacity:1; border-color:#d9d9d9; }
+.quote-sheet .quote-bar-meta { border-left-color:var(--paper-border); }
