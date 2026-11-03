@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Save } from "lucide-react";
 import { savePermission } from "@/app/(crm)/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 type Permission = { id: string; role: string; resource: string; can_view: boolean; can_create: boolean; can_update: boolean; can_delete: boolean };
 
@@ -43,7 +43,7 @@ const RESOURCE_LABELS: Record<string, string> = {
 export async function RolesPage({ error, saved }: { error?: string; saved?: boolean }) {
   let permissions: Permission[] = []; let loadError = ""; let canManage = false;
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const [perm, result] = await Promise.all([
       db.rpc("has_table_access", { resource: "permissions", action: "update" }),
       db.from("permissions").select("id,role,resource,can_view,can_create,can_update,can_delete").order("resource").order("role"),

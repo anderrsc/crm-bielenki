@@ -5,13 +5,13 @@ import {
   CalendarClock, CircleDollarSign, ClipboardList, FileText, ShoppingCart,
   TrendingUp, Users, WalletCards,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { money, shortDate } from "@/lib/utils";
+import { getRequestClient } from "@/lib/supabase/server";
+import { money, shortDate, todayISO } from "@/lib/utils";
 
 async function loadDashboard() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
-  const db = await createClient();
-  const date = new Date().toISOString().slice(0,10);
+  const db = await getRequestClient();
+  const date = todayISO();
   const [summaryRes, execRes, actionsRes, alertsRes, reportRes, upcomingRes] = await Promise.all([
     db.rpc("dashboard_summary"),
     db.rpc("dashboard_executivo"),

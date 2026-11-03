@@ -4,7 +4,7 @@ import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ChevronDown, FileDown, Printer, Users } from "lucide-react";
-import { shortDate } from "@/lib/utils";
+import { shortDate, todayISO } from "@/lib/utils";
 
 export type VisitSheetData = {
   clientId?: string;
@@ -112,7 +112,7 @@ export function VisitSheet({ clientId, client, company, backHref = "/medicoes" }
         </header>
 
         <div className="measure-red-line" />
-        <p className="measure-date">Data: {shortDate(new Date().toISOString().slice(0, 10))}</p>
+        <p className="measure-date">Data: {shortDate(todayISO())}</p>
 
         <section className="measure-grid measure-grid-4">
           <MeasureCard label="CLIENTE" value={client?.name || ""} strong />

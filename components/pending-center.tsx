@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, ArrowRight, CalendarCheck, ClipboardList, FileText, Ruler, ShoppingCart, TrendingDown, WalletCards } from "lucide-react";
 import Link from "next/link";
@@ -27,7 +27,7 @@ export async function PendingCenter({ category }: { category?: string }) {
   let loadError = process.env.NEXT_PUBLIC_SUPABASE_URL ? "" : "Configure a conexão com o Supabase para consultar as pendências.";
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const { data, error } = await db.rpc("pending_center");
     if (error) loadError = "Não foi possível carregar as pendências. Verifique a conexão e as migrações do banco.";
     items = (data as PendingItem[]) ?? [];

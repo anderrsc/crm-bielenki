@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, Check, Circle, MapPin, Play, UserRound } from "lucide-react";
 import { updateInstallationChecklist, updateInstallationStatus } from "@/app/(crm)/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { shortDate } from "@/lib/utils";
 
 type Checklist={id:string;title:string;completed:boolean;completed_at:string|null;notes:string|null;sort_order:number;required:boolean;completed_by_profile?:{full_name?:string}|null};
 export async function InstallationChecklistPage({id,error,saved}:{id:string;error?:string;saved?:boolean}){
-  const db=await createClient();const installationResult=await db.from("installations").select("id,status,scheduled_at,address,notes,completed_at,order:orders(order_number,client:clients(name,phone,whatsapp,address,neighborhood,city,state)),responsible:profiles(full_name)").eq("id",id).single();
+  const db=await getRequestClient();const installationResult=await db.from("installations").select("id,status,scheduled_at,address,notes,completed_at,order:orders(order_number,client:clients(name,phone,whatsapp,address,neighborhood,city,state)),responsible:profiles(full_name)").eq("id",id).single();
   if(installationResult.error||!installationResult.data)return <div className="card p-8">Instalação não encontrada: {installationResult.error?.message}</div>;
   const installation=installationResult.data as unknown as Record<string,unknown>;const order=installation.order as Record<string,unknown>;const client=order?.client as Record<string,unknown>;const responsible=installation.responsible as {full_name?:string}|null;
   const checklistResult=await db.from("installation_checklists").select("id,title,completed,completed_at,notes,sort_order,required,completed_by_profile:profiles!installation_checklists_completed_by_fkey(full_name)").eq("installation_id",id).order("sort_order");const items=(checklistResult.data as unknown as Checklist[])??[];const done=items.filter(x=>x.completed).length;const percent=items.length?Math.round(done/items.length*100):0;

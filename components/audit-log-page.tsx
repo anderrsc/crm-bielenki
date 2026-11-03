@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   INSERT: { label: "Criado", color: "bg-emerald-50 text-emerald-700" },
@@ -35,7 +35,7 @@ export async function AuditLogPage({
 }: {
   tableFilter?: string;
 }) {
-  const db = await createClient();
+  const db = await getRequestClient();
 
   const q = db
     .from("audit_logs")
@@ -140,7 +140,7 @@ export async function AuditLogPage({
               return (
                 <tr key={log.id} className="hover:bg-cream/30">
                   <td className="px-4 py-3 text-xs text-ink/50">
-                    {new Date(log.created_at).toLocaleString("pt-BR", {
+                    {new Date(log.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo",
                       day: "2-digit",
                       month: "2-digit",
                       year: "2-digit",

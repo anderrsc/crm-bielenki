@@ -1,13 +1,13 @@
 import { CheckCircle2, Clock3, PackageCheck, PackageOpen, Truck } from "lucide-react";
 import { receivePurchaseItem } from "@/app/(crm)/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { shortDate } from "@/lib/utils";
 
 type Material={id:string;order_number:string|null;client_name:string|null;sale_type:string|null;product:string|null;material_name:string; supplier_name:string|null;ordered_at:string|null;expected_at:string|null;received_at:string|null;purchase_status:string; purchased_quantity:number;received_quantity:number;pending_quantity:number;material_status:string;released_for_production:boolean;notes:string|null};
 type Location={id:string;name:string};
 export async function OrderMaterialsPage({error,received}:{error?:string;received?:boolean}){
   let materials:Material[]=[];let locations:Location[]=[];let loadError="";
-  if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const [items,stocks]=await Promise.all([db.from("v_order_materials").select("*").order("expected_at",{ascending:true}),db.from("stock_locations").select("id,name").eq("active",true).order("name")]);materials=(items.data as Material[])??[];locations=(stocks.data as Location[])??[];loadError=items.error?.message||stocks.error?.message||"";}
+  if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [items,stocks]=await Promise.all([db.from("v_order_materials").select("*").order("expected_at",{ascending:true}),db.from("stock_locations").select("id,name").eq("active",true).order("name")]);materials=(items.data as Material[])??[];locations=(stocks.data as Location[])??[];loadError=items.error?.message||stocks.error?.message||"";}
   const pending=materials.filter(x=>Number(x.pending_quantity)>0).length;const complete=materials.length-pending;
   return <div className="mx-auto max-w-[1500px]"><div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Produção sem WhatsApp</p><h1 className="mt-2 text-3xl font-black">Materiais do pedido</h1><p className="mt-1 text-sm text-ink/50">{complete} completos · {pending} aguardando recebimento</p></div>
     {(error||loadError)&&<p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error||loadError}</p>}{received&&<p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Material recebido, estoque e produção atualizados.</p>}{!locations.length&&<p className="mb-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Cadastre um local de estoque antes de receber materiais.</p>}

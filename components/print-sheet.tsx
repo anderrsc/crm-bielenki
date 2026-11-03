@@ -2,7 +2,7 @@
 import { AuthorSignature } from "./brand-logo";
 
 import { FileDown, Printer, X } from "lucide-react";
-import { shortDate } from "@/lib/utils";
+import { shortDate, todayISO } from "@/lib/utils";
 
 type Company = {
   trade_name?: string | null;
@@ -111,7 +111,7 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
       </header>
 
       <div className="measure-red-line" />
-      <p className="measure-date">Data: {shortDate(new Date().toISOString().slice(0, 10))}</p>
+      <p className="measure-date">Data: {shortDate(todayISO())}</p>
 
       <section className="measure-grid measure-grid-4">
         <MeasureCard label="CLIENTE" value={client?.name || ""} strong />

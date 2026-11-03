@@ -12,7 +12,7 @@ import { PrintButton } from "@/components/print-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 
 import { quotePieceMedia } from "@/lib/quote-piece-media";
@@ -143,7 +143,7 @@ function buildTipoQuantidade(item: QuoteItem, isGutter: boolean): { tipo: string
 // printOnly: renderiza so a folha do orcamento (sem botoes), usada pela rota
 // /orcamentos/[id]/impressao que o Chromium headless transforma em PDF.
 export async function QuoteDocument({ id, error, printOnly = false }: { id: string; error?: string; printOnly?: boolean }) {
-  const db = await createClient();
+  const db = await getRequestClient();
 
   // As tres consultas sao independentes: rodam em paralelo.
   const [quoteResult, gutter, { data: quoteItemsRaw }] = await Promise.all([

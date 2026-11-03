@@ -55,7 +55,7 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDat
 function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
 function ymd(d: Date) { return localISODate(d); }
 function eventDate(e: AgendaEvent) { return new Date(e.starts_at); }
-function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); }
+function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }); }
 function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.getDay()]}, ${d.getDate()} ${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`; }
 
 /* ─── Componente principal ───────────────────────────────────────────────── */

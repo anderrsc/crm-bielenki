@@ -5,7 +5,6 @@
 
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
-    ('quote_internal_attachments', 'id,company_id,quote_id,original_name,file_path,content_type,size_bytes,uploaded_by,created_at'),
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
     ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,groq_api_key,id,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('aluminum_price_matrix', 'company_id,cut_mm,id,price_per_meter,thickness,updated_at'),
@@ -67,6 +66,7 @@ with expected_columns(table_name, column_name) as (
     ('purchase_orders', 'buyer_id,company_id,created_at,expected_at,id,notes,open_amount,order_id,order_number,ordered_at,paid_amount,received_at,request_id,status,supplier_id,total,updated_at'),
     ('purchase_request_items', 'company_id,description,id,material_id,notes,request_id,requested_quantity,supplier_id,unit'),
     ('purchase_requests', 'approved_by,company_id,created_at,id,needed_by,notes,order_id,request_number,requested_by,status'),
+    ('quote_internal_attachments', 'company_id,content_type,created_at,file_path,id,original_name,quote_id,size_bytes,uploaded_by'),
     ('quote_items', 'company_id,description,id,item_type,metadata,product,quantity,quote_id,requires_production,requires_purchase,total,unit,unit_price'),
     ('quotes', 'approved_at,client_id,client_notes,company_id,created_at,discount,freight,hide_unit_prices,id,installation_deadline,notes,payment_methods,pdf_generated_at,quote_number,sale_id,sale_type_id,seller_id,seller_name,status,subtotal,total,updated_at,valid_days,valid_until'),
     ('sale_items', 'company_id,description,id,notes,product,quantity,requires_production,requires_purchase,sale_id,total,unit,unit_price'),
@@ -165,6 +165,7 @@ with expected_columns(table_name, column_name) as (
   ('seed_new_company_automations', '', 'c6ce8763710a055fdb01346c7158d3e3'),
   ('seed_new_company_defaults', '', 'e527e0cc0c06ebfd82c4083a3747463e'),
   ('seed_new_company_lead_sources', '', 'aa313b8beb5fa20f99a07786ead8b211'),
+  ('session_access', 'p_resource text', '1b910673bd940d5a998fec957c285965'),
   ('set_default_document_template', 'p_template_id uuid, p_type text', 'e7d561e68b44781bdce49c7b1458578b'),
   ('set_updated_at', '', 'e7a0919a4073eaabf72630cc53a76237'),
   ('sync_client_lead_source_name', '', 'de7edcfccfe410245b7e2aafdeade394'),

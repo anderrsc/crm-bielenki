@@ -1,6 +1,6 @@
 import { selectOwnProfile } from "@/lib/own-profile";
 import { updateCompanyIdentity } from "@/app/(crm)/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { Building2, ImagePlus, Megaphone, Ruler, Save, Palette, LayoutTemplate } from "lucide-react";
 import Link from "next/link";
 
@@ -14,7 +14,7 @@ const PAYMENT_METHOD_OPTIONS = [
 export async function CompanySettings({ error, saved }: { error?: string; saved?: boolean }) {
 let company: Record<string, string | null> = {};
 if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-const db = await createClient();
+const db = await getRequestClient();
 const { data: profile } = await selectOwnProfile(db, "company_id");
 if (profile?.company_id) { const result = await db.from("companies").select("*").eq("id", profile.company_id).single(); company = (result.data as Record<string,string|null>) ?? {}; }
 }

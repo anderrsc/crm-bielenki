@@ -116,7 +116,7 @@ function SessionCard({ session, onClick }: { session: TriageSession; onClick: ()
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-ink/40">
         <span>{session.messages.length} mensagens</span>
-        <span>{new Date(session.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+        <span>{new Date(session.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
       </div>
     </div>
   );
@@ -406,8 +406,12 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             {showKeyWarning && <p className="text-xs text-amber-600 mt-1">⚠️ Chave salva de forma segura. Nunca a compartilhe.</p>}
             <div className="mt-4 rounded-xl border border-forest/10 bg-gray-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-ink/55">Envia uma mensagem de teste usando a configuração <b>salva</b>.</p>
-                <button type="button" disabled={testingAi} onClick={() => startAiTest(async () => setAiTest(await testAiAgent()))} className="rounded-xl border border-forest/20 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50">
+                <p className="text-xs text-ink/55">Envia uma mensagem de teste com o provedor e o modelo escolhidos acima (não precisa salvar antes).</p>
+                <button type="button" disabled={testingAi} onClick={(event) => {
+                  const form = new FormData(event.currentTarget.form ?? undefined);
+                  const value = (name: string) => String(form.get(name) ?? "");
+                  startAiTest(async () => setAiTest(await testAiAgent({ provider: value("ai_provider"), model: value("openai_model"), groqKey: value("groq_api_key"), openaiKey: value("openai_api_key") })));
+                }} className="rounded-xl border border-forest/20 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50">
                   {testingAi ? "Testando..." : "Testar IA"}
                 </button>
               </div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, LockKeyhole, Plus, Save, Trash2 } from "lucide-react";
 import { deleteGutterPrice, saveGutterPrice } from "@/app/(crm)/actions";
 import { gutterColors, gutterCuts, gutterFabricationProducts, gutterThicknesses, sameThickness, type GutterPrice } from "@/lib/gutters";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money } from "@/lib/utils";
 
 export async function GutterPricesPage({ error, saved }: { error?: string; saved?: boolean }) {
@@ -12,7 +12,7 @@ export async function GutterPricesPage({ error, saved }: { error?: string; saved
   let canManage = false;
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const [viewPermission, editPermission, result] = await Promise.all([
       db.rpc("has_table_access", { resource: "gutter_prices", action: "select" }),
       db.rpc("has_table_access", { resource: "gutter_prices", action: "update" }),

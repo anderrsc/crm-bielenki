@@ -3,12 +3,12 @@ import { ArrowLeft, Check, Circle, Clock3, ClipboardPenLine } from "lucide-react
 import { deactivateClient, toggleChecklistItem } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ModuleConfig } from "@/lib/modules";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 
 export async function DetailPage({ config, id }: { config: ModuleConfig; id: string; subpage?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
-  const db = await createClient();
+  const db = await getRequestClient();
   const { data, error } = await db.from(config.table).select(config.select).eq("id", id).single();
   if (error || !data) return <Missing message={error?.message} />;
 

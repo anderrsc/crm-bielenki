@@ -12,6 +12,7 @@ import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
 import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
+import { todayISO } from "@/lib/utils";
 
 const text = z.string().trim().min(1);
 
@@ -60,7 +61,7 @@ export async function registerPayment(formData: FormData) {
   const interest = Number(formData.get("interest")||0);
   const discount = Number(formData.get("discount")||0);
   const installments = Number(formData.get("installments")||1);
-  const paidAt = String(formData.get("paid_at") || new Date().toISOString().slice(0, 10));
+  const paidAt = String(formData.get("paid_at") || todayISO());
   const firstDueDate = String(formData.get("first_due_date")||paidAt);
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
   if(!parsed.success) redirect(`${back}?erro=Revise+os+dados+do+pagamento`);
@@ -652,21 +653,28 @@ export async function saveAiAgentConfig(formData: FormData) {
   redirect("/agente-ia?aba=configuracoes&salvo=1");
 }
 
-/** Testa a IA com a configuracao salva da empresa. Roda no servidor; a chave nao sai daqui. */
-export async function testAiAgent(): Promise<{ reply?: string; error?: string }> {
+/**
+ * Testa a IA com o provedor e o modelo escolhidos na tela (mesmo antes de
+ * salvar). Chaves digitadas e ainda nao salvas sao usadas so neste teste;
+ * sem elas vale a chave salva. Roda no servidor; a chave nao sai daqui.
+ */
+export async function testAiAgent(input: { provider?: string; model?: string; groqKey?: string; openaiKey?: string } = {}): Promise<{ reply?: string; error?: string }> {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) return { error: "Empresa não encontrada." };
   const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", profile.company_id).maybeSingle();
-  const provider = parseAiProvider(config?.ai_provider);
-  const storedKey = provider === "groq" ? (config?.groq_api_key ?? config?.openai_api_key) : config?.openai_api_key;
+  const provider = parseAiProvider(input.provider ?? config?.ai_provider);
+  const typed = (value?: string) => { const v = value?.trim(); return v && !v.startsWith("***") && !v.startsWith("enc:") ? v : null; };
+  const stored = provider === "groq" ? (config?.groq_api_key ?? config?.openai_api_key) : config?.openai_api_key;
+  const apiKey = (provider === "groq" ? typed(input.groqKey) : typed(input.openaiKey)) ?? (stored ? decryptSecret(stored) : null);
+  const model = input.model?.trim() || (provider === parseAiProvider(config?.ai_provider) ? config?.openai_model : null);
   try {
     const reply = await aiChat({
       provider,
-      model: config?.openai_model,
-      apiKey: storedKey ? decryptSecret(storedKey) : null,
+      model,
+      apiKey,
       maxTokens: 200,
       messages: [{ role: "user", content: "Teste de conexão do CRM. Responda em uma frase curta, em português, confirmando que está funcionando." }],
     });

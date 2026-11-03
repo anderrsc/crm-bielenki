@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarClock, X } from "lucide-react";
 import { rescheduleEntry } from "@/app/(crm)/actions";
+import { todayISO } from "@/lib/utils";
 
 export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string; currentDueDate: string | null }) {
   const [open, setOpen] = useState(false);
@@ -37,7 +38,7 @@ export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string;
                   type="date"
                   name="new_due_date"
                   defaultValue={currentDueDate?.slice(0, 10) ?? ""}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={todayISO()}
                   required
                 />
               </div>

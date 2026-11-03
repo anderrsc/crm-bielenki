@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, KeyRound, Plus, Save, UserCheck, UserX } from "lucide-react";
 import { inviteUser, saveEmployee, saveUserRoles, resetUserPassword } from "@/app/(crm)/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 type Profile = { id: string; full_name: string; phone: string | null; email: string | null; status: string };
 type UserRole = { profile_id: string; role: string };
@@ -26,7 +26,7 @@ export async function EmployeesPage({ error, saved }: { error?: string; saved?: 
   let novoEmail = "";
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    const db = await createClient();
+    const db = await getRequestClient();
     const [perm, profResult, rolesResult] = await Promise.all([
       db.rpc("has_table_access", { resource: "profiles", action: "update" }),
       db.from("profiles").select("id,full_name,phone,email,status").order("full_name"),

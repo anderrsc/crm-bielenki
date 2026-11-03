@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Boxes, Building2, ClipboardCheck, FileText, HandCoins, Search, ShoppingCart, Users } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 
 type Result={entity_type:string;entity_id:string;title:string;subtitle:string;status:string;href:string;priority:number};
 const icons:Record<string,typeof Search>={cliente:Users,pedido:ClipboardCheck,"orçamento":FileText,venda:HandCoins,compra:ShoppingCart,fornecedor:Building2,material:Boxes};
@@ -8,7 +8,7 @@ const labels:Record<string,string>={cliente:"Clientes",pedido:"Pedidos","orçame
 
 export async function GlobalSearch({query}:{query?:string}) {
   let results:Result[]=[]; let error=""; const term=query?.trim()??"";
-  if(term.length>=2&&process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await createClient();const response=await db.rpc("global_search",{p_query:term});results=(response.data as Result[])??[];error=response.error?.message??"";}
+  if(term.length>=2&&process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const response=await db.rpc("global_search",{p_query:term});results=(response.data as Result[])??[];error=response.error?.message??"";}
   const groups=Object.entries(Object.groupBy(results,item=>item.entity_type));
   return <div className="mx-auto max-w-6xl"><div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Encontre qualquer registro</p><h1 className="mt-2 text-3xl font-black">Busca global</h1><p className="mt-1 text-sm text-ink/50">Clientes, documentos comerciais, fornecedores e materiais em uma consulta.</p></div>
     <form className="card relative p-3"><Search className="absolute left-7 top-7 h-5 w-5 text-ink/35"/><input autoFocus className="field py-3.5 pl-12 text-base" name="q" defaultValue={term} placeholder="Nome, telefone, número do pedido, orçamento, compra..."/><button className="button absolute right-5 top-5">Buscar</button></form>
