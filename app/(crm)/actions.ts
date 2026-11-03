@@ -675,7 +675,7 @@ export async function testAiAgent(input: { provider?: string; model?: string; gr
       provider,
       model,
       apiKey,
-      maxTokens: 200,
+      maxTokens: 500,
       messages: [{ role: "user", content: "Teste de conexão do CRM. Responda em uma frase curta, em português, confirmando que está funcionando." }],
     });
     return reply.trim() ? { reply: reply.trim() } : { error: "A IA respondeu sem texto." };
