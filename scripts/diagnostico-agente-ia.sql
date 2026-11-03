@@ -14,4 +14,7 @@ union all
 select 'mensagens', 'itens nao-objeto: ' || count(*) from public.triage_sessions s, lateral jsonb_array_elements(case when jsonb_typeof(to_jsonb(s.messages)) = 'array' then to_jsonb(s.messages) else '[]' end) m where jsonb_typeof(m) <> 'object' or jsonb_typeof(m->'content') not in ('string')
 union all
 select 'config', k || ': ' || coalesce(jsonb_typeof(v), 'nulo') from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k not like '%key%' and k not like '%token%'
+union all
+select 'chave', k || ': ' || case when coalesce(v #>> '{}', '') = '' then 'vazia' when v #>> '{}' like 'enc:%' then 'criptografada' else 'texto' end
+from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k like '%key%' or k like '%token%'
 order by 1, 2;

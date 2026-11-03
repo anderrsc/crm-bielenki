@@ -55,6 +55,7 @@ describe('money, dates and secrets',()=>{
   test('local ISO date preserves date',()=>expect(localISODate(new Date(2026,9,12,23))).toBe('2026-10-12'));
   test('encrypt/decrypt roundtrip with randomized IV',()=>{vi.stubEnv('ENCRYPTION_KEY','ab'.repeat(32));const a=encryptSecret('test-secret');expect(decryptSecret(a)).toBe('test-secret');expect(encryptSecret('test-secret')).not.toBe(a);expect(maskSecret(a)).toBe('test***cret');});
   test('tampered ciphertext is not returned',()=>{vi.stubEnv('ENCRYPTION_KEY','ab'.repeat(32));expect(decryptSecret('enc:invalid')).toBe('');});
-  test('invalid key is rejected',()=>{vi.stubEnv('ENCRYPTION_KEY','bad');expect(()=>encryptSecret('secret')).toThrow();});
+  test('invalid key is rejected',()=>{vi.stubEnv('ENCRYPTION_KEY','bad');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','');expect(()=>encryptSecret('secret')).toThrow();});
+  test('sem ENCRYPTION_KEY usa chave derivada do segredo do servidor (salvar nao quebra a pagina)',()=>{vi.stubEnv('ENCRYPTION_KEY','');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','segredo-do-servidor');const a=encryptSecret('gsk_teste');expect(a.startsWith('enc:')).toBe(true);expect(decryptSecret(a)).toBe('gsk_teste');vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY','outro');expect(decryptSecret(a)).toBe('');});
   test('short secrets are fully masked',()=>expect(maskSecret('abc')).toBe('***'));
 });
