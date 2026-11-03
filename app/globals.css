@@ -109,10 +109,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .measure-red-line {
   height: 1.3px;
   background: var(--measure-primary, #d71920);
-  margin: 2.5mm 0 1mm;
+  margin: 1.5mm 0 2.5mm;
 }
+/* Data no canto superior direito da folha, fora do fluxo, para sobrar espaço. */
 .measure-date {
-  margin: 0 0 2mm;
+  position: absolute;
+  top: 4mm;
+  right: 8mm;
+  margin: 0;
   text-align: right;
   font-size: 9.5px;
   color: #666;
@@ -192,6 +196,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
     padding: 10mm 12mm 7mm;
     break-inside: avoid;
     overflow-wrap: anywhere;
+  }
+  .measure-sheet .measure-date {
+    top: 4mm;
+    right: 12mm;
   }
   .measure-sheet .measure-contact p { white-space: normal; }
   .measure-sheet .measure-lines {
