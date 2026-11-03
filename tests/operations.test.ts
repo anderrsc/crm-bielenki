@@ -41,6 +41,15 @@ beforeEach(async()=>{await db.exec('begin');await actAs(admin);});
 afterEach(async()=>{await db.exec('rollback');});
 afterAll(async()=>{if(db) await db.close();});
 
+test('employee profiles require view permission, except for the signed-in profile', async () => {
+  await db.exec('set local role authenticated');
+  await actAs(seller);
+  expect((await first("select has_table_access('profiles', 'select') as allowed")).allowed).toBe(false);
+  expect(await rows('select id from profiles')).toEqual([{ id: seller }]);
+  await actAs(admin);
+  expect(await rows('select id from profiles order by id')).toEqual([{ id: admin }, { id: seller }]);
+});
+
 describe('quotes → sales → orders',()=>{
   test('internal attachments stay private and isolated by company',async()=>{
     const id=await quote();

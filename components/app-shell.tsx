@@ -1,4 +1,5 @@
 "use client";
+import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,Plus,Ruler,Search,Settings,Shield,UserCog,Users,WalletCards,X } from "lucide-react";
@@ -13,20 +14,14 @@ const groups=[
  {title:"Equipe",items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield]]},
  {title:"Geral",items:[["Automações", "/automacoes",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
 ] as const;
-export function AppShell({children,userName,companyName,roles=[]}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[]}){
+export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[];viewable?:string[]}){
  const pathname=usePathname(),[open,setOpen]=useState(false),[collapsed,setCollapsed]=useState(false),searchRef=useRef<HTMLInputElement>(null);
  useEffect(()=>{try{setCollapsed(localStorage.getItem("marquinhos-sidebar")==="collapsed")}catch{}const shortcut=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();searchRef.current?.focus()}if(e.key==="Escape")setOpen(false)};addEventListener("keydown",shortcut);return()=>removeEventListener("keydown",shortcut)},[]);
  const toggleSidebar=()=>{setCollapsed(!collapsed);try{localStorage.setItem("marquinhos-sidebar",collapsed?"expanded":"collapsed")}catch{}};
- const privileged=roles.some(r=>["administrador","gerente"].includes(r));
- const canSee=(href:string)=>{
-  if(privileged||["/dashboard", "/busca", "/pendencias", "/design-system"].includes(href))return true;
-  if(href.startsWith("/financeiro")||href==="/relatorios")return roles.includes("financeiro");
-  if(href.startsWith("/configuracoes")||["/automacoes", "/agente-ia", "/auditoria"].includes(href))return false;
-  if(["/agenda", "/medicoes"].includes(href))return roles.some(r=>["vendedor","atendente","instalador","producao"].includes(r));
-  if(["/compras", "/fornecedores", "/estoque"].includes(href))return roles.some(r=>["compras","estoque","producao"].includes(r));
-  if(href==="/producao")return roles.some(r=>["producao","estoque"].includes(r));
-  if(href==="/instalacoes")return roles.includes("instalador");
-  return roles.some(r=>["vendedor","atendente","financeiro"].includes(r));
+ const management = isManagement(roles);
+ const canSee = (href: string) => {
+  const access = moduleAccess(href);
+  return (!access.management || management) && (!access.resource || viewable.includes(access.resource));
  };
  return <div className="app-shell-root">
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
