@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { MeasureCallBefore } from "./measure-call-before";
 import { AuthorSignature } from "./brand-logo";
 
@@ -76,6 +77,7 @@ export function PrintSheet({ client, company, qty = 1 }: { client?: Client; comp
 }
 
 function MeasurePage({ client, company, pageBreak }: { client?: Client; company: Company; pageBreak?: boolean }) {
+  const [availability, setAvailability] = useState("");
   const red = "var(--red-500)";
   const tradeName = company.trade_name || company.name || "Marquinhos Calhas e Esquadrias";
   const legalName = company.name && company.name !== tradeName ? company.name : "Marcus Luiz Keil";
@@ -123,7 +125,16 @@ function MeasurePage({ client, company, pageBreak }: { client?: Client; company:
 
       <section className="measure-grid measure-grid-visit">
         <MeasureCard label="ENDERECO" value={address || ""} />
-        <MeasureCard label="DISPONIBILIDADE DE HORARIO" blank />
+        <label className="measure-card min-w-0">
+          <span className="measure-card-label block">DISPONIBILIDADE DE HORÁRIO</span>
+          <input className="w-full border-b border-black bg-transparent text-xs print:hidden" value={availability}
+            maxLength={100} placeholder="Ex. após as 14h" onChange={event => setAvailability(event.target.value)} />
+          <span className="hidden print:block">
+            {availability.trim()
+              ? <span className="measure-card-value">{availability.trim()}</span>
+              : <span className="measure-card-line block" />}
+          </span>
+        </label>
         <MeasureCard label="MEDIDOR" blank />
         <MeasureCallBefore />
       </section>
