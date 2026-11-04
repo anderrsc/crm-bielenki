@@ -75,10 +75,17 @@ const CAT_BADGE: Record<string, string> = {
   "Itens Especiais": "bg-gray-100 text-gray-700",
 };
 
-const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[], rates: GutterQuoteRates): GutterQuoteItem => {
+/* Tabela de retirada na empresa: sempre 20% abaixo da tabela (com instalação). */
+export const PICKUP_FACTOR = 0.8;
+const PICKUP_DEADLINE = "Sem instalação (retirada)";
+export const PICKUP_NOTE_MARK = "Orçamento pela tabela de retirada na empresa";
+export const PICKUP_NOTE = `${PICKUP_NOTE_MARK}: os valores já consideram 20% de desconto sobre a tabela padrão e não incluem instalação, mão de obra no local nem frete. O material deve ser retirado em nossa sede, em data e horário combinados após a confirmação do pedido. Recomendamos conferir as peças e medidas no ato da retirada; o transporte e a instalação ficam sob responsabilidade do cliente.`;
+const tableValue = (value: number | undefined, factor: number) => Math.round(Number(value ?? 0) * factor * 100) / 100;
+
+const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[], rates: GutterQuoteRates, factor = 1): GutterQuoteItem => {
   const product = category === "Calhas" ? "Calha de beiral" : PRODUCTS_BY_CATEGORY[category][0];
   const item = { category, product, thickness: "0.5mm", cut: "200 mm", color: "Aluminio Natural", quantity: 1, meters: 1, unit_price: 0 };
-  return { ...item, unit_price: Number(fabricatedMeterPrice(prices, rates, item) ?? 0) };
+  return { ...item, unit_price: tableValue(fabricatedMeterPrice(prices, rates, item), factor) };
 };
 
 const specialPriceDefaults: Record<string, { unit: string; unit_price: number }> = {
@@ -100,13 +107,13 @@ const productOptions = (category: FabricatedCategory | OtherCategory, prices: Gu
 ]).filter(name => !retiredProducts.has(normalizeProductName(name)) || normalizeProductName(current) === normalizeProductName(name))
   .reduce<string[]>((names, name) => [...names, current && normalizeProductName(current) === normalizeProductName(name) ? current : name], []);
 
-const blankOther = (item_type: OtherCategory, prices: GutterPrice[]): SpecialItem => ({
+const blankOther = (item_type: OtherCategory, prices: GutterPrice[], factor = 1): SpecialItem => ({
   item_type,
   product: PRODUCTS_BY_CATEGORY[item_type][0],
   description: "",
   unit: specialPrice(prices, PRODUCTS_BY_CATEGORY[item_type][0])?.unit || UNITS_BY_CATEGORY[item_type][0],
   quantity: 1,
-  unit_price: Number(specialPrice(prices, PRODUCTS_BY_CATEGORY[item_type][0])?.unit_price ?? 0),
+  unit_price: tableValue(specialPrice(prices, PRODUCTS_BY_CATEGORY[item_type][0])?.unit_price, factor),
 });
 
 const otherCategoryFromRecord = (item: Partial<SpecialItem>): OtherCategory => {
@@ -191,6 +198,30 @@ export function GutterQuote({
   const [hideUnitPrices, setHideUnitPrices] = useState(initial?.hide_unit_prices ?? false);
   const [clientId, setClientId] = useState(initial?.client_id ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [pickup, setPickup] = useState(() => (initial?.notes ?? "").includes(PICKUP_NOTE_MARK));
+  const factor = pickup ? PICKUP_FACTOR : 1;
+
+  // Troca a tabela: reprecifica só os itens que estão no preço de tabela
+  // (valores digitados à mão ficam) e coloca/tira a observação de retirada.
+  const changeTable = (nextPickup: boolean) => {
+    if (nextPickup === pickup) return;
+    const from = pickup ? PICKUP_FACTOR : 1, to = nextPickup ? PICKUP_FACTOR : 1;
+    const same = (a: number, b: number) => Math.abs(a - b) < 0.005;
+    setItems(curr => curr.map(item => {
+      const base = fabricatedMeterPrice(prices, rates, item);
+      return base !== undefined && same(item.unit_price, tableValue(base, from)) ? { ...item, unit_price: tableValue(base, to) } : item;
+    }));
+    setSpecialItems(curr => curr.map(item => {
+      const base = specialPrice(prices, item.product)?.unit_price;
+      return base !== undefined && same(item.unit_price, tableValue(base, from)) ? { ...item, unit_price: tableValue(base, to) } : item;
+    }));
+    setNotes(curr => {
+      const without = curr.split("\n").filter(line => !line.includes(PICKUP_NOTE_MARK)).join("\n").trim();
+      return nextPickup ? [PICKUP_NOTE, without].filter(Boolean).join("\n") : without;
+    });
+    setInstallationDeadline(curr => nextPickup ? PICKUP_DEADLINE : curr === PICKUP_DEADLINE ? "Até 15 dias" : curr);
+    setPickup(nextPickup);
+  };
 
   const [validUntil, setValidUntil] = useState(initial?.valid_until ?? addDaysISO(todayISO(), 30));
   const [installationDeadline, setInstallationDeadline] = useState(
@@ -223,11 +254,11 @@ export function GutterQuote({
           [key]: ["quantity", "meters", "unit_price"].includes(key) ? Number(value) : value,
         } as GutterQuoteItem;
         if (["product", "thickness", "cut", "color"].includes(key)) {
-          next.unit_price = Number(fabricatedMeterPrice(prices, rates, next) ?? 0);
+          next.unit_price = tableValue(fabricatedMeterPrice(prices, rates, next), factor);
         }
         if (key === "category") {
           next.product = blankFabricated(value as FabricatedCategory, prices, rates).product;
-          next.unit_price = Number(fabricatedMeterPrice(prices, rates, next) ?? 0);
+          next.unit_price = tableValue(fabricatedMeterPrice(prices, rates, next), factor);
         }
         return next;
       })
@@ -247,7 +278,7 @@ export function GutterQuote({
         }
         if (key === "product" || key === "item_type") {
           const price = specialPrice(prices, next.product);
-          next.unit_price = Number(price?.unit_price ?? 0);
+          next.unit_price = tableValue(price?.unit_price, factor);
           next.unit = price?.unit || next.unit;
         }
         return next;
@@ -395,7 +426,7 @@ export function GutterQuote({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setItems(c => [...c, blankFabricated(cat, prices, rates)])}
+                onClick={() => setItems(c => [...c, blankFabricated(cat, prices, rates, factor)])}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
@@ -407,7 +438,7 @@ export function GutterQuote({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setSpecialItems(c => [...c, blankOther(cat, prices)])}
+                onClick={() => setSpecialItems(c => [...c, blankOther(cat, prices, factor)])}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
@@ -440,6 +471,18 @@ export function GutterQuote({
               </div>
             </div>
 
+            <div>
+              <label className="label">Tabela de preços</label>
+              <div className="grid grid-cols-2 gap-1 rounded-xl border p-1" role="group" aria-label="Tabela de preços">
+                {[{ value: false, label: "Com instalação" }, { value: true, label: "Retirada (−20%)" }].map(option => (
+                  <button key={option.label} type="button" onClick={() => changeTable(option.value)} aria-pressed={pickup === option.value}
+                    className={`rounded-lg px-2 py-2 text-xs font-bold transition ${pickup === option.value ? "bg-brand-strong text-white" : "text-ink/60 hover:bg-cream"}`}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {pickup && <p className="mt-1 text-xs text-ink/55">Valores de tabela com 20% de desconto e observação de retirada incluída.</p>}
+            </div>
             <NumberField label="Desconto (R$)" value={discount} onChange={v => setDiscount(Number(v))} />
             <NumberField label="Frete (R$)" value={freight} onChange={v => setFreight(Number(v))} />
             <label className="flex cursor-pointer items-center gap-2 text-sm">
