@@ -51,6 +51,10 @@ test("catalog import updates reference prices, preserves extras and other tenant
     expect((await db.query("select unit_price::float price from gutter_prices where company_id=$1 and product='Calha central (fundo em V)' and thickness='1.0mm' and cut_mm=1200",[company])).rows[0]).toEqual({price:392});
     expect((await db.query("select unit,unit_price::float price from gutter_prices where company_id=$1 and product='Cano PVC — barra de 6,00 m'",[company])).rows[0]).toEqual({unit:'metro',price:40});
     expect((await db.query("select unit_price::float price from gutter_prices where company_id=$1 and product='Calha de beiral c/ 300 mm — Dois pisos'",[company])).rows[0]).toEqual({price:75});
+    await db.query("insert into gutter_prices(company_id,product,unit,unit_price,notes) values($1,'Condutor','metro',35,'Placeholder - ajustar conforme custo do alumínio'),($1,'PU MS40','Unidade',68,'Placeholder - ajustar conforme custo do alumínio')",[company]);
+    const placeholders=readFileSync(`supabase/migrations/${readdirSync('supabase/migrations').find(f=>f.endsWith('_remove_placeholder_prices.sql'))!}`,'utf8');
+    await db.exec(placeholders);await db.exec(placeholders);
+    expect((await db.query("select product from gutter_prices where company_id=$1 and notes ilike 'Placeholder%'",[company])).rows).toEqual([{product:'PU MS40'}]);
     const beiralFix=readFileSync(`supabase/migrations/${readdirSync('supabase/migrations').find(f=>f.endsWith('_beiral_commercial_price.sql'))!}`,'utf8');
     await db.exec(beiralFix);await db.exec(beiralFix);
     expect((await db.query("select distinct unit_price::float price from gutter_prices where company_id=$1 and product='Calha de beiral' and cut_mm=300",[company])).rows).toEqual([{price:70}]);

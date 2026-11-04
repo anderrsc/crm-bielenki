@@ -75,11 +75,11 @@ const CAT_BADGE: Record<string, string> = {
   "Itens Especiais": "bg-gray-100 text-gray-700",
 };
 
-/* Tabela de retirada na empresa: sempre 20% abaixo da tabela (com instalação). */
-export const PICKUP_FACTOR = 0.8;
+/* Tabela de retirada na empresa: sempre 25% abaixo da tabela (com instalação), pintura inclusive. */
+export const PICKUP_FACTOR = 0.75;
 const PICKUP_DEADLINE = "Sem instalação (retirada)";
 export const PICKUP_NOTE_MARK = "Orçamento pela tabela de retirada na empresa";
-export const PICKUP_NOTE = `${PICKUP_NOTE_MARK}: os valores já consideram 20% de desconto sobre a tabela padrão e não incluem instalação, mão de obra no local nem frete. O material deve ser retirado em nossa sede, em data e horário combinados após a confirmação do pedido. Recomendamos conferir as peças e medidas no ato da retirada; o transporte e a instalação ficam sob responsabilidade do cliente.`;
+export const PICKUP_NOTE = `${PICKUP_NOTE_MARK}: os valores já consideram 25% de desconto sobre a tabela padrão e não incluem instalação, mão de obra no local nem frete. O material deve ser retirado em nossa sede, em data e horário combinados após a confirmação do pedido. Recomendamos conferir as peças e medidas no ato da retirada; o transporte e a instalação ficam sob responsabilidade do cliente.`;
 const tableValue = (value: number | undefined, factor: number) => Math.round(Number(value ?? 0) * factor * 100) / 100;
 
 const blankFabricated = (category: FabricatedCategory, prices: GutterPrice[], rates: GutterQuoteRates, factor = 1): GutterQuoteItem => {
@@ -239,7 +239,7 @@ export function GutterQuote({
     ...specialItems
       .filter(item => PAINTABLE.includes(item.item_type as OtherCategory) && item.color && isMeterUnit(item.unit))
       .map(item => ({ color: item.color!, quantity: item.quantity, meters: 1 })),
-  ], rates), [items, specialItems, rates]);
+  ], rates).map(item => ({ ...item, unit_price: tableValue(item.unit_price, factor) })), [items, specialItems, rates, factor]);
   const subtotalOther = [...specialItems, ...paintItems].reduce((total, item) => total + item.quantity * item.unit_price, 0);
   const subtotal = subtotalFab + subtotalOther;
   const total = Math.max(0, subtotal - discount + freight);
@@ -474,14 +474,14 @@ export function GutterQuote({
             <div>
               <label className="label">Tabela de preços</label>
               <div className="grid grid-cols-2 gap-1 rounded-xl border p-1" role="group" aria-label="Tabela de preços">
-                {[{ value: false, label: "Com instalação" }, { value: true, label: "Retirada (−20%)" }].map(option => (
+                {[{ value: false, label: "Com instalação" }, { value: true, label: "Retirada (−25%)" }].map(option => (
                   <button key={option.label} type="button" onClick={() => changeTable(option.value)} aria-pressed={pickup === option.value}
                     className={`rounded-lg px-2 py-2 text-xs font-bold transition ${pickup === option.value ? "bg-brand-strong text-white" : "text-ink/60 hover:bg-cream"}`}>
                     {option.label}
                   </button>
                 ))}
               </div>
-              {pickup && <p className="mt-1 text-xs text-ink/55">Valores de tabela com 20% de desconto e observação de retirada incluída.</p>}
+              {pickup && <p className="mt-1 text-xs text-ink/55">Valores de tabela e pintura com 25% de desconto e observação de retirada incluída.</p>}
             </div>
             <NumberField label="Desconto (R$)" value={discount} onChange={v => setDiscount(Number(v))} />
             <NumberField label="Frete (R$)" value={freight} onChange={v => setFreight(Number(v))} />
