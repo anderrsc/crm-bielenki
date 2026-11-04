@@ -104,6 +104,15 @@ describe('quotes → sales → orders',()=>{
     await quote();
     await expect(db.query('select delete_client($1)',[client])).rejects.toThrow(/orçamentos/);
   });
+  test('quote with a linked measurement can be deleted; approved quote cannot',async()=>{
+    const id=await quote();
+    const m=await first("insert into measurements(company_id,client_id,quote_id) values($1,$2,$3) returning id",[company,client,id]);
+    await db.query('select delete_draft_quote($1)',[id]);
+    expect(Number((await first('select count(*) n from quotes where id=$1',[id])).n)).toBe(0);
+    expect((await first('select quote_id from measurements where id=$1',[m.id])).quote_id).toBeNull();
+    const ap=await quote();await db.query('select approve_quote($1)',[ap]);
+    await expect(db.query('select delete_draft_quote($1)',[ap])).rejects.toThrow(/Reverter aprovação/);
+  });
   test('approved quote cannot be edited',async()=>{const id=await quote();await db.query('select approve_quote($1)',[id]);await expect(db.query('select update_gutter_quote($1,$2::jsonb)',[id,JSON.stringify({client_id:client,items:[]})])).rejects.toThrow(/aprovado/);});
   test('duplicate preserves lines and total',async()=>{const id=await quote();const copy=(await first('select duplicate_quote($1) id',[id])).id;expect(copy).not.toBe(id);expect(Number((await first('select total from quotes where id=$1',[copy])).total)).toBe(100);});
   test('empty quote is rejected',async()=>{await expect(quote({items:[]})).rejects.toThrow();});
