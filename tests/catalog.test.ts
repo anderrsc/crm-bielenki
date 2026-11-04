@@ -22,8 +22,9 @@ test("all documented profiles have original drawings and distinct model links", 
   expect(catalogPieceForProduct("Pingadeira com Rufo")).toBeUndefined();
   expect(catalogPieceForProduct("Rufo")).toBeUndefined();
   expect(catalogPieceForProduct("Calha de beiral c/ 300 mm — Dois pisos")?.id).toBe("calha-beiral");
-  expect(PRODUCTS_BY_CATEGORY.Calhas).toContain("Calha Moldura");
-  expect(PRODUCTS_BY_CATEGORY.Pingadeiras).toContain("Pingadeira com Rufo");
+  for (const retired of ["Calha Moldura","Calha Quadrada","Calha de Meio (Cocho)"]) expect(PRODUCTS_BY_CATEGORY.Calhas).not.toContain(retired);
+  for (const retired of ["Pingadeira com Rufo","Pingadeira Dupla","Pingadeira para Muro"]) expect(PRODUCTS_BY_CATEGORY.Pingadeiras).not.toContain(retired);
+  expect(PRODUCTS_BY_CATEGORY.Rufos).not.toContain("Rufo de Marquise");
   const media = await quotePieceMedia("Rufo de Cumeeira", true);
   expect(media?.image.startsWith("data:image/png;base64,")).toBe(true);
   expect(media?.qr.startsWith("data:image/png;base64,")).toBe(true);

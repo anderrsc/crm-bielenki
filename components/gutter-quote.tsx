@@ -99,7 +99,13 @@ const specialPrice = (prices: GutterPrice[], product: string) => {
   return prices.find(price => price.active && normalizeProductName(officialName(price.product)) === name && !price.thickness && !price.cut_mm)
     ?? (Object.hasOwn(specialPriceDefaults, name) ? specialPriceDefaults[name] : undefined);
 };
-const retiredProducts = new Set(["rufo", "rufo externo", "rufo interno"]);
+// Fora de linha: não aparecem mais na lista (orçamentos antigos continuam abrindo).
+const retiredProducts = new Set([
+  "rufo", "rufo externo", "rufo interno",
+  "calha de meio (cocho)", "calha moldura", "calha quadrada",
+  "rufo de marquise",
+  "pingadeira com rufo", "pingadeira dupla", "pingadeira para muro",
+]);
 const productOptions = (category: FabricatedCategory | OtherCategory, prices: GutterPrice[], current = "") => uniqueProductNames([
   ...PRODUCTS_BY_CATEGORY[category],
   ...prices.filter(p => (p.category || gutterCategoryForProduct(p.product)) === category).map(p => officialName(p.product)),

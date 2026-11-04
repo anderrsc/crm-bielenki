@@ -14,13 +14,9 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Calha de Beiral",
     "Calha Platibanda",
     "Calha Coletora",
-    "Calha de Meio (Cocho)",
     "Calha Água Furtada",
-    "Calha Moldura",
-    "Calha Quadrada",
   ],
   "Rufos": [
-    "Rufo de Marquise",
     "Rufo com Pingadeira",
     "Rufo Chapéu",
     "Rufo de Acabamento",
@@ -30,9 +26,6 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
   ],
   "Pingadeiras": [
     "Pingadeira",
-    "Pingadeira com Rufo",
-    "Pingadeira Dupla",
-    "Pingadeira para Muro",
     "Pingadeira de Marquise",
   ],
   // Itens da tabela (28/10/2026) entram pelo catálogo abaixo.
