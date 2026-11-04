@@ -35,6 +35,8 @@ export type SpecialItem = {
   unit: string;
   quantity: number;
   unit_price: number;
+  /** Cor (Condutores/Acessórios). Salva na descrição como "Cor: X". */
+  color?: string;
 };
 
 export type GutterQuoteInitial = {
@@ -122,6 +124,20 @@ const otherCategoryFromRecord = (item: Partial<SpecialItem>): OtherCategory => {
   return "Itens Especiais";
 };
 
+const PAINTABLE: OtherCategory[] = ["Condutores", "Acessórios"];
+const NATURAL_COLOR = "Aluminio Natural";
+const colorTag = /\s*·?\s*Cor:\s*([^·]+)$/i;
+const splitColor = (description: string) => {
+  const match = description.match(colorTag);
+  return match ? { description: description.replace(colorTag, "").trim(), color: match[1].trim() } : { description, color: NATURAL_COLOR };
+};
+const withColor = (item: SpecialItem) => {
+  const { color, ...rest } = item;
+  if (!PAINTABLE.includes(item.item_type as OtherCategory) || !color || color === NATURAL_COLOR) return rest;
+  return { ...rest, description: [item.description.trim(), `Cor: ${color}`].filter(Boolean).join(" · ") };
+};
+const isMeterUnit = (unit: string) => /^(m|metro|metros)$/i.test(unit.trim());
+
 const cleanOtherDescription = (description?: string | null) => {
   const first = String(description || "").split("|")[0]?.trim();
   return String(description || "")
@@ -160,10 +176,12 @@ export function GutterQuote({
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>(() =>
     (initial?.special_items ?? []).filter(item => !item.product.startsWith(automaticPaintPrefix)).map((item) => {
       const item_type = otherCategoryFromRecord(item);
+      const { description, color } = splitColor(cleanOtherDescription(item.description));
       return {
         ...item,
         item_type,
-        description: cleanOtherDescription(item.description),
+        description,
+        color: PAINTABLE.includes(item_type) ? color : undefined,
         unit: item.unit || UNITS_BY_CATEGORY[item_type][0],
       };
     })
@@ -184,7 +202,13 @@ export function GutterQuote({
     () => items.reduce((t, i) => t + i.quantity * i.meters * i.unit_price, 0),
     [items]
   );
-  const paintItems = useMemo(() => automaticPaintItems(items, rates), [items, rates]);
+  // Pintura: peças dobradas + condutores/acessórios vendidos por metro com cor.
+  const paintItems = useMemo(() => automaticPaintItems([
+    ...items,
+    ...specialItems
+      .filter(item => PAINTABLE.includes(item.item_type as OtherCategory) && item.color && isMeterUnit(item.unit))
+      .map(item => ({ color: item.color!, quantity: item.quantity, meters: 1 })),
+  ], rates), [items, specialItems, rates]);
   const subtotalOther = [...specialItems, ...paintItems].reduce((total, item) => total + item.quantity * item.unit_price, 0);
   const subtotal = subtotalFab + subtotalOther;
   const total = Math.max(0, subtotal - discount + freight);
@@ -237,7 +261,7 @@ export function GutterQuote({
     notes,
     hide_unit_prices: hideUnitPrices,
     items,
-    special_items: [...specialItems, ...paintItems],
+    special_items: [...specialItems.map(withColor), ...paintItems],
   });
 
   /* ── Agrupamento para exibição ── */
@@ -564,6 +588,9 @@ function OtherItemCard({
             value={item.description} onChange={e => onChange(index, "description", e.target.value)} />
         </div>
         <Select label="Unidade" value={item.unit} options={unitList} onChange={v => onChange(index, "unit", v)} />
+        {PAINTABLE.includes(item.item_type as OtherCategory) && (
+          <Select label="Cor" value={item.color || NATURAL_COLOR} options={gutterColors} onChange={v => onChange(index, "color", v)} />
+        )}
         <NumberField label="Quantidade" value={item.quantity} onChange={v => onChange(index, "quantity", v)} />
         <NumberField label="Valor unitário (R$)" value={item.unit_price} onChange={v => onChange(index, "unit_price", v)} />
         <div className="flex items-end pb-3">

@@ -131,7 +131,7 @@ export const gutterColors = [
 // ─── Unidades por categoria ───────────────────────────────────────────────────
 export const UNITS_BY_CATEGORY: Record<OtherCategory, string[]> = {
   "Condutores": ["metro", "unidade", "peça"],
-  "Acessórios": ["peça", "unidade", "tubo", "caixa"],
+  "Acessórios": ["peça", "unidade", "metro", "tubo", "caixa"],
   "Serviços": ["metro", "unidade", "hora", "serviço", "diária"],
   "Itens Especiais": ["unidade", "peça", "serviço", "metro"],
 };
