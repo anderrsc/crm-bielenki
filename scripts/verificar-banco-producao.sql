@@ -121,7 +121,7 @@ with expected_columns(table_name, column_name) as (
   ('current_user_roles', '', 'c65a5fedb4542cf375d5e27743106479'),
   ('dashboard_executivo', '', '046dbdc38e67c607adb6102b7aecee13'),
   ('dashboard_summary', '', 'fc7914f1c0a061102a806f3f2c1beeb9'),
-  ('delete_draft_quote', 'p_quote_id uuid', '92d500881132a1282c68ef6288dd1958'),
+  ('delete_draft_quote', 'p_quote_id uuid', '8220ef5243997bd6ba6918fc37cb1fcc'),
   ('duplicate_quote', 'p_quote_id uuid', 'af5151d08fec6ca6cd24b2529f9b9f6e'),
   ('enqueue_due_automations', '', 'b8926d4c6e10a2ba32b6362943b5efcb'),
   ('financial_summary', 'p_entry_type text', '6c3e294a5b0be98478814baa1a6e82a8'),
