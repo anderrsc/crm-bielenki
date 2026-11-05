@@ -56,6 +56,8 @@ async function fillForm(formIndex, seed) {
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
     const future = new Date(Date.now() + 7 * 864e5);
+    // Telefone e CPF/CNPJ diferentes a cada envio: o banco bloqueia cliente repetido.
+    const digits = String(parseInt(seed, 36)).slice(-8);
     for (const el of form.querySelectorAll("input, select, textarea")) {
       if (el.disabled || el.type === "hidden" || el.type === "file" || el.type === "checkbox" || el.type === "radio" || el.type === "submit") continue;
       if (el.tagName === "SELECT") {
@@ -70,11 +72,11 @@ async function fillForm(formIndex, seed) {
       else if (el.type === "date") v = future.toISOString().slice(0, 10);
       else if (el.type === "datetime-local") v = future.toISOString().slice(0, 16);
       else if (el.type === "time") v = "09:00";
-      else if (el.type === "tel" || /phone|telefone|whatsapp|celular/.test(name)) v = "47999990000";
+      else if (el.type === "tel" || /phone|telefone|whatsapp|celular/.test(name)) v = `479${digits}`;
       else if (el.type === "password" || name.includes("senha")) v = "senha-teste-123";
       else if (el.type === "color") v = "#d71920";
       else if (el.type === "url" || name.includes("url")) v = "https://exemplo.com.br";
-      else if (/cnpj|cpf|tax/.test(name)) v = "00.000.000/0001-00";
+      else if (/cnpj|cpf|tax/.test(name)) v = `000${digits}100`;
       else if (/estado|state|uf/.test(name)) v = "SC";
       else if (!el.required) continue;
       set(el, v);
