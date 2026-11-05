@@ -33,7 +33,7 @@ return <div className="mx-auto max-w-5xl"><div className="mb-7 flex flex-col jus
   <Field name="qr_code_label" label="Legenda sob o QR Code" value={company.qr_code_label ?? "Acesse nosso portfólio completo"} />
   <p className="sm:col-span-2 text-xs text-ink/40">Deixe o link em branco para manter o espaço reservado no orçamento sem quebrar o layout.</p>
 </div>
-<Field name="default_validity_days" label="Validade padrão dos orçamentos (dias)" value={company.default_validity_days ?? "15"} type="number" />
+<Field name="default_validity_days" label="Validade padrão dos orçamentos (dias)" value={company.default_validity_days ?? "7"} type="number" />
 <div>
   <label className="label">Formas de pagamento aceitas</label>
   <div className="flex flex-wrap gap-3 rounded-xl border bg-surface px-3.5 py-2.5">

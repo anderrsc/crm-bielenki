@@ -9,11 +9,11 @@ import {
   type GutterPrice, type QuoteClient, type FabricatedCategory, type OtherCategory,
 } from "@/lib/gutters";
 import { automaticPaintItems, automaticPaintPrefix, fabricatedMeterPrice, paintMeterPrice, type GutterQuoteRates } from "@/lib/gutter-quote-pricing";
-import { money, addDaysISO, todayISO } from "@/lib/utils";
+import { money, addDaysISO, todayISO, DEFAULT_QUOTE_VALIDITY_DAYS } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
-import { uniqueProductNames, normalizeProductName } from "@/lib/gutter-catalog";
+import { uniqueProductNames, normalizeProductName, isBeiralProduct, isTwoFloors, withFloors, withoutFloors } from "@/lib/gutter-catalog";
 import { gutterCategoryForProduct, PRODUCT_RENAMES } from "@/lib/gutters";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
@@ -231,7 +231,7 @@ export function GutterQuote({
     setPickup(nextPickup);
   };
 
-  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? addDaysISO(todayISO(), 30));
+  const [validUntil, setValidUntil] = useState(initial?.valid_until ?? addDaysISO(todayISO(), DEFAULT_QUOTE_VALIDITY_DAYS));
   const [installationDeadline, setInstallationDeadline] = useState(
     initial?.installation_deadline ?? "Até 15 dias"
   );
@@ -579,10 +579,14 @@ function FabricatedItemCard({
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
         <div className="sm:col-span-2">
-          <Select label="Produto" value={item.product}
-            options={productOptions(item.category, prices, item.product)}
+          <Select label="Produto" value={withoutFloors(item.product)}
+            options={productOptions(item.category, prices, withoutFloors(item.product))}
             onChange={v => onChange(index, "product", v)} />
         </div>
+        {isBeiralProduct(item.product) && (
+          <Select label="Pisos" value={isTwoFloors(item.product) ? "2 pisos" : "1 piso"} options={["1 piso", "2 pisos"]}
+            onChange={v => onChange(index, "product", withFloors(item.product, v === "2 pisos" ? 2 : 1))} />
+        )}
         <Select label="Espessura" value={item.thickness} options={gutterThicknesses} onChange={v => onChange(index, "thickness", v)} />
         <Select label="C/" value={item.cut} options={gutterCuts.map(x => `${x} mm`)} onChange={v => onChange(index, "cut", v)} />
         <Select label="Cor" value={item.color} options={gutterColors} onChange={v => onChange(index, "color", v)} />
@@ -591,7 +595,7 @@ function FabricatedItemCard({
         <NumberField label="R$/metro" value={item.unit_price} onChange={v => onChange(index, "unit_price", v)} />
       </div>
 
-      <GutterPiecePreview product={item.product} />
+      <GutterPiecePreview product={withoutFloors(item.product)} />
       <div className="mt-3 flex items-center justify-between text-sm">
         <span className="text-xs text-ink/40">{item.quantity} un × {item.meters}m × {money(item.unit_price)}/m</span>
         <b className="text-forest">{money(subtotal)}</b>
@@ -658,7 +662,7 @@ function OtherItemCard({
           <p className="text-sm text-ink/50">Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b></p>
         </div>
       </div>
-      <GutterPiecePreview product={item.product} />
+      <GutterPiecePreview product={withoutFloors(item.product)} />
     </div>
   );
 }
