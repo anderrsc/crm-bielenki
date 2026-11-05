@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
 import { QuoteAttachments } from "./quote-attachments";
+import { QuoteTeamFields } from "./quote-team-fields";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
@@ -59,6 +60,8 @@ type QuoteData = {
   payment_methods: string[] | null;
   hide_unit_prices: boolean;
   hide_travel_price?: boolean | null;
+  measurer_id?: string | null;
+  attendant_id?: string | null;
   created_at: string;
   client: Row;
   company: CompanyData;
@@ -241,13 +244,16 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   // Internal files are not queried or serialized in the customer print route.
   let attachments:InternalAttachment[]=[];
   let canManageAttachments=false;
+  let team:{id:string;full_name:string|null}[]=[];
   if(!printOnly){
-    const [files,permission]=await Promise.all([
+    const [files,permission,people]=await Promise.all([
       db.from('quote_internal_attachments').select('id,original_name,size_bytes,created_at').eq('quote_id',id).order('created_at',{ascending:false}),
       db.rpc('has_table_access',{resource:'quotes',action:'update'}),
+      db.from('profiles').select('id,full_name').eq('status','ativo').order('full_name'),
     ]);
     attachments=(files.data||[]) as InternalAttachment[];
     canManageAttachments=Boolean(permission.data);
+    team=(people.data||[]) as typeof team;
   }
   const availablePayments = company.payment_methods_available?.length
     ? company.payment_methods_available
@@ -324,6 +330,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
       {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+      {!printOnly && <QuoteTeamFields quoteId={id} people={team} measurerId={quote.measurer_id ?? null} attendantId={quote.attendant_id ?? null} />}
       {!printOnly && <QuoteAttachments quoteId={id} attachments={attachments} canManage={canManageAttachments} />}
       <div className={printOnly?undefined:"quote-paper-scroll"}><article
         className={`quote-sheet print-sheet relative bg-white${hasPieceMedia ? " quote-with-pieces" : ""}`}
