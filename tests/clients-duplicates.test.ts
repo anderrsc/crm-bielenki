@@ -43,14 +43,14 @@ test('junta os repetidos levando orçamentos e leads para o cadastro que fica', 
   const noPhone = await addClient('Fábio Nicolas Schmidt', null);
   await db.exec('alter table clients enable trigger clients_block_duplicate');
   await db.query("insert into quotes(company_id,quote_number,client_id,sale_type_id) values($1,'ORC-T1',$2,$3),($1,'ORC-T2',$2,$3)", [company, drop, saleType]);
-  await db.query("insert into leads(company_id,client_id,name) values($1,$2,'Lead')", [company, noPhone]);
+  const lead = (await first("insert into leads(company_id,client_id,name) values($1,$2,'Lead') returning id", [company, noPhone])).id;
 
   const n = (await first('select crm_admin.merge_duplicate_clients() n')).n;
   expect(n).toBeGreaterThanOrEqual(2);
   const left = (await db.query<{ id: string }>("select id from clients where client_name_key(name)='fabio nicolas schmidt'")).rows;
   expect(left.map((r) => r.id)).toEqual([drop]); // fica o que tem orçamentos
   expect((await first('select count(*)::int n from quotes where client_id=$1', [drop])).n).toBe(2);
-  expect((await first('select count(*)::int n from leads where client_id=$1', [drop])).n).toBe(1);
+  expect((await first('select client_id from leads where id=$1', [lead])).client_id).toBe(drop);
   expect((await first('select email, notes from clients where id=$1', [drop]))).toEqual({ email: 'fabio@x.invalid', notes: 'cliente antigo' });
   expect((await first('select count(*)::int n from crm_admin.client_merges where keep_id=$1', [drop])).n).toBe(2);
   expect(keep).not.toBe(drop);
