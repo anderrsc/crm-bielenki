@@ -20,6 +20,9 @@ export const todayISO = () =>
     new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 /** Soma dias a uma data AAAA-MM-DD (sem depender do fuso). */
+// Validade padrão do orçamento: 7 dias corridos (pode ser alterada no orçamento).
+export const DEFAULT_QUOTE_VALIDITY_DAYS = 7;
+
 export const addDaysISO = (iso: string, days: number) => {
     const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
     date.setUTCDate(date.getUTCDate() + days);

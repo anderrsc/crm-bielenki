@@ -1,4 +1,4 @@
-import { MARQUINHOS_CATALOG, catalogPieceForProduct, normalizeProductName } from "./gutter-catalog";
+import { MARQUINHOS_CATALOG, catalogPieceForProduct, isBeiralProduct, isTwoFloors, normalizeProductName, withoutFloors } from "./gutter-catalog";
 import { normalizeGutterColor, sameThickness, type GutterPrice } from "./gutters";
 
 export type GutterQuoteRates = {
@@ -56,11 +56,23 @@ export function fabricatedMeterPrice(prices: GutterPrice[], rates: GutterQuoteRa
   );
   const naturalRate = matches.find(row => colorKey(row.color) === natural);
 
-  if (catalogPieceForProduct(item.product)?.id === "calha-beiral" || product.startsWith("calha de beiral")) {
-    if (naturalRate) return Number(naturalRate.unit_price);
-    // Sem linha na tabela: preço comercial da versão simples para o corte.
-    const commercial = MARQUINHOS_CATALOG.extras.find(extra => normalizeProductName(extra.product) === normalizeProductName(`Calha de beiral c/ ${cut} mm — Simples`));
-    return commercial ? Number(commercial.price) : undefined;
+  if (catalogPieceForProduct(item.product)?.id === "calha-beiral" || isBeiralProduct(item.product)) {
+    const commercial = (version: string) => {
+      const row = MARQUINHOS_CATALOG.extras.find(extra => normalizeProductName(extra.product) === normalizeProductName(`Calha de beiral c/ ${cut} mm — ${version}`));
+      return row ? Number(row.price) : undefined;
+    };
+    const naturalRow = (name: string) => prices.find(row =>
+      row.active && normalizeProductName(row.product) === normalizeProductName(name) &&
+      sameThickness(row.thickness, item.thickness) && row.cut_mm === cut && colorKey(row.color) === natural);
+    const simpleRow = naturalRow(withoutFloors(item.product));
+    const simple = simpleRow ? Number(simpleRow.unit_price) : commercial("Simples");
+    if (!isTwoFloors(item.product)) return simple;
+    // 2 pisos: linha própria na tabela; senão simples + diferença da tabela comercial.
+    const twoRow = naturalRow(item.product);
+    if (twoRow) return Number(twoRow.unit_price);
+    const two = commercial("Dois pisos"), simpleCommercial = commercial("Simples");
+    if (simpleRow && two !== undefined && simpleCommercial !== undefined) return Number(simpleRow.unit_price) + two - simpleCommercial;
+    return two;
   }
 
   const base = rates.matrix.find(row => sameThickness(row.thickness, item.thickness) && row.cut_mm === cut);

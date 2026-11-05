@@ -22,6 +22,14 @@ test("beiral uses its own rate and never falls back to the shared matrix", () =>
   expect(fabricatedMeterPrice([], rates, { ...item, cut: "250 mm" })).toBeUndefined();
 });
 
+test("beiral de 2 pisos usa o preço de dois pisos da tabela", () => {
+  const item = { ...piece, product: "Calha de beiral (2 pisos)" };
+  expect(fabricatedMeterPrice([], rates, item)).toBe(75);
+  expect(fabricatedMeterPrice([], rates, { ...item, cut: "400 mm" })).toBe(90);
+  expect(fabricatedMeterPrice([beiral], rates, item)).toBe(85);
+  expect(fabricatedMeterPrice([beiral, { ...beiral, product: "Calha de beiral (2 pisos)", unit_price: 99 }], rates, item)).toBe(99);
+});
+
 test("painting groups quantities by color, skips natural and always costs R$ 40/m", () => {
   const items = [
     { color: "Pintura Preto", quantity: 2, meters: 5 },
