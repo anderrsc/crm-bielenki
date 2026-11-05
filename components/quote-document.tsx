@@ -12,7 +12,8 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
-import { getRequestClient } from "@/lib/supabase/server";
+import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
+import { firstName } from "@/lib/seller-name";
 import { money, shortDate } from "@/lib/utils";
 
 import { quotePieceMedia } from "@/lib/quote-piece-media";
@@ -53,6 +54,7 @@ type QuoteData = {
   installation_deadline: string | null;
   notes: string | null;
   client_notes: string | null;
+  seller_id: string | null;
   seller_name: string | null;
   payment_methods: string[] | null;
   hide_unit_prices: boolean;
@@ -167,7 +169,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     db
       .from("quotes")
       .select(
-        "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,hide_unit_prices,created_at," +
+        "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_id,seller_name,payment_methods,hide_unit_prices,created_at," +
           "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
           "sale_type:sale_types(name)," +
           "company:companies(*)"
@@ -191,6 +193,20 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   }
 
   const quote = quoteResult.data as unknown as QuoteData;
+
+  // Vendedor vazio: preenche com o primeiro nome de quem criou o orcamento
+  // (ou de quem esta logado) e grava, para o PDF sair igual. Continua editavel.
+  if (!quote.seller_name?.trim()) {
+    const ownerId = quote.seller_id ?? (await getAuthUser(db))?.id;
+    if (ownerId) {
+      const { data: owner } = await db.from("profiles").select("full_name").eq("id", ownerId).maybeSingle();
+      const name = firstName((owner as { full_name?: string | null } | null)?.full_name);
+      if (name) {
+        quote.seller_name = name;
+        await db.from("quotes").update({ seller_name: name }).eq("id", quote.id).is("seller_name", null);
+      }
+    }
+  }
 
   const gutterItems = (gutter.data as unknown as { items?: QuoteItem[] } | null)?.items ?? [];
   const isGutter = Boolean(gutter.data);
