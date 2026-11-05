@@ -5,6 +5,7 @@ import { saveDraftQuoteAttachments } from "@/lib/quote-attachments";
 
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
+import { firstName } from "@/lib/seller-name";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
@@ -191,6 +192,7 @@ export async function saveGutterQuote(formData: FormData) {
     }
   }
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
+  if (data) await setSellerToCurrentUser(db, String(data));
   if (data) await schedulePdfPregeneration(db, data);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
@@ -233,7 +235,9 @@ export async function updateGutterQuote(formData: FormData) {
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
 
-export async function duplicateQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {data,error}=await db.rpc("duplicate_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect(`/orcamentos/${data}/editar`);}
+// Copia vira do usuario que duplicou: vendedor = primeiro nome dele.
+async function setSellerToCurrentUser(db:Awaited<ReturnType<typeof createClient>>,quoteId:string){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data:p}=await db.from("profiles").select("full_name").eq("id",user.id).maybeSingle();const name=firstName(p?.full_name);if(name)await db.from("quotes").update({seller_name:name}).eq("id",quoteId);}
+export async function duplicateQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {data,error}=await db.rpc("duplicate_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);await setSellerToCurrentUser(db,String(data));revalidatePath("/orcamentos");redirect(`/orcamentos/${data}/editar`);}
 export async function deleteQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {error}=await db.rpc("delete_draft_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect("/orcamentos");}
 
 export async function updateCompanyIdentity(formData: FormData) {
@@ -287,6 +291,16 @@ export async function approveQuote(formData: FormData) {
   const { data, error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate });
   if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
+}
+
+export async function markQuoteSent(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  if (!z.string().uuid().safeParse(quoteId).success) redirect("/orcamentos?erro=Orçamento inválido");
+  const { error } = await db.rpc("mark_quote_sent", { p_quote_id: quoteId });
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/orcamentos"); revalidatePath("/pipeline");
+  redirect(`/orcamentos/${quoteId}`);
 }
 
 export async function revertQuoteApproval(formData: FormData) {
@@ -387,6 +401,7 @@ export async function createWindowQuote(formData:FormData){
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
   const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
+  if(data)await setSellerToCurrentUser(db,String(data));
   if(data)await schedulePdfPregeneration(db,String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
 }
