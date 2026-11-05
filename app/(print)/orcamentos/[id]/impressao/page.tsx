@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { QuoteDocument } from "@/components/quote-document";
+import { quoteFileBaseName } from "@/lib/quote-file-name";
 import { getRequestClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const db = await getRequestClient();
-  const { data } = await db.from("quotes").select("quote_number").eq("id", id).maybeSingle();
-  // Vira o titulo do arquivo PDF: identifica a proposta como da Marquinhos.
+  const { data } = await db.from("quotes").select("quote_number, client:clients(name)").eq("id", id).maybeSingle();
+  const client = Array.isArray(data?.client) ? data?.client[0] : data?.client;
+  // Vira o titulo do arquivo PDF: "Aline Tomaselli - ORC-2026-00044".
   return {
-    title: { absolute: `Orçamento ${data?.quote_number ?? ""} · Proposta Marquinhos Calhas e Esquadrias`.replace("  ", " ") },
+    title: { absolute: quoteFileBaseName((client as { name?: string } | null)?.name, String(data?.quote_number ?? "")) || "Orçamento" },
     authors: [{ name: "Marquinhos Calhas e Esquadrias" }],
   };
 }
