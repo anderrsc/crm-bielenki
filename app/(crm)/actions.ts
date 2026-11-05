@@ -289,6 +289,16 @@ export async function approveQuote(formData: FormData) {
   revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
 }
 
+export async function markQuoteSent(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  if (!z.string().uuid().safeParse(quoteId).success) redirect("/orcamentos?erro=Orçamento inválido");
+  const { error } = await db.rpc("mark_quote_sent", { p_quote_id: quoteId });
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/orcamentos"); revalidatePath("/pipeline");
+  redirect(`/orcamentos/${quoteId}`);
+}
+
 export async function revertQuoteApproval(formData: FormData) {
   const db = await createClient();
   const quoteId = String(formData.get("quote_id"));

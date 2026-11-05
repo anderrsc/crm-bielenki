@@ -5,8 +5,9 @@ import { QuoteAttachments } from "./quote-attachments";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Printer } from "lucide-react";
-import { approveQuote, deleteQuote, duplicateQuote, revertQuoteApproval } from "@/app/(crm)/actions";
+import { ArrowLeft, CheckCircle2, Printer, Send } from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
+import { approveQuote, deleteQuote, duplicateQuote, markQuoteSent, revertQuoteApproval } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
@@ -244,9 +245,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   return (
     <div className={printOnly ? undefined : "mx-auto max-w-5xl"}>
       {!printOnly && <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/orcamentos" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55">
-          <ArrowLeft className="h-4 w-4" /> Voltar
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/orcamentos" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+            <ArrowLeft className="h-4 w-4" /> Voltar
+          </Link>
+          <StatusBadge value={String(quote.status)} />
+        </div>
         <div className="flex flex-wrap gap-3">
           {/* A tela de edicao so existe para orcamentos de calhas. */}
           {isGutter && quote.status !== "aprovado" && (
@@ -275,6 +279,14 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <Printer className="h-4 w-4" /> Abrir para imprimir
           </a>
           <QuotePdfButton quoteId={id} fileName={`orcamento-${quote.quote_number}.pdf`} />
+          {(quote.status === "rascunho" || quote.status === "pendente") && (
+            <form action={markQuoteSent}>
+              <input type="hidden" name="quote_id" value={id} />
+              <button className="button-ghost">
+                <Send className="h-4 w-4" /> Marcar como enviado
+              </button>
+            </form>
+          )}
           {quote.status !== "aprovado" && (
             <form action={approveQuote}>
               <input type="hidden" name="quote_id" value={id} />

@@ -120,6 +120,49 @@ describe('quotes → sales → orders',()=>{
   test('quote numbering survives deletion',async()=>{const one=await quote();const two=await quote();await db.query('select delete_draft_quote($1)',[one]);const three=await quote();const q=await rows('select quote_number from quotes where id in ($1,$2)',[two,three]);expect(new Set(q.map(x=>x.quote_number)).size).toBe(2);});
 });
 
+describe('pipeline automático',()=>{
+  const lead=async(where='client_id=$1',param:unknown=client)=>first(`select l.*,s.name stage from leads l join pipeline_stages s on s.id=l.stage_id where l.${where} and l.deleted_at is null order by l.created_at`,[param]);
+  const count=async()=>Number((await first("select count(*) n from leads where client_id=$1 and deleted_at is null",[client])).n);
+  test('quote enters pipeline, mark sent moves it, approval wins, no duplicates',async()=>{
+    const id=await quote();
+    let l=await lead();
+    expect(l.stage).toBe('Contato realizado');expect(l.quote_id).toBe(id);expect(l.status).toBe('aberto');
+    await db.query("update quotes set subtotal=350 where id=$1",[id]);
+    expect(Number((await lead()).estimated_value)).toBe(350);
+    await db.query('select mark_quote_sent($1)',[id]);
+    expect((await first('select status from quotes where id=$1',[id])).status).toBe('enviado');
+    l=await lead();expect(l.stage).toBe('Orçamento enviado');expect(l.next_action).toMatch(/Follow-up/);
+    await db.query('select mark_quote_sent($1)',[id]);
+    const second=await quote();
+    expect(await count()).toBe(1);
+    expect((await lead()).stage).toBe('Orçamento enviado');
+    await db.query('select approve_quote($1)',[id]);
+    l=await lead('quote_id=$1',id);expect(l.status).toBe('ganho');expect(l.stage).toBe('Ganho');
+    await db.exec('savepoint s');await expect(db.query('select mark_quote_sent($1)',[id])).rejects.toThrow(/rascunho/);await db.exec('rollback to savepoint s');
+    await db.query('select revert_quote_approval($1)',[id]);
+    l=await lead('quote_id=$1',id);expect(l.status).toBe('aberto');expect(l.stage).toBe('Orçamento enviado');
+    expect(second).toBeTruthy();
+  });
+  test('measurement and visit sheet create one opportunity linked to the client',async()=>{
+    const m=await first("insert into measurements(company_id,client_id) values($1,$2) returning id",[company,client]);
+    const l=await lead();
+    expect(l.stage).toBe('Contato realizado');
+    expect((await first('select lead_id from measurements where id=$1',[m.id])).lead_id).toBe(l.id);
+    await db.query('select ensure_client_opportunity($1)',[client]);
+    await quote();
+    expect(await count()).toBe(1);
+    await expect(db.query('select ensure_client_opportunity($1)',[otherClient])).rejects.toThrow(/Cliente/);
+  });
+  test('deleting a quote keeps the opportunity',async()=>{
+    const id=await quote();await db.query('select delete_draft_quote($1)',[id]);
+    const l=await lead();expect(l.quote_id).toBeNull();
+  });
+  test('plain users cannot call the internal sync directly',async()=>{
+    await db.exec('set local role authenticated');
+    await expect(db.query("select sync_client_opportunity($1,$2,null,'contato')",[otherCompany,otherClient])).rejects.toThrow(/permission/);
+  });
+});
+
 describe('financial daily use',()=>{
   test('manual payables and receivables enter the ledger and can be settled', async () => {
     await db.exec('set local role authenticated');
