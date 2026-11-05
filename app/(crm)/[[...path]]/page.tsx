@@ -196,6 +196,9 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
       selectOwnProfile(db, "company_id,company:companies(trade_name,name,tax_id,phone,whatsapp,email,website,address,neighborhood,city,state,logo_url,primary_color)"),
     ]);
     if (!clientRes.data) return notFound();
+    // Ficha de visita emitida: o cliente entra no pipeline (sem duplicar).
+    const { error: pipelineError } = await db.rpc("ensure_client_opportunity", { p_client_id: path[1] });
+    if (pipelineError) console.error("Pipeline automático (ficha de visita):", pipelineError.message);
     const company = (companyRes.data?.company ?? {}) as VisitSheetData["company"];
     return <VisitSheet clientId={path[1]} client={clientRes.data} company={company} backHref={`/clientes/${path[1]}`} />;
   }
