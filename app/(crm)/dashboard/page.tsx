@@ -1,4 +1,5 @@
 import { DashboardOverview } from "@/components/dashboard-overview";
+import { QuickClientDialog } from "@/components/quick-client-dialog";
 import Link from "next/link";
 import {
   AlertCircle, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Bell,
@@ -7,6 +8,13 @@ import {
 } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate, todayISO } from "@/lib/utils";
+
+async function loadLeadSources() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
+  const db = await getRequestClient();
+  const { data } = await db.from("lead_sources").select("id,name").eq("active", true).order("sort_order");
+  return (data ?? []) as { id: string; name: string }[];
+}
 
 async function loadDashboard() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
@@ -37,7 +45,7 @@ const ALERTA_LABEL:Record<string,string>  = { critical:"CRÍTICO", high:"ALTO", 
 export default async function Dashboard({ searchParams }: { searchParams?: Promise<{ aba?: string }> }) {
   const sp   = searchParams ? await searchParams : {};
   const aba  = sp.aba ?? "geral";
-  const data = await loadDashboard();
+  const [data, sources] = await Promise.all([loadDashboard(), loadLeadSources()]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d    = data as any;
 
@@ -69,7 +77,8 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
           <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
           <p className="mt-1 text-sm text-ink/50">Visão completa — do comercial à instalação.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <QuickClientDialog sources={sources} />
           <Link href="/pendencias" className="button-ghost flex items-center gap-2">
             <ClipboardList className="h-4 w-4" /> Pendências
           </Link>

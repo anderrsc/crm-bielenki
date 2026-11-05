@@ -75,14 +75,18 @@ test("cadastrar cliente", async () => {
   await page.goto(`${BASE}/clientes/novo`, { waitUntil: "networkidle0" });
   await page.type('input[name="name"]', CLIENT);
   await page.type('input[name="phone"]', "(47) 98888-7777");
-  await page.type('input[name="address"]', "Rua das Calhas, 100");
+  await page.type('input[autocomplete="address-line1"]', "Rua das Calhas");
+  await page.type('input[placeholder="Ex. 120 ou S/N"]', "100");
   await page.type('input[name="city"]', "Jaraguá do Sul");
-  await page.type('input[name="state"]', "SC");
+  assert.equal(await page.$eval('select[name="state"]', (el) => el.value), "SC", "UF deve vir SC por padrao");
   await clickAndWait(page, "Salvar cliente");
   await noProblem("cadastrar cliente");
   assert.match(page.url(), /\/clientes\/[0-9a-f-]{36}$/);
   state.clientId = page.url().split("/").pop();
   assert.ok((await page.content()).includes(CLIENT));
+  const { rows: leads } = await db.query("select l.client_id, s.name from leads l join pipeline_stages s on s.id = l.stage_id where l.client_id = $1", [state.clientId]);
+  assert.equal(leads.length, 1, "cadastro deve lancar o cliente no pipeline");
+  assert.equal(leads[0].name, "Novo lead");
 });
 
 test("editar cliente", async () => {
