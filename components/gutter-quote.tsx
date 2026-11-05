@@ -48,6 +48,7 @@ export type GutterQuoteInitial = {
   valid_until: string;
   installation_deadline: string;
   hide_unit_prices: boolean;
+  hide_travel_price: boolean;
   items: GutterQuoteItem[];
   special_items?: SpecialItem[];
 };
@@ -201,7 +202,8 @@ export function GutterQuote({
   );
   const [discount, setDiscount] = useState(initial?.discount ?? 0);
   const [freight, setFreight] = useState(initial?.freight ?? 0);
-  const [hideUnitPrices, setHideUnitPrices] = useState(initial?.hide_unit_prices ?? false);
+  const [hideUnitPrices, setHideUnitPrices] = useState(initial?.hide_unit_prices ?? true);
+  const [hideTravelPrice, setHideTravelPrice] = useState(initial?.hide_travel_price ?? true);
   const [clientId, setClientId] = useState(initial?.client_id ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [pickup, setPickup] = useState(() => (initial?.notes ?? "").includes(PICKUP_NOTE_MARK));
@@ -297,6 +299,7 @@ export function GutterQuote({
     freight,
     notes,
     hide_unit_prices: hideUnitPrices,
+    hide_travel_price: hideTravelPrice,
     items,
     special_items: [...specialItems.map(withColor), ...paintItems],
   });
@@ -499,6 +502,15 @@ export function GutterQuote({
                 className="h-4 w-4 accent-forest"
               />
               <span className="font-medium text-ink/70">Ocultar valores unitários no impresso</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hideTravelPrice}
+                onChange={e => setHideTravelPrice(e.target.checked)}
+                className="h-4 w-4 accent-forest"
+              />
+              <span className="font-medium text-ink/70">Ocultar valor do deslocamento no impresso</span>
             </label>
             <div>
               <label className="label">Observações</label>

@@ -55,6 +55,7 @@ type QuoteData = {
   seller_name: string | null;
   payment_methods: string[] | null;
   hide_unit_prices: boolean;
+  hide_travel_price?: boolean | null;
   created_at: string;
   client: Row;
   company: CompanyData;
@@ -99,6 +100,10 @@ function formatCompanyTaxId(value?: string | null) {
   if (!/^[\d.\s/-]+$/.test(text)) return text;
   const digits = text.replace(/\D/g, "");
   return digits.length === 14 ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : text;
+}
+
+function isTravelItem(item: { product?: string | null }) {
+  return normalizeLabel(String(item.product ?? "")).includes("deslocamento");
 }
 
 function normalizeLabel(value: string) {
@@ -166,7 +171,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     db
       .from("quotes")
       .select(
-        "id,quote_number,status,subtotal,discount,freight,total,valid_until,installation_deadline,notes,client_notes,seller_name,payment_methods,hide_unit_prices,created_at," +
+        // "*" para nao quebrar a pagina enquanto a coluna hide_travel_price nao existir no banco.
+        "*," +
           "client:clients(name,phone,whatsapp,email,tax_id,address,neighborhood,city,state)," +
           "sale_type:sale_types(name)," +
           "company:companies(*)"
@@ -231,6 +237,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     : ["pix", "cartao", "cheque", "dinheiro"];
   const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : availablePayments;
   const hideUnitPrices = quote.hide_unit_prices ?? false;
+  // Deslocamento aparece como "Incluso", sem valor (padrao), a nao ser que o orcamento peca para mostrar.
+  const hideTravelPrice = quote.hide_travel_price ?? true;
 
   const observacoes = (quote.notes || company.quote_footer || "")
     .split("\n")
@@ -412,11 +420,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <tbody>{items.map((item,i)=>{
               const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
               const unitPriceDisplay=money(item.unit_price)+(isGutter&&!isSpecialItem(item)?'/m':'');
+              const hiddenTravel=hideTravelPrice&&isTravelItem(item);
               return <tr key={i}>
                 <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
                 <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
                 {hasPieceMedia&&<td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td>}
-                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{unitPriceDisplay}</td>}<td className="quote-td-total">{money(quoteItemTotal(item,isGutter))}</td>
+                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td>}<td className="quote-td-total">{hiddenTravel?'Incluso':money(quoteItemTotal(item,isGutter))}</td>
               </tr>;
             })}</tbody>
           </table>

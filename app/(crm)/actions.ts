@@ -137,7 +137,8 @@ const gutterQuotePayloadSchema = z.object({
   discount: z.number().nonnegative(),
   freight: z.number().nonnegative(),
   notes: z.string(),
-  hide_unit_prices: z.boolean().default(false),
+  hide_unit_prices: z.boolean().default(true),
+  hide_travel_price: z.boolean().default(true),
   items: z.array(gutterItemSchema).default([]),
   special_items: z.array(specialItemSchema).default([]),
 }).superRefine((payload, ctx) => {
@@ -150,6 +151,11 @@ function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) 
   const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
   const specials = payload.special_items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
   return fabrication + specials;
+}
+
+// Gravado à parte: se a migration da coluna ainda não rodou, o resto do orçamento salva normalmente.
+async function saveTravelPriceFlag(db: Awaited<ReturnType<typeof createClient>>, quoteId: string, hide: boolean) {
+  await db.from("quotes").update({ hide_travel_price: hide }).eq("id", quoteId);
 }
 
 export async function saveGutterQuote(formData: FormData) {
@@ -175,6 +181,7 @@ export async function saveGutterQuote(formData: FormData) {
       valid_until: validUntil,
       installation_deadline: installationDeadline,
     }).eq("id", data);
+    await saveTravelPriceFlag(db, String(data), parsed.data.hide_travel_price);
     if (parsed.data.special_items.length) {
       const { data: { user } } = await db.auth.getUser();
       const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
@@ -227,6 +234,7 @@ export async function updateGutterQuote(formData: FormData) {
       subtotal: gutterQuoteSubtotal(parsed.data),
       hide_unit_prices: parsed.data.hide_unit_prices,
     }).eq("id", quoteId);
+    await saveTravelPriceFlag(db, quoteId, parsed.data.hide_travel_price);
   }
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, String(data));
