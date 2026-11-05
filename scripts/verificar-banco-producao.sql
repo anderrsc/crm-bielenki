@@ -68,7 +68,7 @@ with expected_columns(table_name, column_name) as (
     ('purchase_requests', 'approved_by,company_id,created_at,id,needed_by,notes,order_id,request_number,requested_by,status'),
     ('quote_internal_attachments', 'company_id,content_type,created_at,file_path,id,original_name,quote_id,size_bytes,uploaded_by'),
     ('quote_items', 'company_id,description,id,item_type,metadata,product,quantity,quote_id,requires_production,requires_purchase,total,unit,unit_price'),
-    ('quotes', 'approved_at,client_id,client_notes,company_id,created_at,discount,freight,hide_travel_price,hide_unit_prices,id,installation_deadline,notes,payment_methods,pdf_generated_at,quote_number,sale_id,sale_type_id,seller_id,seller_name,status,subtotal,total,updated_at,valid_days,valid_until'),
+    ('quotes', 'approved_at,attendant_id,client_id,client_notes,company_id,created_at,discount,freight,hide_travel_price,hide_unit_prices,id,installation_deadline,measurer_id,notes,payment_methods,pdf_generated_at,quote_number,sale_id,sale_type_id,seller_id,seller_name,status,subtotal,total,updated_at,valid_days,valid_until'),
     ('sale_items', 'company_id,description,id,notes,product,quantity,requires_production,requires_purchase,sale_id,total,unit,unit_price'),
     ('sale_types', 'active,company_id,id,name,requires_installation,requires_production,requires_purchase'),
     ('sales', 'client_id,company_id,created_at,current_responsible_id,financial_status,id,installation_status,next_action,next_action_date,notes,open_amount,operational_status,paid_amount,production_status,sale_number,sale_type_id,seller_id,total,updated_at'),

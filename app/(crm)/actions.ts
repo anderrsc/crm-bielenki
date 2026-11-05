@@ -562,6 +562,18 @@ export async function updateQuoteSeller(formData: FormData) {
   revalidatePath(`/orcamentos/${quoteId}`);
 }
 
+export async function updateQuoteTeam(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  const field = String(formData.get("field") || "");
+  const profileId = String(formData.get("profile_id") || "").trim();
+  if (!quoteId || (field !== "measurer_id" && field !== "attendant_id")) return { error: "Dados inválidos" };
+  const { error } = await db.from("quotes").update({ [field]: profileId || null }).eq("id", quoteId);
+  if (error) return { error: error.message };
+  revalidatePath(`/orcamentos/${quoteId}`);
+  return { error: null };
+}
+
 export async function updateQuotePaymentMethods(formData: FormData) {
   const db = await createClient();
   const quoteId = String(formData.get("quote_id") || "");
