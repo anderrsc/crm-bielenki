@@ -1,3 +1,4 @@
+import { quoteFileName } from "@/lib/quote-file-name";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
@@ -308,7 +309,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           <a className="button no-print" href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer">
             <Printer className="h-4 w-4" /> Abrir para imprimir
           </a>
-          <QuotePdfButton quoteId={id} fileName={`orcamento-${quote.quote_number}.pdf`} />
+          <QuotePdfButton quoteId={id} fileName={quoteFileName(String(client?.name ?? ""), String(quote.quote_number))} />
           {(quote.status === "rascunho" || quote.status === "pendente") && (
             <form action={markQuoteSent}>
               <input type="hidden" name="quote_id" value={id} />
