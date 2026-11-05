@@ -43,8 +43,35 @@ export async function createClientRecord(formData: FormData) {
   const { data: profile } = await selectOwnProfile(db, "company_id");
   const { data, error } = await db.from("clients").insert({ ...parsed.data, lead_source_id:parsed.data.lead_source_id||null, company_id: profile?.company_id }).select("id").single();
   if (error) redirect(`/clientes/novo?erro=${encodeURIComponent(error.message)}`);
+  // Já lança no pipeline a partir do cadastro (oportunidade, contato ou medição).
+  const pipeline = pipelineLaunchSchema.safeParse(Object.fromEntries(formData));
+  if (pipeline.success && pipeline.data.pipeline_mode !== "nao") {
+    const p = pipeline.data;
+    const { error: pipelineError } = await db.rpc("launch_client_pipeline", {
+      p_client_id: data.id,
+      p_mode: p.pipeline_mode,
+      p_scheduled_at: p.pipeline_scheduled_at ? new Date(`${p.pipeline_scheduled_at}:00-03:00`).toISOString() : null,
+      p_estimated_value: p.pipeline_estimated_value,
+      p_next_action: p.pipeline_next_action || null,
+      p_next_action_date: p.pipeline_next_action_date || null,
+    });
+    revalidatePath("/pipeline");
+    if (pipelineError) redirect(`/clientes/${data.id}?erro=${encodeURIComponent("Cliente salvo, mas não entrou no pipeline: " + pipelineError.message)}`);
+  }
   revalidatePath("/clientes"); redirect(`/clientes/${data.id}`);
 }
+
+const pipelineLaunchSchema = z.object({
+  pipeline_mode: z.enum(["novo", "contato", "medicao", "nao"]).default("nao"),
+  pipeline_scheduled_at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).or(z.literal("")).optional(),
+  pipeline_estimated_value: z.string().optional().transform(v => {
+    const raw = String(v ?? "").trim();
+    const n = Number(raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw);
+    return v && Number.isFinite(n) && n >= 0 ? n : null;
+  }),
+  pipeline_next_action: z.string().trim().max(200).optional(),
+  pipeline_next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
+});
 
 export async function updateClientRecord(formData: FormData) {
   const db=await createClient();
@@ -352,9 +379,9 @@ export async function createLead(formData: FormData) {
   if(error) redirect(`/pipeline?erro=${encodeURIComponent(error.message)}`); revalidatePath("/pipeline"); redirect("/pipeline?criado=1");
 }
 
-export async function moveLeadStage(leadId:string,stageId:string) {
+export async function moveLeadStage(leadId:string,stageId:string,lostReason?:string) {
   const db=await createClient(); const {data:stage,error:stageError}=await db.from("pipeline_stages").select("is_won,is_lost").eq("id",stageId).single(); if(stageError) throw new Error(stageError.message);
-  const status=stage.is_won?"ganho":stage.is_lost?"perdido":"aberto"; const {error}=await db.from("leads").update({stage_id:stageId,status}).eq("id",leadId); if(error)throw new Error(error.message); revalidatePath("/pipeline");
+  const status=stage.is_won?"ganho":stage.is_lost?"perdido":"aberto"; const reason=stage.is_lost?String(lostReason??"").trim().slice(0,300)||null:null; const {error}=await db.from("leads").update({stage_id:stageId,status,lost_reason:reason}).eq("id",leadId); if(error)throw new Error(error.message); revalidatePath("/pipeline");
 }
 
 export async function receivePurchaseItem(formData:FormData) {

@@ -157,6 +157,34 @@ describe('pipeline automático',()=>{
     const id=await quote();await db.query('select delete_draft_quote($1)',[id]);
     const l=await lead();expect(l.quote_id).toBeNull();
   });
+  test('client registration launches into the pipeline',async()=>{
+    const novo=(await first("insert into clients(company_id,name,phone) values($1,'Cliente Novo Lead','47999990001') returning id",[company])).id;
+    const id=(await first("select launch_client_pipeline($1,'novo',null,1500,'Ligar amanhã',current_date+1) id",[novo])).id;
+    let l=await lead('id=$1',id);
+    expect(l.stage).toBe('Novo lead');expect(Number(l.estimated_value)).toBe(1500);expect(l.next_action).toBe('Ligar amanhã');expect(l.source).toBe('Cadastro de cliente');
+    const med=(await first("insert into clients(company_id,name,phone) values($1,'Cliente Medição','47999990002') returning id",[company])).id;
+    const id2=(await first("select launch_client_pipeline($1,'medicao','2026-11-10T13:00:00Z') id",[med])).id;
+    l=await lead('id=$1',id2);
+    expect(l.stage).toBe('Contato realizado');expect(l.next_action).toBe('Medição agendada');
+    const m=await first('select lead_id,scheduled_at from measurements where client_id=$1',[med]);
+    expect(m.lead_id).toBe(id2);
+    expect(Number((await first('select count(*) n from leads where client_id=$1',[med])).n)).toBe(1);
+    expect((await first("select launch_client_pipeline($1,'nao') id",[novo])).id).toBeNull();
+    await db.exec('savepoint s');await expect(db.query("select launch_client_pipeline($1,'novo')",[otherClient])).rejects.toThrow(/Cliente/);await db.exec('rollback to savepoint s');
+  });
+  test('stage changes are timed and logged, lost reason is kept only while lost',async()=>{
+    const id=await quote();const l=await lead('quote_id=$1',id);
+    await db.query("update leads set stage_changed_at=now()-interval '10 days' where id=$1",[l.id]);
+    const lost=(await first("select id from pipeline_stages where company_id=$1 and is_lost",[company])).id;
+    await db.query("update leads set stage_id=$2,status='perdido',lost_reason='Preço' where id=$1",[l.id,lost]);
+    let row=await first('select stage_changed_at>now()-interval \'1 minute\' fresh,lost_reason from leads where id=$1',[l.id]);
+    expect(row.fresh).toBe(true);expect(row.lost_reason).toBe('Preço');
+    const act=await first("select subject,description from activities where lead_id=$1 and activity_type='pipeline' order by occurred_at desc limit 1",[l.id]);
+    expect(act.subject).toBe('Etapa: Contato realizado → Perdido');expect(act.description).toBe('Preço');
+    await db.query('select mark_quote_sent($1)',[id]);
+    row=await first('select l.lost_reason,s.name stage from leads l join pipeline_stages s on s.id=l.stage_id where l.id=$1',[l.id]);
+    expect(row.stage).toBe('Orçamento enviado');expect(row.lost_reason).toBeNull();
+  });
   test('plain users cannot call the internal sync directly',async()=>{
     await db.exec('set local role authenticated');
     await expect(db.query("select sync_client_opportunity($1,$2,null,'contato')",[otherCompany,otherClient])).rejects.toThrow(/permission/);

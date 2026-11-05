@@ -54,7 +54,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
               <div><label className="label">WhatsApp</label><input className="field" name="whatsapp" defaultValue={s.whatsapp ?? ""} disabled={!canManage} /></div>
               <div><label className="label">E-mail</label><input className="field" type="email" name="email" defaultValue={s.email ?? ""} disabled={!canManage} /></div>
               <div><label className="label">Cidade</label><input className="field" name="city" defaultValue={s.city ?? ""} disabled={!canManage} /></div>
-              <div><label className="label">Estado</label><select className="field" name="state" defaultValue={s.state ?? ""} disabled={!canManage}><option value="">—</option>{states.map(st => <option key={st}>{st}</option>)}</select></div>
+              <div><label className="label">Estado</label><select className="field" name="state" defaultValue={s.state || "SC"} disabled={!canManage}><option value="">—</option>{states.map(st => <option key={st}>{st}</option>)}</select></div>
               <div><label className="label">Condição de pagamento</label><input className="field" name="payment_terms" defaultValue={s.payment_terms ?? ""} disabled={!canManage} placeholder="Ex.: 30/60 dias" /></div>
               <div className="sm:col-span-2"><label className="label">Observações</label><input className="field" name="notes" defaultValue={s.notes ?? ""} disabled={!canManage} /></div>
               <div className="flex items-center gap-4 self-end">
@@ -85,7 +85,7 @@ function SupplierForm({ states, selfHref }: { states: string[]; selfHref: string
       <div><label className="label">WhatsApp</label><input className="field" name="whatsapp" /></div>
       <div><label className="label">E-mail</label><input className="field" type="email" name="email" /></div>
       <div><label className="label">Cidade</label><input className="field" name="city" /></div>
-      <div><label className="label">Estado</label><select className="field" name="state"><option value="">—</option>{states.map(st => <option key={st}>{st}</option>)}</select></div>
+      <div><label className="label">Estado</label><select className="field" name="state" defaultValue="SC"><option value="">—</option>{states.map(st => <option key={st}>{st}</option>)}</select></div>
       <div><label className="label">Condição de pagamento</label><input className="field" name="payment_terms" placeholder="Ex.: 30/60 dias" /></div>
       <div className="sm:col-span-2"><label className="label">Observações</label><input className="field" name="notes" /></div>
       <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold"><input type="checkbox" name="status_ativo" defaultChecked />Ativo</label>

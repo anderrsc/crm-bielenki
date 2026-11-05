@@ -24,7 +24,7 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
     address: parts?.[1]?.trim() ?? complementOnly?.[1]?.trim() ?? savedAddress,
     neighborhood: initial?.neighborhood ?? "",
     city: initial?.city ?? "",
-    state: initial?.state?.trim().toUpperCase() ?? "",
+    state: initial?.state?.trim().toUpperCase() || "SC",
   });
   const [message, setMessage] = useState("");
   const [matches, setMatches] = useState<ViaCep[]>([]);
