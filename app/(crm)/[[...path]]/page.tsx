@@ -44,7 +44,8 @@ import { EmployeesPage } from "@/components/employees-page";
 import { RolesPage } from "@/components/roles-page";
 import { AiTriagePage } from "@/components/ai-triage-page";
 import { normalizeTriageSession } from "@/lib/triage";
-import { AiControlPanel } from "@/components/ai-control-panel";
+import { AiCentral } from "@/components/ai-central";
+import { loadCentralData } from "@/lib/ai/central-data";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
@@ -101,8 +102,13 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "central-ia") {
-    const tab = (search as { aba?: string }).aba ?? "dashboard";
-    return <AiControlPanel tab={tab} />;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <AiCentral data={null} />;
+    const db = await getRequestClient();
+    const user = await getAuthUser();
+    const { data: profile } = user ? await db.from("profiles").select("company_id").eq("id", user.id).single() : { data: null };
+    if (!profile?.company_id) return <AiCentral data={null} error="Empresa não encontrada" />;
+    const data = await loadCentralData(db, profile.company_id).catch(() => null);
+    return <AiCentral data={data} error={search.erro} />;
   }
   if (path[0] === "agente-ia") {
     const tab = (search as { aba?: string }).aba ?? "triagens";

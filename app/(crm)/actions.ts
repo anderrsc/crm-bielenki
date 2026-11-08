@@ -774,6 +774,21 @@ export async function saveAiAgentConfig(formData: FormData) {
   redirect("/agente-ia?aba=configuracoes&salvo=1");
 }
 
+/** Liga/desliga a Ana (botão Pausar da Central de IA). */
+export async function setAiAgentActive(formData: FormData) {
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  if (!profile?.company_id) redirect("/central-ia?erro=Empresa não encontrada");
+  const active = formData.get("active") === "1";
+  const { error } = await db.from("ai_agent_config").upsert({ company_id: profile.company_id, active, updated_at: new Date().toISOString() }, { onConflict: "company_id" });
+  if (error) redirect(`/central-ia?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/central-ia");
+  revalidatePath("/agente-ia");
+  redirect("/central-ia");
+}
+
 /**
  * Testa a IA com o provedor e o modelo escolhidos na tela (mesmo antes de
  * salvar). Chaves digitadas e ainda nao salvas sao usadas so neste teste;

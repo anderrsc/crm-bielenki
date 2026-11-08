@@ -12,7 +12,7 @@ const groups=[
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck]]},
  {title:"Gestão",items:[["Produtos & Peças", "/tabela-calhas",Boxes],["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Relatórios", "/relatorios",BarChart3]]},
  {title:"Equipe",items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield]]},
- {title:"Geral",items:[["Automações", "/automacoes",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
+ {title:"Geral",items:[["Automações", "/automacoes",Bot],["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
 ] as const;
 export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[];viewable?:string[]}){
  const pathname=usePathname(),[open,setOpen]=useState(false),[collapsed,setCollapsed]=useState(false),searchRef=useRef<HTMLInputElement>(null);

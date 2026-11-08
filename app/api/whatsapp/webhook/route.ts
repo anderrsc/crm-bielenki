@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { AI_FALLBACK_MARK } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -218,6 +219,15 @@ export async function POST(req: NextRequest) {
         .eq("whatsapp_phone_number_id", phoneNumberId)
         .maybeSingle();
       company = byPhone;
+      // O numero digitado na tela do Agente IA fica em ai_agent_config.whatsapp_number_id.
+      if (!company && phoneNumberId) {
+        const { data: byAgent } = await supabase
+          .from("ai_agent_config")
+          .select("company:companies(id,name,trade_name,whatsapp_phone_number_id)")
+          .eq("whatsapp_number_id", phoneNumberId)
+          .maybeSingle();
+        company = byAgent?.company as unknown as typeof company;
+      }
     }
 
     if (!company) {
@@ -324,7 +334,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       console.error("Erro do provedor de IA:", error instanceof AiError ? `${error.provider} ${error.status}: ${error.message}` : error);
       // Guarda a mensagem do cliente e avisa que uma pessoa vai responder: nada se perde.
-      const aviso = `Olá! Recebemos sua mensagem aqui na ${companyName}. Em instantes alguém da nossa equipe vai te responder.`;
+      const aviso = `Olá! Recebemos sua mensagem aqui na ${companyName}. Em instantes ${AI_FALLBACK_MARK}.`;
       await supabase.from("triage_sessions").update({
         messages: [...updatedMessages, { role: "assistant", content: aviso, timestamp: new Date().toISOString() }],
         updated_at: new Date().toISOString(),
