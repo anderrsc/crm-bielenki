@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { approveQuote, deleteQuote, duplicateQuote, markQuoteSent, revertQuoteApproval } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SubmitButton } from "@/components/submit-button";
+import { diluteTravel } from "@/lib/quote-travel-dilution";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
@@ -268,6 +269,14 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   const hideUnitPrices = quote.hide_unit_prices ?? false;
   // Deslocamento aparece como "Incluso", sem valor (padrao), a nao ser que o orcamento peca para mostrar.
   const hideTravelPrice = quote.hide_travel_price ?? true;
+  // Com o deslocamento oculto, o valor dele é diluído nos outros itens (proporcional ao valor de cada um).
+  const diluted = hideTravelPrice
+    ? diluteTravel(items.map(item => ({
+        total: quoteItemTotal(item, isGutter),
+        base: isGutter && !isSpecialItem(item) ? Number(item.quantity || 0) * Number(item.meters || 0) : Number(item.quantity || 0),
+        travel: isTravelItem(item),
+      })))
+    : null;
 
   const observacoes = (quote.notes || company.quote_footer || "")
     .split("\n")
@@ -460,13 +469,15 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
             <tbody>{items.map((item,i)=>{
               const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
-              const unitPriceDisplay=money(item.unit_price)+(isGutter&&!isSpecialItem(item)?'/m':'');
+              const dil=diluted?.[i];
+              const unitPriceDisplay=money(dil?.unitPrice??item.unit_price)+(isGutter&&!isSpecialItem(item)?'/m':'');
               const hiddenTravel=hideTravelPrice&&isTravelItem(item);
+              const lineTotal=dil?dil.total:quoteItemTotal(item,isGutter);
               return <tr key={i}>
                 <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
                 <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
                 {hasPieceMedia&&<td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td>}
-                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td>}<td className="quote-td-total">{hiddenTravel?'Incluso':money(quoteItemTotal(item,isGutter))}</td>
+                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td>}<td className="quote-td-total">{hiddenTravel?'Incluso':money(lineTotal)}</td>
               </tr>;
             })}</tbody>
           </table>
