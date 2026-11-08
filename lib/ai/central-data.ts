@@ -28,7 +28,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
     db.from("triage_sessions").select("id,nome,phone,status,produto,tipo_servico,score,prioridade,created_at,updated_at,messages").eq("company_id", companyId).gte("updated_at", since).order("updated_at", { ascending: false }).limit(200),
     db.from("leads").select("id,name,score,priority,created_at").eq("company_id", companyId).eq("source", "WhatsApp").gte("created_at", since).order("created_at", { ascending: false }).limit(100),
     db.from("outbound_messages").select("id,automation_type,status,error_message,phone,scheduled_at,sent_at").eq("company_id", companyId).gte("scheduled_at", since).order("scheduled_at", { ascending: false }).limit(300),
-    db.from("workflow_executions").select("id,status,error_message,created_at").eq("company_id", companyId).gte("created_at", since).limit(300),
+    db.from("workflow_executions").select("id,status,error_message,started_at").eq("company_id", companyId).gte("started_at", since).limit(300),
   ]);
 
   const cfg = (configRes.data ?? {}) as Record<string, unknown>;

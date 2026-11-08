@@ -50,9 +50,9 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </form>
       </div>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>}
 
-      <div className={cn("rounded-2xl border-2 p-4", ready ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50")}>
+      <div className={cn("rounded-2xl border-2 p-4", ready ? "border-green-500/40 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10")}>
         <p className="font-bold">{ready ? `${data.agentName} está pronta para atender.` : `${data.agentName} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
         <ul className="mt-3 space-y-2">
           {data.checks.map((c) => (
@@ -68,7 +68,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
           </button>
           <Link href="/agente-ia?aba=configuracoes" className="rounded-xl border border-sand px-4 py-2 text-sm font-bold">Configurar</Link>
         </div>
-        {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-700" : "text-green-700")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
+        {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

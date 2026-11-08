@@ -152,3 +152,11 @@ teste autorizada. A suíte não salva registros nem envia mensagens.
 O relatório com correções, limites e ordem de aplicação está em [tests/AUDIT.md](tests/AUDIT.md).
 No banco existente, aplique as migrações **040 a 048** (ou `scripts/aplicar-no-supabase.sql`)
 antes do deploy desta versão; depois rode `scripts/verificar-banco-producao.sql`.
+
+## Atendimento (WhatsApp estilo Octadesk)
+
+Tela `/atendimento`: conversas do WhatsApp com o nome de quem respondeu em cima de cada mensagem (cliente, Ana, equipe) e, ao lado, a ficha do cliente com orçamentos (feitos, enviados, fechados), financeiro (recebido, a receber, vencido), registro de pagamento com desconto e fechamento de venda.
+
+- Aplique `supabase/migrations/20261108000000_atendimento_inbox.sql` no SQL Editor.
+- Quem responde pela tela assume a conversa e a Ana para de responder aquele cliente; "Devolver p/ Ana" reativa. Triagem concluída também passa a conversa para a equipe.
+- As mensagens saem assinadas com o primeiro nome do usuário (`*Rose:*`).

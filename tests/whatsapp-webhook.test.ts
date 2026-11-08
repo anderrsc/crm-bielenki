@@ -19,7 +19,7 @@ function query(table: string) {
     return rows();
   };
   const api: Record<string, unknown> = {
-    select: () => api, order: () => api, limit: () => api,
+    select: () => api, order: () => api, limit: () => api, or: () => api,
     eq: (k: string, v: unknown) => { filters.push([k, v]); return api; },
     insert: (data: Row) => { pending = { kind: 'insert', data }; return api; },
     upsert: (data: Row) => { pending = { kind: 'upsert', data }; return api; },
@@ -90,5 +90,30 @@ describe('webhook WhatsApp (Meta)', () => {
     expect((await res.json()).status).toBe('ai_failed_fallback_sent');
     expect(sent[0].body.text.body).toContain('alguém da nossa equipe');
     expect(JSON.stringify(tables.triage_sessions[0].messages)).toContain('Oi');
+  });
+
+  test('grava a conversa no Atendimento com o nome de quem escreveu', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi! Sou a Ana.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(metaRequest('Oi', 'm4') as never);
+    expect(tables.conversations[0]).toMatchObject({ external_id: '5547999990000', unread_count: 1, last_message_preview: 'Oi! Sou a Ana.' });
+    expect(tables.messages.map(m => [m.author, m.sender_name, m.body])).toEqual([['cliente', null, 'Oi'], ['ana', 'Ana', 'Oi! Sou a Ana.']]);
+  });
+
+  test('conversa assumida pela equipe: Ana não responde', async () => {
+    tables.conversations = [{ id: 'cv1', company_id: 'c1', channel: 'whatsapp', external_id: '5547999990000', ai_paused: true, unread_count: 2, client_id: 'x' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(metaRequest('Alguém aí?', 'm5') as never);
+    expect((await res.json()).status).toBe('human_handling');
+    expect(aiReply).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(0);
+    expect(tables.conversations[0].unread_count).toBe(3);
+  });
+
+  test('triagem concluída passa a conversa para a equipe', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Registrado!', dados_coletados: { nome: 'João' }, triagem_concluida: true, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(metaRequest('Sou o João', 'm6') as never);
+    expect(tables.conversations[0].ai_paused).toBe(true);
   });
 });

@@ -2,7 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
-import { safeExternalUrl } from "@/lib/safe-url";
+import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { AI_FALLBACK_MARK } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
@@ -136,12 +137,14 @@ export async function POST(req: NextRequest) {
     let phoneNumberId = "";
     let clientText = "";
     let mediaInfo: string | null = null;
+    let contactName: string | null = null;
 
     if (isEvolution) {
       // Evolution API webhook format
       // event: "messages.upsert", data.key.remoteJid: "5547999999999@s.whatsapp.net"
       if (payload.event !== "messages.upsert") return NextResponse.json({ status: "ignored" });
       const data = payload.data;
+      contactName = typeof data?.pushName === "string" ? data.pushName : null;
       if (data?.key?.fromMe) return NextResponse.json({ status: "own_message" }); // ignora msgs próprias
       const jid = String(data?.key?.remoteJid ?? "");
       // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
@@ -177,6 +180,7 @@ export async function POST(req: NextRequest) {
       const msg = messages[0];
       from = msg.from;
       phoneNumberId = value.metadata?.phone_number_id;
+      contactName = value.contacts?.[0]?.profile?.name ?? null;
       const msgType = msg.type;
       if (msgType === "text") {
         clientText = msg.text?.body ?? "";
@@ -241,6 +245,17 @@ export async function POST(req: NextRequest) {
       .eq("company_id", company.id)
       .single();
 
+    // Toda mensagem entra no Atendimento, com ou sem a Ana.
+    let conversation: InboxConversation | null = null;
+    try {
+      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null });
+      if (!conversation) return NextResponse.json({ status: "duplicate" });
+    } catch (error) {
+      console.error("Atendimento: falha ao gravar mensagem:", error instanceof Error ? error.message : error);
+    }
+    // Alguém da equipe assumiu a conversa: a Ana fica quieta.
+    if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
+
     const aiProvider = parseAiProvider(agentConfig?.ai_provider);
     const companyAiKey = aiProvider === "groq" ? (agentConfig?.groq_api_key ?? agentConfig?.openai_api_key) : agentConfig?.openai_api_key;
     if (!agentConfig?.active || !aiKeyAvailable(aiProvider, companyAiKey)) {
@@ -264,16 +279,17 @@ export async function POST(req: NextRequest) {
     // Responde pelo mesmo canal que trouxe a mensagem (antes uma config "evolution"
     // padrao fazia as respostas de quem usa a API da Meta nunca sairem).
     const wppProvider = isEvolution ? "evolution" : "meta";
-    const reply = (text: string) => sendWhatsAppMessage({
-      to: from,
-      text,
-      provider: wppProvider,
-      phoneNumberId,
-      metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
-      evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
-      evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
-      evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
-    }).catch((error) => console.error("Falha ao enviar WhatsApp:", error instanceof Error ? error.message : error));
+    const credentials = whatsappCredentials(agentConfig, { provider: wppProvider, phoneNumberId });
+    const reply = async (text: string) => {
+      let externalId: string | null = null;
+      let failure: string | null = null;
+      try { externalId = await sendWhatsAppText(credentials, from, text); }
+      catch (error) { failure = error instanceof Error ? error.message : String(error); console.error("Falha ao enviar WhatsApp:", failure); }
+      if (conversation) {
+        await recordOutbound(supabase, { companyId: company.id, conversationId: conversation.id, body: text, author: "ana", senderName: agentName, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure })
+          .catch((error) => console.error("Atendimento: falha ao gravar resposta:", error instanceof Error ? error.message : error));
+      }
+    };
 
     // Primeiro contato: cria a sessao e segue para a IA, que ja responde ao que o
     // cliente escreveu (antes a primeira mensagem era descartada).
@@ -419,6 +435,10 @@ export async function POST(req: NextRequest) {
     }
 
     await supabase.from("triage_sessions").update(updateData).eq("id", session.id);
+    // Triagem concluída ou pós-venda: a conversa passa para a equipe e a Ana para de responder.
+    if ((isConcluida || isPosVenda) && conversation) {
+      await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
+    }
 
     // Se triagem concluída e é lead comercial, cria/atualiza lead no CRM
     if (isConcluida && !isPosVenda) {
@@ -433,49 +453,6 @@ export async function POST(req: NextRequest) {
     console.error("Webhook error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-}
-
-type SendParams = {
-  to: string; text: string; provider: string;
-  phoneNumberId: string; metaToken: string;
-  evolutionUrl: string; evolutionKey: string; evolutionInstance: string;
-};
-
-async function sendWhatsAppMessage(p: SendParams) {
-  // Evolution API (grátis, QR code)
-  if (p.provider === "evolution") {
-    if (!p.evolutionUrl || !p.evolutionInstance) {
-      console.warn("WhatsApp (Evolution) nao configurado: resposta nao enviada.");
-      return;
-    }
-    const base = safeExternalUrl(p.evolutionUrl);
-    if (!base) throw new Error("URL da Evolution API invalida: use um endereco HTTPS publico.");
-    const response = await fetch(`${base}/message/sendText/${encodeURIComponent(p.evolutionInstance)}`, {
-      redirect: "error",
-      method: "POST",
-      headers: { "apikey": p.evolutionKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ number: p.to, text: p.text })
-    });
-    if (!response.ok) throw new Error(`Evolution API HTTP ${response.status}`);
-    return;
-  }
-
-  // Meta WhatsApp Business API (oficial)
-  if (!p.metaToken || !p.phoneNumberId) {
-    console.warn("WhatsApp (Meta) nao configurado: resposta nao enviada.");
-    return;
-  }
-  const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${p.phoneNumberId}/messages`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${p.metaToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: p.to,
-      type: "text",
-      text: { body: p.text }
-    })
-  });
-  if (!response.ok) throw new Error(`Meta WhatsApp API HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
 }
 
 async function createOrUpdateLead(
