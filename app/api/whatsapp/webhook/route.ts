@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
-import { recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
+import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { AI_FALLBACK_MARK } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
@@ -97,12 +97,30 @@ function verifySignature(payload: string, signature: string, secret: string): bo
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
-function validEvolutionSecret(value: string): boolean {
-  const expected = process.env.EVOLUTION_WEBHOOK_SECRET ?? "";
+function sameSecret(value: string, expected: string): boolean {
   if (!expected || value.length !== expected.length) return false;
   const crypto = require("crypto");
   return crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected));
 }
+
+/** Segredo do webhook: o da Vercel ou o gerado pelo CRM ao conectar a Evolution. */
+function validEvolutionSecret(value: string, companySecret?: string | null): boolean {
+  if (sameSecret(value, process.env.EVOLUTION_WEBHOOK_SECRET ?? "")) return true;
+  return !!companySecret && sameSecret(value, secretValue(companySecret));
+}
+
+/** Telefone do contato. Contas novas do WhatsApp chegam como "@lid": o número vem em outro campo. */
+function evolutionPhone(key: Record<string, unknown> | undefined): string | null {
+  const jid = String(key?.remoteJid ?? "");
+  if (/@s\.whatsapp\.net$|@c\.us$/.test(jid)) return jid.split("@")[0];
+  if (jid.endsWith("@lid")) {
+    const alt = [key?.senderPn, key?.remoteJidAlt, key?.participantPn].find((v) => typeof v === "string" && /@s\.whatsapp\.net$/.test(v as string));
+    return alt ? String(alt).split("@")[0] : null;
+  }
+  return null;
+}
+
+const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
 
 const secretValue = (value?: string | null) => value ? decryptSecret(value) : "";
 
@@ -129,8 +147,20 @@ export async function POST(req: NextRequest) {
 
     // Detecta formato: Evolution API ou Meta
     const isEvolution = !!(payload?.data?.key || payload?.event);
-    if (isEvolution && !validEvolutionSecret(req.headers.get("x-webhook-secret") ?? req.headers.get("apikey") ?? "")) {
-      return NextResponse.json({ error: "Invalid Evolution webhook secret" }, { status: 401 });
+    let fromMe = false;
+    // Evolution: confere o segredo antes de qualquer outra coisa (o da Vercel ou o gerado pelo CRM).
+    if (isEvolution) {
+      const headerSecret = req.headers.get("x-webhook-secret") ?? req.headers.get("apikey") ?? "";
+      let companySecret: string | null = null;
+      if (!sameSecret(headerSecret, process.env.EVOLUTION_WEBHOOK_SECRET ?? "") && payload?.instance) {
+        try {
+          const { data } = await getSupabase().from("ai_agent_config").select("evolution_webhook_secret").eq("evolution_instance", String(payload.instance)).maybeSingle();
+          companySecret = data?.evolution_webhook_secret ?? null;
+        } catch { companySecret = null; }
+      }
+      if (!validEvolutionSecret(headerSecret, companySecret)) {
+        return NextResponse.json({ error: "Invalid Evolution webhook secret" }, { status: 401 });
+      }
     }
 
     let from = "";
@@ -142,14 +172,17 @@ export async function POST(req: NextRequest) {
     if (isEvolution) {
       // Evolution API webhook format
       // event: "messages.upsert", data.key.remoteJid: "5547999999999@s.whatsapp.net"
-      if (payload.event !== "messages.upsert") return NextResponse.json({ status: "ignored" });
-      const data = payload.data;
-      contactName = typeof data?.pushName === "string" ? data.pushName : null;
-      if (data?.key?.fromMe) return NextResponse.json({ status: "own_message" }); // ignora msgs próprias
+      if (!["messages.upsert", "MESSAGES_UPSERT"].includes(payload.event)) return NextResponse.json({ status: "ignored" });
+      const data = Array.isArray(payload.data) ? payload.data[0] : payload.data;
+      payload.data = data;
+      fromMe = !!data?.key?.fromMe;
+      contactName = !fromMe && typeof data?.pushName === "string" ? data.pushName : null;
       const jid = String(data?.key?.remoteJid ?? "");
       // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
-      if (/@g\.us$|@broadcast$|^status@/.test(jid)) return NextResponse.json({ status: "ignored_group" });
-      from = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+      if (/@g\.us$|@broadcast$|^status@|@newsletter$/.test(jid)) return NextResponse.json({ status: "ignored_group" });
+      const phone = evolutionPhone(data?.key);
+      if (!phone) return NextResponse.json({ status: fromMe ? "own_message" : "no_phone" });
+      from = phone;
       phoneNumberId = payload.instance ?? process.env.EVOLUTION_INSTANCE ?? "";
       const msgContent = data?.message;
       if (msgContent?.conversation) {
@@ -245,6 +278,12 @@ export async function POST(req: NextRequest) {
       .eq("company_id", company.id)
       .single();
 
+    // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
+    if (fromMe) {
+      await recordOwnMessage(supabase, company.id, from, clientText, eventId);
+      return NextResponse.json({ status: "own_message" });
+    }
+
     // Toda mensagem entra no Atendimento, com ou sem a Ana.
     let conversation: InboxConversation | null = null;
     try {
@@ -255,6 +294,8 @@ export async function POST(req: NextRequest) {
     }
     // Alguém da equipe assumiu a conversa: a Ana fica quieta.
     if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
+    // A Ana só atende contato novo: quem já é cliente fala com a equipe.
+    if (conversation?.client_id) return NextResponse.json({ status: "known_client" });
 
     const aiProvider = parseAiProvider(agentConfig?.ai_provider);
     const companyAiKey = aiProvider === "groq" ? (agentConfig?.groq_api_key ?? agentConfig?.openai_api_key) : agentConfig?.openai_api_key;
@@ -452,6 +493,35 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Webhook error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+/**
+ * Mensagem que a empresa mandou pelo celular ou WhatsApp Web. Ecos do que o CRM
+ * ou a Ana enviaram são ignorados; o resto entra como "equipe" (nome pela
+ * assinatura *Rose:*) e a Ana para de responder esse cliente.
+ */
+async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string) {
+  try {
+    const known = async () => {
+      if (!externalId) return false;
+      const { data } = await supabase.from("messages").select("id").eq("company_id", companyId).eq("external_id", externalId).limit(1);
+      return !!data?.length;
+    };
+    if (await known()) return;
+    // O CRM grava a mensagem logo depois que a Evolution confirma o envio: espera um pouco.
+    await new Promise((r) => setTimeout(r, 3000));
+    if (await known()) return;
+    const conversation = await getOrCreateConversation(supabase, companyId, phone);
+    const since = new Date(Date.now() - 2 * 60_000).toISOString();
+    const { data: same } = await supabase.from("messages").select("id")
+      .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).gte("sent_at", since).limit(1);
+    if (same?.length) return;
+    const name = body.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)";
+    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null });
+    await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
+  } catch (error) {
+    console.error("Atendimento: falha ao gravar mensagem da equipe:", error instanceof Error ? error.message : error);
   }
 }
 

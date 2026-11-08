@@ -37,7 +37,8 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const aiKey = provider === "ollama" ? has(env.OLLAMA_API_KEY) : provider === "groq" ? has(cfg.groq_api_key) || has(cfg.openai_api_key) : has(cfg.openai_api_key);
   const metaNumber = has(companyRes.data?.whatsapp_phone_number_id) || has(cfg.whatsapp_number_id);
   const metaToken = has(cfg.whatsapp_token) || has(env.WHATSAPP_ACCESS_TOKEN);
-  const evolution = has(cfg.evolution_api_url) && has(cfg.evolution_instance) && has(env.EVOLUTION_WEBHOOK_SECRET);
+  const evolution = has(cfg.evolution_api_url) && has(cfg.evolution_instance) && has(cfg.evolution_api_key)
+    && (has(env.EVOLUTION_WEBHOOK_SECRET) || has(cfg.evolution_webhook_secret));
   const wppProvider = cfg.wpp_provider === "meta" || (!evolution && (metaNumber || metaToken)) ? "meta" : "evolution";
   const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI" }[provider];
 
@@ -53,7 +54,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
       { label: "Token de verificação (Vercel)", ok: has(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN), detail: has(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) ? "Configurado" : "Falta WHATSAPP_WEBHOOK_VERIFY_TOKEN: a Meta não valida o webhook" },
     );
   } else {
-    checks.push({ label: "Evolution API", ok: evolution, detail: evolution ? "Configurada" : "Falta URL, instância ou EVOLUTION_WEBHOOK_SECRET" });
+    checks.push({ label: "WhatsApp (Evolution)", ok: evolution, detail: evolution ? "Servidor configurado — veja a conexão abaixo" : "Conecte o WhatsApp no quadro abaixo" });
   }
 
   const sessions = sessionsRes.data ?? [];

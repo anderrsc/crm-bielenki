@@ -7,6 +7,7 @@ import { AlertTriangle, Bot, CheckCircle, MessageSquare, Pause, Play, Send, Test
 import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
+import { WhatsappConnect } from "@/components/whatsapp-connect";
 
 const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType; cls: string }> = {
   triagem: { icon: MessageSquare, cls: "text-blue-600" },
@@ -70,6 +71,8 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </div>
         {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
       </div>
+
+      <WhatsappConnect />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Conversas no WhatsApp" value={s.conversas} />

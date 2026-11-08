@@ -66,8 +66,8 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string 
   try {
     const { db, companyId } = await context();
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
-      .eq("company_id", companyId).eq("channel", "whatsapp")
-      .order("last_message_at", { ascending: false, nullsFirst: false }).limit(150);
+      .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
+      .order("last_message_at", { ascending: false }).limit(150);
     if (error) return { items: [], error: /column|does not exist/i.test(error.message) ? "Falta aplicar a atualização do banco do Atendimento (migração 20261108000000)." : error.message };
     return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem) };
   } catch (error) {

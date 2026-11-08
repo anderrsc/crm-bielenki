@@ -6,7 +6,7 @@
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
-    ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,groq_api_key,id,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,groq_api_key,id,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('aluminum_price_matrix', 'company_id,cut_mm,id,price_per_meter,thickness,updated_at'),
     ('audit_logs', 'action,company_id,created_at,id,new_data,old_data,profile_id,record_id,table_name'),
     ('automation_rules', 'automation_type,channel,company_id,created_at,days_before,enabled,id,send_time,settings,template_id,updated_at'),

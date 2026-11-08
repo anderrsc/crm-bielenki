@@ -160,3 +160,16 @@ Tela `/atendimento`: conversas do WhatsApp com o nome de quem respondeu em cima 
 - Aplique `supabase/migrations/20261108000000_atendimento_inbox.sql` no SQL Editor.
 - Quem responde pela tela assume a conversa e a Ana para de responder aquele cliente; "Devolver p/ Ana" reativa. Triagem concluída também passa a conversa para a equipe.
 - As mensagens saem assinadas com o primeiro nome do usuário (`*Rose:*`).
+
+## WhatsApp pelo número atual (Evolution API, não oficial)
+
+Conecta o número da empresa como mais um "WhatsApp Web": o celular e o Web continuam funcionando, e tudo aparece no Atendimento. Conexão não oficial — existe risco de bloqueio do número.
+
+1. Aplique `supabase/migrations/20261108010000_evolution_conexao.sql`.
+2. Central de IA → **WhatsApp da empresa** → **Gerar instalação** → **Copiar script**.
+3. Oracle Cloud (conta gratuita) → Compute → Instâncias → Criar: imagem **Ubuntu**, forma **VM.Standard.A1.Flex** (1 OCPU, 6 GB, gratuita) ou **E2.1.Micro**. Em *Mostrar opções avançadas → Gerenciamento*, cole o script em *cloud-init*.
+4. Na sub-rede da instância → Lista de segurança → Regras de entrada: origem `0.0.0.0/0`, TCP, portas `80` e `443`.
+5. Espere ~10 min, copie o **IP público** e cole no passo 2 da Central (**Testar e salvar**).
+6. **Mostrar QR code** e leia com o WhatsApp Business (Dispositivos conectados). Ao conectar, as conversas e os contatos salvos viram "conhecidos": a Ana só responde número novo.
+
+Regras: a Ana para quando alguém da equipe responde (pelo CRM, celular ou Web — o nome vem da assinatura `*Rose:*`), nunca responde grupo nem cliente cadastrado. Imagem fixada em `evoapicloud/evolution-api:v2.3.7` (a 2.4 exige licença).

@@ -28,7 +28,8 @@ export function whatsappCredentials(
   const metaToken = secret(cfg.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "";
   // Sem canal informado: usa o que estiver configurado (Meta tem preferência).
   const provider: WhatsAppProvider = opts.provider
-    ?? (phoneNumberId && metaToken ? "meta" : evolutionUrl && evolutionInstance ? "evolution" : cfg.wpp_provider === "evolution" ? "evolution" : "meta");
+    ?? (cfg.wpp_provider === "evolution" && evolutionUrl && evolutionInstance ? "evolution"
+      : phoneNumberId && metaToken ? "meta" : evolutionUrl && evolutionInstance ? "evolution" : cfg.wpp_provider === "evolution" ? "evolution" : "meta");
   return {
     provider,
     phoneNumberId,

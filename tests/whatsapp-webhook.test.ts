@@ -8,18 +8,21 @@ const aiReply = vi.fn();
 
 function query(table: string) {
   const filters: Array<[string, unknown]> = [];
+  let joinCompany = false;
   let pending: { kind: 'insert' | 'update' | 'upsert'; data: Row } | null = null;
-  const rows = () => (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v));
+  const rows = () => (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v))
+    .map(r => joinCompany ? { ...r, company: (tables.companies ?? []).find(c => c.id === r.company_id) } : r);
   const run = () => {
     if (pending?.kind === 'insert' || pending?.kind === 'upsert') {
       const row = { id: `${table}-${(tables[table] ??= []).length + 1}`, ...pending.data };
       tables[table].push(row); return [row];
     }
-    if (pending?.kind === 'update') { const hit = rows(); hit.forEach(r => Object.assign(r, pending!.data)); return hit; }
+    if (pending?.kind === 'update') { const hit = (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v)); hit.forEach(r => Object.assign(r, pending!.data)); return hit; }
     return rows();
   };
   const api: Record<string, unknown> = {
-    select: () => api, order: () => api, limit: () => api, or: () => api,
+    select: (cols?: string) => { if (cols?.includes('company:companies')) joinCompany = true; return api; },
+    order: () => api, limit: () => api, or: () => api, gte: () => api, not: () => api, in: () => api,
     eq: (k: string, v: unknown) => { filters.push([k, v]); return api; },
     insert: (data: Row) => { pending = { kind: 'insert', data }; return api; },
     upsert: (data: Row) => { pending = { kind: 'upsert', data }; return api; },
@@ -115,5 +118,79 @@ describe('webhook WhatsApp (Meta)', () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     await POST(metaRequest('Sou o João', 'm6') as never);
     expect(tables.conversations[0].ai_paused).toBe(true);
+  });
+});
+
+describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
+  const HOOK = 'segredo-do-webhook';
+  function evo(data: Record<string, unknown>, secret = HOOK) {
+    const body = JSON.stringify({ event: 'messages.upsert', instance: 'crm', data });
+    return new Request('https://crm.test/api/whatsapp/webhook', { method: 'POST', body, headers: { 'x-webhook-secret': secret } });
+  }
+  const msg = (id: string, text: string, extra: Record<string, unknown> = {}, key: Record<string, unknown> = {}) =>
+    ({ key: { id, remoteJid: '5547999990000@s.whatsapp.net', fromMe: false, ...key }, pushName: 'Carlos', message: { conversation: text }, ...extra });
+
+  beforeEach(async () => {
+    const { encryptSecret } = await import('@/lib/encrypt');
+    Object.assign(tables.ai_agent_config[0], {
+      wpp_provider: 'evolution', evolution_instance: 'crm', evolution_api_url: 'https://1-2-3-4.sslip.io',
+      evolution_api_key: encryptSecret('chave'), evolution_webhook_secret: encryptSecret(HOOK),
+    });
+    delete process.env.EVOLUTION_WEBHOOK_SECRET;
+  });
+
+  test('contato novo: Ana responde pela Evolution', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi! Sou a Ana.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('e1', 'Quero orçamento')) as never);
+    expect((await res.json()).status).toBe('ok');
+    expect(sent[0].url).toBe('https://1-2-3-4.sslip.io/message/sendText/crm');
+    expect(sent[0].body).toMatchObject({ number: '5547999990000', text: 'Oi! Sou a Ana.' });
+  });
+
+  test('segredo errado é recusado', async () => {
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('e2', 'Oi'), 'outro-segredo-qualquer') as never);
+    expect(res.status).toBe(401);
+  });
+
+  test('cliente já cadastrado: Ana não responde', async () => {
+    tables.clients = [{ id: 'cli1', company_id: 'c1', name: 'Carlos', phone: '(47) 99999-0000' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('e3', 'Bom dia')) as never);
+    expect((await res.json()).status).toBe('known_client');
+    expect(aiReply).not.toHaveBeenCalled();
+    expect(tables.messages[0]).toMatchObject({ author: 'cliente', body: 'Bom dia' });
+  });
+
+  test('resposta da Rose pelo celular entra no Atendimento e pausa a Ana', async () => {
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('e4', '*Rose:*\nJá te mando o orçamento', {}, { fromMe: true })) as never);
+    expect(tables.messages.at(-1)).toMatchObject({ direction: 'outbound', author: 'equipe', sender_name: 'Rose' });
+    expect(tables.conversations[0].ai_paused).toBe(true);
+    expect(aiReply).not.toHaveBeenCalled();
+  }, 10000);
+
+  test('eco da mensagem que a Ana mandou é ignorado', async () => {
+    tables.conversations = [{ id: 'cv1', company_id: 'c1', channel: 'whatsapp', external_id: '5547999990000', ai_paused: false, unread_count: 0, client_id: null }];
+    tables.messages = [{ id: 'm1', company_id: 'c1', conversation_id: 'cv1', direction: 'outbound', author: 'ana', external_id: 'e5', body: 'Oi!' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('e5', 'Oi!', {}, { fromMe: true })) as never);
+    expect(tables.messages).toHaveLength(1);
+    expect(tables.conversations[0].ai_paused).toBe(false);
+  });
+
+  test('contato "@lid" usa o número real', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi!', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('e6', 'Oi', {}, { remoteJid: '123456789@lid', senderPn: '5547988887777@s.whatsapp.net' })) as never);
+    expect(tables.conversations[0].external_id).toBe('5547988887777');
+    expect(sent[0].body).toMatchObject({ number: '5547988887777' });
+  });
+
+  test('grupo é ignorado', async () => {
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('e7', 'Oi', {}, { remoteJid: '1203@g.us' })) as never);
+    expect((await res.json()).status).toBe('ignored_group');
   });
 });
