@@ -43,3 +43,15 @@ test("painting groups quantities by color, skips natural and always costs R$ 40/
   ]);
   expect(automaticPaintItems(items.slice(2, 3), rates)).toEqual([]);
 });
+
+test("matriz com preço 0 não zera a peça: usa o preço da tabela ou fica sem preço", () => {
+  const zeroMatrix = { matrix: [{ thickness: "0.5mm", cut_mm: 300, price_per_meter: 0 }], paints: [] };
+  const rufo = { product: "Rufo convencional", thickness: "0.5mm", cut_mm: 300, color: "Aluminio Natural", unit_price: 52, active: true } as GutterPrice;
+  expect(fabricatedMeterPrice([rufo], zeroMatrix, piece)).toBe(52);
+  expect(fabricatedMeterPrice([], zeroMatrix, piece)).toBeUndefined();
+});
+
+test("corte com vírgula ou ponto de milhar e pintura com metros inválidos", () => {
+  expect(fabricatedMeterPrice([], rates, { ...piece, cut: "300,0 mm" })).toBe(46);
+  expect(automaticPaintItems([{ color: "Branco", quantity: 1, meters: Number("1,5") }], rates)).toEqual([]);
+});

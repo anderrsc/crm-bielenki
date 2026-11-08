@@ -14,7 +14,10 @@ export async function uploadLogo(formData: FormData): Promise<{ url?: string; er
   const { data: profile } = await selectOwnProfile(db, "company_id");
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  // So PNG/JPG/WEBP: SVG pode carregar script e rodar no CRM.
+  const allowed: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+  const ext = allowed[file.type];
+  if (!ext) return { error: "Use uma imagem PNG, JPG ou WEBP." };
   const path = `${profile.company_id}/logo.${ext}`;
   const bytes = await file.arrayBuffer();
 

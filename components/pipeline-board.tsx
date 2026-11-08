@@ -29,9 +29,9 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
     const lead=leads.find(x=>x.id===leadId);const target=stageById.get(stageId);if(!lead||!target||lead.stage_id===stageId)return;
     let reason:string|undefined;
     if(target.is_lost){const r=window.prompt("Motivo da perda (opcional): preço, prazo, fechou com outro...","");if(r===null)return;reason=r.trim()||undefined;}
-    const previous=leads;
+    const old=lead;
     setLeads(items=>items.map(x=>x.id===leadId?{...x,stage_id:stageId,stage_changed_at:new Date().toISOString(),status:target.is_won?"ganho":target.is_lost?"perdido":"aberto",lost_reason:target.is_lost?reason??null:null}:x));
-    startTransition(async()=>{try{await moveLeadStage(leadId,stageId,reason)}catch{setLeads(previous)}});
+    startTransition(async()=>{try{await moveLeadStage(leadId,stageId,reason)}catch{setLeads(items=>items.map(x=>x.id===leadId?old:x));window.alert(`Não foi possível mover "${old.name}". Verifique a internet e tente de novo.`)}});
   };
 
   const visible=leads.filter(l=>{

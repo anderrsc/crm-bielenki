@@ -24,7 +24,7 @@ export function automaticPaintItems(items: { color: string; quantity: number; me
   for (const item of items) {
     const key = colorKey(item.color).replace(/^pintura /, "");
     const meters = item.quantity * item.meters;
-    if (key === natural || meters <= 0) continue;
+    if (key === natural || !Number.isFinite(meters) || meters <= 0) continue;
     const previous = byColor.get(key);
     byColor.set(key, {
       color: normalizeGutterColor(item.color).replace(/^Pintura\s+/i, ""),
@@ -48,7 +48,8 @@ export function automaticPaintItems(items: { color: string; quantity: number; me
 type Piece = { product: string; thickness: string; cut: string; color: string };
 
 export function fabricatedMeterPrice(prices: GutterPrice[], rates: GutterQuoteRates, item: Piece): number | undefined {
-  const cut = Number(item.cut.replace(/\D/g, ""));
+  // "200 mm", "200,0 mm", "1.000 mm" → 200 / 200 / 1000
+  const cut = Math.round(parseFloat(item.cut.replace(/[^\d.,]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0);
   const product = normalizeProductName(item.product);
   const matches = prices.filter(row =>
     row.active && normalizeProductName(row.product) === product &&
@@ -76,5 +77,9 @@ export function fabricatedMeterPrice(prices: GutterPrice[], rates: GutterQuoteRa
   }
 
   const base = rates.matrix.find(row => sameThickness(row.thickness, item.thickness) && row.cut_mm === cut);
-  return base ? Number(base.price_per_meter) : naturalRate ? Number(naturalRate.unit_price) : undefined;
+  // Matriz com preço 0 (linha criada vazia) não vale: cai no preço da tabela; sem preço nenhum = undefined (aviso), nunca R$ 0.
+  const matrixPrice = base ? Number(base.price_per_meter) : 0;
+  if (matrixPrice > 0) return matrixPrice;
+  const tablePrice = naturalRate ? Number(naturalRate.unit_price) : 0;
+  return tablePrice > 0 ? tablePrice : undefined;
 }

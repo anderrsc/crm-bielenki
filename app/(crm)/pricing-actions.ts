@@ -15,15 +15,11 @@ export async function bulkSavePrices(
   // Validações
   for (const r of rows) {
     if (!r.product?.trim()) return { error: `Produto sem nome na linha ${rows.indexOf(r) + 1}` };
-    if (r.unit_price < 0) return { error: `Preço negativo em: ${r.product}` };
+    const numbers = [r.unit_price, r.labor_price, r.paint_price, r.install_price, r.freight_price, r.min_price, r.margin_pct, r.max_discount_pct];
+    if (numbers.some(n => n != null && (n as unknown) !== "" && !Number.isFinite(Number(n)))) return { error: `Valor inválido (não é número) em: ${r.product}` };
+    if (Number(r.unit_price) < 0) return { error: `Preço negativo em: ${r.product}` };
     if (r.margin_pct < 0 || r.margin_pct > 100) return { error: `Margem inválida em: ${r.product}` };
     if (r.max_discount_pct < 0 || r.max_discount_pct > 100) return { error: `Desconto inválido em: ${r.product}` };
-  }
-
-  // Deletes
-  if (deleteIds.length) {
-    const { error } = await db.from("gutter_prices").delete().in("id", deleteIds);
-    if (error) return { error: error.message };
   }
 
   // Upserts via RPC bulk_save_prices
@@ -55,6 +51,12 @@ export async function bulkSavePrices(
         return { error: "Já existe um preço para esse produto com a mesma espessura, corte e cor." };
       return { error: error.message };
     }
+  }
+
+  // Exclusões só depois das alterações gravarem: se a alteração falhar, nada é apagado.
+  if (deleteIds.length) {
+    const { error } = await db.from("gutter_prices").delete().in("id", deleteIds);
+    if (error) return { error: error.message };
   }
 
   revalidatePath("/configuracoes/tabela-calhas");

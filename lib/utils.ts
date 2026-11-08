@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const money = (value: number | string | null | undefined) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number.isFinite(Number(value ?? 0)) ? Number(value ?? 0) : 0);
 
 /**
  * Fuso dos usuarios. O servidor (Vercel) roda em UTC: datas formatadas sem

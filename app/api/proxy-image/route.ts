@@ -22,13 +22,15 @@ export async function GET(req: NextRequest) {
     const res = await fetch(target, { cache: "force-cache", redirect: "error", signal: AbortSignal.timeout(15000) });
     if (!res.ok) return new NextResponse("Not found", { status: 404 });
     const contentType = res.headers.get("content-type") ?? "image/png";
-    if (!contentType.startsWith("image/")) return new NextResponse("Invalid image", { status: 415 });
+    if (!/^image\/(png|jpe?g|webp|gif)\b/i.test(contentType)) return new NextResponse("Invalid image", { status: 415 });
     const buffer = await res.arrayBuffer();
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
         "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
   } catch {

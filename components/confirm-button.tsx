@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useFormStatus } from "react-dom";
 
 export function ConfirmButton({
   formAction,
@@ -16,10 +17,13 @@ export function ConfirmButton({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
+  // Desabilita enquanto envia: dois toques no celular não executam a ação duas vezes.
+  const { pending } = useFormStatus();
   return (
     <button
       ref={ref}
       type="submit"
+      disabled={pending}
       formAction={formAction as never}
       className={className}
       title={title}

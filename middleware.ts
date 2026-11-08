@@ -5,7 +5,11 @@ export async function middleware(request: NextRequest) {
   // Callback do WhatsApp (Meta/Evolution) nao tem sessao de navegador: a
   // rota valida a assinatura/segredo. Exigir login redirecionava para /login.
   if (request.nextUrl.pathname === "/api/whatsapp/webhook") return;
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    // Sem Supabase em producao: bloqueia em vez de liberar tudo sem login.
+    if (process.env.NODE_ENV === "production") return new Response("Servidor sem configuracao do Supabase", { status: 500 });
+    return;
+  }
   return updateSession(request);
 }
 

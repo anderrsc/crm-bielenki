@@ -13,6 +13,7 @@ import { money, addDaysISO, todayISO, DEFAULT_QUOTE_VALIDITY_DAYS } from "@/lib/
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
+import { SubmitButton } from "@/components/submit-button";
 import { uniqueProductNames, normalizeProductName, isBeiralProduct, isTwoFloors, withFloors, withoutFloors } from "@/lib/gutter-catalog";
 import { gutterCategoryForProduct, PRODUCT_RENAMES } from "@/lib/gutters";
 
@@ -251,6 +252,14 @@ export function GutterQuote({
   const subtotalOther = [...specialItems, ...paintItems].reduce((total, item) => total + item.quantity * item.unit_price, 0);
   const subtotal = subtotalFab + subtotalOther;
   const total = Math.max(0, subtotal - discount + freight);
+  // Mesmas regras do servidor: avisa antes de salvar em vez de perder o orçamento no redirect.
+  const invalidItem = items.findIndex(item => !(item.quantity > 0) || !(item.meters > 0));
+  const invalidSpecial = specialItems.findIndex(item => !(item.quantity > 0) || !(item.unit_price >= 0) || !String(item.product ?? "").trim());
+  const saveProblem = invalidItem >= 0 ? `Peça ${invalidItem + 1}: quantidade e metros precisam ser maiores que zero.`
+    : invalidSpecial >= 0 ? `Item complementar ${invalidSpecial + 1}: confira produto, quantidade e valor.`
+    : !(discount >= 0) ? "Desconto não pode ser negativo."
+    : discount > subtotal + freight ? "Desconto maior que o subtotal."
+    : null;
 
   /* ── Edição de itens fabricados ── */
   const changeFab = (index: number, key: keyof GutterQuoteItem, value: string) =>
@@ -530,9 +539,10 @@ export function GutterQuote({
               <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
               <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
             </div>
-            <button disabled={!clientId || total <= 0 || (items.length === 0 && specialItems.length === 0)} className="button w-full">
+            {saveProblem && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveProblem}</p>}
+            <SubmitButton disabled={!clientId || total <= 0 || !!saveProblem || (items.length === 0 && specialItems.length === 0)} className="button w-full">
               <Save className="h-4 w-4" />Salvar orçamento
-            </button>
+            </SubmitButton>
           </div>
         </aside>
       </form>

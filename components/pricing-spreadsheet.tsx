@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Check, Plus, Save, Search, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { bulkSavePrices } from "@/app/(crm)/pricing-actions";
 import {
@@ -125,6 +125,8 @@ function emptyRow(): PriceRow {
 
 export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: PriceRow[]; canManage: boolean }) {
   const [rows, setRows] = useState<PriceRow[]>(() => initialRows.map(normalizeRow));
+  // Depois de salvar, o revalidatePath da action traz as linhas do banco de novo: linhas novas ganham o id real (sem isso, salvar de novo duplicava).
+  useEffect(() => { setRows(initialRows.map(normalizeRow)); }, [initialRows]);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const [editCell, setEditCell] = useState<{ id: string; col: keyof PriceRow } | null>(null);

@@ -16,8 +16,23 @@ import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib
 import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 import { todayISO } from "@/lib/utils";
+import { parseBRNumber } from "@/lib/br-number";
 
 const text = z.string().trim().min(1);
+
+// So administrador mexe em conta de administrador (senha, e-mail, status, cargos)
+// ou cria alguem como administrador. Gerente nao escala para admin.
+async function actorIsAdmin(db: Awaited<ReturnType<typeof createClient>>) {
+  const { data } = await db.rpc("has_role", { roles: ["administrador"] });
+  return data === true;
+}
+async function targetIsAdmin(profileId: string) {
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const { data, error } = await admin.from("user_roles").select("role").eq("profile_id", profileId).eq("role", "administrador").limit(1);
+  // Na duvida (erro), trata como admin: bloqueia em vez de liberar.
+  return !!error || (data?.length ?? 0) > 0;
+}
 
 // Pre-gera o PDF do orcamento em segundo plano assim que ele e salvo, para
 // que o download (rota /api/orcamentos/[id]/pdf) ja encontre o arquivo
@@ -65,9 +80,8 @@ const pipelineLaunchSchema = z.object({
   pipeline_mode: z.enum(["novo", "contato", "medicao", "nao"]).default("nao"),
   pipeline_scheduled_at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).or(z.literal("")).optional(),
   pipeline_estimated_value: z.string().optional().transform(v => {
-    const raw = String(v ?? "").trim();
-    const n = Number(raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw);
-    return v && Number.isFinite(n) && n >= 0 ? n : null;
+    const n = parseBRNumber(v);
+    return n !== null && n >= 0 ? n : null;
   }),
   pipeline_next_action: z.string().trim().max(200).optional(),
   pipeline_next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
@@ -80,6 +94,8 @@ export async function updateClientRecord(formData: FormData) {
   if(!z.string().uuid().safeParse(id).success||!parsed.success)redirect(`/clientes/${id}/editar?erro=Revise os campos de nome, e-mail e CEP, se informado`);
   const {error}=await db.from("clients").update({...parsed.data,lead_source_id:parsed.data.lead_source_id||null,updated_at:new Date().toISOString()}).eq("id",id);
   if(error)redirect(`/clientes/${id}/editar?erro=${encodeURIComponent(error.message)}`);
+  // Endereco/nome do cliente no PDF: invalida o PDF em cache dos orcamentos dele.
+  await db.from("quotes").update({pdf_generated_at:null}).eq("client_id",id);
   revalidatePath("/clientes");redirect(`/clientes/${id}`);
 }
 
@@ -146,9 +162,9 @@ const gutterItemSchema = z.object({
   thickness: text,
   cut: text,
   color: z.string().optional(),
-  quantity: z.number().positive(),
-  meters: z.number().positive(),
-  unit_price: z.number().nonnegative(),
+  quantity: z.number().positive().max(100_000),
+  meters: z.number().positive().max(10_000),
+  unit_price: z.number().nonnegative().max(1_000_000),
 });
 
 const specialItemSchema = z.object({
@@ -156,8 +172,8 @@ const specialItemSchema = z.object({
   product: text,
   description: z.string().default(""),
   unit: z.string().default("unidade"),
-  quantity: z.number().positive(),
-  unit_price: z.number().nonnegative(),
+  quantity: z.number().positive().max(1_000_000),
+  unit_price: z.number().nonnegative().max(1_000_000),
 });
 
 const gutterQuotePayloadSchema = z.object({
@@ -173,12 +189,39 @@ const gutterQuotePayloadSchema = z.object({
   if (!payload.items.length && !payload.special_items.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Informe ao menos um item" });
   }
+  const subtotal = payload.items.reduce((t, i) => t + i.quantity * i.meters * i.unit_price, 0) + payload.special_items.reduce((t, i) => t + i.quantity * i.unit_price, 0);
+  if (payload.discount > subtotal + payload.freight) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Desconto maior que o subtotal" });
 });
 
 function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) {
   const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
   const specials = payload.special_items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
   return fabrication + specials;
+}
+
+// Itens complementares (condutores, acessórios, pintura, deslocamento) do orçamento de calhas.
+// Se falhar, o subtotal volta a contar só as calhas para o PDF nunca mostrar total maior que a soma dos itens.
+async function insertSpecialItems(db: Awaited<ReturnType<typeof createClient>>, quoteId: string, payload: z.infer<typeof gutterQuotePayloadSchema>): Promise<string | null> {
+  if (!payload.special_items.length) return null;
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return "Sessão expirada: entre de novo e salve o orçamento.";
+  const { data: prof } = await db.from("profiles").select("company_id").eq("id", user.id).single();
+  let error: { message: string } | null = prof?.company_id ? null : { message: "Empresa não encontrada" };
+  if (!error) ({ error } = await db.from("quote_items").insert(payload.special_items.map((item) => ({
+    quote_id: quoteId,
+    company_id: prof!.company_id,
+    product: item.product,
+    description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
+    unit: item.unit,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    item_type: gutterItemTypeForCategory(item.item_type),
+  }))));
+  if (!error) return null;
+  console.error("Erro ao gravar itens complementares do orçamento", quoteId, error);
+  const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
+  await db.from("quotes").update({ subtotal: fabrication }).eq("id", quoteId);
+  return "Orçamento salvo, mas os itens complementares (condutores, acessórios, pintura) não foram gravados. Confira e salve de novo.";
 }
 
 // Gravado à parte: se a migration da coluna ainda não rodou, o resto do orçamento salva normalmente.
@@ -210,20 +253,8 @@ export async function saveGutterQuote(formData: FormData) {
       installation_deadline: installationDeadline,
     }).eq("id", data);
     await saveTravelPriceFlag(db, String(data), parsed.data.hide_travel_price);
-    if (parsed.data.special_items.length) {
-      const { data: { user } } = await db.auth.getUser();
-      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(parsed.data.special_items.map((item) => ({
-        quote_id: data,
-        company_id: prof!.company_id,
-        product: item.product,
-        description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
-        unit: item.unit,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        item_type: gutterItemTypeForCategory(item.item_type),
-      })));
-    }
+    const specialError = await insertSpecialItems(db, String(data), parsed.data);
+    if (specialError) redirect(`/orcamentos/${data}/editar?erro=${encodeURIComponent(specialError)}`);
   }
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await setSellerToCurrentUser(db, String(data));
@@ -235,30 +266,20 @@ export async function reversePayment(formData:FormData){const db=await createCli
 
 export async function updateGutterQuote(formData: FormData) {
   const db=await createClient();const quoteId=String(formData.get("quote_id")||"");let payload:unknown;
+  if(!z.string().uuid().safeParse(quoteId).success)redirect("/orcamentos?erro=Orçamento inválido");
   try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);}
   const validUntil=String(formData.get("valid_until")||"");const installationDeadline=String(formData.get("installation_deadline")||"");
   if(typeof payload!=="object"||!payload)redirect(`/orcamentos/${quoteId}/editar?erro=Dados inválidos`);
   const p = payload as Record<string,unknown>;
   const parsed = gutterQuotePayloadSchema.safeParse(p);
-  if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orÃ§amento`);
+  if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orçamento`);
   const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,valid_until:validUntil,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
   if(data) {
-    await db.from("quote_items").delete().eq("quote_id", quoteId).neq("item_type","calha");
-    if (parsed.data.special_items.length) {
-      const { data: { user } } = await db.auth.getUser();
-      const { data: prof } = await db.from("profiles").select("company_id").eq("id", user!.id).single();
-      await db.from("quote_items").insert(parsed.data.special_items.map((item) => ({
-        quote_id: quoteId,
-        company_id: prof!.company_id,
-        product: item.product,
-        description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
-        unit: item.unit,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        item_type: gutterItemTypeForCategory(item.item_type),
-      })));
-    }
+    const {error:deleteError}=await db.from("quote_items").delete().eq("quote_id", quoteId).neq("item_type","calha");
+    if(deleteError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível atualizar os itens complementares. Salve de novo.")}`);
+    const specialError = await insertSpecialItems(db, quoteId, parsed.data);
+    if (specialError) redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(specialError)}`);
     await db.from("quotes").update({
       subtotal: gutterQuoteSubtotal(parsed.data),
       hide_unit_prices: parsed.data.hide_unit_prices,
@@ -305,8 +326,9 @@ export async function updateCompanyIdentity(formData: FormData) {
   const logo = formData.get("logo");
   if (logo instanceof File && logo.size > 0) {
     if (logo.size > 2 * 1024 * 1024) redirect("/configuracoes?erro=A logo deve ter no máximo 2 MB");
-    if (!logo.type.startsWith("image/")) redirect("/configuracoes?erro=Envie um arquivo de imagem");
-    const extension = logo.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
+    // So PNG/JPG/WEBP: SVG pode carregar script.
+    const extension = ({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as Record<string, string>)[logo.type];
+    if (!extension) redirect("/configuracoes?erro=Envie a logo em PNG, JPG ou WEBP");
     const path = `${profile.company_id}/logo-${Date.now()}.${extension}`;
     const { error: uploadError } = await db.storage.from("company-assets").upload(path, logo, { contentType: logo.type, upsert: true });
     if (uploadError) redirect(`/configuracoes?erro=${encodeURIComponent(uploadError.message)}`);
@@ -315,6 +337,8 @@ export async function updateCompanyIdentity(formData: FormData) {
 
   const { error } = await db.from("companies").update({ ...values, ...(logoUrl ? { logo_url: logoUrl } : {}) }).eq("id", profile.company_id);
   if (error) redirect(`/configuracoes?erro=${encodeURIComponent(error.message)}`);
+  // Dados da empresa mudaram: PDFs em cache dos orcamentos precisam ser gerados de novo.
+  await db.from("quotes").update({ pdf_generated_at: null }).eq("company_id", profile.company_id);
   revalidatePath("/configuracoes"); revalidatePath("/orcamentos", "layout"); revalidatePath("/clientes", "layout");
   redirect("/configuracoes?salvo=1");
 }
@@ -374,7 +398,8 @@ export async function createLead(formData: FormData) {
   const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single(); if(!profile?.company_id) redirect("/pipeline?erro=Empresa não encontrada");
   let stageId=String(formData.get("stage_id")||""); if(!stageId){const {data:stage}=await db.from("pipeline_stages").select("id").eq("company_id",profile.company_id).order("sort_order").limit(1).single();stageId=stage?.id??"";}
   const name=String(formData.get("name")||"").trim(); if(!name||!stageId) redirect("/pipeline?erro=Informe o nome e configure as etapas do pipeline");
-  const estimated=Number(String(formData.get("estimated_value")||"0").replace(",","."));
+  const estimatedRaw=String(formData.get("estimated_value")||"").trim();const estimated=estimatedRaw?parseBRNumber(estimatedRaw):0;
+  if(estimated===null||estimated<0) redirect(`/pipeline?erro=${encodeURIComponent("Valor estimado inválido. Use por exemplo 1.500,00")}`);
   const {error}=await db.from("leads").insert({company_id:profile.company_id,name,phone:String(formData.get("phone")||"").trim(),source:"Manual",lead_source_id:String(formData.get("lead_source_id")||"")||null,stage_id:stageId,owner_id:user.id,estimated_value:Number.isFinite(estimated)?estimated:0,next_action:String(formData.get("next_action")||"").trim(),next_action_date:String(formData.get("next_action_date")||"")||null,status:"aberto"});
   if(error) redirect(`/pipeline?erro=${encodeURIComponent(error.message)}`); revalidatePath("/pipeline"); redirect("/pipeline?criado=1");
 }
@@ -406,7 +431,7 @@ export async function saveGutterPrice(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
   const back=String(formData.get("_back")||"/configuracoes/tabela-calhas?aba=materia-prima");
   const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${back}&erro=Empresa+não+encontrada`);
-  const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=Number(String(formData.get("unit_price")||"0").replace(",","."));
+  const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=parseBRNumber(formData.get("unit_price")||"0")??NaN;
   if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect(`${back}&erro=Revise+produto,+espessura,+corte+e+preço`);
   const color=String(formData.get("color")||"").trim()||null;
   const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,color,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
@@ -488,6 +513,7 @@ export async function inviteUser(formData: FormData) {
   const allowedRoles = ["administrador","gerente","vendedor","compras","producao","estoque","instalador","financeiro","atendente"];
   const roles = formData.getAll("roles").map(String).filter(r => allowedRoles.includes(r));
 
+  if (roles.includes("administrador") && !(await actorIsAdmin(db))) redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Somente administrador pode criar outro administrador")}`);
   if (!email || !fullName) redirect("/configuracoes/funcionarios?erro=Informe nome e e-mail");
   if (!password || password.length < 6) redirect("/configuracoes/funcionarios?erro=Senha deve ter no mínimo 6 caracteres");
 
@@ -536,6 +562,8 @@ export async function inviteUser(formData: FormData) {
 
 export async function saveEmployee(formData:FormData) {
   const db=await createClient();const {data:allowed}=await db.rpc("has_role",{roles:["administrador","gerente"]});if(!allowed)redirect("/configuracoes/funcionarios?erro=Sem permissão");const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
+  if(!process.env.SUPABASE_SERVICE_ROLE_KEY)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
+  if(!(await actorIsAdmin(db))&&(await targetIsAdmin(id)))redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Somente administrador pode alterar outro administrador")}`);
   const full_name=String(formData.get("full_name")||"").trim();if(!full_name)redirect("/configuracoes/funcionarios?erro=Informe o nome");
   const values={full_name,phone:String(formData.get("phone")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
   const {error}=await db.from("profiles").update(values).eq("id",id);if(error)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent(error.message)}`);
@@ -917,6 +945,7 @@ export async function resetUserPassword(formData: FormData) {
   const { data: actorProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   const { data: targetProfile } = await admin.from("profiles").select("company_id,full_name").eq("id", profileId).single();
   if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect(`${back}?erro=Usuário inválido`);
+  if (profileId !== user.id && !(await actorIsAdmin(db)) && (await targetIsAdmin(profileId))) redirect(`${back}?erro=${encodeURIComponent("Somente administrador pode trocar a senha de outro administrador")}`);
   // Define a senha direto (sem depender de e-mail), como no cadastro do usuário.
   const { error } = await admin.auth.admin.updateUserById(profileId, { password });
   if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);

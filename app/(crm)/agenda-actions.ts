@@ -16,8 +16,11 @@ export async function getAgendaEvents(): Promise<AgendaEvent[]> {
   const { data, error } = await db
     .from("v_operational_agenda")
     .select("id,event_type,title,client_name,starts_at,ends_at,status,responsible_name,notes,source")
+    // Janela de 90 dias para tras ate 1 ano a frente: antes vinham os 500 MAIS ANTIGOS e o que era novo sumia.
+    .gte("starts_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .lte("starts_at", new Date(Date.now() + 365 * 86_400_000).toISOString())
     .order("starts_at", { ascending: true })
-    .limit(500);
+    .limit(2000);
 
   if (error) throw new Error("Não foi possível carregar a agenda. Verifique a conexão e as migrações.");
   if (!data) return [];

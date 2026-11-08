@@ -11,6 +11,7 @@ import { ArrowLeft, CheckCircle2, Printer, Send } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { approveQuote, deleteQuote, duplicateQuote, markQuoteSent, revertQuoteApproval } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
+import { SubmitButton } from "@/components/submit-button";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
@@ -174,7 +175,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   const db = await getRequestClient();
 
   // As tres consultas sao independentes: rodam em paralelo.
-  const [quoteResult, gutter, { data: quoteItemsRaw }] = await Promise.all([
+  const [quoteResult, gutter, { data: quoteItemsRaw, error: quoteItemsError }] = await Promise.all([
     db
       .from("quotes")
       .select(
@@ -203,6 +204,10 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   }
 
   const quote = quoteResult.data as unknown as QuoteData;
+  // Falha ao ler os itens: nao renderiza (nem gera/cacheia PDF) com itens faltando e total cheio.
+  if (gutter.error || quoteItemsError) {
+    throw new Error(`Erro ao carregar itens do orcamento ${id}: ${(gutter.error ?? quoteItemsError)?.message}`);
+  }
 
   // Vendedor vazio: preenche com o primeiro nome de quem criou o orcamento
   // (ou de quem esta logado) e grava, para o PDF sair igual. Continua editavel.
@@ -289,7 +294,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           )}
           <form>
             <input type="hidden" name="quote_id" value={id} />
-            <button formAction={duplicateQuote} className="button-ghost">Duplicar</button>
+            <SubmitButton formAction={duplicateQuote} className="button-ghost" pendingText="Duplicando…">Duplicar</SubmitButton>
           </form>
           {quote.status === "aprovado" && (
             <form>
@@ -319,11 +324,11 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </form>
           )}
           {quote.status !== "aprovado" && (
-            <form action={approveQuote}>
+            <form>
               <input type="hidden" name="quote_id" value={id} />
-              <button className="button-ghost">
+              <ConfirmButton formAction={approveQuote} className="button-ghost" message="Aprovar gera venda, pedido, produção e conta a receber. Confirmar aprovação?">
                 <CheckCircle2 className="h-4 w-4" /> Aprovar orçamento
-              </button>
+              </ConfirmButton>
             </form>
           )}
         </div>
