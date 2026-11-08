@@ -49,6 +49,20 @@ export function aiErrorMessage(error: unknown) {
   }
 }
 
+/**
+ * Modelo valido para o provedor. O banco nasce com openai_model = 'gpt-4o'; trocar
+ * o provedor para Groq/Ollama sem trocar o modelo fazia toda chamada falhar.
+ */
+export function modelForProvider(provider: AiProvider, model?: string | null) {
+  const name = (model ?? "").trim();
+  if (!name) return DEFAULT_AI_MODEL[provider];
+  const looksOpenAi = /^(gpt-|o\d|chatgpt)/i.test(name);
+  if (provider === "openai") return name.includes("/") ? DEFAULT_AI_MODEL.openai : name;
+  if (looksOpenAi) return DEFAULT_AI_MODEL[provider];
+  if (provider === "ollama" && name.includes("/")) return DEFAULT_AI_MODEL.ollama;
+  return name;
+}
+
 /** Ha chave disponivel para o provedor? (Ollama usa a variavel de ambiente do servidor.) */
 export function aiKeyAvailable(provider: AiProvider, companyKey?: string | null) {
   return provider === "ollama" ? Boolean(process.env.OLLAMA_API_KEY) : Boolean(companyKey);
@@ -65,24 +79,29 @@ export async function aiChat(request: {
   maxTokens?: number;
 }): Promise<string> {
   const { provider, messages, temperature = 0.3, json = false, maxTokens = 1000 } = request;
-  const model = request.model || DEFAULT_AI_MODEL[provider];
+  const model = modelForProvider(provider, request.model);
 
   if (provider === "ollama") {
     const key = process.env.OLLAMA_API_KEY;
     if (!key) throw new AiError("OLLAMA_API_KEY não configurada no servidor.", null, provider);
     const client = new Ollama({ host: "https://ollama.com", headers: { Authorization: `Bearer ${key}` } });
+    const send = (modelName: string) => client.chat({
+      model: modelName,
+      messages,
+      stream: false,
+      ...(json ? { format: "json" } : {}),
+      options: { temperature, num_predict: maxTokens },
+    });
+    const statusOf = (error: unknown) => typeof (error as { status_code?: unknown }).status_code === "number" ? (error as { status_code: number }).status_code : null;
     try {
-      const response = await client.chat({
-        model,
-        messages,
-        stream: false,
-        ...(json ? { format: "json" } : {}),
-        options: { temperature, num_predict: maxTokens },
-      });
-      return response.message.content;
+      return (await send(model)).message.content;
     } catch (error) {
-      const status = typeof (error as { status_code?: unknown }).status_code === "number" ? (error as { status_code: number }).status_code : null;
-      throw new AiError(error instanceof Error ? error.message : String(error), status, provider);
+      // Modelo salvo que nao existe no Ollama: tenta o modelo padrao antes de parar a triagem.
+      if (statusOf(error) === 404 && model !== DEFAULT_AI_MODEL.ollama) {
+        try { return (await send(DEFAULT_AI_MODEL.ollama)).message.content; }
+        catch (retry) { throw new AiError(retry instanceof Error ? retry.message : String(retry), statusOf(retry), provider); }
+      }
+      throw new AiError(error instanceof Error ? error.message : String(error), statusOf(error), provider);
     }
   }
 

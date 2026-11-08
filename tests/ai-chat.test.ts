@@ -67,3 +67,15 @@ describe('lib/ai/chat', () => {
     expect(parseAiProvider('groq')).toBe('groq');
   });
 });
+
+describe("modelForProvider", () => {
+  test("troca modelo de outro provedor pelo padrao", async () => {
+    const { modelForProvider, DEFAULT_AI_MODEL } = await import("@/lib/ai/chat");
+    expect(modelForProvider("ollama", "gpt-4o")).toBe(DEFAULT_AI_MODEL.ollama);
+    expect(modelForProvider("groq", "gpt-4o")).toBe(DEFAULT_AI_MODEL.groq);
+    expect(modelForProvider("groq", "openai/gpt-oss-120b")).toBe("openai/gpt-oss-120b");
+    expect(modelForProvider("openai", "openai/gpt-oss-120b")).toBe(DEFAULT_AI_MODEL.openai);
+    expect(modelForProvider("openai", "gpt-4o-mini")).toBe("gpt-4o-mini");
+    expect(modelForProvider("ollama", "")).toBe(DEFAULT_AI_MODEL.ollama);
+  });
+});

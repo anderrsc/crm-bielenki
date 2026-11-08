@@ -4,6 +4,11 @@ import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { safeExternalUrl } from "@/lib/safe-url";
 
+// A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
+export const maxDuration = 60;
+
+const GRAPH_VERSION = process.env.WHATSAPP_API_VERSION || "v23.0";
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -137,7 +142,10 @@ export async function POST(req: NextRequest) {
       if (payload.event !== "messages.upsert") return NextResponse.json({ status: "ignored" });
       const data = payload.data;
       if (data?.key?.fromMe) return NextResponse.json({ status: "own_message" }); // ignora msgs próprias
-      from = (data?.key?.remoteJid ?? "").replace("@s.whatsapp.net", "").replace("@c.us", "");
+      const jid = String(data?.key?.remoteJid ?? "");
+      // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
+      if (/@g\.us$|@broadcast$|^status@/.test(jid)) return NextResponse.json({ status: "ignored_group" });
+      from = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
       phoneNumberId = payload.instance ?? process.env.EVOLUTION_INSTANCE ?? "";
       const msgContent = data?.message;
       if (msgContent?.conversation) {
@@ -241,43 +249,43 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
 
-    // Se não existe sessão, cria uma nova com mensagem de boas-vindas
-    if (!session) {
-      const welcomeMsg = `Olá! Seja bem-vindo à ${company.trade_name || company.name}. Meu nome é ${agentConfig.agent_name || "Ana"}, assistente virtual da empresa. Posso começar anotando seu nome?`;
+    const companyName = company.trade_name || company.name;
+    const agentName = agentConfig.agent_name || "Ana";
+    // Responde pelo mesmo canal que trouxe a mensagem (antes uma config "evolution"
+    // padrao fazia as respostas de quem usa a API da Meta nunca sairem).
+    const wppProvider = isEvolution ? "evolution" : "meta";
+    const reply = (text: string) => sendWhatsAppMessage({
+      to: from,
+      text,
+      provider: wppProvider,
+      phoneNumberId,
+      metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
+      evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
+      evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
+      evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
+    }).catch((error) => console.error("Falha ao enviar WhatsApp:", error instanceof Error ? error.message : error));
 
+    // Primeiro contato: cria a sessao e segue para a IA, que ja responde ao que o
+    // cliente escreveu (antes a primeira mensagem era descartada).
+    const isNewSession = !session;
+    if (!session) {
       const { data: newSession, error: sessionError } = await supabase
         .from("triage_sessions")
         .insert({
           company_id: company.id,
           phone: from,
-          messages: [
-            { role: "assistant", content: welcomeMsg, timestamp: new Date().toISOString() }
-          ],
+          messages: [],
           current_step: "identificacao",
           dados_coletados: {}
         })
         .select()
         .single();
 
-      if (sessionError) {
+      if (sessionError || !newSession) {
         console.error("Erro ao criar sessão:", sessionError);
-        return NextResponse.json({ error: sessionError.message }, { status: 500 });
+        return NextResponse.json({ error: sessionError?.message ?? "session_error" }, { status: 500 });
       }
-
-      // Envia boas-vindas via WhatsApp
-      const wppProviderWelcome = agentConfig.wpp_provider || "evolution";
-      await sendWhatsAppMessage({
-        to: from,
-        text: welcomeMsg,
-        provider: wppProviderWelcome,
-        phoneNumberId,
-        metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
-        evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
-        evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
-        evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
-      });
-
-      return NextResponse.json({ status: "session_created", session_id: newSession.id });
+      session = newSession;
     }
 
     // Adiciona mensagem do cliente ao histórico
@@ -294,9 +302,9 @@ export async function POST(req: NextRequest) {
 
     // Adiciona contexto dos dados já coletados
     const dadosAtuais = (session.dados_coletados && typeof session.dados_coletados === "object" ? session.dados_coletados : {}) as Record<string, unknown>;
-    const contextMsg = Object.keys(dadosAtuais).length > 0
-      ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.`
-      : "";
+    const contextMsg = `\n\nVocê se chama ${agentName} e atende pela ${companyName}.`
+      + (isNewSession ? ` Este é o primeiro contato do cliente: cumprimente, apresente-se em uma frase e já responda ao que ele escreveu, seguindo para a próxima pergunta da triagem.` : "")
+      + (Object.keys(dadosAtuais).length > 0 ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.` : "");
 
     // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI)
     let aiContent: string;
@@ -315,7 +323,14 @@ export async function POST(req: NextRequest) {
       });
     } catch (error) {
       console.error("Erro do provedor de IA:", error instanceof AiError ? `${error.provider} ${error.status}: ${error.message}` : error);
-      return NextResponse.json({ error: "AI provider request failed" }, { status: 502 });
+      // Guarda a mensagem do cliente e avisa que uma pessoa vai responder: nada se perde.
+      const aviso = `Olá! Recebemos sua mensagem aqui na ${companyName}. Em instantes alguém da nossa equipe vai te responder.`;
+      await supabase.from("triage_sessions").update({
+        messages: [...updatedMessages, { role: "assistant", content: aviso, timestamp: new Date().toISOString() }],
+        updated_at: new Date().toISOString(),
+      }).eq("id", session.id);
+      await reply(aviso);
+      return NextResponse.json({ status: "ai_failed_fallback_sent" });
     }
 
     let aiResult: {
@@ -397,23 +412,11 @@ export async function POST(req: NextRequest) {
 
     // Se triagem concluída e é lead comercial, cria/atualiza lead no CRM
     if (isConcluida && !isPosVenda) {
-      await createOrUpdateLead(company.id, session.id, novosDados, aiResult);
+      await createOrUpdateLead(company.id, session.id, from, novosDados, aiResult);
     }
 
-    // Envia resposta via WhatsApp (Evolution API ou Meta)
-    const wppProvider = agentConfig.wpp_provider || "meta";
-    await sendWhatsAppMessage({
-      to: from,
-      text: resposta,
-      provider: wppProvider,
-      // Meta
-      phoneNumberId,
-      metaToken: secretValue(agentConfig.whatsapp_token) || process.env.WHATSAPP_ACCESS_TOKEN || "",
-      // Evolution API
-      evolutionUrl: agentConfig.evolution_api_url || process.env.EVOLUTION_API_URL || "",
-      evolutionKey: secretValue(agentConfig.evolution_api_key) || process.env.EVOLUTION_API_KEY || "",
-      evolutionInstance: agentConfig.evolution_instance || process.env.EVOLUTION_INSTANCE || "",
-    });
+    // Envia resposta pelo mesmo canal (Evolution API ou Meta)
+    await reply(resposta);
 
     return NextResponse.json({ status: "ok", triagem_concluida: isConcluida });
   } catch (err) {
@@ -452,7 +455,7 @@ async function sendWhatsAppMessage(p: SendParams) {
     console.warn("WhatsApp (Meta) nao configurado: resposta nao enviada.");
     return;
   }
-  const response = await fetch(`https://graph.facebook.com/v19.0/${p.phoneNumberId}/messages`, {
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${p.phoneNumberId}/messages`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${p.metaToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -462,12 +465,13 @@ async function sendWhatsAppMessage(p: SendParams) {
       text: { body: p.text }
     })
   });
-  if (!response.ok) throw new Error(`Meta WhatsApp API HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Meta WhatsApp API HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
 }
 
 async function createOrUpdateLead(
   companyId: string,
   sessionId: string,
+  phone: string,
   dados: Record<string, unknown>,
   aiResult: { score: number | null; prioridade: string | null; proxima_acao: string | null }
 ) {
@@ -490,7 +494,8 @@ async function createOrUpdateLead(
   const leadData = {
     company_id: companyId,
     name: leadName,
-    phone: String(dados.telefone || ""),
+    // O telefone e o proprio numero do WhatsApp (a IA nunca pergunta telefone).
+    phone: String(dados.telefone || phone),
     source: "WhatsApp",
     stage_id: stage.id,
     status: "aberto",
