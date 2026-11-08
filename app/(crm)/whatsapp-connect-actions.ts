@@ -37,6 +37,8 @@ async function context() {
 }
 
 const secret = (v: unknown) => (typeof v === "string" && v ? decryptSecret(v) : "");
+/** Chave gerada pelo CRM (hex). Uma chave antiga digitada à mão na tela do Agente IA é ignorada. */
+const crmKey = (v: unknown) => { const k = secret(v); return /^[A-Za-z0-9]{32,128}$/.test(k) ? k : ""; };
 const text = (v: unknown) => (typeof v === "string" ? v : "");
 
 async function webhookUrl() {
@@ -54,8 +56,8 @@ async function save(db: Awaited<ReturnType<typeof createClient>>, companyId: str
 export async function getWhatsappSetup(): Promise<Result<{ setup: WhatsappSetup }>> {
   try {
     const { cfg } = await context();
-    const key = secret(cfg?.evolution_api_key);
-    const url = text(cfg?.evolution_api_url) || null;
+    const key = crmKey(cfg?.evolution_api_key);
+    const url = key ? text(cfg?.evolution_api_url) || null : null;
     const instance = text(cfg?.evolution_instance) || EVOLUTION_INSTANCE;
     let state: string | null = null;
     let stateError: string | null = null;
@@ -77,11 +79,12 @@ export async function getWhatsappSetup(): Promise<Result<{ setup: WhatsappSetup 
 export async function generateEvolutionKey(): Promise<Result> {
   try {
     const { db, companyId, cfg } = await context();
-    if (secret(cfg?.evolution_api_key)) return { ok: true };
+    if (crmKey(cfg?.evolution_api_key) && secret(cfg?.evolution_webhook_secret)) return { ok: true };
     await save(db, companyId, {
       evolution_api_key: encryptSecret(randomBytes(32).toString("hex")),
       evolution_webhook_secret: encryptSecret(randomBytes(24).toString("hex")),
       evolution_instance: EVOLUTION_INSTANCE,
+      evolution_api_url: null, // servidor antigo não vale para a chave nova
     });
     return { ok: true };
   } catch (e) { return fail(e); }
@@ -93,7 +96,7 @@ export async function saveEvolutionServer(ip: string): Promise<Result> {
     const { db, companyId, cfg } = await context();
     const url = evolutionUrlFromIp(ip);
     if (!url) return { error: "IP inválido. Copie o \"Endereço IP público\" da máquina na Oracle (ex.: 129.146.10.20)." };
-    const key = secret(cfg?.evolution_api_key);
+    const key = crmKey(cfg?.evolution_api_key);
     const hook = secret(cfg?.evolution_webhook_secret);
     if (!key || !hook) return { error: "Gere a instalação primeiro (passo 1)." };
     await evolutionPing(url, key);
@@ -109,7 +112,7 @@ export async function saveEvolutionServer(ip: string): Promise<Result> {
 export async function getEvolutionQr(): Promise<Result<{ state: string; qr: string | null; pairingCode: string | null }>> {
   try {
     const { cfg } = await context();
-    const key = secret(cfg?.evolution_api_key);
+    const key = crmKey(cfg?.evolution_api_key);
     const url = text(cfg?.evolution_api_url);
     const instance = text(cfg?.evolution_instance) || EVOLUTION_INSTANCE;
     if (!key || !url) return { error: "Servidor da Evolution não configurado." };
@@ -127,7 +130,7 @@ export async function getEvolutionQr(): Promise<Result<{ state: string; qr: stri
 export async function syncKnownContacts(): Promise<Result<{ added: number; total: number }>> {
   try {
     const { db, companyId, cfg } = await context();
-    const key = secret(cfg?.evolution_api_key);
+    const key = crmKey(cfg?.evolution_api_key);
     const url = text(cfg?.evolution_api_url);
     const instance = text(cfg?.evolution_instance) || EVOLUTION_INSTANCE;
     if (!key || !url) return { error: "Servidor da Evolution não configurado." };
@@ -159,7 +162,7 @@ export async function syncKnownContacts(): Promise<Result<{ added: number; total
 export async function disconnectEvolution(): Promise<Result> {
   try {
     const { cfg } = await context();
-    const key = secret(cfg?.evolution_api_key);
+    const key = crmKey(cfg?.evolution_api_key);
     const url = text(cfg?.evolution_api_url);
     if (!key || !url) return { ok: true };
     await evolutionLogout(url, key, text(cfg?.evolution_instance) || EVOLUTION_INSTANCE);
