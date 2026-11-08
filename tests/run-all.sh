@@ -62,7 +62,7 @@ echo "==> verificando consultas do codigo contra o banco"
 node tests/static/check-queries.mjs
 
 echo "==> testes do banco"
-node --test --test-reporter=spec tests/db/db.test.mjs
+node --test --test-concurrency=1 --test-reporter=spec tests/db/db.test.mjs tests/db/integridade.test.mjs
 
 echo "==> build e start do Next"
 npx next build > "$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log"; exit 1; }
@@ -72,5 +72,5 @@ for i in $(seq 1 60); do curl -s -o /dev/null "$E2E_BASE_URL/login" && break; sl
 echo "==> testes de ponta a ponta"
 node --test --test-concurrency=1 --test-reporter=spec \
   tests/e2e/api.test.mjs tests/e2e/quote-flow.test.mjs tests/e2e/business.test.mjs tests/e2e/ui-actions.test.mjs \
-  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs
+  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs tests/e2e/print-a4.test.mjs
 echo "==> tudo verde"
