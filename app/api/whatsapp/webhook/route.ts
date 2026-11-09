@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { AI_FALLBACK_MARK } from "@/lib/ai/central-data";
 
@@ -184,20 +185,10 @@ export async function POST(req: NextRequest) {
       if (!phone) return NextResponse.json({ status: fromMe ? "own_message" : "no_phone" });
       from = phone;
       phoneNumberId = payload.instance ?? process.env.EVOLUTION_INSTANCE ?? "";
-      const msgContent = data?.message;
-      if (msgContent?.conversation) {
-        clientText = msgContent.conversation;
-      } else if (msgContent?.extendedTextMessage?.text) {
-        clientText = msgContent.extendedTextMessage.text;
-      } else if (msgContent?.imageMessage) {
-        clientText = "[foto/imagem recebida]"; mediaInfo = "image";
-      } else if (msgContent?.documentMessage) {
-        clientText = "[documento/projeto recebido]"; mediaInfo = "document";
-      } else if (msgContent?.videoMessage) {
-        clientText = "[vídeo recebido]"; mediaInfo = "video";
-      } else {
-        return NextResponse.json({ status: "unsupported_type" });
-      }
+      const extracted = evolutionMessageText(data?.message);
+      if (!extracted.text) return NextResponse.json({ status: "unsupported_type" });
+      clientText = extracted.text;
+      mediaInfo = extracted.media;
     } else {
       // Meta WhatsApp Business API format
       const signature = req.headers.get("x-hub-signature-256") ?? "";

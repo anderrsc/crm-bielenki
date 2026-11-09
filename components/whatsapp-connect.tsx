@@ -29,6 +29,22 @@ export function WhatsappConnect() {
   const [qr, setQr] = useState<{ state: string; qr: string | null; pairingCode: string | null } | null>(null);
   const [mostrarScript, setMostrarScript] = useState(false);
   const [onde, setOnde] = useState<"pc" | "oracle">("pc");
+  const [importando, setImportando] = useState<{ page: number; pages: number; inserted: number; done: boolean; error?: string } | null>(null);
+
+  // Traz o histórico que o WhatsApp já tem (página por página) para o Atendimento.
+  const importarHistorico = useCallback(async () => {
+    let page = 1, inserted = 0;
+    setImportando({ page: 0, pages: 0, inserted: 0, done: false });
+    for (;;) {
+      const r = await fetch("/api/whatsapp/import-history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page }) })
+        .then((res) => res.json()).catch((e) => ({ error: String(e) }));
+      if (r.error) { setImportando({ page, pages: 0, inserted, done: true, error: r.error }); return; }
+      inserted += r.inserted ?? 0;
+      setImportando({ page, pages: r.pages ?? 0, inserted, done: !!r.done });
+      if (r.done) return;
+      page += 1;
+    }
+  }, []);
   const [pending, start] = useTransition();
 
   const carregar = useCallback(async () => {
@@ -57,11 +73,13 @@ export function WhatsappConnect() {
           const s = await syncKnownContacts();
           setMsg("added" in s ? `WhatsApp conectado! ${s.total} conversas atuais marcadas como contatos conhecidos (a Ana não responde esses).` : "WhatsApp conectado!");
           carregar();
+          // O celular leva alguns segundos para mandar o histórico; depois importa.
+          setTimeout(() => { importarHistorico(); }, 20_000);
         }
       }
     }, 5000);
     return () => clearInterval(t);
-  }, [qr, carregar]);
+  }, [qr, carregar, importarHistorico]);
 
   const run = (fn: () => Promise<{ error?: string } | object>, ok?: string) => start(async () => {
     setMsg(null);
@@ -138,6 +156,20 @@ export function WhatsappConnect() {
                 <div className="space-y-2">
                   <p className="text-green-500">Número conectado. As mensagens já chegam no Atendimento.</p>
                   <p className="text-xs">A Ana só responde número que ainda não conversou com vocês. {setup.syncedAt ? `Contatos atuais marcados em ${new Date(setup.syncedAt).toLocaleString("pt-BR")}.` : ""}</p>
+                  <div className="rounded-lg bg-cream/60 p-2 text-xs">
+                    <p className="font-bold">Histórico de conversas</p>
+                    <p className="text-ink/60">Traz para o Atendimento as conversas e mensagens que o WhatsApp já tem. Pode rodar de novo: não duplica.</p>
+                    {importando && (
+                      <p className={cn("mt-1", importando.error ? "text-red-500" : importando.done ? "text-green-500" : "text-ink/70")}>
+                        {importando.error ? `Erro: ${importando.error}`
+                          : importando.done ? `Pronto: ${importando.inserted} mensagens importadas.`
+                          : `Importando… página ${importando.page}${importando.pages ? ` de ${importando.pages}` : ""} · ${importando.inserted} mensagens`}
+                      </p>
+                    )}
+                    <button disabled={!!importando && !importando.done} onClick={importarHistorico} className="mt-2 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60">
+                      {importando && !importando.done ? "Importando…" : "Importar histórico do WhatsApp"}
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button disabled={pending} onClick={() => run(async () => { const r = await syncKnownContacts(); return "added" in r ? (setMsg(`${r.total} conversas marcadas como conhecidas (${r.added} novas).`), {}) : r; })} className="flex items-center gap-1 rounded-xl bg-cream px-3 py-2 text-xs font-bold"><Users className="h-4 w-4" /> Marcar contatos atuais de novo</button>
                     <button disabled={pending} onClick={() => run(disconnectEvolution, "WhatsApp desconectado do CRM.")} className="rounded-xl bg-red-500/10 px-3 py-2 text-xs font-bold text-red-500">Desconectar</button>

@@ -21,7 +21,7 @@ export async function findClientByPhone(db: SupabaseClient, companyId: string, p
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 
-export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null): Promise<InboxConversation> {
+export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean } = {}): Promise<InboxConversation> {
   const { data: found } = await db.from("conversations")
     .select("id,client_id,ai_paused,unread_count")
     .eq("company_id", companyId).eq("channel", "whatsapp").eq("external_id", phone)
@@ -40,6 +40,7 @@ export async function getOrCreateConversation(db: SupabaseClient, companyId: str
   const { data: created, error } = await db.from("conversations").insert({
     company_id: companyId, channel: "whatsapp", external_id: phone, phone,
     contact_name: contactName || null, client_id: client?.id ?? null, status: "aberta",
+    ...(opts.aiPaused ? { ai_paused: true } : {}),
   }).select("id,client_id,ai_paused,unread_count").single();
   if (error || !created) throw new Error(`Conversa não criada: ${error?.message}`);
   return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0 };
