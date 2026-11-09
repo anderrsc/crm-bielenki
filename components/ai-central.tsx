@@ -8,6 +8,7 @@ import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import { WhatsappConnect } from "@/components/whatsapp-connect";
+import { AnaRules } from "@/components/ana-rules";
 
 const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType; cls: string }> = {
   triagem: { icon: MessageSquare, cls: "text-blue-600" },
@@ -73,6 +74,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       </div>
 
       <WhatsappConnect />
+      <AnaRules />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Conversas no WhatsApp" value={s.conversas} />
