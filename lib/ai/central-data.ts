@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseAiProvider, type AiProvider } from "@/lib/ai/chat";
 
 export const AI_FALLBACK_MARK = "alguém da nossa equipe vai te responder";
+/** Marca no histórico da triagem quando a IA falhou (o cliente não recebe nada automático). */
+export const AI_FAILURE_TAG = "[IA falhou]";
 
 export type CentralCheck = { label: string; ok: boolean; detail: string };
 export type CentralEvent = { at: string; kind: "triagem" | "lead" | "falha" | "envio"; title: string; detail: string };
@@ -59,7 +61,13 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
 
   const sessions = sessionsRes.data ?? [];
   const lastAssistant = (messages: unknown) => [...(Array.isArray(messages) ? (messages as Msg[]) : [])].reverse().find((m) => m?.role === "assistant")?.content ?? "";
-  const failedSessions = sessions.filter((s) => lastAssistant(s.messages).includes(AI_FALLBACK_MARK));
+  const lastEntry = (messages: unknown) => [...(Array.isArray(messages) ? (messages as Msg[]) : [])].reverse().find((m) => m?.role !== "user");
+  const failureOf = (messages: unknown) => {
+    const last = lastEntry(messages);
+    if (last?.role === "system" && String(last.content).startsWith(AI_FAILURE_TAG)) return String(last.content).slice(AI_FAILURE_TAG.length).trim() || "Sem detalhe";
+    return lastAssistant(messages).includes(AI_FALLBACK_MARK) ? "Cliente recebeu aviso de que a equipe vai responder" : null;
+  };
+  const failedSessions = sessions.filter((s) => failureOf(s.messages) !== null);
   const outbound = outboundRes.data ?? [];
   const workflows = workflowRes.data ?? [];
 
@@ -67,7 +75,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const statusName: Record<string, string> = { em_andamento: "em andamento", concluida: "concluída", pos_venda: "pós-venda" };
   const events: CentralEvent[] = [
     ...sessions.map((s) => failedSessions.includes(s)
-      ? { at: s.updated_at, kind: "falha" as const, title: `IA não respondeu: ${label(s)}`, detail: "Cliente recebeu aviso de que a equipe vai responder" }
+      ? { at: s.updated_at, kind: "falha" as const, title: `IA não respondeu: ${label(s)}`, detail: `${failureOf(s.messages)} · a equipe responde pelo Atendimento` }
       : { at: s.updated_at, kind: "triagem" as const, title: `Triagem ${statusName[s.status] ?? s.status}: ${label(s)}`, detail: [s.tipo_servico, s.produto, s.prioridade && `prioridade ${s.prioridade}`].filter(Boolean).join(" · ") || "Coletando dados" }),
     ...(leadsRes.data ?? []).map((l) => ({ at: l.created_at, kind: "lead" as const, title: `Lead criado: ${l.name}`, detail: `Score ${l.score ?? 0}${l.priority ? ` · prioridade ${l.priority}` : ""}` })),
     ...outbound.filter((o) => o.status === "failed").map((o) => ({ at: o.scheduled_at, kind: "falha" as const, title: `Envio falhou (${o.automation_type})`, detail: o.error_message || "Sem detalhe" })),

@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { AiError, aiChat, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
+import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
-import { rulesForPrompt } from "@/lib/ai/ana-rules";
+import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
-import { AI_FALLBACK_MARK } from "@/lib/ai/central-data";
+import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -373,31 +373,45 @@ export async function POST(req: NextRequest) {
 
     const companyRules = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? agentConfig.system_prompt : null);
 
-    // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI)
-    let aiContent: string;
-    try {
-      aiContent = await aiChat({
-        provider: aiProvider,
-        model: agentConfig.openai_model,
-        apiKey: secretValue(companyAiKey),
-        temperature: Number(agentConfig.temperature ?? 0.3),
-        json: true,
-        maxTokens: 1000,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "") },
-          ...conversationHistory,
-        ],
-      });
-    } catch (error) {
-      console.error("Erro do provedor de IA:", error instanceof AiError ? `${error.provider} ${error.status}: ${error.message}` : error);
-      // Guarda a mensagem do cliente e avisa que uma pessoa vai responder: nada se perde.
-      const aviso = `Olá! Recebemos sua mensagem aqui na ${companyName}. Em instantes ${AI_FALLBACK_MARK}.`;
+    // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI). Se falhar (limite por minuto,
+    // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
+    const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "");
+    const rulesShort = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null);
+    const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "");
+    const attempts = [
+      { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
+      { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory.slice(-12) },
+    ];
+    let aiContent = "";
+    let aiFailure: unknown = null;
+    for (const [i, attempt] of attempts.entries()) {
+      try {
+        aiContent = await aiChat({
+          provider: aiProvider,
+          model: attempt.model,
+          apiKey: secretValue(companyAiKey),
+          temperature: Number(agentConfig.temperature ?? 0.3),
+          json: true,
+          maxTokens: 1500,
+          messages: [{ role: "system", content: attempt.system }, ...attempt.history],
+        });
+        JSON.parse(aiContent);
+        aiFailure = null;
+        break;
+      } catch (error) {
+        aiFailure = error;
+        console.error(`Erro do provedor de IA (tentativa ${i + 1}):`, error instanceof AiError ? `${error.provider} ${error.status}: ${error.message}` : error);
+        if (i === 0 && error instanceof AiError && error.status === 429) await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (aiFailure) {
+      // Sem mensagem automática para o cliente: a conversa fica no Atendimento para a equipe
+      // responder, e a Central mostra o motivo da falha.
       await supabase.from("triage_sessions").update({
-        messages: [...updatedMessages, { role: "assistant", content: aviso, timestamp: new Date().toISOString() }],
+        messages: [...updatedMessages, { role: "system", content: `${AI_FAILURE_TAG} ${aiFailure instanceof AiError ? aiErrorMessage(aiFailure) : "resposta inválida da IA"}`, timestamp: new Date().toISOString() }],
         updated_at: new Date().toISOString(),
       }).eq("id", session.id);
-      await reply(aviso);
-      return NextResponse.json({ status: "ai_failed_fallback_sent" });
+      return NextResponse.json({ status: "ai_failed_team_notified" });
     }
 
     let aiResult: {

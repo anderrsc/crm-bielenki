@@ -86,13 +86,15 @@ describe('webhook WhatsApp (Meta)', () => {
     expect(tables.leads[0]).toMatchObject({ name: 'João', phone: '5547999990000', source: 'WhatsApp' });
   });
 
-  test('falha da IA avisa o cliente e guarda a mensagem', async () => {
+  test('falha da IA não manda mensagem pronta e guarda o motivo', async () => {
     aiReply.mockRejectedValue(new Error('429'));
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     const res = await POST(metaRequest('Oi', 'm3') as never);
-    expect((await res.json()).status).toBe('ai_failed_fallback_sent');
-    expect(sent[0].body.text.body).toContain('alguém da nossa equipe');
+    expect((await res.json()).status).toBe('ai_failed_team_notified');
+    expect(sent).toHaveLength(0);
+    expect(aiReply).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(tables.triage_sessions[0].messages)).toContain('Oi');
+    expect(JSON.stringify(tables.triage_sessions[0].messages)).toContain('[IA falhou]');
   });
 
   test('grava a conversa no Atendimento com o nome de quem escreveu', async () => {

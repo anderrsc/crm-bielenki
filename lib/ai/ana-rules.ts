@@ -71,6 +71,6 @@ export function rulesForPrompt(rules: string | null | undefined): string {
   // Regras antigas falam "a Ana": o nome da assistente mudou para Lia.
   for (let i = 0; i < out.length; i++) out[i] = out[i].replace(/\bAna\b/g, "Lia");
   let text = out.length ? `REGRAS DA EMPRESA (mandam mais que qualquer outra instrução):\n${out.join("\n")}` : "";
-  if (learned) text += `${text ? "\n\n" : ""}COMO A EQUIPE COSTUMA ATENDER (use como referência de tom e de perguntas; nunca cite preços daqui):\n${learned.slice(0, 6000)}`;
+  if (learned) text += `${text ? "\n\n" : ""}COMO A EQUIPE COSTUMA ATENDER (use como referência de tom e de perguntas; nunca cite preços daqui):\n${learned.slice(0, 3000)}`;
   return text;
 }
