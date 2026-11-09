@@ -14,7 +14,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
 import { QuickReplies } from "@/components/quick-replies";
-import { quickReplyQuery } from "@/lib/quick-replies";
+import { fillQuickReply, QUOTE_MESSAGE, quickReplyQuery } from "@/lib/quick-replies";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hora = (iso: string | null) => {
@@ -244,7 +244,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
         {!c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
-        <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged}/>
+        <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
         <div className="flex items-end gap-2">
           <QuickReplies
             query={quickReplyQuery(texto)} open={atalhos} onOpen={() => setAtalhos(true)}

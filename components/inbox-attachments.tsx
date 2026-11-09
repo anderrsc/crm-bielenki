@@ -4,7 +4,7 @@ import { FileText,Paperclip } from 'lucide-react';
 import { prepareInboxAttachment,sendInboxAttachment,cancelInboxAttachment } from '@/app/(crm)/inbox-attachment-actions';
 import { createClient } from '@/lib/supabase/client';
 import { validateAttachment,attachmentMime,ATTACHMENT_MIMES } from '@/lib/whatsapp/attachments';
-export function InboxAttachments({conversationId,quotes,onChanged}:{conversationId:string;quotes:Array<{id:string;numero:string;status:string}>;onChanged:()=>void}){
+export function InboxAttachments({conversationId,quotes,onChanged,onQuoteSent}:{conversationId:string;quotes:Array<{id:string;numero:string;status:string}>;onChanged:()=>void;onQuoteSent?:()=>void}){
  const input=useRef<HTMLInputElement>(null);const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
  async function send(file:File,quoteId?:string){
   setBusy(true);setMessage('');let preparedId:string|undefined;
@@ -19,6 +19,8 @@ export function InboxAttachments({conversationId,quotes,onChanged}:{conversation
    const r=await sendInboxAttachment(p.id);
    if(r.error)throw new Error(r.error);
    setMessage(r.warning||'Arquivo enviado.');
+   // Orçamento enviado: a mensagem de prazo e pagamento fica pronta no campo para conferir e enviar.
+   if(quoteId)onQuoteSent?.();
   }catch(e){if(preparedId)await cancelInboxAttachment(preparedId).catch(()=>{});setMessage(e instanceof Error?e.message:'Falha ao enviar.')}finally{setBusy(false);if(input.current)input.current.value='';onChanged()}
  }
  async function pdf(id:string){

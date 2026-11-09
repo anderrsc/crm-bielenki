@@ -2,7 +2,7 @@
 // Respostas prontas do Atendimento: lista, cria, edita e apaga (toda a equipe).
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { QUICK_REPLY_DEFAULTS } from "@/lib/quick-replies";
+import { OLD_QUOTE_REPLY, QUICK_REPLY_DEFAULTS, QUOTE_MESSAGE } from "@/lib/quick-replies";
 
 export type QuickReply = { id: string; shortcut: string; body: string };
 type Result<T = object> = ({ ok: true } & T) | { ok?: false; error: string };
@@ -31,6 +31,12 @@ export async function listQuickReplies(): Promise<Result<{ replies: QuickReply[]
       await db.from("quick_replies").insert(QUICK_REPLY_DEFAULTS.map((r, i) => ({ ...r, company_id: companyId, sort_order: i })));
       ({ data, error } = await read());
       if (error) throw new Error(missingTable(error.message));
+    }
+    // /orcamento antigo (sem prazo e pagamento) vira o texto aprovado, se ninguém editou.
+    const old = (data ?? []).find((r) => r.shortcut === "orcamento" && r.body === OLD_QUOTE_REPLY);
+    if (old) {
+      await db.from("quick_replies").update({ body: QUOTE_MESSAGE, updated_at: new Date().toISOString() }).eq("id", old.id);
+      old.body = QUOTE_MESSAGE;
     }
     return { ok: true, replies: (data ?? []) as QuickReply[] };
   } catch (e) { return fail(e); }

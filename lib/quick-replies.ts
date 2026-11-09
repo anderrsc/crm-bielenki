@@ -1,4 +1,13 @@
 // Respostas prontas do Atendimento.
+/** Mensagem que acompanha o PDF do orçamento (aprovada pelo Anderson). */
+export const QUOTE_MESSAGE = `{nome}, segue o seu orçamento! Preparamos tudo conforme conversamos.
+
+Hoje estamos com prazo de até 20 dias corridos para execução. E o pagamento fica bem facilitado: 50% de entrada no Pix ou em dinheiro, e o restante em até 6x sem juros no cartão de crédito.
+
+Qualquer ajuste ou dúvida, é só me chamar. Se estiver tudo certo, me confirma por aqui que já garantimos a sua data na agenda!`;
+/** Texto antigo da resposta /orcamento: troca pelo novo se ninguém editou. */
+export const OLD_QUOTE_REPLY = "{nome}, segue o seu orçamento. Qualquer dúvida estou à disposição!";
+
 // Começo sugerido: a equipe troca o que estiver entre [colchetes].
 export const QUICK_REPLY_DEFAULTS: Array<{ shortcut: string; body: string }> = [
   { shortcut: "endereco", body: "Nosso endereço: [rua, número, bairro], Jaraguá do Sul. Localização: [link do Google Maps]" },
@@ -6,7 +15,7 @@ export const QUICK_REPLY_DEFAULTS: Array<{ shortcut: string; body: string }> = [
   { shortcut: "pix", body: "Segue nossa chave Pix: [chave]. Em nome de Marquinhos Calhas e Esquadrias. Depois é só me mandar o comprovante por aqui 🙏" },
   { shortcut: "foto", body: "{nome}, se puder me manda uma foto do local (de longe e de perto) que ajuda bastante a montar o orçamento certinho." },
   { shortcut: "medidas", body: "{nome}, você já tem as medidas? Se não tiver, a gente agenda uma visita técnica para medir." },
-  { shortcut: "orcamento", body: "{nome}, segue o seu orçamento. Qualquer dúvida estou à disposição!" },
+  { shortcut: "orcamento", body: QUOTE_MESSAGE },
 ];
 
 
