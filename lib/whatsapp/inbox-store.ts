@@ -1,7 +1,7 @@
 // Grava conversas e mensagens do WhatsApp para a tela de Atendimento.
 // Funciona com o cliente do Supabase do webhook (service role) ou do usuário.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cleanContactName, digitsOnly, samePhone } from "@/lib/whatsapp/phone";
+import { cleanContactName, digitsOnly, phoneKey, samePhone } from "@/lib/whatsapp/phone";
 
 export type MessageAuthor = "cliente" | "ana" | "equipe" | "automacao";
 export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null };
@@ -19,6 +19,32 @@ export async function findClientByPhone(db: SupabaseClient, companyId: string, p
     .limit(50);
   const hit = (data ?? []).find((c: { phone?: string | null; whatsapp?: string | null }) => samePhone(c.phone, phone) || samePhone(c.whatsapp, phone));
   return hit ? { id: hit.id, name: hit.name } : null;
+}
+
+/**
+ * Liga sozinho as conversas sem cliente ao cadastro com o mesmo telefone/WhatsApp.
+ * Roda ao abrir o Atendimento: cliente cadastrado ou editado depois já aparece ligado.
+ */
+export async function autoLinkClients(db: SupabaseClient, companyId: string): Promise<number> {
+  const [{ data: convs }, { data: clients }] = await Promise.all([
+    db.from("conversations").select("id,phone,external_id").eq("company_id", companyId).eq("channel", "whatsapp").is("client_id", null).limit(3000),
+    db.from("clients").select("id,phone,whatsapp").eq("company_id", companyId).limit(10000),
+  ]);
+  if (!convs?.length || !clients?.length) return 0;
+  const byKey = new Map<string, string>();
+  for (const c of clients as Array<{ id: string; phone: string | null; whatsapp: string | null }>) {
+    for (const v of [c.whatsapp, c.phone]) {
+      const k = phoneKey(v);
+      if (k.length >= 10 && !byKey.has(k)) byKey.set(k, c.id);
+    }
+  }
+  const links = (convs as Array<{ id: string; phone: string | null; external_id: string | null }>)
+    .map((c) => ({ id: c.id, client: byKey.get(phoneKey(c.phone || c.external_id)) }))
+    .filter((l): l is { id: string; client: string } => !!l.client);
+  for (let i = 0; i < links.length; i += 25) {
+    await Promise.all(links.slice(i, i + 25).map((l) => db.from("conversations").update({ client_id: l.client }).eq("id", l.id).is("client_id", null)));
+  }
+  return links.length;
 }
 
 export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean } = {}): Promise<InboxConversation> {

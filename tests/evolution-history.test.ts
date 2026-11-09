@@ -74,3 +74,25 @@ describe('nomes da agenda', () => {
     expect([...m.values()]).toEqual(['Carlos Obra']);
   });
 });
+
+import { autoLinkClients } from '@/lib/whatsapp/inbox-store';
+describe('liga conversas ao cadastro', () => {
+  test('acha cliente pelo telefone formatado', async () => {
+    const t: Record<string, Record<string, unknown>[]> = {
+      conversations: [{ id: 'v1', company_id: 'c1', channel: 'whatsapp', phone: '554791924675', external_id: '554791924675', client_id: null },
+                      { id: 'v2', company_id: 'c1', channel: 'whatsapp', phone: '5547900000000', external_id: '5547900000000', client_id: null }],
+      clients: [{ id: 'cli', company_id: 'c1', phone: '(47) 99192-4675', whatsapp: null }],
+    };
+    const db = { from: (table: string) => {
+      const f: Array<(r: Record<string, unknown>) => boolean> = []; let upd: Record<string, unknown> | null = null;
+      const q: Record<string, unknown> = {
+        select: () => q, limit: () => q,
+        eq: (k: string, v: unknown) => { f.push(r => r[k] === v); return q; },
+        is: (k: string, v: unknown) => { f.push(r => r[k] === v); return q; },
+        update: (d: Record<string, unknown>) => { upd = d; return q; },
+        then: (ok: (v: unknown) => unknown) => { const rows = t[table].filter(r => f.every(fn => fn(r))); if (upd) rows.forEach(r => Object.assign(r, upd)); return Promise.resolve({ data: rows, error: null }).then(ok); },
+      }; return q; } };
+    expect(await autoLinkClients(db as never, 'c1')).toBe(1);
+    expect(t.conversations.map(c => c.client_id)).toEqual(['cli', null]);
+  });
+});

@@ -6,7 +6,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
 import { todayISO } from "@/lib/utils";
-import { recordOutbound } from "@/lib/whatsapp/inbox-store";
+import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
+import { syncAgendaNames } from "@/lib/whatsapp/evolution-history";
+import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 
@@ -62,9 +64,22 @@ function toItem(c: ConvRow): InboxItem {
   };
 }
 
+const agendaSyncedAt = new Map<string, number>();
+/** Nomes da agenda do celular, no máximo a cada 6 h (só quem pode ver a configuração da Evolution). */
+async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string) {
+  if (Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 6 * 3600_000) return 0;
+  agendaSyncedAt.set(companyId, Date.now());
+  const { data: cfg } = await db.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
+  const key = cfg?.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
+  if (!cfg?.evolution_api_url || !key) return 0;
+  return syncAgendaNames(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
+}
+
 export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string }> {
   try {
     const { db, companyId } = await context();
+    // Sempre puxa do cadastro: liga conversas a clientes e, de tempos em tempos, os nomes da agenda.
+    await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId).catch(() => 0)]);
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
       .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
       .order("last_message_at", { ascending: false }).limit(150);
