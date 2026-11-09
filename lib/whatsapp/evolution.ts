@@ -204,3 +204,109 @@ docker compose up -d
 echo "PRONTO: https://$HOST"
 `;
 }
+
+/** Endereço do túnel gratuito da Cloudflare (muda quando o PC reinicia). */
+export const isTunnelUrl = (url: string) => /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(url);
+
+/**
+ * Script para PowerShell (PC Windows com Docker Desktop): sobe Evolution, Postgres, Redis,
+ * um túnel gratuito da Cloudflare (HTTPS sem mexer no roteador) e um "avisador" que manda
+ * o endereço do túnel para o CRM a cada minuto. Só ASCII.
+ */
+export function evolutionWindowsScript(p: { apiKey: string; hookSecret: string; crmUrl: string; instance: string; pgPass: string }): string {
+  for (const [k, v] of Object.entries(p)) {
+    if (!/^[A-Za-z0-9:/._-]{3,200}$/.test(v)) throw new EvolutionError(`Valor inválido para o script: ${k}`);
+  }
+  const compose = String.raw`services:
+  evolution:
+    image: evoapicloud/evolution-api:__TAG__
+    restart: always
+    depends_on: [postgres, redis]
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: __API_KEY__
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      DEL_INSTANCE: "false"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:__PGPASS__@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_crm
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution_crm
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: CRM Marquinhos
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: "30"
+      LOG_LEVEL: ERROR,WARN
+    volumes:
+      - instances:/evolution/instances
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: __PGPASS__
+      POSTGRES_DB: evolution
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    depends_on: [evolution]
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://evolution:8080
+  avisador:
+    image: curlimages/curl:latest
+    restart: always
+    depends_on: [cloudflared]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          H=$$(curl -fsS http://cloudflared:2000/quicktunnel | sed -n 's/.*"hostname":"\([^"]*\)".*/\1/p')
+          if [ -n "$$H" ]; then
+            curl -fsS -X POST "__CRM_URL__/api/whatsapp/evolution-url" -H "x-webhook-secret: __HOOK__" -H "content-type: application/json" -d "{\"instance\":\"__INSTANCE__\",\"url\":\"https://$$H\"}" > /dev/null || true
+          fi
+          sleep 60
+        done
+volumes:
+  instances:
+  pgdata:
+  redisdata:
+`;
+  const ps = String.raw`# Evolution API (WhatsApp) para o CRM Marquinhos - PC Windows com Docker Desktop.
+# Cole tudo no PowerShell e aperte Enter. Pode rodar de novo sem problema.
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Write-Host "Instale e abra o Docker Desktop antes de rodar este script." -ForegroundColor Red; return }
+docker info *> $null
+if ($LASTEXITCODE -ne 0) { Write-Host "Abra o Docker Desktop e espere ele ficar verde (Engine running)." -ForegroundColor Red; return }
+$dir = Join-Path $env:USERPROFILE "evolution-crm"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Location $dir
+@'
+__COMPOSE__'@ | Set-Content -Encoding ascii -Path docker-compose.yml
+docker compose pull
+docker compose up -d
+Write-Host ""
+Write-Host "PRONTO. Em 1 a 2 minutos o CRM recebe o endereco sozinho. Volte na Central de IA." -ForegroundColor Green
+`;
+  const fill = (s: string) => s
+    .replaceAll("__TAG__", EVOLUTION_IMAGE_TAG)
+    .replaceAll("__API_KEY__", p.apiKey)
+    .replaceAll("__PGPASS__", p.pgPass)
+    .replaceAll("__CRM_URL__", p.crmUrl)
+    .replaceAll("__HOOK__", p.hookSecret)
+    .replaceAll("__INSTANCE__", p.instance);
+  return fill(ps).replace("__COMPOSE__", () => fill(compose)); // função: "$$" do compose não pode virar "$"
+}

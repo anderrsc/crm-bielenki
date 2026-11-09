@@ -28,6 +28,7 @@ export function WhatsappConnect() {
   const [ip, setIp] = useState("");
   const [qr, setQr] = useState<{ state: string; qr: string | null; pairingCode: string | null } | null>(null);
   const [mostrarScript, setMostrarScript] = useState(false);
+  const [onde, setOnde] = useState<"pc" | "oracle">("pc");
   const [pending, start] = useTransition();
 
   const carregar = useCallback(async () => {
@@ -37,6 +38,13 @@ export function WhatsappConnect() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const conectado = setup?.state === "open" || qr?.state === "open";
+
+  // Esperando o PC mandar o endereço do túnel: confere a cada 10 s.
+  useEffect(() => {
+    if (!setup?.hasKey || setup.url || onde !== "pc") return;
+    const t = setInterval(carregar, 10_000);
+    return () => clearInterval(t);
+  }, [setup?.hasKey, setup?.url, onde, carregar]);
 
   // Enquanto o QR está na tela, atualiza a cada 5 s até o celular ler.
   useEffect(() => {
@@ -80,29 +88,47 @@ export function WhatsappConnect() {
 
       {setup && (
         <>
-          <Passo n={1} titulo="Criar o servidor gratuito (Oracle Cloud)" feito={!!setup.url}>
+          <Passo n={1} titulo="Instalar o servidor" feito={!!setup.url}>
             {!setup.hasKey ? (
               <button disabled={pending} onClick={() => run(generateEvolutionKey)} className="rounded-xl bg-forest px-4 py-2 text-sm font-bold text-white disabled:opacity-60">Gerar instalação</button>
             ) : (
               <>
-                <p>Na Oracle, crie uma instância <b>Ubuntu</b> e, em <b>Mostrar opções avançadas → Gerenciamento → Colar script cloud-init</b>, cole o script abaixo. Ele instala tudo sozinho em uns 10 minutos.</p>
+                <div className="flex gap-1 text-xs font-bold">
+                  {([["pc", "PC da empresa (Windows)"], ["oracle", "Nuvem Oracle (grátis)"]] as const).map(([k, l]) => (
+                    <button key={k} onClick={() => { setOnde(k); setMostrarScript(false); }} className={cn("rounded-lg px-3 py-1.5", onde === k ? "bg-forest text-white" : "bg-cream text-ink/60")}>{l}</button>
+                  ))}
+                </div>
+                {onde === "pc" ? (
+                  <>
+                    <p>No PC que fica ligado: instale e abra o <b>Docker Desktop</b>, depois abra o <b>PowerShell</b>, cole o script e aperte Enter. Em 2 minutos o PC manda o endereço para cá sozinho (e manda de novo se reiniciar).</p>
+                    <p className="text-xs">No Docker Desktop, deixe ligado "Start Docker Desktop when you sign in". O PC precisa entrar no Windows sozinho depois de reiniciar.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>Na Oracle, crie uma instância <b>Ubuntu</b> e, em <b>Mostrar opções avançadas → Gerenciamento → Colar script cloud-init</b>, cole o script abaixo. Ele instala tudo sozinho em uns 10 minutos.</p>
+                    <p className="text-xs">Na rede da instância, libere as portas <b>80</b> e <b>443</b> (Lista de segurança → Regras de entrada → origem 0.0.0.0/0, TCP).</p>
+                  </>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => { navigator.clipboard.writeText(setup.cloudInit ?? ""); setMsg("Script copiado."); }} className="flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white"><Copy className="h-4 w-4" /> Copiar script</button>
+                  <button onClick={() => { navigator.clipboard.writeText((onde === "pc" ? setup.windowsScript : setup.cloudInit) ?? ""); setMsg("Script copiado."); }} className="flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white"><Copy className="h-4 w-4" /> Copiar script</button>
                   <button onClick={() => setMostrarScript((v) => !v)} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold">{mostrarScript ? "Esconder" : "Ver script"}</button>
                 </div>
-                {mostrarScript && <pre className="max-h-60 overflow-auto rounded-lg bg-cream p-2 text-[10px] leading-tight">{setup.cloudInit}</pre>}
-                <p className="text-xs">Na rede da instância, libere as portas <b>80</b> e <b>443</b> (Lista de segurança → Regras de entrada → origem 0.0.0.0/0, TCP).</p>
+                {mostrarScript && <pre className="max-h-60 overflow-auto rounded-lg bg-cream p-2 text-[10px] leading-tight">{onde === "pc" ? setup.windowsScript : setup.cloudInit}</pre>}
+                {onde === "pc" && !setup.url && <p className="text-xs text-amber-500">Aguardando o PC mandar o endereço…</p>}
               </>
             )}
           </Passo>
 
-          {setup.hasKey && (
+          {setup.hasKey && (setup.url || onde === "oracle") && (
             <Passo n={2} titulo="Ligar o servidor ao CRM" feito={!!setup.url && !setup.stateError}>
-              {setup.url && <p className="text-xs">Servidor: <b>{setup.url}</b>{setup.stateError && <span className="text-red-500"> — {setup.stateError}</span>}</p>}
-              <div className="flex gap-2">
+              {setup.url && <p className="text-xs">Servidor{setup.onPc ? " (PC da empresa)" : ""}: <b>{setup.url}</b>{setup.stateError && <span className="text-red-500"> — {setup.stateError}</span>}</p>}
+              {setup.onPc && (setup.stateError || setup.state === null || setup.state === "unknown") && (
+                <button disabled={pending} onClick={() => run(() => saveEvolutionServer(""), "Servidor do PC ligado ao CRM.")} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{pending ? "Testando…" : "Ligar servidor do PC ao CRM"}</button>
+              )}
+              {!setup.onPc && <div className="flex gap-2">
                 <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="IP público da instância (ex.: 129.146.10.20)" className="field flex-1" />
                 <button disabled={pending || !ip.trim()} onClick={() => run(() => saveEvolutionServer(ip), "Servidor ligado ao CRM.")} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{pending ? "Testando…" : "Testar e salvar"}</button>
-              </div>
+              </div>}
             </Passo>
           )}
 

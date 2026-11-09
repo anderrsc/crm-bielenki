@@ -1,14 +1,14 @@
 "use server";
 // Conexão do WhatsApp pela Evolution, feita pela Central de IA (só administrador/gerente:
 // a tabela ai_agent_config só abre para esses papéis).
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import {
   EVOLUTION_INSTANCE, ensureEvolutionInstance, evolutionChatPhones, evolutionCloudInit, evolutionLogout,
-  evolutionPing, evolutionQr, evolutionState, evolutionUrlFromIp,
+  evolutionPing, evolutionQr, evolutionState, evolutionUrlFromIp, evolutionWindowsScript, isTunnelUrl,
 } from "@/lib/whatsapp/evolution";
 import { digitsOnly } from "@/lib/whatsapp/phone";
 
@@ -17,6 +17,8 @@ export type WhatsappSetup = {
   url: string | null;
   instance: string;
   cloudInit: string | null;
+  windowsScript: string | null;
+  onPc: boolean;
   state: string | null;
   stateError: string | null;
   syncedAt: string | null;
@@ -41,12 +43,13 @@ const secret = (v: unknown) => (typeof v === "string" && v ? decryptSecret(v) : 
 const crmKey = (v: unknown) => { const k = secret(v); return /^[A-Za-z0-9]{32,128}$/.test(k) ? k : ""; };
 const text = (v: unknown) => (typeof v === "string" ? v : "");
 
-async function webhookUrl() {
+async function siteOrigin() {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${host}/api/whatsapp/webhook`;
+  return `${proto}://${host}`;
 }
+const webhookUrl = async () => `${await siteOrigin()}/api/whatsapp/webhook`;
 
 async function save(db: Awaited<ReturnType<typeof createClient>>, companyId: string, values: Record<string, unknown>) {
   const { error } = await db.from("ai_agent_config").upsert({ company_id: companyId, ...values, updated_at: new Date().toISOString() }, { onConflict: "company_id" });
@@ -57,6 +60,7 @@ export async function getWhatsappSetup(): Promise<Result<{ setup: WhatsappSetup 
   try {
     const { cfg } = await context();
     const key = crmKey(cfg?.evolution_api_key);
+    const hook = secret(cfg?.evolution_webhook_secret);
     const url = key ? text(cfg?.evolution_api_url) || null : null;
     const instance = text(cfg?.evolution_instance) || EVOLUTION_INSTANCE;
     let state: string | null = null;
@@ -69,6 +73,12 @@ export async function getWhatsappSetup(): Promise<Result<{ setup: WhatsappSetup 
       setup: {
         hasKey: !!key, url, instance, state, stateError,
         cloudInit: key ? evolutionCloudInit(key) : null,
+        windowsScript: key && hook ? evolutionWindowsScript({
+          apiKey: key, hookSecret: hook, crmUrl: await siteOrigin(), instance,
+          // Senha do banco local derivada da chave: rodar o script de novo não quebra o banco.
+          pgPass: createHash("sha256").update(`${key}:pg`).digest("hex").slice(0, 32),
+        }) : null,
+        onPc: !!url && isTunnelUrl(url),
         syncedAt: text(cfg?.evolution_known_synced_at) || null,
       },
     };
@@ -90,12 +100,16 @@ export async function generateEvolutionKey(): Promise<Result> {
   } catch (e) { return fail(e); }
 }
 
-/** Passo 2: IP público da máquina criada na Oracle. Testa e liga o webhook. */
+/**
+ * Passo 2: liga o servidor ao CRM. Com IP: máquina da Oracle. Vazio: usa o endereço
+ * que o PC da empresa já mandou (túnel da Cloudflare).
+ */
 export async function saveEvolutionServer(ip: string): Promise<Result> {
   try {
     const { db, companyId, cfg } = await context();
-    const url = evolutionUrlFromIp(ip);
-    if (!url) return { error: "IP inválido. Copie o \"Endereço IP público\" da máquina na Oracle (ex.: 129.146.10.20)." };
+    const stored = text(cfg?.evolution_api_url);
+    const url = ip.trim() ? evolutionUrlFromIp(ip) : stored || null;
+    if (!url) return { error: ip.trim() ? "IP inválido. Copie o \"Endereço IP público\" da máquina na Oracle (ex.: 129.146.10.20)." : "O PC ainda não mandou o endereço. Rode o script e espere 2 minutos." };
     const key = crmKey(cfg?.evolution_api_key);
     const hook = secret(cfg?.evolution_webhook_secret);
     if (!key || !hook) return { error: "Gere a instalação primeiro (passo 1)." };
