@@ -56,3 +56,21 @@ describe('importa o histórico', () => {
     expect(t.messages).toHaveLength(2);
   });
 });
+
+import { agendaNameMap } from '@/lib/whatsapp/evolution-history';
+import { cleanContactName } from '@/lib/whatsapp/phone';
+describe('nomes da agenda', () => {
+  test('número não é nome', () => {
+    expect(cleanContactName('554791924675')).toBeNull();
+    expect(cleanContactName('+55 47 9192-4675')).toBeNull();
+    expect(cleanContactName('  Rose  Vidros ')).toBe('Rose Vidros');
+  });
+  test('mapa por telefone, ignora número e lid', () => {
+    const m = agendaNameMap([
+      { remoteJid: '554791924675@s.whatsapp.net', pushName: 'Carlos Obra' },
+      { remoteJid: '5547988887777@s.whatsapp.net', pushName: '5547988887777' },
+      { remoteJid: '123@lid', pushName: 'X' },
+    ]);
+    expect([...m.values()]).toEqual(['Carlos Obra']);
+  });
+});

@@ -1,10 +1,10 @@
 // Grava conversas e mensagens do WhatsApp para a tela de Atendimento.
 // Funciona com o cliente do Supabase do webhook (service role) ou do usuário.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { digitsOnly, samePhone } from "@/lib/whatsapp/phone";
+import { cleanContactName, digitsOnly, samePhone } from "@/lib/whatsapp/phone";
 
 export type MessageAuthor = "cliente" | "ana" | "equipe" | "automacao";
-export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number };
+export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null };
 
 const preview = (body: string) => body.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
@@ -23,7 +23,7 @@ export async function findClientByPhone(db: SupabaseClient, companyId: string, p
 
 export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean } = {}): Promise<InboxConversation> {
   const { data: found } = await db.from("conversations")
-    .select("id,client_id,ai_paused,unread_count")
+    .select("id,client_id,ai_paused,unread_count,contact_name")
     .eq("company_id", companyId).eq("channel", "whatsapp").eq("external_id", phone)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (found) {
@@ -34,16 +34,16 @@ export async function getOrCreateConversation(db: SupabaseClient, companyId: str
         found.client_id = client.id;
       }
     }
-    return { id: found.id, client_id: found.client_id, ai_paused: !!found.ai_paused, unread_count: found.unread_count ?? 0 };
+    return { id: found.id, client_id: found.client_id, ai_paused: !!found.ai_paused, unread_count: found.unread_count ?? 0, contact_name: cleanContactName(found.contact_name) };
   }
   const client = await findClientByPhone(db, companyId, phone);
   const { data: created, error } = await db.from("conversations").insert({
     company_id: companyId, channel: "whatsapp", external_id: phone, phone,
-    contact_name: contactName || null, client_id: client?.id ?? null, status: "aberta",
+    contact_name: cleanContactName(contactName), client_id: client?.id ?? null, status: "aberta",
     ...(opts.aiPaused ? { ai_paused: true } : {}),
-  }).select("id,client_id,ai_paused,unread_count").single();
+  }).select("id,client_id,ai_paused,unread_count,contact_name").single();
   if (error || !created) throw new Error(`Conversa não criada: ${error?.message}`);
-  return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0 };
+  return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0, contact_name: cleanContactName(created.contact_name) };
 }
 
 /** Mensagem do cliente. Devolve null se já tinha sido gravada (reenvio do provedor). */
@@ -61,7 +61,8 @@ export async function recordInbound(db: SupabaseClient, p: {
   await db.from("conversations").update({
     last_message_at: at, last_inbound_at: at, last_message_preview: preview(p.body),
     unread_count: conversation.unread_count + 1, status: "aberta", updated_at: at,
-    ...(p.contactName ? { contact_name: p.contactName } : {}),
+    // Nome da agenda (ou um já salvo) não é trocado pelo nome de perfil do cliente.
+    ...(!conversation.contact_name && cleanContactName(p.contactName) ? { contact_name: cleanContactName(p.contactName) } : {}),
   }).eq("id", conversation.id);
   conversation.unread_count += 1;
   return conversation;

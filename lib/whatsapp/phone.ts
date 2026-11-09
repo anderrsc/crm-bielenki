@@ -24,3 +24,11 @@ export function formatBrPhone(value: string): string {
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return value;
 }
+
+/** Nome de contato útil: vazio ou só número ("554791924675", "+55 47…") não serve. */
+export function cleanContactName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const name = value.replace(/\s+/g, " ").trim();
+  if (!name || /^[\d\s+()\-.]+$/.test(name)) return null;
+  return name.slice(0, 80);
+}

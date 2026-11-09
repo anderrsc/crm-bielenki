@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { fetchEvolutionMessages, importHistoryPage } from "@/lib/whatsapp/evolution-history";
+import { fetchEvolutionMessages, importHistoryPage, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 
 export const maxDuration = 60;
 
@@ -25,7 +25,10 @@ export async function POST(req: NextRequest) {
     const records = result.messages?.records ?? [];
     const pages = result.messages?.pages ?? 0;
     const { inserted, conversations } = await importHistoryPage(db, profile.company_id, records);
-    return NextResponse.json({ page, pages, total: result.messages?.total ?? 0, inserted, conversations, done: page >= pages || records.length === 0 });
+    const done = page >= pages || records.length === 0;
+    // No fim, troca os nomes pelos da agenda do celular.
+    const named = done ? await syncAgendaNames(db, profile.company_id, cfg.evolution_api_url, key, cfg.evolution_instance || "crm").catch(() => 0) : 0;
+    return NextResponse.json({ page, pages, total: result.messages?.total ?? 0, inserted, conversations, named, done });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

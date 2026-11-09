@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
 import { todayISO } from "@/lib/utils";
 import { recordOutbound } from "@/lib/whatsapp/inbox-store";
-import { formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
+import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 
 export type InboxItem = {
@@ -50,7 +50,7 @@ function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
   return {
     id: c.id,
-    name: c.clients?.name || c.contact_name || formatBrPhone(phone),
+    name: c.clients?.name || cleanContactName(c.contact_name) || formatBrPhone(phone),
     phone,
     clientId: c.client_id,
     clientName: c.clients?.name ?? null,

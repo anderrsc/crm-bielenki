@@ -29,7 +29,7 @@ export function WhatsappConnect() {
   const [qr, setQr] = useState<{ state: string; qr: string | null; pairingCode: string | null } | null>(null);
   const [mostrarScript, setMostrarScript] = useState(false);
   const [onde, setOnde] = useState<"pc" | "oracle">("pc");
-  const [importando, setImportando] = useState<{ page: number; pages: number; inserted: number; done: boolean; error?: string } | null>(null);
+  const [importando, setImportando] = useState<{ page: number; pages: number; inserted: number; done: boolean; named?: number; error?: string } | null>(null);
 
   // Traz o histórico que o WhatsApp já tem (página por página) para o Atendimento.
   const importarHistorico = useCallback(async () => {
@@ -40,7 +40,7 @@ export function WhatsappConnect() {
         .then((res) => res.json()).catch((e) => ({ error: String(e) }));
       if (r.error) { setImportando({ page, pages: 0, inserted, done: true, error: r.error }); return; }
       inserted += r.inserted ?? 0;
-      setImportando({ page, pages: r.pages ?? 0, inserted, done: !!r.done });
+      setImportando({ page, pages: r.pages ?? 0, inserted, done: !!r.done, named: r.named ?? 0 });
       if (r.done) return;
       page += 1;
     }
@@ -162,7 +162,7 @@ export function WhatsappConnect() {
                     {importando && (
                       <p className={cn("mt-1", importando.error ? "text-red-500" : importando.done ? "text-green-500" : "text-ink/70")}>
                         {importando.error ? `Erro: ${importando.error}`
-                          : importando.done ? `Pronto: ${importando.inserted} mensagens importadas.`
+                          : importando.done ? `Pronto: ${importando.inserted} mensagens novas · ${importando.named ?? 0} nomes da agenda atualizados.`
                           : `Importando… página ${importando.page}${importando.pages ? ` de ${importando.pages}` : ""} · ${importando.inserted} mensagens`}
                       </p>
                     )}

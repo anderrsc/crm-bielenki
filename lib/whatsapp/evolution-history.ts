@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
+import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
 import { evolutionJidPhone, evolutionMessageText } from "@/lib/whatsapp/message-text";
 
 export const HISTORY_PAGE_SIZE = 400;
@@ -40,8 +41,8 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       phone, external_id: id, body: text, sent_at: new Date(ts * 1000).toISOString(),
       direction: fromMe ? "outbound" : "inbound",
       author: fromMe ? "equipe" : "cliente",
-      sender_name: fromMe ? (text.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)") : (r.pushName || null),
-      contact: fromMe ? null : (r.pushName || null),
+      sender_name: fromMe ? (text.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)") : cleanContactName(r.pushName),
+      contact: fromMe ? null : cleanContactName(r.pushName),
     });
   }
   if (!rows.length) return { inserted: 0, conversations: 0 };
@@ -83,8 +84,50 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     await db.from("conversations").update({
       last_message_at: last?.sent_at ?? null, last_message_preview: last ? preview(last.body) : null,
       last_inbound_at: lastIn?.sent_at ?? null,
-      ...(!conv?.contact_name && contact ? { contact_name: contact } : {}),
+      ...(!cleanContactName(conv?.contact_name) && contact ? { contact_name: contact } : {}),
     }).eq("id", convId);
   }
   return { inserted: fresh.length, conversations: convByPhone.size };
+}
+
+/**
+ * Nomes salvos na agenda do celular (a Evolution guarda em findContacts).
+ * Passa por cima do nome de perfil; nome que é só número vira o telefone formatado na tela.
+ */
+export async function syncAgendaNames(db: SupabaseClient, companyId: string, base: string, apiKey: string, instance: string) {
+  const url = safeExternalUrl(base);
+  if (!url) throw new Error("Endereço da Evolution inválido.");
+  const response = await fetch(`${url}/chat/findContacts/${encodeURIComponent(instance)}`, {
+    method: "POST", redirect: "error", signal: AbortSignal.timeout(25_000),
+    headers: { apikey: apiKey, "Content-Type": "application/json" }, body: JSON.stringify({ where: {} }),
+  });
+  if (!response.ok) throw new Error(`Evolution HTTP ${response.status} ao ler a agenda.`);
+  const contacts = await response.json() as Array<{ remoteJid?: string; id?: string; pushName?: string | null; name?: string | null }>;
+  const names = agendaNameMap(Array.isArray(contacts) ? contacts : []);
+  return applyAgendaNames(db, companyId, names);
+}
+
+export function agendaNameMap(contacts: Array<{ remoteJid?: string; id?: string; pushName?: string | null; name?: string | null }>) {
+  const names = new Map<string, string>();
+  for (const c of contacts) {
+    const jid = String(c.remoteJid ?? c.id ?? "");
+    if (!jid.endsWith("@s.whatsapp.net")) continue;
+    const name = cleanContactName(c.name) ?? cleanContactName(c.pushName);
+    if (name) names.set(phoneKey(jid.split("@")[0]), name);
+  }
+  return names;
+}
+
+export async function applyAgendaNames(db: SupabaseClient, companyId: string, names: Map<string, string>) {
+  const { data } = await db.from("conversations").select("id,phone,external_id,contact_name").eq("company_id", companyId).eq("channel", "whatsapp");
+  const changes: Array<{ id: string; contact_name: string | null }> = [];
+  for (const c of (data ?? []) as Array<{ id: string; phone: string | null; external_id: string | null; contact_name: string | null }>) {
+    const agenda = names.get(phoneKey(c.phone || c.external_id));
+    const next = agenda ?? cleanContactName(c.contact_name);
+    if (next !== c.contact_name) changes.push({ id: c.id, contact_name: next });
+  }
+  for (let i = 0; i < changes.length; i += 25) {
+    await Promise.all(changes.slice(i, i + 25).map((ch) => db.from("conversations").update({ contact_name: ch.contact_name }).eq("id", ch.id)));
+  }
+  return changes.length;
 }
