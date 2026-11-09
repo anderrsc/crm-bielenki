@@ -64,6 +64,7 @@ function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.get
 export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents: AgendaEvent[]; initialError?: string }) {
   const mobile=useMobile();
   const [view, setView] = useState<View>("mes");
+  const [mobileView,setMobileView]=useState<View>("semana");
   const [cursor, setCursor] = useState(new Date());
   const [events, setEvents] = useState<AgendaEvent[]>(initialEvents);
   const [selected, setSelected] = useState<AgendaEvent | null>(null);
@@ -124,7 +125,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      {mobile ? <><MobileAgenda cursor={cursor} view={view} events={events} loading={loading} onCursor={setCursor} onView={setView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
+      {mobile ? <><MobileAgenda cursor={cursor} view={mobileView} events={events} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
