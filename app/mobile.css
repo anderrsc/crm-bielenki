@@ -8,6 +8,7 @@
  .topbar-search > svg { left: 11px; }
  .topbar-actions { gap: 6px; }
  .theme-toggle,.topbar-icon { width: 42px; height: 42px; min-width: 42px; }
+ .topbar-actions section[aria-label="Avisos da equipe"] { position: fixed; left: 12px; right: 12px; top: 78px; width: auto; max-height: calc(100dvh - 180px); }
  .topbar-user .user-avatar { width: 32px; height: 32px; font-size: 10px; }
  .mobile-menu-button { width: 28px; min-height: 44px; flex-shrink: 0; align-items: center; }
  .app-content { padding: 22px 16px calc(122px + env(safe-area-inset-bottom)); min-width: 0; }

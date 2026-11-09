@@ -26,6 +26,11 @@ test('mobile: core modules fit 320px and 430px without page-wide scrolling', {ti
    const r=await visit(page,route);assert.equal(r.error,null,`${width}px ${route}: ${r.error}`);assert.equal(r.status,200);await noOverflow(`${width}px ${route}`);
    const bell=await page.$eval('button[aria-label^="Avisos"]',b=>{const r=b.getBoundingClientRect();return {visible:getComputedStyle(b).display!=='none',w:r.width,x:r.left,right:r.right}});
    assert.ok(bell.visible&&bell.w>=40&&bell.x>=0&&bell.right<=width,'Sino visível e alcançável');
+   if(width===320&&route==='/dashboard'){
+    await page.click('button[aria-label^="Avisos"]');await page.waitForSelector('section[aria-label="Avisos da equipe"]');
+    const panel=await page.$eval('section[aria-label="Avisos da equipe"]',e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right}});assert.ok(panel.left>=0&&panel.right<=width,'Avisos cabem na tela do celular');
+    await capture('avisos-320');await page.click('button[aria-label="Fechar avisos"]');
+   }
    if(width===430)await capture(route.slice(1)+'-430');
   }
  }
