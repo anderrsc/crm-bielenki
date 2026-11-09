@@ -4,6 +4,7 @@ import path from "node:path";
 import QRCode from "qrcode";
 import { QuoteAttachments } from "./quote-attachments";
 import { QuoteTeamFields } from "./quote-team-fields";
+import { brCity, formatBrPhone } from "@/lib/whatsapp/phone";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
@@ -453,12 +454,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               <span className="quote-client-lbl">NOME:</span>
               <span className="quote-client-val">{String(client.name||"—")}</span>
               <span className="quote-client-lbl">TELEFONE:</span>
-              <span className="quote-client-val">{String(client.whatsapp || client.phone || "—")}</span>
+              <span className="quote-client-val">{client.whatsapp || client.phone ? formatBrPhone(String(client.whatsapp || client.phone)) : "—"}</span>
               <span className="quote-client-lbl">ENDEREÇO:</span>
               <span className="quote-client-val">{String(client.address || "—")}</span>
               <span className="quote-client-lbl">CIDADE/UF:</span>
               <span className="quote-client-val">
-                {[client.city, client.state].filter(Boolean).join(" - ") || "—"}
+                {[brCity(client.city as string | null), client.state || (brCity(client.city as string | null) === "Jaraguá do Sul" ? "SC" : "")].filter(Boolean).join(" - ") || "—"}
               </span>
             </div>
             {quote.client_notes && (

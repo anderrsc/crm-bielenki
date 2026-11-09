@@ -32,3 +32,10 @@ export function cleanContactName(value: unknown): string | null {
   if (!name || /^[\d\s+()\-.]+$/.test(name)) return null;
   return name.slice(0, 80);
 }
+
+/** "Jaraguá", "jaragua", "JGS" → "Jaraguá do Sul". Outras cidades ficam como estão. */
+export function brCity(value: string | null | undefined): string {
+  const city = (value ?? "").trim();
+  const key = city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+  return /^(jaragua( do sul)?( ?-? ?sc)?|jaragua sul|jgs)$/.test(key) ? "Jaraguá do Sul" : city;
+}

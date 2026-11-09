@@ -15,3 +15,11 @@ describe('telefones do WhatsApp x cadastro', () => {
     expect(formatBrPhone('554733710000')).toBe('(47) 3371-0000');
   });
 });
+
+import { brCity } from '@/lib/whatsapp/phone';
+describe('cidade padrão', () => {
+  test('Jaraguá vira Jaraguá do Sul', () => {
+    for (const c of ['Jaraguá', 'jaragua', 'JARAGUA DO SUL', 'Jaraguá do Sul - SC', 'jgs']) expect(brCity(c)).toBe('Jaraguá do Sul');
+    expect(brCity('Guaramirim')).toBe('Guaramirim');
+  });
+});
