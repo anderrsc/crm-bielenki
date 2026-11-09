@@ -38,7 +38,11 @@ export type SpecialItem = {
   unit_price: number;
   /** Cor (Condutores/Acessórios). Salva na descrição como "Cor: X". */
   color?: string;
+  /** Chapa lisa: vai na descrição como "Espessura … · C/ … · Comprimento … m · Cor: …". */
+  sheet?: SheetSpec;
 };
+
+export type SheetSpec = { thickness: string; cut: string; color: string; length: number; perMeter: number };
 
 export type GutterQuoteInitial = {
   id: string;
@@ -151,6 +155,32 @@ const withColor = (item: SpecialItem) => {
   if (!PAINTABLE.includes(item.item_type as OtherCategory) || !color || color === NATURAL_COLOR) return rest;
   return { ...rest, description: [item.description.trim(), `Cor: ${color}`].filter(Boolean).join(" · ") };
 };
+
+/* ─── Chapa lisa (Itens Especiais): só a chapa cortada, sem dobra ─────────── */
+export const SHEET_PRODUCT = "Chapa Lisa";
+export const isSheet = (product: string) => normalizeProductName(product) === normalizeProductName(SHEET_PRODUCT);
+const fmtLength = (m: number) => m.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+export const sheetDescription = (sh: SheetSpec) => `Espessura ${sh.thickness} · C/ ${sh.cut} · Comprimento ${fmtLength(sh.length)} m · Cor: ${sh.color}`;
+export function parseSheet(description: string, unitPrice: number): SheetSpec {
+  const get = (re: RegExp) => description.match(re)?.[1]?.trim();
+  const length = Number((get(/Comprimento\s+([\d.,]+)/i) ?? "1").replace(/\./g, "").replace(",", ".")) || 1;
+  return {
+    thickness: get(/Espessura\s+([^·]+)/i) ?? "0.5mm",
+    cut: get(/C\/\s*([^·]+)/i) ?? "300 mm",
+    color: get(/Cor:\s*([^·]+)/i) ?? NATURAL_COLOR,
+    length,
+    perMeter: Math.round((unitPrice / length) * 100) / 100,
+  };
+}
+const sheetMeterPrice = (prices: GutterPrice[], rates: GutterQuoteRates, sh: Pick<SheetSpec, "thickness" | "cut" | "color">) =>
+  fabricatedMeterPrice(prices, rates, { product: SHEET_PRODUCT, thickness: sh.thickness, cut: sh.cut, color: sh.color });
+const withSheetPrice = (item: SpecialItem, sh: SheetSpec): SpecialItem =>
+  ({ ...item, sheet: sh, unit: "peça", unit_price: Math.round(sh.perMeter * sh.length * 100) / 100 });
+const blankSheet = (prices: GutterPrice[], rates: GutterQuoteRates, factor = 1): SpecialItem => {
+  const sh = { thickness: "0.5mm", cut: "300 mm", color: NATURAL_COLOR, length: 1, perMeter: 0 };
+  sh.perMeter = tableValue(sheetMeterPrice(prices, rates, sh), factor);
+  return withSheetPrice({ item_type: "Itens Especiais", product: SHEET_PRODUCT, description: "", unit: "peça", quantity: 1, unit_price: 0 }, sh);
+};
 const isMeterUnit = (unit: string) => /^(m|metro|metros)$/i.test(unit.trim());
 
 const cleanOtherDescription = (description?: string | null) => {
@@ -192,6 +222,7 @@ export function GutterQuote({
     (initial?.special_items ?? []).filter(item => !item.product.startsWith(automaticPaintPrefix)).map((item) => {
       const item_type = otherCategoryFromRecord(item);
       const { description, color } = splitColor(cleanOtherDescription(item.description));
+      if (isSheet(item.product)) return { ...item, item_type, description: "", unit: "peça", sheet: parseSheet(cleanOtherDescription(item.description), Number(item.unit_price)) };
       return {
         ...item,
         item_type,
@@ -221,6 +252,10 @@ export function GutterQuote({
       return base !== undefined && same(item.unit_price, tableValue(base, from)) ? { ...item, unit_price: tableValue(base, to) } : item;
     }));
     setSpecialItems(curr => curr.map(item => {
+      if (item.sheet) {
+        const meter = sheetMeterPrice(prices, rates, item.sheet);
+        return meter !== undefined && same(item.sheet.perMeter, tableValue(meter, from)) ? withSheetPrice(item, { ...item.sheet, perMeter: tableValue(meter, to) }) : item;
+      }
       const base = specialPrice(prices, item.product)?.unit_price;
       return base !== undefined && same(item.unit_price, tableValue(base, from)) ? { ...item, unit_price: tableValue(base, to) } : item;
     }));
@@ -248,6 +283,7 @@ export function GutterQuote({
     ...specialItems
       .filter(item => PAINTABLE.includes(item.item_type as OtherCategory) && item.color && isMeterUnit(item.unit))
       .map(item => ({ color: item.color!, quantity: item.quantity, meters: 1 })),
+    ...specialItems.filter(item => item.sheet).map(item => ({ color: item.sheet!.color, quantity: item.quantity, meters: item.sheet!.length })),
   ], rates).map(item => ({ ...item, unit_price: tableValue(item.unit_price, factor) })), [items, specialItems, rates, factor]);
   const subtotalOther = [...specialItems, ...paintItems].reduce((total, item) => total + item.quantity * item.unit_price, 0);
   const subtotal = subtotalFab + subtotalOther;
@@ -294,6 +330,8 @@ export function GutterQuote({
           next.unit = UNITS_BY_CATEGORY[value as OtherCategory][0];
         }
         if (key === "product" || key === "item_type") {
+          if (isSheet(next.product)) return { ...blankSheet(prices, rates, factor), quantity: next.quantity };
+          delete next.sheet;
           const price = specialPrice(prices, next.product);
           next.unit_price = tableValue(price?.unit_price, factor);
           next.unit = price?.unit || next.unit;
@@ -301,6 +339,15 @@ export function GutterQuote({
         return next;
       })
     );
+
+  // Chapa lisa: espessura/corte mudam o R$/metro; comprimento × R$/metro = valor da peça.
+  const changeSheet = (index: number, key: keyof SheetSpec, value: string) =>
+    setSpecialItems(curr => curr.map((item, i) => {
+      if (i !== index || !item.sheet) return item;
+      const sh = { ...item.sheet, [key]: key === "length" || key === "perMeter" ? Number(value) : value } as SheetSpec;
+      if (key === "thickness" || key === "cut") sh.perMeter = tableValue(sheetMeterPrice(prices, rates, sh), factor) || sh.perMeter;
+      return withSheetPrice(item, sh);
+    }));
 
   const payload = JSON.stringify({
     client_id: clientId,
@@ -310,7 +357,7 @@ export function GutterQuote({
     hide_unit_prices: hideUnitPrices,
     hide_travel_price: hideTravelPrice,
     items,
-    special_items: [...specialItems.map(withColor), ...paintItems],
+    special_items: [...specialItems.map(item => item.sheet ? (({ sheet, color: _c, ...rest }) => ({ ...rest, unit: "peça", description: sheetDescription(sheet!) }))(item) : withColor(item)), ...paintItems],
   });
 
   /* ── Agrupamento para exibição ── */
@@ -419,6 +466,7 @@ export function GutterQuote({
                   index={idx}
                   prices={prices}
                   onChange={changeOther}
+                  onSheetChange={changeSheet}
                   onRemove={() => setSpecialItems(c => c.filter((_, i) => i !== idx))}
                 />
               ))}
@@ -462,6 +510,13 @@ export function GutterQuote({
                 <Plus className="h-3.5 w-3.5" /> {cat}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setSpecialItems(c => [...c, blankSheet(prices, rates, factor)])}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS["Itens Especiais"]}`}
+            >
+              <Plus className="h-3.5 w-3.5" /> Chapa lisa
+            </button>
           </div>
         </div>
 
@@ -616,14 +671,16 @@ function FabricatedItemCard({
 
 /* ─── Card de outros itens (Condutores / Acessórios / Serviços / Especiais) ── */
 function OtherItemCard({
-  item, index, prices, onChange, onRemove,
+  item, index, prices, onChange, onSheetChange, onRemove,
 }: {
   item: SpecialItem;
   prices: GutterPrice[];
   index: number;
   onChange: (i: number, k: keyof SpecialItem, v: string) => void;
+  onSheetChange: (i: number, k: keyof SheetSpec, v: string) => void;
   onRemove: () => void;
 }) {
+  const sh = item.sheet;
   const isOtherCat = OTHER_CATEGORIES.includes(item.item_type as OtherCategory);
   const productList = isOtherCat
     ? productOptions(item.item_type as OtherCategory, prices, item.product)
@@ -657,6 +714,17 @@ function OtherItemCard({
               value={item.product} onChange={e => onChange(index, "product", e.target.value)} />
           )}
         </div>
+        {sh ? (<>
+          <Select label="Espessura" value={sh.thickness} options={gutterThicknesses} onChange={v => onSheetChange(index, "thickness", v)} />
+          <Select label="Corte (C/)" value={sh.cut} options={gutterCuts.map(x => `${x} mm`)} onChange={v => onSheetChange(index, "cut", v)} />
+          <Select label="Cor" value={sh.color} options={gutterColors} onChange={v => onSheetChange(index, "color", v)} />
+          <NumberField label="Comprimento (m)" value={sh.length} onChange={v => onSheetChange(index, "length", v)} />
+          <NumberField label="Qtd. de chapas" value={item.quantity} onChange={v => onChange(index, "quantity", v)} />
+          <NumberField label="R$/metro" value={sh.perMeter} onChange={v => onSheetChange(index, "perMeter", v)} />
+          <div className="flex items-end pb-3 sm:col-span-2">
+            <p className="text-sm text-ink/50">{item.quantity} chapa(s) × {sh.length} m × {money(sh.perMeter)}/m = <b className="text-ink">{money(item.quantity * item.unit_price)}</b>{sh.color !== NATURAL_COLOR ? " + pintura automática" : ""}</p>
+          </div>
+        </>) : (<>
         <div className="sm:col-span-2">
           <label className="label">Descrição (opcional)</label>
           <input className="field" type="text" placeholder="Detalhes adicionais…"
@@ -671,8 +739,9 @@ function OtherItemCard({
         <div className="flex items-end pb-3">
           <p className="text-sm text-ink/50">Subtotal: <b className="text-ink">{money(item.quantity * item.unit_price)}</b></p>
         </div>
+        </>)}
       </div>
-      <GutterPiecePreview product={withoutFloors(item.product)} />
+      {!sh && <GutterPiecePreview product={withoutFloors(item.product)} />}
     </div>
   );
 }

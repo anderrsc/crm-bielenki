@@ -54,6 +54,7 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Tubo Vedante PU MS40",
     "Silicone incolor",
     "Silicone incolor neutro",
+    "Chapa Lisa",
   ],
 };
 
