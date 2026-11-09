@@ -85,3 +85,12 @@ jobs:
       - name: Logs em caso de falha
         if: failure()
         run: tail -n 80 .test-work/*.log || true
+
+      - name: Guardar telas mobile e desktop
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crm-mobile-screens
+          path: .test-work/mobile/
+          if-no-files-found: ignore
+          retention-days: 7

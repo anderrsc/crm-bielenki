@@ -26,7 +26,7 @@ async function loadDashboard() {
     db.from("v_order_overview").select("*").neq("operational_status","finalizado").order("next_action_date",{ascending:true}).limit(6),
     db.from("operational_alerts").select("*").eq("resolved",false).order("created_at",{ascending:false}).limit(5),
     db.rpc("reporting_summary", {p_start: date.slice(0,4)+"-01-01", p_end:date}),
-    db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name").gte("starts_at",date).order("starts_at").limit(30),
+    db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name,source").gte("starts_at",date).order("starts_at").limit(30),
   ]);
   return {
     ...(summaryRes.data as Record<string,unknown> ?? {}),
@@ -71,7 +71,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
   return (
     <div className="mx-auto max-w-[1500px]">
       {/* Header */}
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div className="mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pulso da operação</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
@@ -102,7 +102,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
       )}
 
       {/* Tabs */}
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+      <div className="mobile-dashboard-tabs mb-5 flex gap-2 overflow-x-auto pb-1">
         {ABAS.map(a => (
           <Link key={a.key} href={`/dashboard?aba=${a.key}`}
             className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition
@@ -114,7 +114,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* ── ABA GERAL ─────────────────────────────────────────── */}
       {aba === "geral" && <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mobile-kpis grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {([
             ["Vendas do mês",  money(vendas),   TrendingUp,       "text-emerald-700 bg-emerald-50"],
             ["A receber",      money(receitas), WalletCards,      "text-blue-700 bg-blue-50"],
@@ -188,7 +188,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* ── ABA COMERCIAL ─────────────────────────────────────── */}
       {aba === "comercial" && <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mobile-kpis grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard label="Leads do mês"      value={String(d?.leads_mes ?? 0)}         sub={`Mês anterior: ${d?.leads_mes_ant ?? 0}`}        icon={Users}      color="text-violet-700 bg-violet-50" />
           <KpiCard label="Vendas fechadas"   value={String(d?.qtd_vendas_mes ?? 0)}    sub={money(d?.vendas_mes ?? 0)}                         icon={TrendingUp} color="text-emerald-700 bg-emerald-50" />
           <KpiCard label="Ticket médio"      value={money(d?.ticket_medio ?? 0)}       sub="Média das vendas do mês"                           icon={BarChart3}  color="text-blue-700 bg-blue-50" />
@@ -226,7 +226,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* ── ABA PRODUÇÃO ──────────────────────────────────────── */}
       {aba === "producao" && <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mobile-kpis grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard label="Em produção"       value={String(d?.em_producao ?? 0)}         sub="Pedidos ativos"          icon={ClipboardList} color="text-amber-700 bg-amber-50" />
           <KpiCard label="Compras pendentes" value={String(d?.compras_pendentes ?? 0)}   sub="Aguardando recebimento"  icon={ShoppingCart}  color="text-orange-700 bg-orange-50" />
           <KpiCard label="Instalações hoje"  value={String(d?.instalacoes_hoje ?? 0)}    sub="Agendadas para hoje"     icon={CalendarClock} color="text-sky-700 bg-sky-50" />
@@ -250,7 +250,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* ── ABA FINANCEIRO ────────────────────────────────────── */}
       {aba === "financeiro" && <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mobile-kpis grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard label="Recebido no mês"  value={money(d?.receitas_mes ?? 0)}    sub="Pagamentos do mês"    icon={TrendingUp}      color="text-emerald-700 bg-emerald-50" />
           <KpiCard label="Pago no mês"      value={money(d?.despesas_mes ?? 0)}    sub="Saídas do mês"        icon={CircleDollarSign} color="text-orange-700 bg-orange-50" />
           <KpiCard label="A receber"        value={money(d?.receitas_abertas ?? 0)} sub="Saldo em aberto"     icon={WalletCards}     color="text-blue-700 bg-blue-50" />

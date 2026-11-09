@@ -1,8 +1,10 @@
 "use client";
+import { useMobile } from "@/lib/use-mobile";
+import { MobileAgenda, MobileEventSheet } from "@/components/mobile-agenda";
 import { localISODate } from "@/lib/utils";
 import type { AgendaSource } from "@/lib/agenda";
 
-import { useEffect, useState, useCallback, useTransition } from "react";
+import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents } from "@/app/(crm)/agenda-actions";
 
@@ -60,6 +62,7 @@ function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.get
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
 export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents: AgendaEvent[]; initialError?: string }) {
+  const mobile=useMobile();
   const [view, setView] = useState<View>("mes");
   const [cursor, setCursor] = useState(new Date());
   const [events, setEvents] = useState<AgendaEvent[]>(initialEvents);
@@ -72,6 +75,15 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   // o calendario so e montado no cliente para nao divergir na hidratacao.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); setCursor(new Date()); }, []);
+
+  const openedFromLink=useRef("");
+  useEffect(()=>{
+    if(!mobile||!mounted)return;
+    const params=new URLSearchParams(window.location.search),id=params.get("evento"),source=params.get("origem");
+    const key=`${source}:${id}`;if(!id||openedFromLink.current===key)return;
+    const found=events.find(e=>e.id===id&&e.source===source);
+    if(found){openedFromLink.current=key;setCursor(new Date(found.starts_at));setSelected(found)}
+  },[mobile,mounted,events]);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -112,6 +124,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
 
   return (
     <div className="mx-auto max-w-[1400px]">
+      {mobile ? <><MobileAgenda cursor={cursor} view={view} events={events} loading={loading} onCursor={setCursor} onView={setView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -154,8 +167,10 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
       {view === "semana" && <WeekView     cursor={cursor} events={events} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "dia"    && <DayView      cursor={cursor} events={events} onEventClick={setSelected} onNewEvent={setCreateFor} />}
 
+      </>}
       {/* ── Modais ── */}
-      {selected && (
+      {selected && mobile && <MobileEventSheet event={selected} onClose={()=>setSelected(null)} onStatusChange={async(id,status)=>{await updateAgendaEventStatus(id,status,selected.source);reload();setSelected(null)}}/>}
+      {selected && !mobile && (
         <EventModal event={selected} onClose={() => setSelected(null)}
           onStatusChange={async (id, status) => {
             try {
@@ -417,8 +432,8 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
+    <div className="agenda-create-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Novo evento" className="agenda-create-dialog w-full max-w-lg rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between rounded-t-2xl bg-brand-strong px-6 py-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-white/70" />
@@ -465,6 +480,8 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
               <label className="label">Responsável</label>
               <input className="field" name="responsible_name" placeholder="Nome do responsável" />
             </div>
+            <div className="mobile-only sm:col-span-2"><label className="label">Endereço do compromisso</label><input className="field" name="address" placeholder="Rua, número, bairro e cidade" maxLength={1000}/></div>
+            <div className="mobile-only sm:col-span-2"><label className="label">Telefone / WhatsApp</label><input className="field" name="phone" type="tel" inputMode="tel" placeholder="(47) 99999-9999" maxLength={40}/></div>
             <div className="sm:col-span-2">
               <label className="label">Descrição</label>
               <textarea className="field" name="description" rows={2} placeholder="Observações sobre o evento" />

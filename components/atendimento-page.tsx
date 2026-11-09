@@ -111,7 +111,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const atual = detail && detail.conversation.id === openId ? detail : null;
 
   return (
-    <div className="flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border border-sand/80 bg-surface">
+    <div className="mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border border-sand/80 bg-surface">
       {/* Lista */}
       <aside className={cn("flex w-full flex-col border-r border-sand/80 md:w-80 md:shrink-0", openId && "hidden md:flex")}>
         <div className="space-y-2 border-b border-sand/80 p-3">

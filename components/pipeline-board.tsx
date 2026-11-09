@@ -53,7 +53,7 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
   const filters:[Filter,string,number|null][]=[["todos","Todas",null],["meus","Minhas",currentUserId?leads.filter(l=>l.owner_id===currentUserId).length:null],["atrasados","Follow-up atrasado",lateCount],["parados","Paradas há 7+ dias",staleCount]];
 
   return <div className={pending?"opacity-90":""}>
-    <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="mobile-kpis mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Kpi icon={Wallet} label="Em negociação" value={money(openValue)} hint={`${open.length} oportunidades abertas`} highlight/>
       <Kpi icon={Trophy} label="Ganhos no mês" value={money(wonMonth.reduce((n,x)=>n+Number(x.estimated_value||0),0))} hint={`${wonMonth.length} fechadas este mês`}/>
       <Kpi icon={Target} label="Taxa de conversão" value={`${conversion}%`} hint={`${won} ganhas · ${lost} perdidas`}/>
@@ -66,7 +66,7 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
       <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-bold text-ink/60"><input type="checkbox" checked={showLost} onChange={e=>setShowLost(e.target.checked)}/>Mostrar perdidas</label>
     </div>
 
-    <div className="overflow-x-auto pb-4"><div className="flex min-w-max gap-4">{stages.map(stage=>{
+    <div className="mobile-pipeline-scroll overflow-x-auto pb-4"><div className="flex min-w-max gap-4">{stages.map(stage=>{
       const items=visible.filter(x=>x.stage_id===stage.id);const total=items.reduce((sum,x)=>sum+Number(x.estimated_value||0),0);const color=stage.color||"#94a3b8";
       return <section key={stage.id} aria-label={stage.name} className={`flex w-[300px] flex-col rounded-2xl border bg-cream/40 transition ${over===stage.id?"border-forest ring-2 ring-forest/20":"border-transparent"}`}
         onDragOver={e=>{e.preventDefault();setOver(stage.id)}} onDragLeave={()=>setOver(o=>o===stage.id?null:o)} onDrop={e=>{setOver(null);move(e.dataTransfer.getData("lead-id"),stage.id)}}>
