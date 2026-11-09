@@ -30,7 +30,7 @@ export async function prepareInboxAttachment(input:{conversationId:string;name:s
    if(!z.uuid().safeParse(input.quoteId).success)throw new Error('Orçamento inválido.');
    const {data:q}=await c.db.from('quotes').select('id,client_id,total,triage_session_id').eq('id',input.quoteId).eq('company_id',c.companyId).single();
    if(!q||q.client_id!==conv.client_id)throw new Error('Este orçamento não pertence ao cliente da conversa.');
-   if(q.triage_session_id && Number(q.total)<=0)throw new Error('Confira o rascunho da Ana e preencha os preços antes de enviar.');
+   if(q.triage_session_id && Number(q.total)<=0)throw new Error('Confira o rascunho da Lia e preencha os preços antes de enviar.');
   }
   const name=input.name.replace(/[^\p{L}\p{N}_. -]/gu,'_');
   const id=randomUUID(),path=`${c.companyId}/${conv.id}/${id}`;
