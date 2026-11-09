@@ -5,8 +5,10 @@ import { localISODate } from "@/lib/utils";
 import type { AgendaSource } from "@/lib/agenda";
 
 import { useEffect, useState, useCallback, useTransition, useRef } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents } from "@/app/(crm)/agenda-actions";
+import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw, MapPin, Navigation, Phone, MessageCircle } from "lucide-react";
+import Link from "next/link";
+import { agendaContactLinks, agendaMapLinks, type AgendaDetails } from "@/lib/agenda-location";
+import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails } from "@/app/(crm)/agenda-actions";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type AgendaEvent = {
@@ -344,6 +346,19 @@ function EventModal({ event, onClose, onStatusChange }:
   { event: AgendaEvent; onClose: () => void; onStatusChange: (id: string, status: string) => void }) {
   const cfg = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.tarefa;
   const statusCfg = STATUS_CONFIG[event.status] ?? { label: event.status, color: "bg-gray-100 text-gray-700" };
+  // Endereço, telefone e observações vêm da medição/instalação/cliente ao abrir.
+  const [details, setDetails] = useState<AgendaDetails | null>(null);
+  const [detailsError, setDetailsError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    setDetails(null); setDetailsError("");
+    getAgendaEventDetails(event.id, event.source)
+      .then((d) => { if (alive) setDetails(d); })
+      .catch((e) => { if (alive) setDetailsError(e instanceof Error ? e.message : "Não foi possível carregar o local."); });
+    return () => { alive = false; };
+  }, [event.id, event.source]);
+  const maps = agendaMapLinks(details?.address ?? null);
+  const contact = agendaContactLinks(details?.phone ?? null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -359,8 +374,29 @@ function EventModal({ event, onClose, onStatusChange }:
           </div>
         </div>
         <div className="space-y-3 px-6 py-4">
-          {event.client_name && (
-            <Row icon={<User className="h-4 w-4" />} label="Cliente" value={event.client_name} />
+          {(details?.clientName || event.client_name) && (
+            <div>
+              <Row icon={<User className="h-4 w-4" />} label="Cliente" value={details?.clientName || event.client_name || ""} />
+              {details?.clientId && <Link href={`/clientes/${details.clientId}`} className="ml-6 text-xs font-bold text-forest hover:underline">Ver cadastro e histórico →</Link>}
+            </div>
+          )}
+          <div>
+            <Row icon={<MapPin className="h-4 w-4" />} label="Local" value={details ? (details.address || "Endereço não informado") : detailsError || "Carregando…"} />
+            {maps && (
+              <div className="ml-6 mt-1.5 flex flex-wrap gap-2">
+                <a href={maps.google} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold"><Navigation className="h-3.5 w-3.5" /> Google Maps</a>
+                <a href={maps.waze} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold">Waze</a>
+              </div>
+            )}
+          </div>
+          {contact && (
+            <div>
+              <Row icon={<Phone className="h-4 w-4" />} label="Telefone" value={details?.phone ?? ""} />
+              <div className="ml-6 mt-1.5 flex flex-wrap gap-2">
+                <a href={contact.call} className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold"><Phone className="h-3.5 w-3.5" /> Ligar</a>
+                <a href={contact.whatsapp} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-green-600/15 px-2.5 py-1.5 text-xs font-bold text-green-700"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>
+              </div>
+            </div>
           )}
           <Row icon={<Clock className="h-4 w-4" />} label="Data/hora" value={
             fmtDate(event.starts_at) + (event.starts_at.includes("T") ? " às " + fmtTime(event.starts_at) : "")
@@ -368,8 +404,11 @@ function EventModal({ event, onClose, onStatusChange }:
           {event.responsible_name && (
             <Row icon={<User className="h-4 w-4" />} label="Responsável" value={event.responsible_name} />
           )}
-          {event.description && (
-            <Row icon={<Tag className="h-4 w-4" />} label="Descrição" value={event.description} />
+          {(details?.notes || event.description) && (
+            <Row icon={<Tag className="h-4 w-4" />} label="Observações" value={details?.notes || event.description || ""} />
+          )}
+          {details?.relatedHref && (
+            <Link href={details.relatedHref} className="inline-flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white">{details.relatedLabel} <ChevronRight className="h-3.5 w-3.5" /></Link>
           )}
           <div className="flex items-center gap-2">
             <Tag className="h-4 w-4 text-ink/40" />
@@ -481,8 +520,8 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
               <label className="label">Responsável</label>
               <input className="field" name="responsible_name" placeholder="Nome do responsável" />
             </div>
-            <div className="mobile-only sm:col-span-2"><label className="label">Endereço do compromisso</label><input className="field" name="address" placeholder="Rua, número, bairro e cidade" maxLength={1000}/></div>
-            <div className="mobile-only sm:col-span-2"><label className="label">Telefone / WhatsApp</label><input className="field" name="phone" type="tel" inputMode="tel" placeholder="(47) 99999-9999" maxLength={40}/></div>
+            <div className="sm:col-span-2"><label className="label">Endereço do compromisso</label><input className="field" name="address" placeholder="Rua, número, bairro e cidade" maxLength={1000}/></div>
+            <div className="sm:col-span-2"><label className="label">Telefone / WhatsApp</label><input className="field" name="phone" type="tel" inputMode="tel" placeholder="(47) 99999-9999" maxLength={40}/></div>
             <div className="sm:col-span-2">
               <label className="label">Descrição</label>
               <textarea className="field" name="description" rows={2} placeholder="Observações sobre o evento" />
