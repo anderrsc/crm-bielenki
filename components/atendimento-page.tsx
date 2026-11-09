@@ -28,6 +28,21 @@ function semAssinatura(body: string) {
   return body.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "");
 }
 /** Negrito do WhatsApp (*texto*) sem usar HTML cru. */
+const MIDIA = /^\[(foto|áudio|vídeo|figurinha|documento)(?::[^\]]*)?\]\s*/;
+/** Foto, áudio, vídeo e documento abrem direto na conversa (o arquivo vem do WhatsApp). */
+function Midia({ id, body }: { id: string; body: string }) {
+  const tipo = body.match(MIDIA)?.[1];
+  const [erro, setErro] = useState(false);
+  if (!tipo) return null;
+  const src = `/api/whatsapp/media/${id}`;
+  if (erro) return <p className="text-xs italic text-ink/50">Arquivo não está mais disponível no WhatsApp.</p>;
+  if (tipo === "foto" || tipo === "figurinha")
+    return <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={tipo} loading="lazy" onError={() => setErro(true)} className={cn("mb-1 rounded-xl", tipo === "foto" ? "max-h-72 w-auto" : "h-28 w-28")} /></a>;
+  if (tipo === "áudio") return <audio controls preload="none" src={src} onError={() => setErro(true)} className="mb-1 w-64 max-w-full" />;
+  if (tipo === "vídeo") return <video controls preload="metadata" src={src} onError={() => setErro(true)} className="mb-1 max-h-72 rounded-xl" />;
+  return <a href={src} target="_blank" rel="noreferrer" className="mb-1 inline-block rounded-lg bg-cream px-2 py-1 text-xs font-bold underline">Abrir {body.match(/^\[documento:\s*([^\]]+)\]/)?.[1] ?? "documento"}</a>;
+}
+
 function Formatado({ text }: { text: string }) {
   const parts = text.split(/(\*[^*\n]+\*)/g);
   return <>{parts.map((p, i) => (/^\*[^*\n]+\*$/.test(p) ? <b key={i}>{p.slice(1, -1)}</b> : <span key={i}>{p}</span>))}</>;
@@ -208,7 +223,8 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
             <div key={m.id} className={cn("flex", saida ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm", saida ? "rounded-tr-sm bg-green-500/15" : "rounded-tl-sm bg-surface", m.failed && "ring-2 ring-red-400")}>
                 {nome && <p className={cn("mb-0.5 text-xs font-black", m.author === "ana" ? "text-blue-400" : "text-forest")}>{nome}</p>}
-                <p className="whitespace-pre-wrap break-words"><Formatado text={saida ? semAssinatura(m.body) : m.body} /></p>
+                <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
+                {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-ink/45">
                   {hora(m.at)} {saida && !m.failed && <CheckCheck className="h-3 w-3" />}
                 </p>
