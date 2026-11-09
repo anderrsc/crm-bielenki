@@ -17,5 +17,7 @@ describe('Evolution', () => {
     expect(s).toContain('SERVER_URL: https://${HOST}');
     expect(s).toContain('{$HOST} {');
     expect(() => evolutionCloudInit('chave com espaço')).toThrow();
+    // A Oracle recusa script com caractere fora do ASCII ("Incorrectly formatted request").
+    expect([...s].every(c => c.charCodeAt(0) < 128)).toBe(true);
   });
 });

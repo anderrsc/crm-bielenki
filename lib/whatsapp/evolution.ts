@@ -106,7 +106,7 @@ export async function evolutionChatPhones(base: string, apiKey: string, instance
 export function evolutionCloudInit(apiKey: string): string {
   if (!/^[A-Za-z0-9]{32,128}$/.test(apiKey)) throw new EvolutionError("Chave inválida.");
   return `#!/bin/bash
-# Evolution API para o CRM Marquinhos — instalacao automatica (Oracle Cloud, Ubuntu).
+# Evolution API para o CRM Marquinhos - instalacao automatica (Oracle Cloud, Ubuntu).
 set -e
 exec > /var/log/evolution-setup.log 2>&1
 export DEBIAN_FRONTEND=noninteractive
