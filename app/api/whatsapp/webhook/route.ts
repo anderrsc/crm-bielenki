@@ -56,6 +56,7 @@ RESPONDA SEMPRE EM FORMATO JSON com esta estrutura:
     "produto": null,
     "possui_medidas": null,
     "medidas": null,
+    "itens": [],
     "peca_avulsa": null,
     "comprimento": null,
     "largura": null,
@@ -82,6 +83,7 @@ RESPONDA SEMPRE EM FORMATO JSON com esta estrutura:
   "proxima_acao": null
 }
 
+Em dados_coletados.itens, mantenha uma lista das peças confirmadas: {"produto":"nome", "medidas":"medidas e unidades informadas", "quantidade":1, "unidade":"un"}. Não invente medidas, quantidades ou unidades.
 Preencha APENAS os campos que o cliente acabou de informar ou que já foram confirmados anteriormente. Mantenha null para campos ainda não informados.
 Quando a triagem estiver completa, defina triagem_concluida: true e gere o resumo_executivo.
 Classifique prioridade como: "baixa", "media", "alta" ou "maxima".
@@ -336,6 +338,7 @@ export async function POST(req: NextRequest) {
         .insert({
           company_id: company.id,
           phone: from,
+          conversation_id: conversation?.id ?? null,
           messages: [],
           current_step: "identificacao",
           dados_coletados: {}
@@ -472,7 +475,8 @@ export async function POST(req: NextRequest) {
       if (aiResult.proxima_acao) updateData.proxima_acao = aiResult.proxima_acao;
     }
 
-    await supabase.from("triage_sessions").update(updateData).eq("id", session.id);
+    const { error: triageError } = await supabase.from("triage_sessions").update(updateData).eq("id", session.id);
+    if (triageError) throw new Error(`Falha ao salvar triagem e rascunho: ${triageError.message}`);
     // Triagem concluída ou pós-venda: a conversa passa para a equipe e a Ana para de responder.
     if ((isConcluida || isPosVenda) && conversation) {
       await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
@@ -530,6 +534,12 @@ async function createOrUpdateLead(
   aiResult: { score: number | null; prioridade: string | null; proxima_acao: string | null }
 ) {
   const supabase = getSupabase();
+  const { data: linkedSession } = await supabase.from("triage_sessions").select("lead_id").eq("id", sessionId).eq("company_id", companyId).maybeSingle();
+  if (linkedSession?.lead_id) {
+    await supabase.from("leads").update({ triage_completed: true, triage_session_id: sessionId, score: aiResult.score ?? 0, priority: aiResult.prioridade || "media", notes: aiResult.proxima_acao || null })
+      .eq("id", linkedSession.lead_id).eq("company_id", companyId);
+    return;
+  }
   // Busca a primeira etapa do pipeline
   const { data: stage } = await supabase
     .from("pipeline_stages")

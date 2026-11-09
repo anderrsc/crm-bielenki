@@ -2,6 +2,7 @@
 // Atendimento estilo Octadesk: conversas do WhatsApp, nome de quem respondeu em cima
 // de cada mensagem e, ao lado, a ficha do cliente com orçamentos e financeiro.
 import Link from "next/link";
+import { InboxAttachments } from "@/components/inbox-attachments";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ArrowLeft, Bot, CheckCheck, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
 import {
@@ -156,7 +157,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
-          <Conversa detail={atual} onBack={() => setOpenId(null)} onPanel={() => setShowPanel(true)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
+          <Conversa key={atual.conversation.id} detail={atual} onBack={() => setOpenId(null)} onPanel={() => setShowPanel(true)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
         )}
       </section>
 
@@ -226,7 +227,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-ink/45">
-                  {hora(m.at)} {saida && !m.failed && <CheckCheck className="h-3 w-3" />}
+                  {hora(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && <CheckCheck className="h-3 w-3" />}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
               </div>
@@ -240,6 +241,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
         {!c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Ana está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
+        <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged}/>
         <div className="flex items-end gap-2">
           <textarea
             value={texto}

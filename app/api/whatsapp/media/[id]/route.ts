@@ -14,11 +14,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sessão expirada." }, { status: 401 });
   // RLS: só acha mensagem da própria empresa.
-  const { data: msg } = await db.from("messages").select("external_id,body,company_id").eq("id", id).maybeSingle();
-  if (!msg?.external_id) return NextResponse.json({ error: "Arquivo não encontrado." }, { status: 404 });
+  const { data: msg } = await db.from("messages").select("external_id,body,company_id,conversation_id,media_url,media_type,file_name").eq("id", id).maybeSingle();
+  if (!msg) return NextResponse.json({ error: "Arquivo não encontrado." }, { status: 404 });
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return NextResponse.json({ error: "not_configured" }, { status: 500 });
   // Rose/Bianca não leem a configuração da IA; o servidor lê por elas.
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (msg.media_url?.startsWith(`${msg.company_id}/${msg.conversation_id}/`)) {
+    const {data:file}=await admin.storage.from("atendimento-files").download(msg.media_url);
+    if(!file)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
+    const name=(msg.file_name||"arquivo").replace(/[^\w.\- ]/g,"_");
+    const inline=/^(image\/(jpeg|png|webp)|audio\/[\w.+-]+|application\/pdf)$/.test(msg.media_type||"");
+    return new NextResponse(await file.arrayBuffer(),{headers:{"Content-Type":inline?msg.media_type:"application/octet-stream","Content-Disposition":`${inline?"inline":"attachment"}; filename="${name}"`,"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+  }
+  if(!msg.external_id)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
   const { data: cfg } = await admin.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance").eq("company_id", msg.company_id).maybeSingle();
   const key = cfg?.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
   const base = cfg?.evolution_api_url ? safeExternalUrl(cfg.evolution_api_url) : null;

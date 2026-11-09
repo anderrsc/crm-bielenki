@@ -1,3 +1,4 @@
+import { TriageDraftEditor } from "@/components/triage-draft-editor";
 import { DesignSystem } from "@/components/design-system";
 import { QuoteWorkspace } from "@/components/quote-workspace";
 import { loadActiveGutterPrices, loadGutterQuoteRates } from "@/lib/load-gutter-prices";
@@ -231,6 +232,13 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   }
   if(path[0]==="orcamentos"&&path[1]==="esquadrias"){let clients:{id:string;name:string}[]=[];if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const result=await db.from("clients").select("id,name").eq("status","ativo").order("name");clients=result.data??[];}return <WindowQuote clients={clients} error={search.erro}/>;}
   if(path[0]==="orcamentos"&&path[1]&&path[2]==="editar"){
+    const triageDb=await getRequestClient();
+    const {data:triageQuote}=await triageDb.from("quotes").select("id,quote_number,status,triage_session_id,notes,client:clients(name)").eq("id",path[1]).maybeSingle();
+    if(triageQuote?.triage_session_id && triageQuote.status==="rascunho"){
+      const {data:items}=await triageDb.from("quote_items").select("id,product,description,quantity,unit_price").eq("quote_id",triageQuote.id);
+      const client=Array.isArray(triageQuote.client)?triageQuote.client[0]:triageQuote.client;
+      return <TriageDraftEditor quoteId={triageQuote.id} number={triageQuote.quote_number} clientName={client?.name??"Cliente"} notes={triageQuote.notes} initial={items??[]}/>;
+    }
     const db=await getRequestClient();const [quoteResult,gutterResult,priceResult,rateResult,clientResult,specialResult]=await Promise.all([db.from("quotes").select("*").eq("id",path[1]).single(),db.from("gutter_quotes").select("items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price)").eq("quote_id",path[1]).single(),loadActiveGutterPrices(db),loadGutterQuoteRates(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name"),db.from("quote_items").select("product,description,unit,quantity,unit_price,item_type").eq("quote_id",path[1]).neq("item_type","calha").neq("item_type","esquadria")]);
     if(!quoteResult.data||!gutterResult.data||quoteResult.data.status==="aprovado")return notFound();
     const initial={...quoteResult.data,notes:quoteResult.data.notes??"",valid_until:quoteResult.data.valid_until??"",installation_deadline:quoteResult.data.installation_deadline??"",hide_unit_prices:quoteResult.data.hide_unit_prices??false,hide_travel_price:quoteResult.data.hide_travel_price??true,items:(gutterResult.data as unknown as {items:GutterQuoteInitial["items"]}).items,special_items:(specialResult.data??[]) as GutterQuoteInitial["special_items"]} as GutterQuoteInitial;

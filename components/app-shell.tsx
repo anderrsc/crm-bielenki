@@ -1,4 +1,5 @@
 "use client";
+import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,7 +35,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   <div className="app-workspace">
    <header className="app-topbar"><button className="mobile-menu-button" aria-label="Abrir menu" aria-expanded={open} onClick={()=>setOpen(true)}><Menu size={21}/></button>
     <form action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></form>
-    <div className="topbar-actions"><ThemeToggle/><Link href="/pendencias" className="topbar-icon" aria-label="Ver pendências"><Bell size={18}/></Link><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
+    <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
    <main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
   </div>

@@ -4,7 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 export async function middleware(request: NextRequest) {
   // Callback do WhatsApp (Meta/Evolution) nao tem sessao de navegador: a
   // rota valida a assinatura/segredo. Exigir login redirecionava para /login.
-  if (request.nextUrl.pathname === "/api/whatsapp/webhook") return;
+  if (["/api/whatsapp/webhook", "/api/internal/operations", "/crm-sw.js", "/manifest.webmanifest"].includes(request.nextUrl.pathname)) return;
   // O PC da empresa avisa o endereço do túnel; a rota valida o segredo.
   if (request.nextUrl.pathname === "/api/whatsapp/evolution-url") return;
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {

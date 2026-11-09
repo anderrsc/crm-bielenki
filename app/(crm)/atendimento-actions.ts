@@ -18,7 +18,7 @@ export type InboxItem = {
 };
 export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
-  body: string; at: string; failed: boolean; error: string | null;
+  body: string; at: string; failed: boolean; error: string | null; pending?: boolean;
 };
 export type ClientPanel = {
   client: { id: string; name: string; phone: string | null; email: string | null; city: string | null; address: string | null; notes: string | null; created_at: string };
@@ -106,7 +106,7 @@ export async function loadConversation(conversationId: string): Promise<Conversa
     if ((row.unread_count ?? 0) > 0) await db.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
     const messages: InboxMessage[] = (msgs ?? []).reverse().map((m) => ({
       id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
-      body: m.body ?? "", at: m.sent_at, failed: m.delivery_status === "falhou", error: m.error_message,
+      body: m.body ?? "", at: m.sent_at, pending: ["uploading","processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
     }));
     const lastInbound = row.last_inbound_at ?? [...messages].reverse().find((m) => m.direction === "inbound")?.at ?? null;
     const windowOpen = !!lastInbound && Date.now() - new Date(lastInbound).getTime() < 24 * 60 * 60_000;

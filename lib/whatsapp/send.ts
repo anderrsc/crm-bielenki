@@ -74,3 +74,31 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
   }
   return data?.messages?.[0]?.id ?? null;
 }
+
+/** Uploads private media directly to the provider. No public permanent download URL. */
+export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes:Buffer;mime:string;name:string;caption:string;kind:'document'|'image'|'audio'}):Promise<string|null>{
+ if(c.provider==='evolution'){
+  const base=safeExternalUrl(c.evolutionUrl);
+  if(!base||!c.evolutionInstance||!c.evolutionKey)throw new WhatsAppSendError('WhatsApp (Evolution) não configurado.');
+  const response=await fetch(`${base}/message/sendMedia/${encodeURIComponent(c.evolutionInstance)}`,{
+   method:'POST',redirect:'error',signal:AbortSignal.timeout(40_000),headers:{apikey:c.evolutionKey,'Content-Type':'application/json'},
+   body:JSON.stringify({number:to,mediatype:p.kind,mimetype:p.mime,fileName:p.name,caption:p.kind==='audio'?undefined:p.caption,media:p.bytes.toString('base64')})
+  });
+  if(!response.ok)throw new WhatsAppSendError(`Evolution API HTTP ${response.status}: arquivo não enviado.`);
+  const data=await response.json();if(!data?.key?.id)throw new WhatsAppSendError('O WhatsApp não confirmou o envio do arquivo. Confira a conversa antes de tentar novamente.');
+  return data.key.id;
+ }
+ if(!c.metaToken||!c.phoneNumberId)throw new WhatsAppSendError('WhatsApp (Meta) não configurado.');
+ const form=new FormData();form.append('messaging_product','whatsapp');form.append('type',p.mime);
+ form.append('file',new Blob([new Uint8Array(p.bytes)],{type:p.mime}),p.name);
+ const headers={Authorization:`Bearer ${c.metaToken}`};
+ const upload=await fetch(`https://graph.facebook.com/${GRAPH_VERSION()}/${c.phoneNumberId}/media`,{method:'POST',headers,body:form,signal:AbortSignal.timeout(40_000)});
+ const media=await upload.json();if(!upload.ok||!media?.id)throw new WhatsAppSendError(media?.error?.message||'Falha ao enviar arquivo ao WhatsApp.');
+ const response=await fetch(`https://graph.facebook.com/${GRAPH_VERSION()}/${c.phoneNumberId}/messages`,{
+  method:'POST',headers:{...headers,'Content-Type':'application/json'},signal:AbortSignal.timeout(20_000),body:JSON.stringify({messaging_product:'whatsapp',to,type:p.kind,
+   [p.kind]:{id:media.id,...(p.kind==='document'?{filename:p.name}:{}),...(p.kind!=='audio'?{caption:p.caption}:{})}})
+ });
+ const data=await response.json();
+ if(!response.ok||!data?.messages?.[0]?.id)throw new WhatsAppSendError(data?.error?.code===131047?'Passaram 24h da última mensagem do cliente. O WhatsApp oficial exige modelo aprovado.':data?.error?.message||'WhatsApp não confirmou o envio do arquivo.');
+ return data.messages[0].id;
+}
