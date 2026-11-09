@@ -128,8 +128,14 @@ export async function registerPayment(formData: FormData) {
   const firstDueDate = String(formData.get("first_due_date")||paidAt);
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
   if(!parsed.success) redirect(`${back}?erro=Revise+os+dados+do+pagamento`);
-  const { error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
+  const accountId = String(formData.get("receiving_account_id") || "");
+  const { data: paymentId, error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
   if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
+  if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
+    const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: accountId });
+    if (accError) { revalidatePath("/financeiro"); redirect(`${back}?erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
+  }
   revalidatePath("/financeiro"); redirect(`${back}?recebido=1`);
 }
 

@@ -4,6 +4,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Cl
 import Link from "next/link";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { RescheduleDialog } from "@/components/reschedule-dialog";
+import { ReceivingAccountsManager } from "@/components/receiving-accounts-manager";
 
 type Entry = {
   id: string;
@@ -79,6 +80,7 @@ export async function FinancialPage({ filter, error, received, created, page = 1
           {(!filter || filter === "receber") && <Link className="button" href="/financeiro/receber/novo"><Plus className="h-4 w-4" /> Nova conta a receber</Link>}
         </div>
       )}
+      {filter !== "pagar" && <ReceivingAccountsManager />}
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {received && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">Pagamento registrado com sucesso.</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}

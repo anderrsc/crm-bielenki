@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
 import { QuickReplies } from "@/components/quick-replies";
+import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { fillQuickReply, QUOTE_MESSAGE, quickReplyQuery } from "@/lib/quick-replies";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -453,7 +454,9 @@ function Mini({ label, value, tone }: { label: string; value: string; tone?: "ok
 
 const FORMAS: Array<[string, string]> = [["pix", "Pix"], ["dinheiro", "Dinheiro"], ["cartao_credito", "Cartão de crédito"], ["cartao_debito", "Cartão de débito"], ["transferencia", "Transferência"], ["boleto", "Boleto"], ["cheque", "Cheque"]];
 
-function ReceberForm({ aberto, pending, onSubmit, onCancel }: { aberto: number; pending: boolean; onCancel: () => void; onSubmit: (v: { amount: number; discount: number; method: string; paidAt: string }) => void }) {
+function ReceberForm({ aberto, pending, onSubmit, onCancel }: { aberto: number; pending: boolean; onCancel: () => void; onSubmit: (v: { amount: number; discount: number; method: string; paidAt: string; accountId?: string; notes?: string }) => void }) {
+  const [conta, setConta] = useState("");
+  const [obs, setObs] = useState("");
   const [desconto, setDesconto] = useState("0");
   const [valor, setValor] = useState(aberto.toFixed(2));
   const [forma, setForma] = useState("pix");
@@ -471,11 +474,13 @@ function ReceberForm({ aberto, pending, onSubmit, onCancel }: { aberto: number; 
         <label>Valor pago (R$)<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} className="field w-full" /></label>
         <label>Forma<select value={forma} onChange={(e) => setForma(e.target.value)} className="field w-full">{FORMAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
         <label>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} className="field w-full" /></label>
+        <div className="col-span-2">Conta que recebeu<ReceivingAccountSelect name="conta" value={conta} onChange={setConta} /></div>
+        <label className="col-span-2">Observação<input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" className="field w-full" /></label>
       </div>
       <p className="text-ink/60">Saldo com desconto: <b>{brl(saldo)}</b>{num(valor) < saldo && ` · ficará em aberto ${brl(saldo - num(valor))}`}</p>
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold"><X className="mx-auto h-4 w-4" /></button>
-        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-bold text-white disabled:opacity-50">
+        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data, accountId: conta || undefined, notes: obs || undefined })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-bold text-white disabled:opacity-50">
           {pending ? "Lançando…" : "Lançar no financeiro"}
         </button>
       </div>

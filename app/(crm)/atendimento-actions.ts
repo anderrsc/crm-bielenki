@@ -262,12 +262,13 @@ export async function searchClientsForLink(term: string): Promise<Array<{ id: st
 
 /** Recebimento lançado direto no financeiro (mesma regra da tela Financeiro). */
 export async function receiveFromInbox(input: {
-  entryId: string; amount: number; discount: number; method: string; paidAt: string; notes?: string;
+  entryId: string; amount: number; discount: number; method: string; paidAt: string; notes?: string; accountId?: string;
 }): Promise<{ ok?: true; error?: string }> {
   try {
     const parsed = z.object({
       entryId: z.string().uuid(), amount: z.number().finite().positive(), discount: z.number().finite().nonnegative(),
       method: z.string().min(1).max(40), paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), notes: z.string().max(500).optional(),
+      accountId: z.string().uuid().optional().or(z.literal("")),
     }).safeParse(input);
     if (!parsed.success) return { error: "Revise os dados do pagamento." };
     const { db, companyId } = await context();
@@ -279,14 +280,18 @@ export async function receiveFromInbox(input: {
       .eq("id", p.entryId).eq("company_id", companyId).single();
     if (!entry) return { error: "Lançamento não encontrado." };
     if (p.amount > Number(entry.open_amount ?? 0) - p.discount + 0.009) return { error: "Valor maior que o saldo em aberto (já descontado)." };
-    const { error } = await db.rpc("register_payment_with_adjustment", {
-      p_entry_id: p.entryId, p_amount: p.amount, p_paid_at: p.paidAt, p_method: p.method, p_notes: p.notes ?? "Recebido pelo Atendimento",
+    const { data: paymentId, error } = await db.rpc("register_payment_with_adjustment", {
+      p_entry_id: p.entryId, p_amount: p.amount, p_paid_at: p.paidAt, p_method: p.method, p_notes: p.notes?.trim() || "Recebido pelo Atendimento",
       p_interest: Number(entry.interest_amount ?? 0),
       p_discount: Number(entry.discount_amount ?? 0) + p.discount,
       p_installments: Math.max(1, Number(entry.installment_count ?? 1)),
       p_first_due_date: entry.first_installment_due_date ?? entry.due_date ?? p.paidAt,
     });
     if (error) return { error: error.message };
+    if (p.accountId && paymentId) {
+      const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: p.accountId });
+      if (accError) { revalidatePath("/financeiro"); return { error: `Pagamento lançado, mas a conta não foi gravada: ${accError.message}` }; }
+    }
     revalidatePath("/financeiro");
     return { ok: true };
   } catch (error) {
