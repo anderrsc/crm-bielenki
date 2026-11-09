@@ -90,7 +90,7 @@ export async function FinancialPage({ filter, error, received, created, page = 1
         </div>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mobile-financial-summary mb-6 grid gap-4 sm:grid-cols-3">
         <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pending.length} lançamento(s)</p></div>
         <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdue.length} lançamento(s)</p></div>
         <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{done.length}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
@@ -114,7 +114,7 @@ export async function FinancialPage({ filter, error, received, created, page = 1
         </div>
       )}
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[700px] text-sm">
+        <table className="mobile-record-table w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b bg-cream text-left text-xs font-bold uppercase tracking-wider text-ink/40">
               <th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Parte</th>
@@ -130,13 +130,13 @@ export async function FinancialPage({ filter, error, received, created, page = 1
               const isOverdue = e.display_status === "vencido";
               return (
                 <tr key={e.id} className={`hover:bg-cream/50 transition ${isOverdue ? "bg-red-50/30" : ""}`}>
-                  <td className="px-4 py-3 font-medium max-w-[200px] truncate">{e.description}</td>
-                  <td className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
-                  <td className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
-                  <td className={`px-4 py-3 text-right font-bold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
-                  <td className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-bold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
-                  <td className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
+                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px] truncate">{e.description}</td>
+                  <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
+                  <td data-label="Cliente / fornecedor" className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
+                  <td data-label="Total" className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
+                  <td data-label="Em aberto" className={`px-4 py-3 text-right font-bold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
+                  <td data-label="Vencimento" className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-bold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
+                  <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} />}

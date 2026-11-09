@@ -72,5 +72,5 @@ for i in $(seq 1 60); do curl -s -o /dev/null "$E2E_BASE_URL/login" && break; sl
 echo "==> testes de ponta a ponta"
 node --test --test-concurrency=1 --test-reporter=spec \
   tests/e2e/api.test.mjs tests/e2e/quote-flow.test.mjs tests/e2e/business.test.mjs tests/e2e/ui-actions.test.mjs \
-  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs tests/e2e/print-a4.test.mjs
+  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs tests/e2e/print-a4.test.mjs tests/e2e/mobile.test.mjs
 echo "==> tudo verde"

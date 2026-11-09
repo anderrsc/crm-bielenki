@@ -53,6 +53,9 @@ export async function createAgendaEvent(
   const clientName = String(formData.get("client_name") ?? "").trim();
   const responsibleName = String(formData.get("responsible_name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  if(address.length>1000||phone.length>40||description.length>10000||title.length>300)return {error:"Os dados do compromisso são muito longos."};
 
   if (!title || !date) return { error: "Título e data são obrigatórios" };
 
@@ -81,6 +84,8 @@ export async function createAgendaEvent(
   const { error } = await db.from("operational_events").insert({
     company_id: profile.company_id,
     event_type,
+    address: address||null,
+    phone: phone||null,
     client_name: clientName || null,
     responsible_name: responsibleName || null,
     title,
@@ -108,4 +113,40 @@ export async function updateAgendaEventStatus(id: string, status: string, source
   if (error || !data) throw new Error(error?.message ?? "Evento não encontrado ou sem permissão");
   revalidatePath("/agenda");
   revalidatePath("/pendencias");
+}
+
+/** Details are loaded only when a commitment opens, using the signed-in user's RLS. */
+export async function getAgendaEventDetails(id:string,source:AgendaSource):Promise<import('@/lib/agenda-location').AgendaDetails>{
+ if(!z.uuid().safeParse(id).success||!['operational_events','measurements','installations','tasks'].includes(source))throw new Error('Compromisso inválido.');
+ const db=await createClient();const {data:profile}=await selectOwnProfile(db,'company_id');
+ if(!profile?.company_id)throw new Error('Sessão expirada.');
+ const companyId=profile.company_id;
+ let clientId:string|null=null,address:string|null=null,phone:string|null=null,notes:string|null=null,relatedHref:string|null=null,relatedLabel:string|null=null;
+ if(source==='tasks'){
+  const {data:r,error}=await db.from('tasks').select('id,description,related_type,related_id').eq('id',id).eq('company_id',companyId).single();
+  if(error||!r)throw new Error('Compromisso indisponível ou sem permissão.');notes=r.description;
+  if(r.related_type==='clients')clientId=r.related_id;
+ }else if(source==='measurements'){
+  const {data:r,error}=await db.from('measurements').select('id,client_id,address,phone,notes,sketch_notes').eq('id',id).eq('company_id',companyId).single();
+  if(error||!r)throw new Error('Compromisso indisponível ou sem permissão.');
+  clientId=r.client_id;address=r.address;phone=r.phone;notes=[r.notes,r.sketch_notes].filter(Boolean).join('\n')||null;
+  relatedHref=`/medicoes/${r.id}`;relatedLabel='Abrir medição';
+ }else if(source==='installations'){
+  const {data:r,error}=await db.from('installations').select('id,order_id,address,notes').eq('id',id).eq('company_id',companyId).single();
+  if(error||!r)throw new Error('Compromisso indisponível ou sem permissão.');address=r.address;notes=r.notes;
+  const {data:order}=await db.from('orders').select('id,client_id').eq('id',r.order_id).eq('company_id',companyId).maybeSingle();
+  clientId=order?.client_id??null;relatedHref=`/instalacoes/${r.id}`;relatedLabel='Abrir instalação';
+ }else{
+  const {data:r,error}=await db.from('operational_events').select('id,client_id,address,phone,notes,order_id,quote_id').eq('id',id).eq('company_id',companyId).single();
+  if(error||!r)throw new Error('Compromisso indisponível ou sem permissão.');
+  clientId=r.client_id;address=r.address;phone=r.phone;notes=r.notes;
+  if(r.order_id){relatedHref=`/pedidos/${r.order_id}`;relatedLabel='Abrir pedido'}else if(r.quote_id){relatedHref=`/orcamentos/${r.quote_id}`;relatedLabel='Abrir orçamento'}
+ }
+ let clientName:string|null=null;
+ if(clientId){
+  const {data:c}=await db.from('clients').select('id,name,address,neighborhood,city,state,postal_code,phone,whatsapp').eq('id',clientId).eq('company_id',companyId).maybeSingle();
+  if(c){clientName=c.name;phone=phone||c.whatsapp||c.phone;if(!address||address.trim()===c.address?.trim())address=[c.address,c.neighborhood,c.city,c.state,c.postal_code].filter(Boolean).join(', ')||null}
+  else clientId=null;
+ }
+ return {address,phone,clientId,clientName,notes,relatedHref,relatedLabel};
 }
