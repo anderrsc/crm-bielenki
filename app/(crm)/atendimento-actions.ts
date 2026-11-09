@@ -167,7 +167,7 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */
-export async function sendInboxMessage(conversationId: string, text: string): Promise<{ ok?: true; error?: string }> {
+export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean } = {}): Promise<{ ok?: true; error?: string }> {
   try {
     const body = text.trim();
     if (!body) return { error: "Mensagem vazia." };
@@ -183,7 +183,8 @@ export async function sendInboxMessage(conversationId: string, text: string): Pr
       admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
       admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
     ]);
-    const signed = `*${myName}:*\n${body}`;
+    // Sem assinatura só para o que o cliente precisa copiar inteiro (ex.: Pix copia e cola).
+    const signed = opts.unsigned ? body : `*${myName}:*\n${body}`;
     let externalId: string | null = null;
     let failure: string | null = null;
     try {

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
 import { QuickReplies } from "@/components/quick-replies";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
+import { PixCharge } from "@/components/pix-charge";
 import { fillQuickReply, QUOTE_MESSAGE, quickReplyQuery } from "@/lib/quick-replies";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -273,7 +274,7 @@ function Ficha({ detail, onChanged }: { detail: ConversationDetail; onChanged: (
   const { conversation: c, panel, triage } = detail;
   return (
     <div className="space-y-4 p-4">
-      {panel ? <Cliente panel={panel} onChanged={onChanged} /> : <SemCadastro conversationId={c.id} sugestao={c.name} onChanged={onChanged} />}
+      {panel ? <Cliente panel={panel} conversationId={c.id} onChanged={onChanged} /> : <SemCadastro conversationId={c.id} sugestao={c.name} onChanged={onChanged} />}
       {triage && (
         <div className="card p-3">
           <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase text-blue-400"><Bot className="h-4 w-4" /> Triagem da Lia</p>
@@ -327,7 +328,7 @@ function SemCadastro({ conversationId, sugestao, onChanged }: { conversationId: 
   );
 }
 
-function Cliente({ panel, onChanged }: { panel: ClientPanel; onChanged: () => void }) {
+function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; conversationId: string; onChanged: () => void }) {
   const { client, resumo: r } = panel;
   const [receber, setReceber] = useState<string | null>(null);
   const [fechar, setFechar] = useState<string | null>(null);
@@ -369,6 +370,7 @@ function Cliente({ panel, onChanged }: { panel: ClientPanel; onChanged: () => vo
 
       <div className="card p-3">
         <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
+        <div className="mb-2"><PixCharge conversationId={conversationId} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
         <ul className="space-y-2">
           {abertas.map((e) => (
