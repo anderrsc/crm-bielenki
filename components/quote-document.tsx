@@ -66,6 +66,7 @@ type QuoteData = {
   measurer_id?: string | null;
   measurer_name?: string | null;
   attendant_id?: string | null;
+  triage_session_id?: string | null;
   created_at: string;
   client: Row;
   company: CompanyData;
@@ -302,8 +303,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           <StatusBadge value={String(quote.status)} />
         </div>
         <div className="flex flex-wrap gap-3">
-          {/* A tela de edicao so existe para orcamentos de calhas. */}
-          {isGutter && quote.status !== "aprovado" && (
+          {/* Rascunhos da Ana têm conferência própria de peças e preços. */}
+          {(isGutter && quote.status !== "aprovado" || quote.triage_session_id && quote.status === "rascunho") && (
             <Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>
           )}
           <form>

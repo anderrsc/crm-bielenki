@@ -235,9 +235,10 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const triageDb=await getRequestClient();
     const {data:triageQuote}=await triageDb.from("quotes").select("id,quote_number,status,triage_session_id,notes,client:clients(name)").eq("id",path[1]).maybeSingle();
     if(triageQuote?.triage_session_id && triageQuote.status==="rascunho"){
+      const {data:triageSource}=await triageDb.from("triage_sessions").select("resumo_executivo,dados_coletados").eq("id",triageQuote.triage_session_id).maybeSingle();
       const {data:items}=await triageDb.from("quote_items").select("id,product,description,quantity,unit_price").eq("quote_id",triageQuote.id);
       const client=Array.isArray(triageQuote.client)?triageQuote.client[0]:triageQuote.client;
-      return <TriageDraftEditor quoteId={triageQuote.id} number={triageQuote.quote_number} clientName={client?.name??"Cliente"} notes={triageQuote.notes} initial={items??[]}/>;
+      return <TriageDraftEditor quoteId={triageQuote.id} number={triageQuote.quote_number} clientName={client?.name??"Cliente"} notes={[triageSource?.resumo_executivo,JSON.stringify(triageSource?.dados_coletados??{},null,2)].filter(Boolean).join("\n")} initial={items??[]}/>;
     }
     const db=await getRequestClient();const [quoteResult,gutterResult,priceResult,rateResult,clientResult,specialResult]=await Promise.all([db.from("quotes").select("*").eq("id",path[1]).single(),db.from("gutter_quotes").select("items:gutter_quote_items(product,thickness,cut,color,category,quantity,meters,unit_price)").eq("quote_id",path[1]).single(),loadActiveGutterPrices(db),loadGutterQuoteRates(db),db.from("clients").select("id,name,phone,city").eq("status","ativo").order("name"),db.from("quote_items").select("product,description,unit,quantity,unit_price,item_type").eq("quote_id",path[1]).neq("item_type","calha").neq("item_type","esquadria")]);
     if(!quoteResult.data||!gutterResult.data||quoteResult.data.status==="aprovado")return notFound();

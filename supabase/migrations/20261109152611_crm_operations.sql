@@ -9,9 +9,10 @@ create table if not exists public.crm_operations_config (
 alter table public.crm_operations_config enable row level security;
 revoke all on public.crm_operations_config from public, anon, authenticated;
 grant all on public.crm_operations_config to service_role;
+drop policy if exists operations_service on public.crm_operations_config;
 create policy operations_service on public.crm_operations_config to service_role using(true) with check(true);
 
-create table public.push_subscriptions (
+create table if not exists public.push_subscriptions (
  id uuid primary key default gen_random_uuid(), company_id uuid not null references public.companies(id),
  profile_id uuid not null references public.profiles(id) on delete cascade,
  endpoint text not null unique, subscription jsonb not null, created_at timestamptz not null default now()
@@ -19,22 +20,24 @@ create table public.push_subscriptions (
 alter table public.push_subscriptions enable row level security;
 revoke all on public.push_subscriptions from anon, authenticated;
 grant all on public.push_subscriptions to service_role;
+drop policy if exists push_service on public.push_subscriptions;
 create policy push_service on public.push_subscriptions to service_role using(true) with check(true);
-create index on public.push_subscriptions(profile_id);
-create index on public.push_subscriptions(company_id);
+create index if not exists push_subscriptions_profile_id_idx on public.push_subscriptions(profile_id);
+create index if not exists push_subscriptions_company_id_idx on public.push_subscriptions(company_id);
 
-alter table public.notifications add column event_key text, add column push_processed_at timestamptz, add column push_claimed_at timestamptz;
-create unique index notifications_event_recipient on public.notifications(profile_id,event_key) where event_key is not null;
-create index notifications_push_pending on public.notifications(created_at) where event_key is not null and push_processed_at is null;
-alter table public.messages add column media_type text, add column file_name text, add column attachment_quote_id uuid references public.quotes(id) on delete set null;
-create index on public.messages(attachment_quote_id);
-create table public.whatsapp_health (
+alter table public.notifications add column if not exists event_key text, add column if not exists push_processed_at timestamptz, add column if not exists push_claimed_at timestamptz;
+create unique index if not exists notifications_event_recipient on public.notifications(profile_id,event_key) where event_key is not null;
+create index if not exists notifications_push_pending on public.notifications(created_at) where event_key is not null and push_processed_at is null;
+alter table public.messages add column if not exists media_type text, add column if not exists file_name text, add column if not exists attachment_quote_id uuid references public.quotes(id) on delete set null;
+create index if not exists messages_attachment_quote_id_idx on public.messages(attachment_quote_id);
+create table if not exists public.whatsapp_health (
  company_id uuid primary key references public.companies(id), state text not null default 'unknown',
  failed_checks integer not null default 0, incident_id uuid, checked_at timestamptz, heartbeat_at timestamptz
 );
 alter table public.whatsapp_health enable row level security;
 revoke all on public.whatsapp_health from anon, authenticated;
 grant all on public.whatsapp_health to service_role;
+drop policy if exists health_service on public.whatsapp_health;
 create policy health_service on public.whatsapp_health to service_role using(true) with check(true);
 
 create or replace function crm_private.notify_team(cid uuid, event text, title_text text, body_text text, target text, owner_id uuid default null)
@@ -50,12 +53,12 @@ returns void language sql security definer set search_path='' as $$
 $$;
 revoke all on function crm_private.notify_team(uuid,text,text,text,text,uuid) from public,anon,authenticated;
 
-alter table public.triage_sessions add column quote_id uuid references public.quotes(id) on delete set null;
-create unique index triage_quote_once on public.triage_sessions(quote_id) where quote_id is not null;
-alter table public.quotes add column triage_session_id uuid references public.triage_sessions(id) on delete set null,
- add column sent_at timestamptz, add column followup_notified_at timestamptz;
-create unique index quotes_triage_once on public.quotes(triage_session_id) where triage_session_id is not null;
-create index quotes_sent_followup on public.quotes(sent_at) where status='enviado' and followup_notified_at is null;
+alter table public.triage_sessions add column if not exists quote_id uuid references public.quotes(id) on delete set null;
+create unique index if not exists triage_quote_once on public.triage_sessions(quote_id) where quote_id is not null;
+alter table public.quotes add column if not exists triage_session_id uuid references public.triage_sessions(id) on delete set null,
+ add column if not exists sent_at timestamptz, add column if not exists followup_notified_at timestamptz;
+create unique index if not exists quotes_triage_once on public.quotes(triage_session_id) where triage_session_id is not null;
+create index if not exists quotes_sent_followup on public.quotes(sent_at) where status='enviado' and followup_notified_at is null;
 
 create or replace function crm_private.triage_draft() returns trigger language plpgsql security definer set search_path='' as $$
 declare cid uuid; qid uuid; sale_type uuid; person uuid; data jsonb; product_text text; details text;
@@ -112,6 +115,7 @@ begin
  return new;
 end; $$;
 revoke all on function crm_private.triage_draft() from public,anon,authenticated;
+drop trigger if exists triage_create_draft on public.triage_sessions;
 create trigger triage_create_draft after insert or update of status on public.triage_sessions for each row execute function crm_private.triage_draft();
 
 create or replace function crm_private.quote_sent_clock() returns trigger language plpgsql set search_path='' as $$
@@ -123,6 +127,7 @@ begin
  return new;
 end; $$;
 revoke all on function crm_private.quote_sent_clock() from public,anon,authenticated;
+drop trigger if exists quote_sent_clock on public.quotes;
 create trigger quote_sent_clock before insert or update of status on public.quotes for each row execute function crm_private.quote_sent_clock();
 -- Historical send times are unknown; start their clock at activation, not quote creation.
 update public.quotes set sent_at=now() where status='enviado' and sent_at is null;

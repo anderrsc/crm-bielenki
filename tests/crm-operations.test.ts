@@ -1,4 +1,5 @@
 import { beforeAll,afterAll,beforeEach,afterEach,test,expect } from 'vitest';
+import {readFileSync} from 'node:fs';
 import type { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase } from './helpers/database';
 let db:PGlite,company:string,other:string;
@@ -19,9 +20,9 @@ async function triage(status='concluida',maintenance=false){return await one(`in
  values($1,'5547998887766',$2,'Cliente da Ana','Calha e rufo','2m',$3,$4) returning id`,[company,status,maintenance,JSON.stringify({nome:'Cliente da Ana',medidas:'2 m',itens:[{produto:'Calha',medidas:'Comprimento 2 m, corte 300 mm',quantidade:2,unidade:'un'},{produto:'Rufo',medidas:'Comprimento 1 m',quantidade:3,unidade:'un'}]})])}
 test('completed triage atomically creates client, itemized zero-price draft and scoped notifications, once',async()=>{
  const s=await triage();
- const q=await one('select * from quotes where triage_session_id=$1',[s.id]);expect(q.status).toBe('rascunho');expect(Number(q.total)).toBe(0);
+ const q=await one('select * from quotes where triage_session_id=$1',[s.id]);expect(q.status).toBe('rascunho');expect(Number(q.total)).toBe(0);expect(q.notes).toBeNull();
  const items=await rows('select product,quantity,unit_price,description from quote_items where quote_id=$1 order by product',[q.id]);
- expect(items).toHaveLength(2);expect(items[0].product).toBe('Calha');expect(Number(items[0].quantity)).toBe(2);expect(items[0].description).toContain('300 mm');expect(items.every(i=>Number(i.unit_price)===0)).toBe(true);
+ expect(items).toHaveLength(2);expect(items[0].product).toBe('Calha');expect(Number(items[0].quantity)).toBe(2);expect(items[0].description).toContain('300 mm');expect(items[0].description).not.toContain('Dados informados pelo cliente');expect(items[0].description).not.toContain('triage_data');expect(items.every(i=>Number(i.unit_price)===0)).toBe(true);
  expect((await one('select quote_id from triage_sessions where id=$1',[s.id])).quote_id).toBe(q.id);
  await db.query("update triage_sessions set status='concluida' where id=$1",[s.id]);
  expect((await rows('select id from quotes where triage_session_id=$1',[s.id]))).toHaveLength(1);
@@ -72,4 +73,10 @@ test('operational secrets and background jobs cannot be accessed by a user or an
   await db.exec('rollback to isolation');
  }
  expect((await one("select public from storage.buckets where id='atendimento-files'")).public).toBe(false);
+});
+
+test('operations migrations can be applied again without changing settings or failing',async()=>{
+ await db.exec(readFileSync('supabase/migrations/20261109152611_crm_operations.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261109153050_triage_customer_document.sql','utf8'));
+ const s=await triage();expect((await one('select notes from quotes where triage_session_id=$1',[s.id])).notes).toBeNull();
 });
