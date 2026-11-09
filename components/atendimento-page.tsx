@@ -13,6 +13,8 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
+import { QuickReplies } from "@/components/quick-replies";
+import { quickReplyQuery } from "@/lib/quick-replies";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hora = (iso: string | null) => {
@@ -178,6 +180,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
 function Conversa({ detail, onBack, onPanel, onChanged }: { detail: ConversationDetail; onBack: () => void; onPanel: () => void; onChanged: () => void }) {
   const { conversation: c, messages } = detail;
   const [texto, setTexto] = useState("");
+  const [atalhos, setAtalhos] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
   const [mudandoIa, startIa] = useTransition();
@@ -243,12 +246,17 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged}/>
         <div className="flex items-end gap-2">
+          <QuickReplies
+            query={quickReplyQuery(texto)} open={atalhos} onOpen={() => setAtalhos(true)}
+            onClose={() => { setAtalhos(false); if (quickReplyQuery(texto) !== null) setTexto(""); }}
+            contactName={c.clientName || c.name} onPick={(t) => setTexto(t)}
+          />
           <textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder="Escreva a mensagem (Enter envia, Shift+Enter pula linha)"
+            placeholder="Escreva a mensagem ou / para respostas prontas"
             className="field max-h-40 flex-1 resize-none"
           />
           <button onClick={enviar} disabled={enviando || !texto.trim()} className="rounded-xl bg-green-600 p-3 text-white disabled:opacity-50" aria-label="Enviar">
