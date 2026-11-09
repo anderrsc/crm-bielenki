@@ -622,9 +622,13 @@ export async function updateQuoteTeam(formData: FormData) {
   const quoteId = String(formData.get("quote_id") || "");
   const field = String(formData.get("field") || "");
   const profileId = String(formData.get("profile_id") || "").trim();
-  if (!quoteId || (field !== "measurer_id" && field !== "attendant_id")) return { error: "Dados inválidos" };
-  const { error } = await db.from("quotes").update({ [field]: profileId || null }).eq("id", quoteId);
-  if (error) return { error: error.message };
+  if (!quoteId || !["measurer_id", "attendant_id", "measurer_name"].includes(field)) return { error: "Dados inválidos" };
+  // Medidor é um usuário OU só um nome (medidor de fora, sem login).
+  const values = field === "measurer_name"
+    ? { measurer_name: profileId.replace(/\s+/g, " ").slice(0, 80) || null, measurer_id: null }
+    : field === "measurer_id" ? { measurer_id: profileId || null, measurer_name: null } : { attendant_id: profileId || null };
+  const { error } = await db.from("quotes").update(values).eq("id", quoteId);
+  if (error) return { error: /measurer_name/.test(error.message) ? "Falta rodar a atualização do banco 20261109000000_medidor_externo.sql." : error.message };
   revalidatePath(`/orcamentos/${quoteId}`);
   return { error: null };
 }
