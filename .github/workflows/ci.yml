@@ -69,8 +69,8 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Instalar cliente do Postgres
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Instalar cliente do Postgres e ferramentas PDF
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client poppler-utils
 
       - name: Instalar Chromium (mesmo navegador dos testes locais)
         run: |
