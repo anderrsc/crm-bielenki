@@ -100,7 +100,7 @@ describe('webhook WhatsApp (Meta)', () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     await POST(metaRequest('Oi', 'm4') as never);
     expect(tables.conversations[0]).toMatchObject({ external_id: '5547999990000', unread_count: 1, last_message_preview: 'Oi! Sou a Ana.' });
-    expect(tables.messages.map(m => [m.author, m.sender_name, m.body])).toEqual([['cliente', null, 'Oi'], ['ana', 'Ana', 'Oi! Sou a Ana.']]);
+    expect(tables.messages.map(m => [m.author, m.sender_name, m.body])).toEqual([['cliente', null, 'Oi'], ['ana', 'Lia', 'Oi! Sou a Ana.']]);
   });
 
   test('conversa assumida pela equipe: Ana não responde', async () => {

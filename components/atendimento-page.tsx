@@ -51,7 +51,7 @@ function Formatado({ text }: { text: string }) {
 
 function quemEnviou(m: InboxMessage) {
   if (m.direction === "inbound") return null;
-  if (m.author === "ana") return `${m.senderName || "Ana"} (IA)`;
+  if (m.author === "ana") return `${m.senderName || "Lia"} (IA)`;
   if (m.author === "automacao") return "Automação";
   return m.senderName || "Equipe";
 }
@@ -121,7 +121,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
           </div>
           <div className="flex gap-1 text-xs font-bold">
-            {([["todas", "Todas"], ["naolidas", "Não lidas"], ["ana", "Com a Ana"], ["equipe", "Com a equipe"]] as const).map(([k, l]) => (
+            {([["todas", "Todas"], ["naolidas", "Não lidas"], ["ana", "Com a Lia"], ["equipe", "Com a equipe"]] as const).map(([k, l]) => (
               <button key={k} onClick={() => setFiltro(k)} className={cn("rounded-lg px-2 py-1", filtro === k ? "bg-forest text-white" : "bg-cream text-ink/60")}>{l}</button>
             ))}
           </div>
@@ -142,7 +142,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
                     <p className="truncate text-sm text-ink/55">{c.preview || "—"}</p>
                     {c.unread > 0 && <span className="shrink-0 rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">{c.unread}</span>}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Ana (IA)"}{!c.clientId && " · sem cadastro"}</p>
+                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{!c.clientId && " · sem cadastro"}</p>
                 </div>
               </button>
             </li>
@@ -208,9 +208,9 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
           disabled={mudandoIa}
           onClick={() => startIa(async () => { await setConversationAi(c.id, c.aiPaused); onChanged(); })}
           className={cn("flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold", c.aiPaused ? "bg-cream text-ink/70" : "bg-forest text-white")}
-          title={c.aiPaused ? "A Ana volta a responder este cliente" : "Você assume e a Ana para de responder"}
+          title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
-          <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Ana" : "Assumir"}
+          <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Lia" : "Assumir"}
         </button>
         <button onClick={onPanel} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold lg:hidden">Ficha</button>
       </header>
@@ -239,7 +239,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
 
       <footer className="border-t border-sand/80 p-3">
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
-        {!c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Ana está respondendo. Ao enviar, você assume a conversa.</p>}
+        {!c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged}/>
         <div className="flex items-end gap-2">
@@ -267,7 +267,7 @@ function Ficha({ detail, onChanged }: { detail: ConversationDetail; onChanged: (
       {panel ? <Cliente panel={panel} onChanged={onChanged} /> : <SemCadastro conversationId={c.id} sugestao={c.name} onChanged={onChanged} />}
       {triage && (
         <div className="card p-3">
-          <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase text-blue-400"><Bot className="h-4 w-4" /> Triagem da Ana</p>
+          <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase text-blue-400"><Bot className="h-4 w-4" /> Triagem da Lia</p>
           {triage.resumo && <p className="mb-2 whitespace-pre-wrap text-sm">{triage.resumo}</p>}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
             {Object.entries(triage.dados).slice(0, 14).map(([k, v]) => (

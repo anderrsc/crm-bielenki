@@ -71,7 +71,7 @@ export function WhatsappConnect() {
         setQr({ state: r.state, qr: r.qr, pairingCode: r.pairingCode });
         if (r.state === "open") {
           const s = await syncKnownContacts();
-          setMsg("added" in s ? `WhatsApp conectado! ${s.total} conversas atuais marcadas como contatos conhecidos (a Ana não responde esses).` : "WhatsApp conectado!");
+          setMsg("added" in s ? `WhatsApp conectado! ${s.total} conversas atuais marcadas como contatos conhecidos (a Lia não responde esses).` : "WhatsApp conectado!");
           carregar();
           // O celular leva alguns segundos para mandar o histórico; depois importa.
           setTimeout(() => { importarHistorico(); }, 20_000);
@@ -155,7 +155,7 @@ export function WhatsappConnect() {
               {conectado ? (
                 <div className="space-y-2">
                   <p className="text-green-500">Número conectado. As mensagens já chegam no Atendimento.</p>
-                  <p className="text-xs">A Ana só responde número que ainda não conversou com vocês. {setup.syncedAt ? `Contatos atuais marcados em ${new Date(setup.syncedAt).toLocaleString("pt-BR")}.` : ""}</p>
+                  <p className="text-xs">A Lia só responde número que ainda não conversou com vocês. {setup.syncedAt ? `Contatos atuais marcados em ${new Date(setup.syncedAt).toLocaleString("pt-BR")}.` : ""}</p>
                   <div className="rounded-lg bg-cream/60 p-2 text-xs">
                     <p className="font-bold">Histórico de conversas</p>
                     <p className="text-ink/60">Traz para o Atendimento as conversas e mensagens que o WhatsApp já tem. Pode rodar de novo: não duplica.</p>

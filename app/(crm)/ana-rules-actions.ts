@@ -1,5 +1,5 @@
 "use server";
-// Regras da Ana (preenchidas pelo dono) e aprendizado a partir das conversas da equipe.
+// Regras da Lia (preenchidas pelo dono) e aprendizado a partir das conversas da equipe.
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
@@ -73,7 +73,7 @@ export async function learnFinish(notes: string[]): Promise<Result<{ learned: st
     const { db, companyId, cfg } = await context();
     const joined = notes.filter(Boolean).join("\n\n---\n\n").slice(0, 14000);
     if (!joined) throw new Error("Não achei conversas da equipe para aprender.");
-    const learned = (await ask(cfg, `Junte as anotações abaixo (tiradas de conversas reais da equipe) num guia CURTO para a atendente virtual Ana, em tópicos, sem repetir, no máximo 40 linhas. Seções: "Dúvidas comuns e como responder", "O que perguntar por tipo de pedido", "Jeito de falar", "Informações da empresa". Sem valores em R$, sem nomes ou telefones de clientes, nada inventado.
+    const learned = (await ask(cfg, `Junte as anotações abaixo (tiradas de conversas reais da equipe) num guia CURTO para a atendente virtual Lia, em tópicos, sem repetir, no máximo 40 linhas. Seções: "Dúvidas comuns e como responder", "O que perguntar por tipo de pedido", "Jeito de falar", "Informações da empresa". Sem valores em R$, sem nomes ou telefones de clientes, nada inventado.
 
 ANOTAÇÕES:
 ${joined}`, 1400)).trim();

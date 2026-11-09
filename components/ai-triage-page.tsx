@@ -215,7 +215,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-forest">GESTÃO</p>
           <h1 className="mt-1 text-2xl font-black">Agente de IA — Triagem Comercial</h1>
-          <p className="mt-1 text-sm text-ink/55">Ana realiza a triagem completa dos leads via WhatsApp antes de enviar para orçamento.</p>
+          <p className="mt-1 text-sm text-ink/55">Lia realiza a triagem completa dos leads via WhatsApp antes de enviar para orçamento.</p>
         </div>
         <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${config?.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
           <span className={`h-2 w-2 rounded-full ${config?.active ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
@@ -304,7 +304,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             <div className="card p-10 text-center text-ink/40">
               <p className="text-4xl mb-3">🤖</p>
               <p className="font-semibold">Nenhuma triagem ainda</p>
-              <p className="text-sm mt-1">Quando clientes enviarem mensagens no WhatsApp, a Ana iniciará a triagem automaticamente.</p>
+              <p className="text-sm mt-1">Quando clientes enviarem mensagens no WhatsApp, a Lia iniciará a triagem automaticamente.</p>
             </div>
           )}
         </div>
@@ -320,7 +320,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Nome do Agente</label>
-                <input name="agent_name" defaultValue={config?.agent_name ?? "Ana"} className="input w-full" placeholder="Ana" />
+                <input name="agent_name" defaultValue={config?.agent_name ?? "Lia"} className="input w-full" placeholder="Lia" />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Temperatura</label>

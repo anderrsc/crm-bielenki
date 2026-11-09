@@ -192,7 +192,7 @@ export async function sendInboxMessage(conversationId: string, text: string): Pr
       failure = error instanceof Error ? error.message : String(error);
     }
     await recordOutbound(db, { companyId, conversationId, body: signed, author: "equipe", senderName: myName, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
-    // Quem responde assume a conversa: a Ana para de responder esse cliente.
+    // Quem responde assume a conversa: a Lia para de responder esse cliente.
     await db.from("conversations").update({ ai_paused: true, assigned_to: user.id, unread_count: 0 }).eq("id", conversationId);
     return failure ? { error: failure } : { ok: true };
   } catch (error) {
@@ -200,7 +200,7 @@ export async function sendInboxMessage(conversationId: string, text: string): Pr
   }
 }
 
-/** Devolve a conversa para a Ana (ou assume de novo). */
+/** Devolve a conversa para a Lia (ou assume de novo). */
 export async function setConversationAi(conversationId: string, aiOn: boolean): Promise<{ ok?: true; error?: string }> {
   try {
     const { db, user, companyId } = await context();

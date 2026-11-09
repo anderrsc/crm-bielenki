@@ -43,7 +43,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI" }[provider];
 
   const checks: CentralCheck[] = [
-    { label: "Agente ativo", ok: cfg.active === true, detail: cfg.active === true ? "Ligado" : "Desligado: a Ana não responde ninguém" },
+    { label: "Agente ativo", ok: cfg.active === true, detail: cfg.active === true ? "Ligado" : "Desligado: a Lia não responde ninguém" },
     { label: `Chave da IA (${providerName})`, ok: aiKey, detail: aiKey ? "Configurada — use Testar IA para ver se tem crédito" : "Falta a chave. Groq é grátis: console.groq.com/keys" },
   ];
   if (wppProvider === "meta") {
@@ -76,7 +76,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
 
   return {
     active: cfg.active === true,
-    agentName: has(cfg.agent_name) ? String(cfg.agent_name) : "Ana",
+    agentName: has(cfg.agent_name) && cfg.agent_name !== "Ana" ? String(cfg.agent_name) : "Lia",
     provider,
     wppProvider,
     checks,

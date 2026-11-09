@@ -139,7 +139,7 @@ export async function getEvolutionQr(): Promise<Result<{ state: string; qr: stri
 
 /**
  * Marca todas as conversas que já existem no WhatsApp como "contato conhecido":
- * a Ana não responde fornecedor, família nem cliente antigo, só número novo.
+ * a Lia não responde fornecedor, família nem cliente antigo, só número novo.
  */
 export async function syncKnownContacts(): Promise<Result<{ added: number; total: number }>> {
   try {

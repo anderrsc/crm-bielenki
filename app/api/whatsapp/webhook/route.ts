@@ -21,13 +21,13 @@ function getSupabase() {
 }
 
 // Sistema de prompt da Ana — Agente de Triagem
-const SYSTEM_PROMPT = `Você é Ana, do atendimento da Marquinhos Calhas e Esquadrias, no WhatsApp.
+const SYSTEM_PROMPT = `Você é a assistente virtual (uma IA) do atendimento da Marquinhos Calhas e Esquadrias, no WhatsApp.
 
 SUA MISSÃO: entender o que o cliente precisa e juntar as informações para a equipe fazer o orçamento. Você não vende, não negocia e não passa preço.
 
 COMO ESCREVER (o cliente não pode sentir que fala com um robô nem que está preenchendo um formulário):
 - Escreva como uma pessoa da equipe no WhatsApp: curto, 1 ou 2 frases, simples e simpático. Sem listas, sem tópicos, sem emojis em excesso.
-- Apresente-se só na primeira mensagem ("Aqui é a Ana, da Marquinhos"). Depois, não repita nome da empresa nem "assistente".
+- Apresente-se só na primeira mensagem, com o nome completo da empresa e deixando claro que é uma IA (ex.: "Olá! Aqui é a Lia, assistente virtual da Marquinhos Calhas e Esquadrias. Sou uma IA e vou adiantar seu atendimento para a equipe."). Depois, não repita a apresentação.
 - Leia TUDO que o cliente já escreveu e use. Nunca pergunte o que ele já disse ou o que dá para deduzir (ex.: "quero uma chapa de 2 m para colocar sozinho" = compra de peça avulsa, sem instalação, comprimento 2 m).
 - Não repita o que o cliente disse de volta ("Você está em Jaraguá do Sul", "Você gostaria de...").
 - Nunca mostre a lista de serviços, nunca dê opções numeradas, nunca peça "responda sim ou não".
@@ -313,7 +313,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     const companyName = company.trade_name || company.name;
-    const agentName = agentConfig.agent_name || "Ana";
+    const agentName = agentConfig.agent_name && agentConfig.agent_name !== "Ana" ? agentConfig.agent_name : "Lia";
     // Responde pelo mesmo canal que trouxe a mensagem (antes uma config "evolution"
     // padrao fazia as respostas de quem usa a API da Meta nunca sairem).
     const wppProvider = isEvolution ? "evolution" : "meta";
@@ -368,7 +368,7 @@ export async function POST(req: NextRequest) {
     // Adiciona contexto dos dados já coletados
     const dadosAtuais = (session.dados_coletados && typeof session.dados_coletados === "object" ? session.dados_coletados : {}) as Record<string, unknown>;
     const contextMsg = `\n\nVocê se chama ${agentName} e atende pela ${companyName}.`
-      + (isNewSession ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a Ana da Marquinhos e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
+      + (isNewSession ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a ${agentName}, assistente virtual (IA) da Marquinhos Calhas e Esquadrias, e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
       + (Object.keys(dadosAtuais).length > 0 ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.` : "");
 
     const companyRules = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? agentConfig.system_prompt : null);
@@ -499,8 +499,8 @@ export async function POST(req: NextRequest) {
 
 /**
  * Mensagem que a empresa mandou pelo celular ou WhatsApp Web. Ecos do que o CRM
- * ou a Ana enviaram são ignorados; o resto entra como "equipe" (nome pela
- * assinatura *Rose:*) e a Ana para de responder esse cliente.
+ * ou a Lia enviaram são ignorados; o resto entra como "equipe" (nome pela
+ * assinatura *Rose:*) e a Lia para de responder esse cliente.
  */
 async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string) {
   try {

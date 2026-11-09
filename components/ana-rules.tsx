@@ -1,5 +1,5 @@
 "use client";
-// Central de IA → "Como a Ana atende": perguntas para o dono responder + aprender com as conversas da equipe.
+// Central de IA → "Como a Lia atende": perguntas para o dono responder + aprender com as conversas da equipe.
 import { useEffect, useState } from "react";
 import { BookOpen, GraduationCap, Save } from "lucide-react";
 import { getAnaRules, learnChunk, learnFinish, saveAnaRules } from "@/app/(crm)/ana-rules-actions";
@@ -17,7 +17,7 @@ export function AnaRules() {
   async function salvar() {
     setBusy(true); setStatus("Salvando…");
     const r = await saveAnaRules(rules);
-    setStatus(r.ok ? "Salvo. A Ana já usa nas próximas mensagens." : `Erro: ${r.error}`); setBusy(false);
+    setStatus(r.ok ? "Salvo. A Lia já usa nas próximas mensagens." : `Erro: ${r.error}`); setBusy(false);
   }
 
   async function aprender() {
@@ -47,7 +47,7 @@ export function AnaRules() {
 
   return (
     <section className="card p-4">
-      <h2 className="flex items-center gap-2 text-base font-black"><BookOpen className="h-5 w-5" /> Como a Ana atende</h2>
+      <h2 className="flex items-center gap-2 text-base font-black"><BookOpen className="h-5 w-5" /> Como a Lia atende</h2>
       <p className="mt-1 text-sm text-ink/70">
         Responda embaixo de cada pergunta (linha <b>R:</b>). O que ficar em branco ela ignora. Essas regras mandam mais que tudo.
         O botão <b>Aprender com as conversas</b> lê as últimas 1000 mensagens da equipe e anota como vocês atendem.

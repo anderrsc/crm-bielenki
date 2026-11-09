@@ -765,7 +765,7 @@ export async function saveAiAgentConfig(formData: FormData) {
   const values = {
     company_id: profile.company_id,
     active: formData.get("active") === "on",
-    agent_name: String(formData.get("agent_name") || "Ana").trim(),
+    agent_name: String(formData.get("agent_name") || "Lia").trim(),
     openai_model: String(formData.get("openai_model") || "").trim() || DEFAULT_AI_MODEL[parseAiProvider(formData.get("ai_provider"))],
     temperature: Number(formData.get("temperature") ?? 0.3),
     auto_create_lead: formData.get("auto_create_lead") === "on",
@@ -806,7 +806,7 @@ export async function saveAiAgentConfig(formData: FormData) {
   redirect("/agente-ia?aba=configuracoes&salvo=1");
 }
 
-/** Liga/desliga a Ana (botão Pausar da Central de IA). */
+/** Liga/desliga a Lia (botão Pausar da Central de IA). */
 export async function setAiAgentActive(formData: FormData) {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
