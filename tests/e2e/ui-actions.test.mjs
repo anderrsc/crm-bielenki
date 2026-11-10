@@ -205,7 +205,8 @@ test("pesquisa automática: encontra estoque fora da página, mantém foco e lim
     await page.type(selector, name, { delay: 10 });
     await page.waitForFunction(n => new URL(location.href).searchParams.get('q') === n && document.querySelector('main tbody')?.innerText.includes(n), {}, name);
     assert.equal(await page.$eval(selector, el => document.activeElement === el), true, 'campo mantém foco após atualizar');
-    await page.click(selector, { clickCount: 3 }); await page.keyboard.press('Backspace');
+    await page.click(selector, { count: 3 }); await page.keyboard.press('Backspace');
+    assert.equal(await page.$eval(selector, el => el.value), '', 'teste deve selecionar e apagar todo o texto');
     await page.waitForFunction(() => !new URL(location.href).searchParams.has('q') && document.querySelectorAll('main tbody tr').length > 1);
     await noProblem('pesquisar e limpar estoque');
     const globalSelector = '.topbar-search input[name=q]';
