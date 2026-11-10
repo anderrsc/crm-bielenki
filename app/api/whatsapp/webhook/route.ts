@@ -7,6 +7,7 @@ import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
+import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
 import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
@@ -416,6 +417,8 @@ export async function POST(req: NextRequest) {
 
     // Adiciona contexto dos dados já coletados
     const dadosAtuais = (session.dados_coletados && typeof session.dados_coletados === "object" ? session.dados_coletados : {}) as Record<string, unknown>;
+    // Previously generated names cannot become identity evidence on later turns.
+    if (!isConfirmedCustomerName(dadosAtuais.nome, updatedMessages)) delete dadosAtuais.nome;
     const contextMsg = `\n\nVocê se chama ${agentName} e atende pela ${companyName}.`
       + (isNewSession && !previousMessages.length ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a ${agentName}, assistente virtual (IA) da Marquinhos Calhas e Esquadrias, e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
       + (Object.keys(dadosAtuais).length > 0 ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.` : "");
@@ -424,9 +427,9 @@ export async function POST(req: NextRequest) {
 
     // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI). Se falhar (limite por minuto,
     // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
-    const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "");
+    const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const rulesShort = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null);
-    const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "");
+    const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
       { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory },
@@ -484,7 +487,7 @@ export async function POST(req: NextRequest) {
       aiResult = { mensagem: "Desculpe, ocorreu um erro. Pode repetir?", dados_coletados: {}, triagem_concluida: false, tipo_atendimento: "comercial", resumo_executivo: null, prioridade: null, score: null, proxima_acao: null };
     }
 
-    const resposta = aiResult.mensagem || "Como posso ajudá-lo?";
+    const resposta = guardCustomerGreeting(aiResult.mensagem || "Como posso ajudar?", updatedMessages);
 
     // Adiciona resposta da IA ao histórico
     const finalMessages = [
@@ -499,6 +502,7 @@ export async function POST(req: NextRequest) {
     if (aiResult.analise?.falta) novosDados.falta = String(aiResult.analise.falta).slice(0, 300);
     if (aiResult.dados_coletados) {
       for (const [k, v] of Object.entries(aiResult.dados_coletados)) {
+        if (k === "nome" && !isConfirmedCustomerName(v, updatedMessages)) continue;
         if (v !== null && v !== undefined) novosDados[k] = v;
       }
     }
@@ -517,7 +521,7 @@ export async function POST(req: NextRequest) {
       status: novoStatus,
       updated_at: new Date().toISOString(),
       // Campos diretos da triagem
-      nome: novosDados.nome ?? session.nome,
+      nome: novosDados.nome ?? null,
       cidade: novosDados.cidade ?? session.cidade,
       bairro: novosDados.bairro ?? session.bairro,
       rua: novosDados.rua ?? session.rua,
