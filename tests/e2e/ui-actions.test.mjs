@@ -218,7 +218,7 @@ test("pesquisa automática: encontra estoque fora da página, mantém foco e lim
 });
 
 test("orçamentos: ações acompanham a rolagem e a proposta selecionada", async () => {
-  const base = (await db.query('select q.company_id,q.client_id,q.sale_type_id from quotes q join profiles p on p.company_id=q.company_id where p.email=$1 limit 1', [process.env.E2E_EMAIL ?? 'admin@teste.local'])).rows[0];
+  const base = (await db.query('select p.company_id,(select id from clients where company_id=p.company_id limit 1) client_id,(select id from sale_types where company_id=p.company_id limit 1) sale_type_id from profiles p join auth.users u on u.id=p.id where u.email=$1 limit 1', [process.env.E2E_EMAIL ?? 'admin@teste.local'])).rows[0];
   assert.ok(base, 'orçamento de referência existe');
   const prefix = `STICKY-${RUN}`;
   await db.query("insert into quotes(company_id,quote_number,client_id,sale_type_id,status) select $1,$2 || '-' || n,$3,$4,'rascunho' from generate_series(1,35) n", [base.company_id,prefix,base.client_id,base.sale_type_id]);
