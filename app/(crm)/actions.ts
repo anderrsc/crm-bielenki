@@ -118,7 +118,8 @@ export async function deleteClientRecord(formData: FormData) {
 export async function registerPayment(formData: FormData) {
   const db = await createClient();
   const requestedBack = String(formData.get("_back") || "/financeiro");
-  const back = requestedBack.startsWith("/financeiro") ? requestedBack : "/financeiro";
+  const saleReturn = requestedBack.match(/^\/vendas\/([^/?#]+)$/);
+  const back = saleReturn && z.string().uuid().safeParse(saleReturn[1]).success ? requestedBack : requestedBack.startsWith("/financeiro") ? requestedBack : "/financeiro";
   const entryId = String(formData.get("entry_id") || formData.get("financial_entry_id") || "");
   const amount = Number(formData.get("amount"));
   const interest = Number(formData.get("interest")||0);
@@ -134,9 +135,16 @@ export async function registerPayment(formData: FormData) {
   // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
   if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
     const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: accountId });
-    if (accError) { revalidatePath("/financeiro"); redirect(`${back}?erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
+    if (accError) { refreshPaymentViews(back); redirect(`${back}?erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
   }
-  revalidatePath("/financeiro"); redirect(`${back}?recebido=1`);
+  refreshPaymentViews(back); redirect(`${back}?recebido=1`);
+}
+
+function refreshPaymentViews(back: string) {
+  revalidatePath("/financeiro");
+  revalidatePath("/vendas", "layout");
+  revalidatePath("/pedidos", "layout");
+  revalidatePath(back);
 }
 
 export async function rescheduleEntry(formData: FormData) {
@@ -156,10 +164,15 @@ export async function toggleChecklistItem(formData: FormData) {
   const db = await createClient();
   const id = String(formData.get("id"));
   const orderId = String(formData.get("order_id"));
+  const requestedBack = String(formData.get("_back") || "");
+  const saleReturn = requestedBack.match(/^\/vendas\/([^/?#]+)$/);
+  const back = saleReturn && z.string().uuid().safeParse(saleReturn[1]).success ? requestedBack : `/pedidos/${orderId}/checklist`;
   const status = String(formData.get("status")) === "concluido" ? "pendente" : "concluido";
-  const { error } = await db.from("order_checklist_items").update({ status, completed_at: status === "concluido" ? new Date().toISOString() : null }).eq("id", id);
-  if (error) redirect(`/pedidos/${orderId}/checklist?erro=${encodeURIComponent(error.message)}`);
+  const { error } = await db.from("order_checklist_items").update({ status, completed_at: status === "concluido" ? new Date().toISOString() : null }).eq("id", id).eq("order_id", orderId);
+  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/pedidos/${orderId}`);
+  revalidatePath("/vendas", "layout");
+  if (saleReturn && back === requestedBack) redirect(`${back}#conferencia-medidas`);
 }
 
 const gutterItemSchema = z.object({

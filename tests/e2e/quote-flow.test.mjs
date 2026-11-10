@@ -203,6 +203,34 @@ test("aprovar orcamento gera venda, pedido e conta a receber", async () => {
   state.entryId = fe.rows[0].id;
 });
 
+test("venda aprovada permite conferir medidas e registrar pagamento sem sair da venda", async () => {
+  await page.goto(`${BASE}/vendas/${state.saleId}`, { waitUntil: "networkidle0" });
+  const links = await page.$$eval('nav[aria-label="Ações da venda"] a', nodes => nodes.map(n => n.textContent.trim()));
+  assert.ok(links.includes('Conferir medidas')); assert.ok(links.includes('Abrir pedido')); assert.ok(links.includes('Abrir orçamento'));
+  await page.click('a[href="#conferencia-medidas"]');
+  await page.evaluate(() => [...document.querySelectorAll('#conferencia-medidas button')].find(b => b.textContent.includes('Confirmar medidas conferidas')).click());
+  await page.waitForFunction(() => [...document.querySelectorAll('#conferencia-medidas button')].some(b => b.textContent.includes('Reabrir conferência')));
+  const step = (await db.query("select i.status from order_checklist_items i join orders o on o.id=i.order_id where o.sale_id=$1 and i.title='Medidas conferidas'", [state.saleId])).rows[0];
+  assert.equal(step?.status, 'concluido');
+  await page.click('nav[aria-label="Ações da venda"] button');
+  await page.waitForSelector('[role=dialog] input[name=amount]');
+  await setNumberByLabel('Valor pago', 570);
+  await clickAndWait(page, 'Confirmar baixa');
+  await noProblem('registrar pagamento na venda');
+  assert.equal(new URL(page.url()).pathname, `/vendas/${state.saleId}`);
+  const sale = (await db.query('select paid_amount,open_amount from sales where id=$1', [state.saleId])).rows[0];
+  assert.equal(Number(sale.paid_amount),570); assert.equal(Number(sale.open_amount),570);
+  const order = (await db.query('select paid_amount,open_amount from v_order_overview where id=(select id from orders where sale_id=$1)', [state.saleId])).rows[0];
+  assert.equal(Number(order.paid_amount),570); assert.equal(Number(order.open_amount),570);
+  fs.mkdirSync('.test-work/mobile', { recursive: true });
+  await page.screenshot({ path: '.test-work/mobile/sale-actions-desktop.png', fullPage: true });
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(`${BASE}/vendas/${state.saleId}`, { waitUntil: 'networkidle0' });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'ações da venda cabem no celular');
+  await page.screenshot({ path: '.test-work/mobile/sale-actions-mobile.png', fullPage: true });
+  await page.setViewport({ width: 1366, height: 900 });
+});
+
 test("orcamento aprovado nao mostra Editar nem Excluir", async () => {
   await page.goto(`${BASE}/orcamentos/${state.quoteId}`, { waitUntil: "networkidle0" });
   const buttons = await page.$$eval("a, button", (els) => els.map((e) => e.innerText.trim()));

@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { useFormStatus } from "react-dom";
 
-export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate }: { entryId: string; openAmount: number;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null }) {
+export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate, backHref="/financeiro", label="Dar baixa", buttonClassName }: { entryId: string; openAmount: number;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null;backHref?:string;label?:string;buttonClassName?:string }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -20,19 +20,19 @@ export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountA
   }, [open]);
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="rounded-lg bg-brand-strong px-3 py-1 text-xs font-bold text-white transition hover:opacity-80">
-      Dar baixa
+    <button type="button" onClick={() => setOpen(true)} className={buttonClassName ?? "rounded-lg bg-brand-strong px-3 py-1 text-xs font-bold text-white transition hover:opacity-80"}>
+      {label}
     </button>
     {open && createPortal(
       <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-cream/60 p-4" role="presentation" onMouseDown={() => setOpen(false)}>
         <section role="dialog" aria-modal="true" aria-labelledby={`payment-${entryId}`} className="my-auto w-full max-w-md rounded-2xl border border-sand bg-surface p-5 shadow-2xl" onMouseDown={event => event.stopPropagation()}>
           <div className="mb-5 flex items-center justify-between">
-            <h2 id={`payment-${entryId}`} className="text-xl font-black">Dar baixa</h2>
+            <h2 id={`payment-${entryId}`} className="text-xl font-black">{label}</h2>
             <button type="button" aria-label="Fechar" onClick={() => setOpen(false)} className="button-ghost p-2"><X className="h-4 w-4" /></button>
           </div>
           <form action={registerPayment} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
             <input type="hidden" name="entry_id" value={entryId} />
-            <input type="hidden" name="_back" value="/financeiro" />
+            <input type="hidden" name="_back" value={backHref} />
             <div><label className="label">Valor pago</label><input className="field" name="amount" type="number" step="0.01" min="0.01" max={openAmount} defaultValue={openAmount} required /></div>
             <div className="grid grid-cols-2 gap-3"><div><label className="label">Juros</label><input className="field" name="interest" type="number" step="0.01" min="0" defaultValue={interestAmount}/></div><div><label className="label">Desconto</label><input className="field" name="discount" type="number" step="0.01" min="0" defaultValue={discountAmount}/></div></div>
             <div className="grid grid-cols-2 gap-3"><div><label className="label">Parcelas</label><input className="field" name="installments" type="number" min="1" max="60" defaultValue={installmentCount}/></div><div><label className="label">1º vencimento</label><input className="field" name="first_due_date" type="date" defaultValue={firstDueDate||localISODate()} required/></div></div>
