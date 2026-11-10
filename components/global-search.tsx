@@ -1,3 +1,4 @@
+import { LiveSearchForm } from "./live-search-form";
 import Link from "next/link";
 import { Boxes, Building2, ClipboardCheck, FileText, HandCoins, Search, ShoppingCart, Users } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
@@ -11,7 +12,7 @@ export async function GlobalSearch({query}:{query?:string}) {
   if(term.length>=2&&process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const response=await db.rpc("global_search",{p_query:term});results=(response.data as Result[])??[];error=response.error?.message??"";}
   const groups=Object.entries(Object.groupBy(results,item=>item.entity_type));
   return <div className="mx-auto max-w-6xl"><div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Encontre qualquer registro</p><h1 className="mt-2 text-3xl font-black">Busca global</h1><p className="mt-1 text-sm text-ink/50">Clientes, documentos comerciais, fornecedores e materiais em uma consulta.</p></div>
-    <form className="card relative p-3"><Search className="absolute left-7 top-7 h-5 w-5 text-ink/35"/><input autoFocus className="field py-3.5 pl-12 text-base" name="q" defaultValue={term} placeholder="Nome, telefone, número do pedido, orçamento, compra..."/><button className="button absolute right-5 top-5">Buscar</button></form>
+    <LiveSearchForm query={term} className="card relative p-3"><Search className="absolute left-7 top-7 h-5 w-5 text-ink/35"/><input autoFocus className="field py-3.5 pl-12 pr-24 text-base" name="q" aria-label="Pesquisar no sistema" defaultValue={term} placeholder="Nome, telefone, número do pedido, orçamento, compra..."/><button className="button absolute right-5 top-5">Buscar</button></LiveSearchForm>
     {error&&<p className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">Não foi possível buscar: {error}</p>}
     {term.length>0&&term.length<2&&<p className="mt-8 text-center text-sm text-ink/45">Digite ao menos dois caracteres.</p>}
     {term.length>=2&&!error&&!results.length&&<div className="card mt-5 p-12 text-center"><Search className="mx-auto h-8 w-8 text-ink/20"/><h2 className="mt-4 font-black">Nenhum resultado para “{term}”</h2><p className="mt-1 text-sm text-ink/45">Tente nome, telefone ou número sem pontuação.</p></div>}

@@ -191,3 +191,22 @@ test("materia-prima: nova linha na planilha de precos", async () => {
   const after = (await db.query("select count(*)::int n from gutter_prices")).rows[0].n;
   assert.equal(after, before + 1, "linha da planilha nao gravada");
 });
+
+test("pesquisa automática: encontra estoque fora da página, mantém foco e limpa sem Enter", async () => {
+  const { company_id } = (await db.query("select company_id from profiles order by created_at limit 1")).rows[0];
+  const prefix = `AUTOBUSCA-${RUN}`;
+  const name = `ZZZ Material exclusivo ${RUN}`;
+  await db.query("insert into materials(company_id,sku,name,unit) select $1,$2 || '-' || n,'AAA Busca ' || n,'un' from generate_series(1,60) n", [company_id,prefix]);
+  await db.query("insert into materials(company_id,sku,name,unit) values($1,$2,$3,'un')", [company_id,`${prefix}-alvo`,name]);
+  try {
+    await page.goto(`${BASE}/estoque`, { waitUntil: "networkidle0" });
+    assert.equal(await page.evaluate(n => document.querySelector('main tbody')?.innerText.includes(n), name), false, 'alvo deve começar fora da página');
+    const selector = 'main input[name=q]';
+    await page.type(selector, name, { delay: 10 });
+    await page.waitForFunction(n => new URL(location.href).searchParams.get('q') === n && document.querySelector('main tbody')?.innerText.includes(n), {}, name);
+    assert.equal(await page.$eval(selector, el => document.activeElement === el), true, 'campo mantém foco após atualizar');
+    await page.click(selector, { clickCount: 3 }); await page.keyboard.press('Backspace');
+    await page.waitForFunction(() => !new URL(location.href).searchParams.has('q') && document.querySelectorAll('main tbody tr').length > 1);
+    await noProblem('pesquisar e limpar estoque');
+  } finally { await db.query('delete from materials where company_id=$1 and sku like $2', [company_id,`${prefix}%`]); }
+});
