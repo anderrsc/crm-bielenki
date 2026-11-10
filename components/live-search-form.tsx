@@ -24,6 +24,11 @@ export function LiveSearchForm({ children, className, action, query = "", delay 
     };
     window.addEventListener("popstate", sync);
     return () => { cancel(); window.removeEventListener("popstate", sync); };
+  }, [action]);
+
+  useEffect(() => {
+    // The persistent top bar keeps typing when its own results page opens.
+    if (!action || pathname !== action) cancel();
   }, [pathname, action]);
 
   useEffect(() => {

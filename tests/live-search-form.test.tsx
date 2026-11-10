@@ -63,3 +63,18 @@ test('troca de aba respeita o parâmetro do formulário', () => {
   const url = new URL(navigation.replace.mock.calls[0][0], window.location.origin);
   expect(url.searchParams.get('aba')).toBe('pecas-especiais'); expect(url.searchParams.get('espessura')).toBe('0.5');
 });
+
+test('busca global mantém a digitação pendente quando abre sua página de resultados', () => {
+  const { rerender } = render(field('', '/busca')); const input = screen.getByRole('textbox'); input.focus();
+  fireEvent.change(input, { target: { value: 'Jo' } }); tick();
+  fireEvent.change(input, { target: { value: 'João' } });
+  navigation.pathname = '/busca'; window.history.replaceState({}, '', '/busca?q=Jo');
+  rerender(field('', '/busca')); tick();
+  expect(navigation.replace).toHaveBeenLastCalledWith('/busca?q=Jo%C3%A3o', { scroll: false });
+  expect((input as HTMLInputElement).value).toBe('João');
+});
+test('mudar para outro módulo cancela a busca pendente do módulo anterior', () => {
+  const { rerender } = render(field()); fireEvent.change(screen.getByRole('textbox'), { target: { value: 'calha' } });
+  navigation.pathname = '/clientes'; window.history.replaceState({}, '', '/clientes'); rerender(field()); tick();
+  expect(navigation.replace).not.toHaveBeenCalled();
+});

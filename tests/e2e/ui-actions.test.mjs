@@ -208,5 +208,10 @@ test("pesquisa automática: encontra estoque fora da página, mantém foco e lim
     await page.click(selector, { clickCount: 3 }); await page.keyboard.press('Backspace');
     await page.waitForFunction(() => !new URL(location.href).searchParams.has('q') && document.querySelectorAll('main tbody tr').length > 1);
     await noProblem('pesquisar e limpar estoque');
+    const globalSelector = '.topbar-search input[name=q]';
+    await page.type(globalSelector, name, { delay: 35 });
+    await page.waitForFunction(n => location.pathname === '/busca' && new URL(location.href).searchParams.get('q') === n && document.querySelector('main input[name=q]')?.value === n, {}, name);
+    assert.equal(await page.$eval(globalSelector, el => document.activeElement === el), true, 'busca global mantém foco na barra superior');
+    await noProblem('busca global ao digitar');
   } finally { await db.query('delete from materials where company_id=$1 and sku like $2', [company_id,`${prefix}%`]); }
 });
