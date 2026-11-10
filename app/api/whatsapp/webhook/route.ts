@@ -6,6 +6,7 @@ import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
+import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
@@ -23,7 +24,13 @@ function getSupabase() {
 // Sistema de prompt da Ana — Agente de Triagem
 const SYSTEM_PROMPT = `Você é a assistente virtual (uma IA) do atendimento da Marquinhos Calhas e Esquadrias, no WhatsApp.
 
-SUA MISSÃO: entender o que o cliente quer e juntar as informações para a equipe fazer o orçamento. Você não vende, não negocia e não passa preço.
+SUA MISSÃO: entender a solicitação considerando todo o histórico. Em pedido novo, juntar informações para a equipe fazer o orçamento. Em retorno sobre orçamento existente, registrar todas as dúvidas e encaminhar à equipe sem reiniciar a triagem. Você não vende, não negocia e não passa preço.
+
+PRIORIDADE SOBRE O ROTEIRO DE COLETA E AS REGRAS DA EMPRESA:
+- Dúvidas, comparação, revisão, inclusão de itens ou negociação de orçamento já recebido: conclua a triagem e encaminhe à equipe com todas as perguntas no resumo_executivo. Não exija nome, cidade, medidas ou identificação do serviço para encaminhar.
+- Nunca confirme material, fixações, itens inclusos, quantidades, diâmetros ou alterações sem informação verificada do orçamento/projeto. Nome de arquivo não é conteúdo do documento nem nome de quem conversa. Um PDF de Juliana pode ser enviado por Jean; use a identificação explícita da pessoa no texto.
+- Se disser "está nas mensagens acima", releia o histórico e retome a solicitação já informada. Não pergunte de novo o serviço.
+- Documento recebido não significa projeto recebido. Não afirme ter lido anexos cujo conteúdo não está disponível.
 
 ANTES DE ESCREVER, PENSE (preencha o campo "analise" do JSON primeiro):
 1. Releia a conversa inteira, do começo, não só a última mensagem.
@@ -58,7 +65,7 @@ Cliente: "Calhas, rufo com pingadeira" → Mensagem: "Certo! Você sabe mais ou 
 ERRADO: listar todos os serviços, perguntar "qual o tipo de serviço" depois que ele já disse, repetir "Você está em Jaraguá do Sul", pedir "responda sim ou não".
 
 O QUE DESCOBRIR, CONFORME O CASO (só o que faz sentido para o caso; as REGRAS DA EMPRESA no fim mandam mais que isto):
-- Sempre: o nome (se ele não disse) e a cidade.
+- Em pedido NOVO: o nome (se ele não disse) e a cidade; não bloqueie encaminhamentos por esses dados.
 - Peça avulsa / chapa lisa / compra para instalar sozinho: qual peça, metragem (metros), largura (ou corte), espessura/material e cor. Não fale de visita, linha, tipo de obra nem endereço completo.
 - Calhas, rufos, pingadeiras, condutores com instalação: a METRAGEM (quantos metros lineares) e a LARGURA (ou corte) de cada peça, o local da obra (cidade e bairro) e foto do local e/ou projeto. Sem medidas → necessita_visita: true.
 - Calhas, rufos, pingadeiras e chapas são vendidos por METRO, nunca por unidade: nunca pergunte "quantas unidades" ou "quantas peças"; pergunte "quantos metros" e "qual a largura".
@@ -382,14 +389,27 @@ export async function POST(req: NextRequest) {
       session = newSession;
     }
 
+    // Recupera mensagens anteriores do Atendimento quando a triagem ainda não tem histórico.
+    // Inclui textos e anexos importados antes da criação desta sessão.
+    let previousMessages = Array.isArray(session.messages) ? session.messages : [];
+    if (!previousMessages.length && conversation) {
+      const { data: inboxHistory, error: historyError } = await supabase.from("messages")
+        .select("direction,body,sent_at,external_id,author")
+        .eq("company_id", company.id).eq("conversation_id", conversation.id)
+        .order("sent_at", { ascending: false }).order("id", { ascending: false }).limit(60);
+      if (historyError) throw new Error(`Falha ao carregar histórico: ${historyError.message}`);
+      previousMessages = (inboxHistory ?? []).filter(m => !eventId || m.external_id !== eventId).reverse()
+        .map(m => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body, timestamp: m.sent_at }));
+    }
+
     // Adiciona mensagem do cliente ao histórico
     const updatedMessages = [
-      ...((Array.isArray(session.messages) ? session.messages : []) as Array<{ role: string; content: string; timestamp: string }>),
+      ...(previousMessages as Array<{ role: string; content: string; timestamp: string }>),
       { role: "user", content: clientText, timestamp: new Date().toISOString() }
     ];
 
     // Monta histórico da conversa para a IA
-    const conversationHistory = updatedMessages.map(m => ({
+    const conversationHistory = updatedMessages.filter(m => m.role === "user" || m.role === "assistant").map(m => ({
       role: m.role as "user" | "assistant" | "system",
       content: m.content
     }));
@@ -397,7 +417,7 @@ export async function POST(req: NextRequest) {
     // Adiciona contexto dos dados já coletados
     const dadosAtuais = (session.dados_coletados && typeof session.dados_coletados === "object" ? session.dados_coletados : {}) as Record<string, unknown>;
     const contextMsg = `\n\nVocê se chama ${agentName} e atende pela ${companyName}.`
-      + (isNewSession ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a ${agentName}, assistente virtual (IA) da Marquinhos Calhas e Esquadrias, e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
+      + (isNewSession && !previousMessages.length ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a ${agentName}, assistente virtual (IA) da Marquinhos Calhas e Esquadrias, e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
       + (Object.keys(dadosAtuais).length > 0 ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.` : "");
 
     const companyRules = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? agentConfig.system_prompt : null);
@@ -409,11 +429,14 @@ export async function POST(req: NextRequest) {
     const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "");
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
-      { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory.slice(-12) },
+      { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory },
     ];
     let aiContent = "";
     let aiFailure: unknown = null;
-    for (const [i, attempt] of attempts.entries()) {
+    // O encaminhamento de orçamento existente não depende de o modelo obedecer ao roteiro.
+    const existingQuote = isExistingQuoteConversation(updatedMessages);
+    if (existingQuote) aiContent = JSON.stringify(quoteHandoff(updatedMessages));
+    for (const [i, attempt] of (existingQuote ? [] : attempts).entries()) {
       try {
         aiContent = await aiChat({
           provider: aiProvider,
@@ -480,7 +503,7 @@ export async function POST(req: NextRequest) {
       }
     }
     if (mediaInfo === "image") novosDados.possui_fotos = true;
-    if (mediaInfo === "document") novosDados.possui_projeto = true;
+    if (mediaInfo === "document") novosDados.possui_documento = true;
 
     // Determina status da sessão
     const isPosVenda = aiResult.tipo_atendimento === "pos_venda";

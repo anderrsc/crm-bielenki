@@ -79,6 +79,29 @@ describe('webhook WhatsApp (Meta)', () => {
     expect(sent[0].body.text.body).toBe('Olá! Sou a Ana. Qual seu nome?');
   });
 
+  test('orçamento existente encaminha todas as dúvidas sem reiniciar identificação', async () => {
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const text = 'Jean, Jaraguá do Sul. Referente a este orçamento que vc fez para nós: todo material é alumínio? Inclui o galpão todo? Fixações com bucha e parafuso? Quantas saídas e qual diâmetro? Pode incluir contrarufo?';
+    const res = await POST(metaRequest(text, 'quote1') as never);
+    expect((await res.json()).triagem_concluida).toBe(true);
+    expect(aiReply).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body.text.body).not.toMatch(/qual.*(?:nome|cidade|serviço)/i);
+    expect(tables.triage_sessions[0].resumo_executivo).toContain(text);
+    expect(tables.conversations[0].ai_paused).toBe(true);
+  });
+
+  test('nova sessão recupera a dúvida do Atendimento quando cliente aponta mensagens acima', async () => {
+    tables.conversations = [{ id: 'cv1', company_id: 'c1', channel: 'whatsapp', external_id: '5547999990000', ai_paused: false }];
+    tables.messages = [{ id: 'old1', company_id: 'c1', conversation_id: 'cv1', direction: 'inbound', body: 'Quero confirmar os itens desse orçamento, inclusive as saídas de água.', external_id: 'old-event', sent_at: '2026-11-10T10:00:00Z' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(metaRequest('Está descrito nas mensagens acima', 'quote2') as never);
+    expect(aiReply).not.toHaveBeenCalled();
+    expect(tables.triage_sessions[0].resumo_executivo).toContain('saídas de água');
+    expect(tables.triage_sessions[0].resumo_executivo).toContain('mensagens acima');
+    expect(tables.conversations[0].ai_paused).toBe(true);
+  });
+
   test('triagem concluida cria lead com o telefone do WhatsApp', async () => {
     aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Registrado!', dados_coletados: { nome: 'João' }, triagem_concluida: true, tipo_atendimento: 'comercial', score: 80, prioridade: 'alta' }));
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
