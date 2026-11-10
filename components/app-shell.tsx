@@ -1,4 +1,6 @@
 "use client";
+import { LiveSearchForm } from "./live-search-form";
+
 import { useMobile } from "@/lib/use-mobile";
 import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
@@ -37,7 +39,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   </aside>
   <div className="app-workspace">
    <header className="app-topbar"><button className="mobile-menu-button" aria-label="Abrir menu" aria-expanded={open} onClick={()=>setOpen(true)}><Menu size={21}/></button>
-    <form action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></form>
+    <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></LiveSearchForm>
     <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
    <main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>

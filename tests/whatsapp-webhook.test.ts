@@ -79,6 +79,24 @@ describe('webhook WhatsApp (Meta)', () => {
     expect(sent[0].body.text.body).toBe('Olá! Sou a Ana. Qual seu nome?');
   });
 
+  test('nome inventado não é enviado nem salvo e não contamina a próxima resposta', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Bom dia, Anderson! Aqui é a Lia.', dados_coletados: { nome: 'Anderson' }, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(metaRequest('Bom dia', 'identity1') as never);
+    expect(sent[0].body.text.body).toBe('Bom dia! Aqui é a Lia.');
+    expect(tables.triage_sessions[0].nome).toBeNull();
+    expect(tables.triage_sessions[0].dados_coletados).not.toHaveProperty('nome');
+    expect(JSON.stringify(tables.triage_sessions[0].messages)).not.toContain('Anderson');
+    // Simula também um nome incorreto já armazenado antes da correção.
+    tables.triage_sessions[0].dados_coletados = { nome: 'Anderson' };
+    tables.triage_sessions[0].nome = 'Anderson';
+    await POST(metaRequest('Quero uma calha', 'identity2') as never);
+    expect(tables.triage_sessions[0].nome).toBeNull();
+    const call = aiReply.mock.calls.at(-1)![0];
+    expect(call.messages[0].content).toContain('IDENTIDADE DO CLIENTE');
+    expect(call.messages[0].content).not.toContain('"nome":"Anderson"');
+  });
+
   test('orçamento existente encaminha todas as dúvidas sem reiniciar identificação', async () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     const text = 'Jean, Jaraguá do Sul. Referente a este orçamento que vc fez para nós: todo material é alumínio? Inclui o galpão todo? Fixações com bucha e parafuso? Quantas saídas e qual diâmetro? Pode incluir contrarufo?';

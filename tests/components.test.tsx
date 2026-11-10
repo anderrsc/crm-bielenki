@@ -8,6 +8,7 @@ import { ModuleTable } from '@/components/module-table';
 import { modules } from '@/lib/modules';
 import { AgendaPage } from '@/components/agenda-page';
 
+vi.mock('next/navigation',()=>({useRouter:()=>({replace:vi.fn()}),usePathname:()=>'/clientes'}));
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),getAgenda:vi.fn().mockResolvedValue([]),updateAgenda:vi.fn(),createAgenda:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:mocks.rpc});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
 vi.mock('@/app/(crm)/actions',()=>({createManualSale:vi.fn(),createManualPurchase:vi.fn()}));

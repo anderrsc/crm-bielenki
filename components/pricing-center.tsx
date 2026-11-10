@@ -1,3 +1,4 @@
+import { LiveSearchForm } from "./live-search-form";
 import { GutterCatalog } from "@/components/gutter-catalog";
 import Link from "next/link";
 import { ArrowLeft, Boxes, Briefcase, History, Package, Palette, Plus, Save, Tag, Trash2, Search } from "lucide-react";
@@ -502,11 +503,11 @@ export async function PricingCenter({
 // ─── Sub-components ──────────────────────────────────────────────────────────
 function SearchBar({ q, selfHref, tab, placeholder }: { q?: string; selfHref: string; tab: string; placeholder: string }) {
   return (
-    <form className="relative max-w-sm" action={selfHref}>
+    <LiveSearchForm query={q} className="relative max-w-sm" action={selfHref}>
       <input type="hidden" name="aba" value={tab} />
       <Search className="absolute left-3 top-3 h-4 w-4 text-ink/35" />
-      <input className="field pl-9" name="q" defaultValue={q} placeholder={placeholder} />
-    </form>
+      <input className="field pl-9" name="q" defaultValue={q} placeholder={placeholder} aria-label={placeholder.replace(/\.\.\.$/, "")} />
+    </LiveSearchForm>
   );
 }
 
