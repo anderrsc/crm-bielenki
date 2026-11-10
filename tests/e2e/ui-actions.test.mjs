@@ -216,3 +216,46 @@ test("pesquisa automática: encontra estoque fora da página, mantém foco e lim
     await noProblem('busca global ao digitar');
   } finally { await db.query('delete from materials where company_id=$1 and sku like $2', [company_id,`${prefix}%`]); }
 });
+
+test("orçamentos: ações acompanham a rolagem e a proposta selecionada", async () => {
+  const base = (await db.query('select q.company_id,q.client_id,q.sale_type_id from quotes q join profiles p on p.company_id=q.company_id where p.email=$1 limit 1', [process.env.E2E_EMAIL ?? 'admin@teste.local'])).rows[0];
+  assert.ok(base, 'orçamento de referência existe');
+  const prefix = `STICKY-${RUN}`;
+  await db.query("insert into quotes(company_id,quote_number,client_id,sale_type_id,status) select $1,$2 || '-' || n,$3,$4,'rascunho' from generate_series(1,35) n", [base.company_id,prefix,base.client_id,base.sale_type_id]);
+  try {
+    await page.goto(`${BASE}/orcamentos`, { waitUntil: 'networkidle0' });
+    const number = await page.evaluate(() => {
+      const button = document.querySelectorAll('.quote-list-row')[25];
+      button.scrollIntoView({ block: 'center' }); button.click();
+      return button.querySelector('p').textContent.trim();
+    });
+    await page.waitForFunction(n => document.querySelector('.quote-list-detail h2')?.textContent === n, {}, number);
+    const position = await page.$eval('.quote-list-detail a', el => {
+      const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, height: innerHeight, scroll: scrollY };
+    });
+    assert.ok(position.scroll > 1000, 'seleção foi feita no fim da lista');
+    assert.ok(position.top >= 80 && position.bottom <= position.height, `ações devem estar na tela sem voltar ao topo: ${JSON.stringify(position)}`);
+    fs.mkdirSync('.test-work/mobile', { recursive: true });
+    await page.screenshot({ path: '.test-work/mobile/quote-sticky-actions.png' });
+  } finally { await db.query('delete from quotes where quote_number like $1', [`${prefix}%`]); }
+});
+
+test("pipeline: todas as etapas cabem no desktop e os cartões não cortam nomes", async () => {
+  await page.setViewport({width:1920,height:1080});
+  await page.goto(`${BASE}/pipeline`, { waitUntil: 'networkidle0' });
+  const layout = await page.evaluate(() => {
+    const board = document.querySelector('.pipeline-stage-grid');
+    const columns = [...board.querySelectorAll('.pipeline-stage')].map(el => { const r = el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top}; });
+    return {width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,columns,names:[...board.querySelectorAll('.pipeline-lead-name')].every(el=>getComputedStyle(el).textOverflow!=='ellipsis')};
+  });
+  assert.ok(layout.columns.length>=6, 'todas as etapas, inclusive perdidas, ficam visíveis');
+  assert.equal(layout.overflow,false,'página não exige rolagem horizontal no desktop');
+  assert.ok(layout.columns.every(c => c.left>=0&&c.right<=layout.width&&Math.abs(c.top-layout.columns[0].top)<2),'etapas cabem lado a lado na largura disponível');
+  assert.equal(layout.names,true,'nomes completos sem reticências');
+  await page.screenshot({path:'.test-work/mobile/pipeline-organized-desktop.png'});
+  await page.setViewport({width:390,height:844});
+  await page.goto(`${BASE}/pipeline`, {waitUntil:'networkidle0'});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no celular, só o quadro pode rolar para os lados');
+  await page.screenshot({path:'.test-work/mobile/pipeline-organized-mobile.png',fullPage:true});
+  await page.setViewport({width:1366,height:900});
+});

@@ -50,6 +50,7 @@ type CompanyData = {
 type QuoteData = {
   id: string;
   quote_number: string;
+  sale_id?: string | null;
   status: string;
   subtotal: number;
   discount: number;
@@ -312,6 +313,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             <input type="hidden" name="quote_id" value={id} />
             <SubmitButton formAction={duplicateQuote} className="button-ghost" pendingText="Duplicando…">Duplicar</SubmitButton>
           </form>
+          {quote.status === "aprovado" && quote.sale_id && <Link href={`/vendas/${quote.sale_id}`} className="button-ghost">Venda e ações do pedido</Link>}
           {quote.status === "aprovado" && (
             <form>
               <input type="hidden" name="quote_id" value={id} />

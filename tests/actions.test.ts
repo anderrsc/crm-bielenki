@@ -8,7 +8,7 @@ vi.mock('next/server',()=>({after:vi.fn()}));
 vi.mock('next/headers',()=>({headers:async()=>({get:()=>null})}));
 vi.mock('@/lib/generate-quote-pdf',()=>({generateQuotePdfBuffer:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:state.rpc,from:state.from,auth:{getUser:async()=>({data:{user:{id:'00000000-0000-4000-8000-000000000001'}},error:null})}});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
-import { registerPayment, rescheduleEntry, saveGutterQuote, createManualSale, createManualPurchase, createWindowQuote, createClientRecord } from '@/app/(crm)/actions';
+import { registerPayment, rescheduleEntry, saveGutterQuote, createManualSale, createManualPurchase, createWindowQuote, createClientRecord, toggleChecklistItem } from '@/app/(crm)/actions';
 import { createAgendaEvent, updateAgendaEventStatus } from '@/app/(crm)/agenda-actions';
 
 function form(values:Record<string,string>){const data=new FormData();for(const [k,v]of Object.entries(values)) data.set(k,v);return data;}
@@ -56,4 +56,18 @@ test('client can be saved with no address, but a partial CEP is rejected', async
   expect(state.insert).not.toHaveBeenCalled();
   await expect(createClientRecord(form({ name: 'Cliente', postal_code: '' }))).rejects.toThrow('REDIRECT:/clientes/');
   expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({ postal_code: null }));
+});
+
+const saleReturn = '/vendas/00000000-0000-4000-8000-000000000055';
+test('pagamento pode voltar à venda e atualiza também os saldos das telas de venda e pedido', async () => {
+  await expect(registerPayment(form({ entry_id:'00000000-0000-4000-8000-000000000010', amount:'10', _back:saleReturn }))).rejects.toThrow(`REDIRECT:${saleReturn}?recebido=1`);
+  expect(state.revalidate).toHaveBeenCalledWith('/vendas','layout');
+  expect(state.revalidate).toHaveBeenCalledWith('/pedidos','layout');
+});
+test('retorno inválido de venda é rejeitado', async () => {
+  await expect(registerPayment(form({ entry_id:'00000000-0000-4000-8000-000000000010', amount:'10', _back:'/vendas/https://evil.example' }))).rejects.toThrow('REDIRECT:/financeiro?recebido=1');
+});
+test('conferência salva no checklist e volta à seção da venda', async () => {
+  await expect(toggleChecklistItem(form({ id:'00000000-0000-4000-8000-000000000010', order_id:'00000000-0000-4000-8000-000000000020', status:'pendente', _back:saleReturn }))).rejects.toThrow(`REDIRECT:${saleReturn}#conferencia-medidas`);
+  expect(state.update).toHaveBeenCalledWith(expect.objectContaining({status:'concluido'}));
 });

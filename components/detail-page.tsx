@@ -39,7 +39,7 @@ export async function DetailPage({ config, id, error: actionError }: { config: M
         <p className="mt-1 font-bold">{clientAddress}</p>
       </div>}
     </div>
-    {config.table === "v_order_overview" && <div className="card mt-5 overflow-hidden">
+    {config.table === "v_order_overview" && <div id="checklist-operacional" className="card mt-5 scroll-mt-28 overflow-hidden">
       <div className="border-b p-5"><h2 className="font-black">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
       <div className="divide-y">{checklist.length ? checklist.map((item) => <form action={toggleChecklistItem} className="flex items-center gap-4 p-4" key={String(item.id)}>
         <input type="hidden" name="id" value={String(item.id)} /><input type="hidden" name="order_id" value={id} /><input type="hidden" name="status" value={String(item.status)} />
