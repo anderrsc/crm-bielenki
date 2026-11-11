@@ -39,7 +39,7 @@ describe('PC avisa o endereço do túnel', () => {
   });
   test('mesmo endereço tenta reconectar quando a tentativa anterior falhou', async () => {
     rows[0].evolution_api_url = 'https://abc.trycloudflare.com';
-    expect(await (await call({ instance: 'crm', url: 'https://abc.trycloudflare.com' }, 'segredo')).json()).toEqual({ status: 'unchanged' });
+    expect(await (await call({ instance: 'crm', url: 'https://abc.trycloudflare.com' }, 'segredo')).json()).toEqual({ status: 'unchanged', linked: true });
     expect(ensure).toHaveBeenCalledTimes(1);
     expect(ensure.mock.calls[0][0]).toBe('https://abc.trycloudflare.com');
   });
