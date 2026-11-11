@@ -26,10 +26,16 @@ export async function POST(req: NextRequest) {
   const hook = cfg?.evolution_webhook_secret ? decryptSecret(cfg.evolution_webhook_secret) : "";
   if (!cfg || !same(req.headers.get("x-webhook-secret") ?? "", hook)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  if (cfg.evolution_api_url === url) return NextResponse.json({ status: "unchanged" });
-  await db.from("ai_agent_config").update({ evolution_api_url: url, wpp_provider: "evolution", updated_at: new Date().toISOString() }).eq("company_id", cfg.company_id);
+  const unchanged = cfg.evolution_api_url === url;
+  if (!unchanged) {
+    const { error: saveError } = await db.from("ai_agent_config")
+      .update({ evolution_api_url: url, wpp_provider: "evolution", updated_at: new Date().toISOString() })
+      .eq("company_id", cfg.company_id);
+    if (saveError) return NextResponse.json({ error: "save_failed" }, { status: 500 });
+  }
 
-  // Endereço novo: garante a instância e o webhook (se a Evolution ainda estiver subindo, o botão da Central refaz).
+  // Tenta ligar a instância e o webhook em TODA chamada, inclusive quando
+  // o túnel tem o mesmo endereço de uma tentativa anterior que falhou.
   const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
   let linked = false;
   if (key) {
@@ -40,5 +46,5 @@ export async function POST(req: NextRequest) {
       console.error("Evolution (PC): instância não ligada ainda:", e instanceof Error ? e.message : e);
     }
   }
-  return NextResponse.json({ status: "updated", linked });
+  return NextResponse.json({ status: unchanged ? "unchanged" : "updated", linked });
 }
