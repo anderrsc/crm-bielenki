@@ -1,3 +1,6 @@
+import { updateDelivery } from "@/lib/whatsapp/delivery";
+import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
+import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
@@ -207,6 +210,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (isEvolution && ["messages.update", "MESSAGES_UPDATE"].includes(payload.event)) {
+      const db = getSupabase();
+      const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
+      if (cfg) for (const event of (Array.isArray(payload.data) ? payload.data : [payload.data])) {
+        if (event?.fromMe === false || event?.key?.fromMe === false) continue;
+        await updateDelivery(db, cfg.company_id, String(event?.keyId ?? event?.key?.id ?? ""), event?.status ?? event?.update?.status);
+      }
+      return NextResponse.json({ status: "receipts_updated" });
+    }
+
+    // Sync batches and contact changes must never enter the AI workflow.
+    if (isEvolution && (Array.isArray(payload.data) || /^(contacts\.(upsert|update)|CONTACTS_(UPSERT|UPDATE))$/.test(payload.event))) {
+      const db = getSupabase();
+      const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
+      if (!cfg) return NextResponse.json({ status: "company_not_found" });
+      const records = Array.isArray(payload.data) ? payload.data : [payload.data];
+      if (/contacts/i.test(payload.event)) await applyAgendaNames(db, cfg.company_id, agendaNameMap(records));
+      else if (["messages.upsert", "MESSAGES_UPSERT"].includes(payload.event)) await importHistoryPage(db, cfg.company_id, records);
+      return NextResponse.json({ status: "sync_only" });
+    }
+
     let from = "";
     let phoneNumberId = "";
     let clientText = "";
@@ -242,6 +266,14 @@ export async function POST(req: NextRequest) {
       const entry = payload?.entry?.[0];
       const change = entry?.changes?.[0];
       const value = change?.value;
+      if (value?.statuses?.length) {
+        const db = getSupabase();
+        const phoneId = value.metadata?.phone_number_id;
+        const { data: company } = await db.from("companies").select("id").eq("whatsapp_phone_number_id", phoneId).maybeSingle();
+        const { data: cfg } = company ? { data: null } : await db.from("ai_agent_config").select("company_id").eq("whatsapp_number_id", phoneId).maybeSingle();
+        const companyId = company?.id ?? cfg?.company_id;
+        if (companyId) for (const status of value.statuses) await updateDelivery(db, companyId, String(status.id ?? ""), status.status);
+      }
       const messages = value?.messages;
       if (!messages?.length) return NextResponse.json({ status: "no_messages" });
       const msg = messages[0];
@@ -271,7 +303,8 @@ export async function POST(req: NextRequest) {
       const { data: novo, error: dedupeError } = await supabase.from("whatsapp_webhook_events")
         .upsert({ provider: isEvolution ? "evolution" : "meta", event_id: eventId }, { onConflict: "provider,event_id", ignoreDuplicates: true })
         .select("event_id");
-      if (!dedupeError && !novo?.length) return NextResponse.json({ status: "duplicate" });
+      if (dedupeError) throw new Error(`Deduplicação indisponível: ${dedupeError.message}`);
+      if (!novo?.length) return NextResponse.json({ status: "duplicate" });
     }
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
@@ -318,14 +351,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "own_message" });
     }
 
+    const timing = inboundTiming(isEvolution ? payload.data?.messageTimestamp : payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.timestamp);
     // Toda mensagem entra no Atendimento, com ou sem a Ana.
     let conversation: InboxConversation | null = null;
     try {
-      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null });
+      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
     } catch (error) {
-      console.error("Atendimento: falha ao gravar mensagem:", error instanceof Error ? error.message : error);
+      throw error;
     }
+    if (!timing.live || !eventId) return NextResponse.json({ status: "history_only" });
     // Alguém da equipe assumiu a conversa: a Ana fica quieta.
     if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
     // A Ana só atende contato novo: quem já é cliente fala com a equipe.
@@ -355,7 +390,18 @@ export async function POST(req: NextRequest) {
     // padrao fazia as respostas de quem usa a API da Meta nunca sairem).
     const wppProvider = isEvolution ? "evolution" : "meta";
     const credentials = whatsappCredentials(agentConfig, { provider: wppProvider, phoneNumberId });
+    const canReply = async () => {
+      if (!conversation?.generation) return false;
+      const [config, current] = await Promise.all([
+        supabase.from("ai_agent_config").select("active").eq("company_id", company.id).single(),
+        supabase.from("conversations").select("ai_paused,client_id,ai_generation_id").eq("id", conversation.id).eq("company_id", company.id).single(),
+      ]);
+      return !config.error && !current.error && config.data?.active === true
+        && !current.data?.ai_paused && !current.data?.client_id
+        && current.data?.ai_generation_id === conversation.generation;
+    };
     const reply = async (text: string) => {
+      if (!await canReply()) return false;
       let externalId: string | null = null;
       let failure: string | null = null;
       try { externalId = await sendWhatsAppText(credentials, from, text); }
@@ -364,6 +410,7 @@ export async function POST(req: NextRequest) {
         await recordOutbound(supabase, { companyId: company.id, conversationId: conversation.id, body: text, author: "ana", senderName: agentName, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure })
           .catch((error) => console.error("Atendimento: falha ao gravar resposta:", error instanceof Error ? error.message : error));
       }
+      return !failure;
     };
 
     // Primeiro contato: cria a sessao e segue para a IA, que ja responde ao que o
@@ -393,12 +440,16 @@ export async function POST(req: NextRequest) {
     // Recupera mensagens anteriores do Atendimento quando a triagem ainda não tem histórico.
     // Inclui textos e anexos importados antes da criação desta sessão.
     let previousMessages = Array.isArray(session.messages) ? session.messages : [];
-    if (!previousMessages.length && conversation) {
+    if (conversation) {
       const { data: inboxHistory, error: historyError } = await supabase.from("messages")
         .select("direction,body,sent_at,external_id,author")
         .eq("company_id", company.id).eq("conversation_id", conversation.id)
         .order("sent_at", { ascending: false }).order("id", { ascending: false }).limit(60);
       if (historyError) throw new Error(`Falha ao carregar histórico: ${historyError.message}`);
+      if ((inboxHistory ?? []).some(m => m.direction === "outbound" && m.author === "equipe")) {
+        await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
+        return NextResponse.json({ status: "human_history" });
+      }
       previousMessages = (inboxHistory ?? []).filter(m => !eventId || m.external_id !== eventId).reverse()
         .map(m => ({ role: m.direction === "inbound" ? "user" : "assistant", content: m.body, timestamp: m.sent_at }));
     }
@@ -514,9 +565,11 @@ export async function POST(req: NextRequest) {
     const isConcluida = aiResult.triagem_concluida;
     const novoStatus = isPosVenda ? "pos_venda" : isConcluida ? "concluida" : "em_andamento";
 
+    if (!await canReply()) return NextResponse.json({ status: "reply_cancelled" });
+
     // Atualiza sessão
     const updateData: Record<string, unknown> = {
-      messages: finalMessages,
+      messages: updatedMessages,
       dados_coletados: novosDados,
       status: novoStatus,
       updated_at: new Date().toISOString(),
@@ -551,18 +604,22 @@ export async function POST(req: NextRequest) {
 
     const { error: triageError } = await supabase.from("triage_sessions").update(updateData).eq("id", session.id);
     if (triageError) throw new Error(`Falha ao salvar triagem e rascunho: ${triageError.message}`);
-    // Triagem concluída ou pós-venda: a conversa passa para a equipe e a Ana para de responder.
-    if ((isConcluida || isPosVenda) && conversation) {
-      await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
-    }
-
+    // Envia resposta pelo mesmo canal (Evolution API ou Meta)
+    const sentReply = await reply(resposta);
+    if (!sentReply) return NextResponse.json({ status: "reply_cancelled_or_failed" });
+    await supabase.from("triage_sessions").update({ messages: finalMessages }).eq("id", session.id);
     // Se triagem concluída e é lead comercial, cria/atualiza lead no CRM
     if (isConcluida && !isPosVenda) {
       await createOrUpdateLead(company.id, session.id, from, novosDados, aiResult);
     }
 
-    // Envia resposta pelo mesmo canal (Evolution API ou Meta)
-    await reply(resposta);
+
+    // Triagem concluída ou pós-venda: a conversa passa para a equipe e a Ana para de responder.
+    if ((isConcluida || isPosVenda) && conversation) {
+      await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
+    }
+
+
 
     return NextResponse.json({ status: "ok", triagem_concluida: isConcluida });
   } catch (err) {

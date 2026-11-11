@@ -10,7 +10,7 @@ import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
 import { syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
-import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { markWhatsAppRead, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 
 export type InboxItem = {
   id: string; name: string; phone: string; clientId: string | null; clientName: string | null;
@@ -18,7 +18,7 @@ export type InboxItem = {
 };
 export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
-  body: string; at: string; failed: boolean; error: string | null; pending?: boolean;
+  body: string; at: string; failed: boolean; error: string | null; pending?: boolean; deliveryStatus?: string | null;
 };
 export type ClientPanel = {
   client: { id: string; name: string; phone: string | null; email: string | null; city: string | null; address: string | null; notes: string | null; created_at: string };
@@ -29,7 +29,7 @@ export type ClientPanel = {
   pipeline: { etapa: string | null; valor: number | null; proximaAcao: string | null; data: string | null } | null;
 };
 export type TriageInfo = { resumo: string | null; dados: Record<string, unknown> } | null;
-export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean };
+export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
 
 async function context() {
   const db = await createClient();
@@ -43,10 +43,10 @@ async function context() {
 type ConvRow = {
   id: string; contact_name: string | null; phone: string | null; external_id: string | null; client_id: string | null;
   last_message_preview: string | null; last_message_at: string | null; created_at: string; unread_count: number | null;
-  ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null;
+  ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
 };
-const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
+const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
 
 function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
@@ -66,16 +66,18 @@ function toItem(c: ConvRow): InboxItem {
 
 const agendaSyncedAt = new Map<string, number>();
 /** Nomes da agenda do celular, no máximo a cada 6 h (só quem pode ver a configuração da Evolution). */
-async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string) {
-  if (Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 6 * 3600_000) return 0;
-  agendaSyncedAt.set(companyId, Date.now());
-  const { data: cfg } = await db.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
+async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string, force = false) {
+  if (!force && Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 5 * 60_000) return 0;
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const { data: cfg } = await admin.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
   const key = cfg?.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
   if (!cfg?.evolution_api_url || !key) return 0;
-  return syncAgendaNames(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
+  const result = await syncAgendaNames(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
+  agendaSyncedAt.set(companyId, Date.now());
+  return result;
 }
 
-export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string }> {
+export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string; companyId?: string; aiActive?: boolean }> {
   try {
     const { db, companyId } = await context();
     // Sempre puxa do cadastro: liga conversas a clientes e, de tempos em tempos, os nomes da agenda.
@@ -84,7 +86,9 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string 
       .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
       .order("last_message_at", { ascending: false }).limit(150);
     if (error) return { items: [], error: /column|does not exist/i.test(error.message) ? "Falta aplicar a atualização do banco do Atendimento (migração 20261108000000)." : error.message };
-    return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem) };
+    const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { data: cfg } = await admin.from("ai_agent_config").select("active").eq("company_id", companyId).maybeSingle();
+    return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem), companyId, aiActive: cfg?.active === true };
   } catch (error) {
     return { items: [], error: error instanceof Error ? error.message : String(error) };
   }
@@ -97,20 +101,20 @@ export async function loadConversation(conversationId: string): Promise<Conversa
     const { data: conv, error } = await db.from("conversations").select(CONV_COLUMNS).eq("id", conversationId).eq("company_id", companyId).single();
     if (error || !conv) return { error: "Conversa não encontrada." };
     const row = conv as unknown as ConvRow;
-    const [{ data: msgs }, panel, triage] = await Promise.all([
+    const [{ data: msgs, error: messagesError }, panel, triage] = await Promise.all([
       db.from("messages").select("id,direction,author,sender_name,body,sent_at,delivery_status,error_message")
         .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(200),
       row.client_id ? loadClientPanel(db, companyId, row.client_id) : Promise.resolve(null),
       loadTriage(db, companyId, row.phone || row.external_id || ""),
     ]);
-    if ((row.unread_count ?? 0) > 0) await db.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
+    if (messagesError) return { error: messagesError.message };
     const messages: InboxMessage[] = (msgs ?? []).reverse().map((m) => ({
       id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
-      body: m.body ?? "", at: m.sent_at, pending: ["uploading","processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
+      body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading","processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
     }));
     const lastInbound = row.last_inbound_at ?? [...messages].reverse().find((m) => m.direction === "inbound")?.at ?? null;
     const windowOpen = !!lastInbound && Date.now() - new Date(lastInbound).getTime() < 24 * 60 * 60_000;
-    return { conversation: { ...toItem(row), unread: 0 }, messages, panel, triage, windowOpen };
+    return { conversation: toItem(row), messages, panel, triage, windowOpen, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -183,6 +187,8 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
       admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
       admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
     ]);
+    const { error: pauseError } = await db.from("conversations").update({ ai_paused: true, assigned_to: user.id, ai_generation_id: null }).eq("id", conversationId).eq("company_id", companyId);
+    if (pauseError) return { error: pauseError.message };
     // Sem assinatura só para o que o cliente precisa copiar inteiro (ex.: Pix copia e cola).
     const signed = opts.unsigned ? body : `*${myName}:*\n${body}`;
     let externalId: string | null = null;
@@ -194,7 +200,7 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     }
     await recordOutbound(db, { companyId, conversationId, body: signed, author: "equipe", senderName: myName, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
     // Quem responde assume a conversa: a Lia para de responder esse cliente.
-    await db.from("conversations").update({ ai_paused: true, assigned_to: user.id, unread_count: 0 }).eq("id", conversationId);
+    await db.from("conversations").update({ ai_paused: true, assigned_to: user.id }).eq("id", conversationId);
     return failure ? { error: failure } : { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
@@ -205,8 +211,13 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
 export async function setConversationAi(conversationId: string, aiOn: boolean): Promise<{ ok?: true; error?: string }> {
   try {
     const { db, user, companyId } = await context();
+    if (aiOn) {
+      const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { data: cfg } = await admin.from("ai_agent_config").select("active").eq("company_id", companyId).maybeSingle();
+      if (!cfg?.active) return { error: "A IA está pausada globalmente. Ative-a na Central IA antes de devolver uma conversa." };
+    }
     const { error } = await db.from("conversations")
-      .update(aiOn ? { ai_paused: false, assigned_to: null } : { ai_paused: true, assigned_to: user.id })
+      .update(aiOn ? { ai_paused: false, assigned_to: null, ai_generation_id: null } : { ai_paused: true, assigned_to: user.id, ai_generation_id: null })
       .eq("id", conversationId).eq("company_id", companyId);
     return error ? { error: error.message } : { ok: true };
   } catch (error) {
@@ -312,4 +323,42 @@ export async function closeQuoteFromInbox(quoteId: string, dueDate?: string): Pr
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/** Called only after the visible conversation has rendered. CAS preserves arrivals during load. */
+export async function markInboxRead(id: string, messageIds: string[], snapshot: { count: number; lastInbound: string | null; generation: string | null }) {
+  try {
+    if (!z.string().uuid().safeParse(id).success || messageIds.length > 200 || !messageIds.every(v => z.string().uuid().safeParse(v).success)) return { error: "Leitura inválida." };
+    const { db, companyId } = await context();
+    const { data: conv } = await db.from("conversations").select("phone,external_id").eq("id", id).eq("company_id", companyId).single();
+    if (!conv) return { error: "Conversa não encontrada." };
+    let update = db.from("conversations").update({ unread_count: 0 }).eq("id", id).eq("company_id", companyId).eq("unread_count", snapshot.count);
+    update = snapshot.lastInbound ? update.eq("last_inbound_at", snapshot.lastInbound) : update.is("last_inbound_at", null);
+    update = snapshot.generation ? update.eq("ai_generation_id", snapshot.generation) : update.is("ai_generation_id", null);
+    const { data: cleared, error } = await update.select("id");
+    if (error) return { error: error.message };
+    const { data: messages, error: msgError } = await db.from("messages").select("id,external_id,delivery_status").eq("company_id", companyId).eq("conversation_id", id).eq("direction", "inbound").in("id", messageIds);
+    if (msgError) return { error: msgError.message };
+    const pending = (messages ?? []).filter(m => m.external_id && m.delivery_status !== "lida");
+    if (pending.length) {
+      const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const [{ data: cfg }, { data: company }] = await Promise.all([
+        admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+        admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
+      ]);
+      await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), pending.map(m => m.external_id));
+      const { error: receiptError } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
+      if (receiptError) return { error: receiptError.message };
+    }
+    return { ok: true, cleared: !!cleared?.length };
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}
+
+export async function syncInboxContacts() {
+  try {
+    const { db, companyId } = await context();
+    const count = await refreshAgendaNames(db, companyId, true);
+    await autoLinkClients(db, companyId);
+    return { ok: true, count };
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }

@@ -2,12 +2,13 @@
 // Atendimento estilo Octadesk: conversas do WhatsApp, nome de quem respondeu em cima
 // de cada mensagem e, ao lado, a ficha do cliente com orçamentos e financeiro.
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ArrowLeft, Bot, CheckCheck, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
+import { ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox,
-  receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
+  markInboxRead, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
   type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
@@ -70,46 +71,89 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
 
+  const [companyId, setCompanyId] = useState<string>();
+  const [aiActive, setAiActive] = useState(false);
+  const [connection, setConnection] = useState("Conectando…");
+  const [syncing, setSyncing] = useState(false);
+  const selected = useRef(openId);
+  selected.current = openId;
+  const listVersion = useRef(0);
+  const detailVersion = useRef(0);
   const refreshList = useCallback(async () => {
+    const version = ++listVersion.current;
     const r = await loadInbox();
-    setItems(r.items);
+    if (version !== listVersion.current) return;
+    if (!r.error) setItems(r.items);
     setListError(r.error);
+    if (r.companyId) setCompanyId(r.companyId);
+    setAiActive(r.aiActive === true);
   }, []);
 
   const refreshDetail = useCallback(async (id: string) => {
+    const version = ++detailVersion.current;
     const r = await loadConversation(id);
+    if (selected.current !== id || version !== detailVersion.current) return;
     if ("error" in r) { setDetailError(r.error); return; }
     setDetailError(null);
     setDetail(r);
   }, []);
 
   useEffect(() => {
-    const t = setInterval(refreshList, 8000);
-    return () => clearInterval(t);
-  }, [refreshList]);
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void refreshList();
+      if (selected.current) void refreshDetail(selected.current);
+    };
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("online", refresh); };
+  }, [refreshList, refreshDetail]);
 
   useEffect(() => {
-    if (!openId) return;
-    refreshDetail(openId);
-    const t = setInterval(() => refreshDetail(openId), 5000);
-    return () => clearInterval(t);
+    if (openId) void refreshDetail(openId);
   }, [openId, refreshDetail]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    const db = createClient();
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (document.visibilityState !== "visible") return;
+        void refreshList();
+        if (selected.current) void refreshDetail(selected.current);
+      }, 200);
+    };
+    const channel = db.channel(`atendimento:${companyId}`);
+    for (const table of ["messages", "conversations", "clients"]) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `company_id=eq.${companyId}` }, refresh);
+    }
+    channel.subscribe(status => {
+      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : "Reconectando · atualização a cada 15s");
+      if (status === "SUBSCRIBED") refresh();
+    });
+    return () => { clearTimeout(timer); void db.removeChannel(channel); };
+  }, [companyId, refreshList, refreshDetail]);
 
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return items.filter((c) => {
       if (filtro === "naolidas" && c.unread === 0) return false;
-      if (filtro === "ana" && c.aiPaused) return false;
-      if (filtro === "equipe" && !c.aiPaused) return false;
+      if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
+      if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro]);
+  }, [items, busca, filtro, aiActive]);
 
   const abrir = (id: string) => {
+    selected.current = id;
     setOpenId(id);
     setDetail((d) => (d?.conversation.id === id ? d : null));
     setShowPanel(false);
-    setItems((all) => all.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
+
   };
 
   const atual = detail && detail.conversation.id === openId ? detail : null;
@@ -119,7 +163,14 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       {/* Lista */}
       <aside className={cn("flex w-full flex-col border-r border-sand/80 md:w-80 md:shrink-0", openId && "hidden md:flex")}>
         <div className="space-y-2 border-b border-sand/80 p-3">
-          <h1 className="text-lg font-black">Atendimento</h1>
+          <div className="flex items-center justify-between"><h1 className="text-lg font-black">Atendimento</h1>
+          <button aria-label="Sincronizar contatos" title="Sincronizar contatos" disabled={syncing} onClick={async () => {
+            setSyncing(true);
+            try { const r = await syncInboxContacts(); await refreshList(); if (r.error) setListError(r.error); }
+            finally { setSyncing(false); }
+          }} className="rounded-lg p-2 hover:bg-cream"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
+          <p className="text-[11px] text-ink/60">{connection} · {items.reduce((n, c) => n + c.unread, 0)} não lidas</p>
+          {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
           <div className="flex items-center gap-2 rounded-xl bg-cream px-3 py-2">
             <Search className="h-4 w-4 text-ink/40" />
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
@@ -146,7 +197,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
                     <p className="truncate text-sm text-ink/55">{c.preview || "—"}</p>
                     {c.unread > 0 && <span className="shrink-0 rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">{c.unread}</span>}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{!c.clientId && " · sem cadastro"}</p>
+                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused || !aiActive ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{!c.clientId && " · sem cadastro"}</p>
                 </div>
               </button>
             </li>
@@ -161,7 +212,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
-          <Conversa key={atual.conversation.id} detail={atual} onBack={() => setOpenId(null)} onPanel={() => setShowPanel(true)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
+          <Conversa key={atual.conversation.id} detail={atual} aiActive={aiActive} visible={!showPanel} onBack={() => setOpenId(null)} onPanel={() => setShowPanel(true)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
         )}
       </section>
 
@@ -179,9 +230,11 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   );
 }
 
-function Conversa({ detail, onBack, onPanel, onChanged }: { detail: ConversationDetail; onBack: () => void; onPanel: () => void; onChanged: () => void }) {
+function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { aiActive: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onPanel: () => void; onChanged: () => void }) {
   const { conversation: c, messages } = detail;
   const [texto, setTexto] = useState("");
+  useEffect(() => { try { setTexto(sessionStorage.getItem(`inbox-draft:${detail.conversation.id}`) || ""); } catch {} }, [detail.conversation.id]);
+
   const [atalhos, setAtalhos] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
@@ -189,14 +242,39 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
   const fim = useRef<HTMLDivElement>(null);
   const ultimo = messages.at(-1)?.id;
 
-  useEffect(() => { fim.current?.scrollIntoView({ block: "end" }); }, [ultimo, c.id]);
+  const [atBottom, setAtBottom] = useState(true);
+  const readBusy = useRef(false);
+  const [readError, setReadError] = useState<string | null>(null);
+  const readKey = useRef("");
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
+  useEffect(() => { if (atBottom) fim.current?.scrollIntoView({ block: "end" }); }, [ultimo, c.id, atBottom]);
+  useEffect(() => {
+    const read = async () => {
+      if (!visible || !atBottom || document.visibilityState !== "visible" || readBusy.current) return;
+      const inbound = messages.filter(m => m.direction === "inbound");
+      if (!c.unread && !inbound.some(m => m.deliveryStatus !== "lida")) return;
+      const key = `${c.id}:${ultimo}:${detail.readSnapshot.count}:${detail.readSnapshot.lastInbound}:${detail.readSnapshot.generation}`;
+      if (readKey.current === key) return;
+      readBusy.current = true;
+      const r = await markInboxRead(c.id, inbound.map(m => m.id), detail.readSnapshot);
+      readBusy.current = false;
+      if (r.error) { setReadError(`Confirmação de leitura pendente: ${r.error}`); return; }
+      readKey.current = key;
+      setReadError(null);
+      changed.current();
+    };
+    void read();
+    document.addEventListener("visibilitychange", read);
+    return () => document.removeEventListener("visibilitychange", read);
+  }, [messages, c.id, c.unread, ultimo, detail.readSnapshot, visible, atBottom]);
 
   const enviar = () => {
     const t = texto.trim();
     if (!t || enviando) return;
     startEnvio(async () => {
       const r = await sendInboxMessage(c.id, t);
-      if (r.error) setErro(r.error); else { setErro(null); setTexto(""); }
+      if (r.error) setErro(r.error); else { setErro(null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
   };
@@ -210,8 +288,8 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
           <p className="whitespace-nowrap text-xs text-ink/50">{formatBrPhone(c.phone)}</p>
         </div>
         <button
-          disabled={mudandoIa}
-          onClick={() => startIa(async () => { await setConversationAi(c.id, c.aiPaused); onChanged(); })}
+          disabled={mudandoIa || (!aiActive && c.aiPaused)}
+          onClick={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })}
           className={cn("flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold", c.aiPaused ? "bg-cream text-ink/70" : "bg-forest text-white")}
           title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
@@ -220,7 +298,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
         <button onClick={onPanel} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold lg:hidden">Ficha</button>
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
+      <div onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); }} className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
         {messages.length === 0 && <p className="text-center text-sm text-ink/50">Sem mensagens.</p>}
         {messages.map((m) => {
           const nome = quemEnviou(m);
@@ -232,7 +310,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-ink/45">
-                  {hora(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && <CheckCheck className="h-3 w-3" />}
+                  {hora(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3 w-3", m.deliveryStatus === "lida" && "text-blue-500")} /> : <Check aria-label="Enviada" className="h-3 w-3" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
               </div>
@@ -242,9 +320,11 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
         <div ref={fim} />
       </div>
 
+      {!atBottom && <button className="bg-surface py-2 text-xs font-bold text-forest" onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}>Ir para mensagens recentes ↓</button>}
       <footer className="border-t border-sand/80 p-3">
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
-        {!c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
+        {readError && <p className="mb-2 text-xs text-amber-700">{readError}</p>}
+        {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
         <div className="flex items-end gap-2">
@@ -255,7 +335,7 @@ function Conversa({ detail, onBack, onPanel, onChanged }: { detail: Conversation
           />
           <textarea
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
             placeholder="Escreva a mensagem ou / para respostas prontas"

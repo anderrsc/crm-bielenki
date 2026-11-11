@@ -39,7 +39,7 @@ async function call<T = unknown>(base: string, apiKey: string, path: string, ini
   return data as T;
 }
 
-const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "CONNECTION_UPDATE"];
+const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONTACTS_UPSERT", "CONTACTS_UPDATE", "CONNECTION_UPDATE"];
 
 export async function evolutionPing(base: string, apiKey: string) {
   return call<{ version?: string }>(base, apiKey, "/");
