@@ -102,3 +102,26 @@ export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes
  if(!response.ok||!data?.messages?.[0]?.id)throw new WhatsAppSendError(data?.error?.code===131047?'Passaram 24h da última mensagem do cliente. O WhatsApp oficial exige modelo aprovado.':data?.error?.message||'WhatsApp não confirmou o envio do arquivo.');
  return data.messages[0].id;
 }
+
+/** Read receipts, never a customer-facing message. */
+export async function markWhatsAppRead(c: WhatsAppCredentials, phone: string, ids: string[]) {
+  if (!ids.length) return;
+  if (c.provider === "evolution") {
+    const base = safeExternalUrl(c.evolutionUrl);
+    if (!base || !c.evolutionInstance || !c.evolutionKey) throw new Error("WhatsApp não conectado.");
+    const r = await fetch(`${base}/chat/markMessageAsRead/${encodeURIComponent(c.evolutionInstance)}`, {
+      method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
+      headers: { apikey: c.evolutionKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ readMessages: ids.map(id => ({ id, fromMe: false, remoteJid: `${phone}@s.whatsapp.net` })) }),
+    });
+    if (!r.ok) throw new Error(`Confirmação de leitura: HTTP ${r.status}`);
+  } else {
+    for (const id of ids.slice(-1)) {
+      const r = await fetch(`https://graph.facebook.com/${GRAPH_VERSION()}/${c.phoneNumberId}/messages`, {
+        method: "POST", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${c.metaToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", status: "read", message_id: id }),
+      });
+      if (!r.ok) throw new Error(`Confirmação de leitura: HTTP ${r.status}`);
+    }
+  }
+}

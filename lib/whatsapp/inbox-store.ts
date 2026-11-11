@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanContactName, digitsOnly, phoneKey, samePhone } from "@/lib/whatsapp/phone";
 
 export type MessageAuthor = "cliente" | "ana" | "equipe" | "automacao";
-export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null };
+export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null; generation?: string };
 
 const preview = (body: string) => body.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
@@ -74,7 +74,7 @@ export async function getOrCreateConversation(db: SupabaseClient, companyId: str
 
 /** Mensagem do cliente. Devolve null se já tinha sido gravada (reenvio do provedor). */
 export async function recordInbound(db: SupabaseClient, p: {
-  companyId: string; phone: string; contactName?: string | null; body: string; externalId?: string | null; at?: string;
+  companyId: string; phone: string; contactName?: string | null; body: string; externalId?: string | null; at?: string; historical?: boolean;
 }): Promise<InboxConversation | null> {
   const conversation = await getOrCreateConversation(db, p.companyId, p.phone, p.contactName);
   const at = p.at ?? new Date().toISOString();
@@ -84,13 +84,14 @@ export async function recordInbound(db: SupabaseClient, p: {
   });
   if (error?.code === "23505") return null;
   if (error) throw new Error(`Mensagem não gravada: ${error.message}`);
-  await db.from("conversations").update({
-    last_message_at: at, last_inbound_at: at, last_message_preview: preview(p.body),
-    unread_count: conversation.unread_count + 1, status: "aberta", updated_at: at,
-    // Nome da agenda (ou um já salvo) não é trocado pelo nome de perfil do cliente.
-    ...(!conversation.contact_name && cleanContactName(p.contactName) ? { contact_name: cleanContactName(p.contactName) } : {}),
-  }).eq("id", conversation.id);
-  conversation.unread_count += 1;
+  const generation = crypto.randomUUID();
+  const { error: counterError } = await db.rpc("inbox_receive", {
+    p_id: conversation.id, p_company: p.companyId, p_at: at, p_preview: preview(p.body),
+    p_generation: generation, p_historical: !!p.historical,
+  });
+  if (counterError) throw new Error(`Contagem não atualizada: ${counterError.message}`);
+  conversation.generation = generation;
+  conversation.unread_count += p.historical ? 0 : 1;
   return conversation;
 }
 

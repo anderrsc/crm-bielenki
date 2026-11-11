@@ -70,11 +70,13 @@ export async function sendInboxAttachment(messageId:string){
    if(!conv.last_inbound_at||Date.now()-new Date(conv.last_inbound_at).getTime()>=24*3600_000)throw new Error('Passaram 24h da última mensagem do cliente. O WhatsApp oficial exige modelo aprovado.');
    if(attachmentKind(m.media_type)==='image'&&file.size>5*1024*1024)throw new Error('No WhatsApp oficial, a foto deve ter até 5 MB.');
   }
+  const {error:pauseError}=await c.db.from('conversations').update({ai_paused:true,assigned_to:c.user.id,ai_generation_id:null}).eq('id',conv.id).eq('company_id',c.companyId);
+  if(pauseError)throw new Error(pauseError.message);
   const externalId=await sendWhatsAppMedia(credentials,digitsOnly(conv.phone||conv.external_id),{bytes,mime:m.media_type,name:m.file_name,caption:`*${c.name}:*`,kind:attachmentKind(m.media_type)});
   const at=new Date().toISOString();
   const {error:saveError}=await c.admin.from('messages').update({delivery_status:'enviada',external_id:externalId,sent_at:at,error_message:null}).eq('id',m.id);
   if(saveError)throw new Error('Arquivo enviado, mas falhou o registro no CRM. Confira o WhatsApp antes de repetir.');
-  await c.admin.from('conversations').update({ai_paused:true,assigned_to:c.user.id,unread_count:0,last_message_at:at,last_message_preview:attachmentLabel(m.media_type,m.file_name)}).eq('id',conv.id).eq('company_id',c.companyId);
+  await c.admin.from('conversations').update({ai_paused:true,assigned_to:c.user.id,last_message_at:at,last_message_preview:attachmentLabel(m.media_type,m.file_name)}).eq('id',conv.id).eq('company_id',c.companyId);
   if(m.attachment_quote_id){
    // Only the user's quote permissions can change quote status.
    const {data:q}=await c.db.from('quotes').select('status').eq('id',m.attachment_quote_id).eq('client_id',conv.client_id).single();

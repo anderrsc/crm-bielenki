@@ -34,7 +34,11 @@ function query(table: string) {
   return api;
 }
 
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: string) => query(t) }) }));
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: string) => query(t), rpc: async (_name: string, p: Record<string, unknown>) => {
+ const c = tables.conversations.find(c => c.id === p.p_id && c.company_id === p.p_company)!;
+ Object.assign(c, { unread_count: Number(c.unread_count ?? 0) + (p.p_historical ? 0 : 1), ai_generation_id: p.p_generation, last_message_at: p.p_at, last_inbound_at: p.p_at, last_message_preview: p.p_preview });
+ return { error: null };
+} }) }));
 vi.mock('@/lib/ai/chat', async (orig) => ({ ...(await orig<object>()), aiChat: (...a: unknown[]) => aiReply(...a) }));
 
 const SECRET = 'app-secret';
@@ -43,7 +47,7 @@ const sent: Array<{ url: string; body: { to: string; text: { body: string } } }>
 function metaRequest(text: string, id: string) {
   const body = JSON.stringify({ entry: [{ changes: [{ value: {
     metadata: { phone_number_id: 'PNID' },
-    messages: [{ id, from: '5547999990000', type: 'text', text: { body: text } }],
+    messages: [{ timestamp: Math.floor(Date.now()/1000), id, from: '5547999990000', type: 'text', text: { body: text } }],
   } }] }] });
   const sig = 'sha256=' + createHmac('sha256', SECRET).update(body).digest('hex');
   return new Request('https://crm.test/api/whatsapp/webhook', { method: 'POST', body, headers: { 'x-hub-signature-256': sig } });
@@ -171,7 +175,7 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     return new Request('https://crm.test/api/whatsapp/webhook', { method: 'POST', body, headers: { 'x-webhook-secret': secret } });
   }
   const msg = (id: string, text: string, extra: Record<string, unknown> = {}, key: Record<string, unknown> = {}) =>
-    ({ key: { id, remoteJid: '5547999990000@s.whatsapp.net', fromMe: false, ...key }, pushName: 'Carlos', message: { conversation: text }, ...extra });
+    ({ messageTimestamp: Math.floor(Date.now()/1000), key: { id, remoteJid: '5547999990000@s.whatsapp.net', fromMe: false, ...key }, pushName: 'Carlos', message: { conversation: text }, ...extra });
 
   beforeEach(async () => {
     const { encryptSecret } = await import('@/lib/encrypt');
@@ -236,4 +240,39 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     const res = await POST(evo(msg('e7', 'Oi', {}, { remoteJid: '1203@g.us' })) as never);
     expect((await res.json()).status).toBe('ignored_group');
   });
+});
+
+describe('proteções durante geração', () => {
+ test('pausa global durante a geração cancela o envio', async () => {
+   aiReply.mockImplementation(async () => { tables.ai_agent_config[0].active = false; return JSON.stringify({ mensagem: 'Não deve sair', dados_coletados: {} }); });
+   const { POST } = await import('@/app/api/whatsapp/webhook/route');
+   const r = await POST(metaRequest('Oi', 'pause-global') as never);
+   expect((await r.json()).status).toBe('reply_cancelled');
+   expect(sent).toHaveLength(0);
+ });
+ test('humano assume durante geração: não envia', async () => {
+   aiReply.mockImplementation(async () => { tables.conversations[0].ai_paused = true; return JSON.stringify({ mensagem: 'Não deve sair', dados_coletados: {} }); });
+   const { POST } = await import('@/app/api/whatsapp/webhook/route');
+   await POST(metaRequest('Oi', 'pause-local') as never);
+   expect(sent).toHaveLength(0);
+ });
+ test('nova mensagem invalida resposta ainda sendo gerada', async () => {
+   aiReply.mockImplementation(async () => { tables.conversations[0].ai_generation_id = 'new-generation'; return JSON.stringify({ mensagem: 'Obsoleta', dados_coletados: {} }); });
+   const { POST } = await import('@/app/api/whatsapp/webhook/route');
+   await POST(metaRequest('Oi', 'obsolete') as never);
+   expect(sent).toHaveLength(0);
+ });
+ test('mensagem antiga entra no histórico sem acionar IA', async () => {
+   const original = metaRequest('Mensagem de ontem', 'old');
+   const payload = JSON.parse(await original.text());
+   payload.entry[0].changes[0].value.messages[0].timestamp = Math.floor(Date.now()/1000)-86400;
+   const body = JSON.stringify(payload);
+   const sig = 'sha256=' + createHmac('sha256', SECRET).update(body).digest('hex');
+   const { POST } = await import('@/app/api/whatsapp/webhook/route');
+   const r = await POST(new Request('https://crm.test/api/whatsapp/webhook', {method:'POST',body,headers:{'x-hub-signature-256':sig}}) as never);
+   expect((await r.json()).status).toBe('history_only');
+   expect(aiReply).not.toHaveBeenCalled(); expect(sent).toHaveLength(0);
+   expect(tables.conversations[0].unread_count).toBe(0);
+   expect(tables.messages[0].sent_at).toBe(new Date(payload.entry[0].changes[0].value.messages[0].timestamp*1000).toISOString());
+ });
 });
