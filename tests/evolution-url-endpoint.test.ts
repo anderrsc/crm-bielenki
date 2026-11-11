@@ -37,9 +37,19 @@ describe('PC avisa o endereço do túnel', () => {
     expect((await call({ instance: 'crm', url: 'https://evil.com' }, 'segredo')).status).toBe(400);
     expect(rows[0].evolution_api_url).toBeNull();
   });
-  test('mesmo endereço não refaz nada', async () => {
+  test('mesmo endereço tenta reconectar quando a tentativa anterior falhou', async () => {
     rows[0].evolution_api_url = 'https://abc.trycloudflare.com';
     expect(await (await call({ instance: 'crm', url: 'https://abc.trycloudflare.com' }, 'segredo')).json()).toEqual({ status: 'unchanged' });
-    expect(ensure).not.toHaveBeenCalled();
+    expect(ensure).toHaveBeenCalledTimes(1);
+    expect(ensure.mock.calls[0][0]).toBe('https://abc.trycloudflare.com');
+  });
+
+  test('nova URL salva, mas falha de ligação pode ser recuperada com repetição', async () => {
+    ensure.mockRejectedValueOnce(new Error('servidor inicializando'));
+    const first = await call({ instance: 'crm', url: 'https://abc.trycloudflare.com' }, 'segredo');
+    expect(await first.json()).toEqual({ status: 'updated', linked: false });
+    const retry = await call({ instance: 'crm', url: 'https://abc.trycloudflare.com' }, 'segredo');
+    expect(await retry.json()).toEqual({ status: 'unchanged', linked: true });
+    expect(ensure).toHaveBeenCalledTimes(2);
   });
 });
