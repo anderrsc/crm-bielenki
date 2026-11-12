@@ -94,6 +94,7 @@ with expected_columns(table_name, column_name) as (
     ('workflows', 'company_id,conditions,created_at,created_by,deleted_at,description,id,last_run_at,name,runs_count,status,steps,success_count,trigger_config,trigger_type,updated_at,version')
   ) v(t, c)
 ), expected_functions(name, args, src) as (values
+  ('financial_control_totals', 'p_type text, p_q text, p_from date, p_to date, p_status text, p_sale_type uuid', 'd178aace8d70c397d9fb8172185b9b5b'),
   ('advance_production_step', 'p_production_order_id uuid, p_responsible_id uuid, p_notes text', 'c918f78445ecf85324df06fb8e50dec0'),
   ('approve_quote', 'p_quote_id uuid, p_due_date date', '4fcecaf419af10685040f9dce100f910'),
   ('approve_quote_unchecked', 'p_quote_id uuid, p_due_date date', '26f5a1f9ccb57d65f758bde2803150ff'),
