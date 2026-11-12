@@ -5,9 +5,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
 import {
-  closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox,
+  closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
   markInboxRead, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
   type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
@@ -66,6 +66,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const [listError, setListError] = useState(initialError);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"todas" | "naolidas" | "ana" | "equipe">("todas");
+  const [verArquivadas, setVerArquivadas] = useState(false);
+  // Conversas ja carregadas ficam guardadas: abrir de novo mostra na hora e atualiza por tras.
+  const cache = useRef(new Map<string, ConversationDetail>());
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -92,11 +95,28 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const refreshDetail = useCallback(async (id: string) => {
     const version = ++detailVersion.current;
     const r = await loadConversation(id);
+    if (!("error" in r)) cache.current.set(id, r);
     if (selected.current !== id || version !== detailVersion.current) return;
     if ("error" in r) { setDetailError(r.error); return; }
     setDetailError(null);
     setDetail(r);
   }, []);
+
+  // Pre-carrega as conversas do topo (so as mensagens): abrir fica instantaneo.
+  const prefetching = useRef(false);
+  useEffect(() => {
+    if (prefetching.current) return;
+    const fila = items.filter((c) => !c.archived && !cache.current.has(c.id)).slice(0, 15).map((c) => c.id);
+    if (!fila.length) return;
+    prefetching.current = true;
+    const worker = async () => {
+      for (let id = fila.shift(); id; id = fila.shift()) {
+        const r = await loadConversation(id, { panel: false }).catch(() => null);
+        if (r && !("error" in r) && !cache.current.has(id)) cache.current.set(id, r);
+      }
+    };
+    void Promise.all([worker(), worker(), worker()]).finally(() => { prefetching.current = false; });
+  }, [items]);
 
   useEffect(() => {
     const refresh = () => {
@@ -141,17 +161,20 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return items.filter((c) => {
+      if (c.archived !== verArquivadas) return false;
       if (filtro === "naolidas" && c.unread === 0) return false;
       if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
       if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro, aiActive]);
+  }, [items, busca, filtro, aiActive, verArquivadas]);
+  const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
     selected.current = id;
     setOpenId(id);
-    setDetail((d) => (d?.conversation.id === id ? d : null));
+    setDetail((d) => (d?.conversation.id === id ? d : cache.current.get(id) ?? null));
+    setDetailError(null);
     setShowPanel(false);
 
   };
@@ -183,7 +206,16 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
         <ul className="flex-1 overflow-y-auto">
-          {visiveis.length === 0 && !listError && <li className="p-6 text-center text-sm text-ink/50">Nenhuma conversa ainda. Quando um cliente chamar no WhatsApp, aparece aqui.</li>}
+          {verArquivadas ? (
+            <li><button onClick={() => setVerArquivadas(false)} className="flex w-full items-center gap-3 border-b border-sand/50 px-3 py-3 text-left font-bold hover:bg-cream/60"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
+          ) : arquivadas.length > 0 && (
+            <li><button onClick={() => setVerArquivadas(true)} className="flex w-full items-center gap-3 border-b border-sand/50 px-3 py-3 text-left hover:bg-cream/60">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-forest"><Archive className="h-5 w-5" /></span>
+              <span className="flex-1 font-bold">Arquivadas</span>
+              <span className="text-xs font-bold text-forest">{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
+            </button></li>
+          )}
+          {visiveis.length === 0 && !listError && <li className="p-6 text-center text-sm text-ink/50">{verArquivadas ? "Nenhuma conversa arquivada." : "Nenhuma conversa ainda. Quando um cliente chamar no WhatsApp, aparece aqui."}</li>}
           {visiveis.map((c) => (
             <li key={c.id}>
               <button onClick={() => abrir(c.id)} className={cn("flex w-full gap-3 border-b border-sand/50 px-3 py-3 text-left hover:bg-cream/60", openId === c.id && "bg-cream")}>
@@ -231,7 +263,28 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
 }
 
 function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { aiActive: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onPanel: () => void; onChanged: () => void }) {
-  const { conversation: c, messages } = detail;
+  const { conversation: c } = detail;
+  // Historico antigo: carrega sozinho ao rolar para o topo.
+  const [antigas, setAntigas] = useState<InboxMessage[]>([]);
+  const [temAntigas, setTemAntigas] = useState(detail.hasOlder);
+  const [carregandoAntigas, setCarregandoAntigas] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+  const messages = useMemo(() => {
+    const ids = new Set(detail.messages.map((m) => m.id));
+    return [...antigas.filter((m) => !ids.has(m.id)), ...detail.messages];
+  }, [antigas, detail.messages]);
+  const carregarAntigas = async () => {
+    if (carregandoAntigas || !temAntigas || !messages.length) return;
+    setCarregandoAntigas(true);
+    const el = caixa.current; const altura = el?.scrollHeight ?? 0;
+    const r = await loadOlderMessages(c.id, messages[0].at);
+    setCarregandoAntigas(false);
+    if ("error" in r) return;
+    setAntigas((a) => [...r.messages, ...a]);
+    setTemAntigas(r.hasOlder);
+    requestAnimationFrame(() => { if (el) el.scrollTop += el.scrollHeight - altura; });
+  };
+  const [arquivando, startArquivo] = useTransition();
   const [texto, setTexto] = useState("");
   useEffect(() => { try { setTexto(sessionStorage.getItem(`inbox-draft:${detail.conversation.id}`) || ""); } catch {} }, [detail.conversation.id]);
 
@@ -295,10 +348,19 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         >
           <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Lia" : "Assumir"}
         </button>
+        <button
+          disabled={arquivando}
+          onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
+          className="rounded-xl bg-cream p-2 text-ink/70 hover:text-forest"
+          title={c.archived ? "Desarquivar conversa" : "Arquivar conversa"} aria-label={c.archived ? "Desarquivar conversa" : "Arquivar conversa"}
+        >
+          {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+        </button>
         <button onClick={onPanel} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold lg:hidden">Ficha</button>
       </header>
 
-      <div onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); }} className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
+      <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
+        {temAntigas && <p className="text-center text-xs text-ink/45">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
         {messages.length === 0 && <p className="text-center text-sm text-ink/50">Sem mensagens.</p>}
         {messages.map((m) => {
           const nome = quemEnviou(m);

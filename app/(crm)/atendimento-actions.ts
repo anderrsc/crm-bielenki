@@ -2,6 +2,7 @@
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
@@ -14,7 +15,7 @@ import { markWhatsAppRead, sendWhatsAppText, whatsappCredentials } from "@/lib/w
 
 export type InboxItem = {
   id: string; name: string; phone: string; clientId: string | null; clientName: string | null;
-  preview: string; lastAt: string | null; unread: number; aiPaused: boolean; assignedName: string | null;
+  preview: string; lastAt: string | null; unread: number; aiPaused: boolean; assignedName: string | null; archived: boolean;
 };
 export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
@@ -29,7 +30,7 @@ export type ClientPanel = {
   pipeline: { etapa: string | null; valor: number | null; proximaAcao: string | null; data: string | null } | null;
 };
 export type TriageInfo = { resumo: string | null; dados: Record<string, unknown> } | null;
-export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
+export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; hasOlder: boolean; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
 
 async function context() {
   const db = await createClient();
@@ -43,10 +44,10 @@ async function context() {
 type ConvRow = {
   id: string; contact_name: string | null; phone: string | null; external_id: string | null; client_id: string | null;
   last_message_preview: string | null; last_message_at: string | null; created_at: string; unread_count: number | null;
-  ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null;
+  ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null; archived_at?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
 };
-const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
+const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
 
 function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
@@ -61,6 +62,7 @@ function toItem(c: ConvRow): InboxItem {
     unread: c.unread_count ?? 0,
     aiPaused: !!c.ai_paused,
     assignedName: c.profiles?.full_name ? firstName(c.profiles.full_name) : null,
+    archived: !!c.archived_at,
   };
 }
 
@@ -80,11 +82,12 @@ async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"],
 export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string; companyId?: string; aiActive?: boolean }> {
   try {
     const { db, companyId } = await context();
-    // Sempre puxa do cadastro: liga conversas a clientes e, de tempos em tempos, os nomes da agenda.
-    await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId).catch(() => 0)]);
+    // Liga conversas a clientes e atualiza os nomes da agenda DEPOIS de responder:
+    // a lista abre na hora e os nomes novos chegam na proxima atualizacao (tempo real).
+    after(() => Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId).catch(() => 0)]));
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
       .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
-      .order("last_message_at", { ascending: false }).limit(150);
+      .order("last_message_at", { ascending: false }).limit(300);
     if (error) return { items: [], error: /column|does not exist/i.test(error.message) ? "Falta aplicar a atualização do banco do Atendimento (migração 20261108000000)." : error.message };
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: cfg } = await admin.from("ai_agent_config").select("active").eq("company_id", companyId).maybeSingle();
@@ -94,7 +97,9 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
   }
 }
 
-export async function loadConversation(conversationId: string): Promise<ConversationDetail | { error: string }> {
+const PAGE = 60;
+
+export async function loadConversation(conversationId: string, opts: { panel?: boolean } = {}): Promise<ConversationDetail | { error: string }> {
   try {
     if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
     const { db, companyId } = await context();
@@ -102,19 +107,54 @@ export async function loadConversation(conversationId: string): Promise<Conversa
     if (error || !conv) return { error: "Conversa não encontrada." };
     const row = conv as unknown as ConvRow;
     const [{ data: msgs, error: messagesError }, panel, triage] = await Promise.all([
-      db.from("messages").select("id,direction,author,sender_name,body,sent_at,delivery_status,error_message")
-        .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(200),
-      row.client_id ? loadClientPanel(db, companyId, row.client_id) : Promise.resolve(null),
-      loadTriage(db, companyId, row.phone || row.external_id || ""),
+      db.from("messages").select(MESSAGE_COLUMNS)
+        .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(PAGE + 1),
+      row.client_id && opts.panel !== false ? loadClientPanel(db, companyId, row.client_id) : Promise.resolve(null),
+      opts.panel !== false ? loadTriage(db, companyId, row.phone || row.external_id || "") : Promise.resolve(null),
     ]);
     if (messagesError) return { error: messagesError.message };
-    const messages: InboxMessage[] = (msgs ?? []).reverse().map((m) => ({
-      id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
-      body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading","processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
-    }));
+    const hasOlder = (msgs ?? []).length > PAGE;
+    const messages: InboxMessage[] = (msgs ?? []).slice(0, PAGE).reverse().map(toMessage);
     const lastInbound = row.last_inbound_at ?? [...messages].reverse().find((m) => m.direction === "inbound")?.at ?? null;
     const windowOpen = !!lastInbound && Date.now() - new Date(lastInbound).getTime() < 24 * 60 * 60_000;
-    return { conversation: toItem(row), messages, panel, triage, windowOpen, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
+    return { conversation: toItem(row), messages, hasOlder, panel, triage, windowOpen, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+const MESSAGE_COLUMNS = "id,direction,author,sender_name,body,sent_at,delivery_status,error_message";
+type MessageRow = { id: string; direction: string; author: string | null; sender_name: string | null; body: string | null; sent_at: string; delivery_status: string; error_message: string | null };
+function toMessage(m: MessageRow): InboxMessage {
+  return {
+    id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
+    body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading", "processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
+  };
+}
+
+/** Mensagens anteriores a `before` (rolar para cima carrega o historico sozinho). */
+export async function loadOlderMessages(conversationId: string, before: string): Promise<{ messages: InboxMessage[]; hasOlder: boolean } | { error: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success || Number.isNaN(Date.parse(before))) return { error: "Pedido inválido." };
+    const { db, companyId } = await context();
+    const { data, error } = await db.from("messages").select(MESSAGE_COLUMNS)
+      .eq("conversation_id", conversationId).eq("company_id", companyId).lt("sent_at", before)
+      .order("sent_at", { ascending: false }).limit(PAGE + 1);
+    if (error) return { error: error.message };
+    return { messages: (data ?? []).slice(0, PAGE).reverse().map((m) => toMessage(m as MessageRow)), hasOlder: (data ?? []).length > PAGE };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Arquiva ou desarquiva (como no WhatsApp: continua arquivada quando chega mensagem). */
+export async function setConversationArchived(conversationId: string, archived: boolean): Promise<{ ok?: true; error?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const { db, companyId } = await context();
+    const { error } = await db.from("conversations").update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq("id", conversationId).eq("company_id", companyId);
+    return error ? { error: error.message } : { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
