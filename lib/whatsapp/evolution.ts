@@ -304,18 +304,21 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Abra o Docker Desktop e espere ele ficar 
 $dir = Join-Path $env:USERPROFILE "evolution-crm"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 Set-Location $dir
+if (Test-Path -LiteralPath docker-compose.yml) {
+  Copy-Item -LiteralPath docker-compose.yml -Destination ("docker-compose.backup-" + (Get-Date -Format "yyyyMMdd-HHmmssfff") + ".yml") -ErrorAction Stop
+}
 @'
 __COMPOSE__'@ | Set-Content -Encoding ascii -Path docker-compose.yml
-# O banco do WhatsApp so existe dentro do Docker (sem porta no PC). Se a Evolution
-# nao conseguir entrar nele (senha antiga de uma instalacao anterior), recria o banco.
+# O banco do WhatsApp fica dentro do Docker (sem porta no PC).
+# Nunca apagar volumes para corrigir uma falha de autenticacao.
 docker compose pull
+if ($LASTEXITCODE -ne 0) { Write-Host "Falha ao baixar imagens. Configuracao anterior preservada no backup." -ForegroundColor Red; return }
 docker compose up -d
+if ($LASTEXITCODE -ne 0) { Write-Host "Falha ao iniciar os servicos. Confira os logs; os volumes foram preservados." -ForegroundColor Red; return }
 Start-Sleep -Seconds 25
 if ((docker compose logs evolution --tail 80 2>&1 | Out-String) -match "password authentication failed|P1000|Authentication failed against database") {
-  Write-Host "Banco antigo com outra senha: recriando o banco do WhatsApp..." -ForegroundColor Yellow
-  docker compose down
-  docker volume rm -f evolution-crm_pgdata | Out-Null
-  docker compose up -d
+  Write-Host "Erro de autenticacao no banco. Dados preservados. Revise as credenciais e o backup do compose antes de tentar novamente." -ForegroundColor Red
+  return
 }
 Write-Host ""
 Write-Host "PRONTO. Em 1 a 2 minutos o CRM recebe o endereco sozinho. Volte na Central de IA." -ForegroundColor Green
