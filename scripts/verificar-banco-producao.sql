@@ -197,6 +197,9 @@ with expected_columns(table_name, column_name) as (
   ('trigger_workflow_event', 'p_company_id uuid, p_trigger_type text, p_trigger_data jsonb', 'e22f17210f520a8c3302cd547c309638'),
   ('update_gutter_quote', 'p_quote_id uuid, p_payload jsonb', '5883b068a5d4bf0d902cb5001000114b'),
   ('validate_user_role_company', '', '08cc6393854c1d7fec98f55fd070e685')
+,
+  ('save_gutter_quote_complete', 'p_payload jsonb, p_quote_id uuid', 'df4a08e8b4a89253ad14d9604b061b87'),
+  ('central_triage_activity', 'p_company_id uuid, p_since timestamp with time zone', '550d376d6b435da3af0d67544feb1f24')
 ), expected_triggers(table_name, trigger_name) as (values
   ('aluminum_price_matrix', 'trg_aluminum_matrix_updated'),
   ('clients', 'clients_block_duplicate'),
