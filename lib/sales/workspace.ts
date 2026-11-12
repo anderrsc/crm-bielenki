@@ -13,20 +13,23 @@ export type SaleWorkspaceData = {
 
 /** All relations belong to this sale, with both user RLS and explicit company filters. */
 export async function loadSaleWorkspace(db: SupabaseClient, id: string): Promise<SaleWorkspaceData | null> {
-  const { data, error } = await db.from("sales")
-    .select("id,company_id,sale_number,client_id,total,paid_amount,open_amount,financial_status,operational_status,client:clients(name,phone)").eq("id", id).single();
-  if (error || !data) return null;
-  const sale = data as unknown as SaleSummary;
   const rights = [
     ["financial_entries", "select"], ["financial_entries", "update"], ["payments", "insert"], ["orders", "select"], ["quotes", "select"],
     ["measurements", "select"], ["order_checklist_items", "select"], ["order_checklist_items", "update"], ["clients", "select"],
   ];
   let permissionError = false;
-  const permissions = await Promise.all(rights.map(async ([resource, action]) => {
-    const result = await db.rpc("has_table_access", { resource, action });
-    if (result.error) permissionError = true;
-    return [`${resource}:${action}`, !result.error && result.data === true] as const;
-  }));
+  // Venda e permissoes ao mesmo tempo (antes em fila).
+  const [{ data, error }, permissions] = await Promise.all([
+    db.from("sales")
+      .select("id,company_id,sale_number,client_id,total,paid_amount,open_amount,financial_status,operational_status,client:clients(name,phone)").eq("id", id).single(),
+    Promise.all(rights.map(async ([resource, action]) => {
+      const result = await db.rpc("has_table_access", { resource, action });
+      if (result.error) permissionError = true;
+      return [`${resource}:${action}`, !result.error && result.data === true] as const;
+    })),
+  ]);
+  if (error || !data) return null;
+  const sale = data as unknown as SaleSummary;
   const access = Object.fromEntries(permissions);
   const empty = { data: [], error: null };
   const [orderResult, quoteResult, entriesResult] = await Promise.all([
