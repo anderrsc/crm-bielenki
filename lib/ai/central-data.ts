@@ -25,13 +25,16 @@ const has = (v: unknown) => typeof v === "string" && v.trim().length > 0;
 export async function loadCentralData(db: SupabaseClient, companyId: string): Promise<CentralData> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
   const [configRes, companyRes, sessionsRes, leadsRes, outboundRes, workflowRes] = await Promise.all([
-    db.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+    db.from("ai_agent_config").select("active,agent_name,ai_provider,wpp_provider,groq_api_key,openai_api_key,whatsapp_number_id,whatsapp_token,evolution_api_url,evolution_instance,evolution_api_key,evolution_webhook_secret").eq("company_id", companyId).maybeSingle(),
     db.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
-    db.from("triage_sessions").select("id,nome,phone,status,produto,tipo_servico,score,prioridade,created_at,updated_at,messages").eq("company_id", companyId).gte("updated_at", since).order("updated_at", { ascending: false }).limit(200),
+    db.rpc("central_triage_activity", { p_company_id: companyId, p_since: since }),
     db.from("leads").select("id,name,score,priority,created_at").eq("company_id", companyId).eq("source", "WhatsApp").gte("created_at", since).order("created_at", { ascending: false }).limit(100),
     db.from("outbound_messages").select("id,automation_type,status,error_message,phone,scheduled_at,sent_at").eq("company_id", companyId).gte("scheduled_at", since).order("scheduled_at", { ascending: false }).limit(300),
-    db.from("workflow_executions").select("id,status,error_message,started_at").eq("company_id", companyId).gte("started_at", since).limit(300),
+    db.from("workflow_executions").select("status").eq("company_id", companyId).gte("started_at", since).limit(300),
   ]);
+  if ([configRes, companyRes, sessionsRes, leadsRes, outboundRes, workflowRes].some(result => result.error)) {
+    throw new Error("Não foi possível consultar todos os dados da Central de IA.");
+  }
 
   const cfg = (configRes.data ?? {}) as Record<string, unknown>;
   const provider = parseAiProvider(cfg.ai_provider);
@@ -78,14 +81,14 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
     if (last?.role === "system" && String(last.content).startsWith(AI_FAILURE_TAG)) return String(last.content).slice(AI_FAILURE_TAG.length).trim() || "Sem detalhe";
     return lastAssistant(messages).includes(AI_FALLBACK_MARK) ? "Cliente recebeu aviso de que a equipe vai responder" : null;
   };
-  const failedSessions = sessions.filter((s) => failureOf(s.messages) !== null);
+  const failedSessions = sessions.filter((s: { messages: unknown }) => failureOf(s.messages) !== null);
   const outbound = outboundRes.data ?? [];
   const workflows = workflowRes.data ?? [];
 
   const label = (s: { nome?: string | null; phone?: string | null }) => s.nome || (s.phone ? `…${String(s.phone).slice(-4)}` : "Cliente");
   const statusName: Record<string, string> = { em_andamento: "em andamento", concluida: "concluída", pos_venda: "pós-venda" };
   const events: CentralEvent[] = [
-    ...sessions.map((s) => failedSessions.includes(s)
+    ...sessions.map((s: { updated_at: string; nome?: string; phone?: string; status: string; tipo_servico?: string; produto?: string; prioridade?: string; messages: unknown }) => failedSessions.includes(s)
       ? { at: s.updated_at, kind: "falha" as const, title: `IA não respondeu: ${label(s)}`, detail: `${failureOf(s.messages)} · a equipe responde pelo Atendimento` }
       : { at: s.updated_at, kind: "triagem" as const, title: `Triagem ${statusName[s.status] ?? s.status}: ${label(s)}`, detail: [s.tipo_servico, s.produto, s.prioridade && `prioridade ${s.prioridade}`].filter(Boolean).join(" · ") || "Coletando dados" }),
     ...(leadsRes.data ?? []).map((l) => ({ at: l.created_at, kind: "lead" as const, title: `Lead criado: ${l.name}`, detail: `Score ${l.score ?? 0}${l.priority ? ` · prioridade ${l.priority}` : ""}` })),
@@ -101,9 +104,9 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
     checks,
     stats: {
       conversas: sessions.length,
-      emAndamento: sessions.filter((s) => s.status === "em_andamento").length,
-      concluidas: sessions.filter((s) => s.status === "concluida").length,
-      posVenda: sessions.filter((s) => s.status === "pos_venda").length,
+      emAndamento: sessions.filter((s: { status: string }) => s.status === "em_andamento").length,
+      concluidas: sessions.filter((s: { status: string }) => s.status === "concluida").length,
+      posVenda: sessions.filter((s: { status: string }) => s.status === "pos_venda").length,
       leads: leadsRes.data?.length ?? 0,
       falhasIa: failedSessions.length,
       enviadas: outbound.filter((o) => o.status === "sent").length,

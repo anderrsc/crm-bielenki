@@ -7,8 +7,9 @@ import { AlertTriangle, Bot, CheckCircle, MessageSquare, Pause, Play, Send, Test
 import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
-import { WhatsappConnect } from "@/components/whatsapp-connect";
-import { AnaRules } from "@/components/ana-rules";
+import dynamic from "next/dynamic";
+const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then(module => module.WhatsappConnect), { loading: () => <p role="status">Carregando conexão…</p> });
+const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
 
 const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType; cls: string }> = {
   triagem: { icon: MessageSquare, cls: "text-blue-600" },
@@ -31,6 +32,8 @@ function Stat({ label, value, alert }: { label: string; value: number; alert?: b
 export function AiCentral({ data, error }: { data: CentralData | null; error?: string }) {
   const [test, setTest] = useState<{ reply?: string; error?: string } | null>(null);
   const [testing, startTest] = useTransition();
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   if (!data) return <div className="card p-6 text-sm">Não foi possível carregar a Central de IA{error ? `: ${error}` : "."}</div>;
   const pending = data.checks.filter((c) => !c.ok);
@@ -73,8 +76,14 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
       </div>
 
-      <WhatsappConnect />
-      <AnaRules />
+      <details className="card p-4" onToggle={event => setConnectionOpen(event.currentTarget.open)}>
+        <summary className="cursor-pointer font-bold">Conexão do WhatsApp</summary>
+        {connectionOpen && <div className="mt-4"><WhatsappConnect /></div>}
+      </details>
+      <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
+        <summary className="cursor-pointer font-bold">Regras de atendimento</summary>
+        {rulesOpen && <div className="mt-4"><AnaRules /></div>}
+      </details>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Conversas no WhatsApp" value={s.conversas} />

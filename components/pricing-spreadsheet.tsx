@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, Check, Plus, Save, Search, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { bulkSavePrices } from "@/app/(crm)/pricing-actions";
+import { useMobile } from "@/lib/use-mobile";
 import {
   gutterCategories,
   gutterColors,
@@ -124,6 +125,7 @@ function emptyRow(): PriceRow {
 }
 
 export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: PriceRow[]; canManage: boolean }) {
+  const mobile = useMobile();
   const [rows, setRows] = useState<PriceRow[]>(() => initialRows.map(normalizeRow));
   // Depois de salvar, o revalidatePath da action traz as linhas do banco de novo: linhas novas ganham o id real (sem isso, salvar de novo duplicava).
   useEffect(() => { setRows(initialRows.map(normalizeRow)); }, [initialRows]);
@@ -260,7 +262,22 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
         </div>
       )}
 
-      <div ref={tableScroll} className="overflow-auto rounded-2xl border shadow-sm" style={{ maxHeight: "70vh" }}>
+      {mobile ? <div className="space-y-3" aria-label="Preços por produto">
+        {pageRows.map(row => <article key={row.id} className={`card p-4 ${dirty.has(row.id) ? "border-amber-400" : ""}`}>
+          <h3 className="mb-3 font-bold">{row.product}</h3>
+          <div className="grid min-w-0 grid-cols-2 gap-3">
+            {COLS.filter(col => !fieldHidden(row, col.key)).map(col => <label key={col.key} className={col.key === "product" || col.key === "notes" ? "col-span-2 min-w-0" : "min-w-0"}>
+              <span className="label">{col.label}</span>
+              {!canManage ? <span className="block break-words text-sm">{col.type === "bool" ? (row[col.key] ? "Sim" : "Não") : String(row[col.key] ?? "—")}</span>
+                : col.type === "bool" ? <input className="h-6 w-6" type="checkbox" checked={Boolean(row[col.key])} onChange={event => updateCell(row.id, col.key, event.target.checked)} />
+                : col.type === "select" ? <select className="field min-w-0" value={String(row[col.key] ?? "")} onChange={event => updateCell(row.id, col.key, event.target.value)}>{[...new Set([String(row[col.key] ?? ""), ...(col.options ?? [])])].map(option => <option key={option} value={option}>{option || "—"}</option>)}</select>
+                : <input className="field min-w-0" type={col.type === "number" ? "number" : "text"} inputMode={col.type === "number" ? "decimal" : undefined} min={col.type === "number" ? 0 : undefined} step={col.type === "number" ? "0.01" : undefined} value={String(row[col.key] ?? "")} onChange={event => updateCell(row.id, col.key, col.type === "number" ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value)} />}
+            </label>)}
+          </div>
+          {canManage && <button type="button" className="button-ghost mt-3 min-h-11 text-red-600" onClick={() => { if (window.confirm(`Excluir ${row.product}?`)) deleteRow(row.id); }}><Trash2 className="h-4 w-4" />Excluir produto</button>}
+        </article>)}
+        {!pageRows.length && <p className="card p-6 text-center">Nenhum produto encontrado.</p>}
+      </div> : <div ref={tableScroll} className="overflow-auto rounded-2xl border shadow-sm" style={{ maxHeight: "70vh" }}>
         <table className="text-left text-xs" style={{ minWidth: COLS.reduce((sum, col) => sum + parseInt(col.width), 0) + 80 }}>
           <thead className="sticky top-0 z-10 bg-cream/95 backdrop-blur">
             <tr>
@@ -305,7 +322,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/50">
         <span>{visible.length ? `${offset + 1}–${offset + pageRows.length} de ${visible.length} itens` : "0 itens"}</span>

@@ -1,4 +1,5 @@
 "use client";
+import { ClientSelect } from "./client-select";
 import { DraftQuoteAttachments } from "./quote-attachments";
 
 import { saveGutterQuote, updateGutterQuote } from "@/app/(crm)/actions";
@@ -408,17 +409,7 @@ export function GutterQuote({
           {/* Cliente */}
           <div id="quote-client" className="card p-5">
             <label className="label">Cliente</label>
-            <select className="field" value={clientId} onChange={e => setClientId(e.target.value)} required>
-              <option value="">Selecione o cliente</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.city ? ` · ${c.city}` : ""}{c.phone ? ` · ${c.phone}` : ""}
-                </option>
-              ))}
-            </select>
-            {!clients.length && (
-              <p className="mt-2 text-xs text-amber-700">Cadastre um cliente antes de criar o orçamento.</p>
-            )}
+            <ClientSelect items={clients} value={clientId} onChange={setClientId} />
           </div>
 
           {/* ── Itens Fabricados agrupados ── */}
