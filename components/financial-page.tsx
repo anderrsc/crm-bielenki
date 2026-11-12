@@ -41,14 +41,15 @@ const SITUACOES: Record<string, string> = { aberto: "Em aberto", vencido: "Venci
 
 export async function FinancialPage({ filter, error, received, created, notice, page = 1, filters = {} }: { filter?: string; error?: string; received?: boolean; created?: boolean; notice?: string; page?: number; filters?: FinancialFilters }) {
   const db = await getRequestClient();
+  page = Number.isSafeInteger(page) && page > 0 ? page : 1;
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
-  const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
   const term = (filters.q ?? "").trim().slice(0, 80);
-  const safeTerm = term.replace(/[,()*%\\]/g, " ").trim();
+  const safeTerm = term.replace(/[,.():*%"\\]/g, " ").trim();
   const situacao = filters.situacao && SITUACOES[filters.situacao] ? filters.situacao : undefined;
   const servico = filters.servico && /^[0-9a-f-]{36}$/i.test(filters.servico) ? filters.servico : undefined;
-  let q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);
+  let q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).order("id", { ascending: true }).range(from, to);
   if (filter) q = q.eq("entry_type", filter);
   if (safeTerm) q = q.or(`description.ilike.*${safeTerm}*,client_name.ilike.*${safeTerm}*,supplier_name.ilike.*${safeTerm}*`);
   if (isDate(filters.de)) q = q.gte("due_date", filters.de!);
@@ -57,24 +58,27 @@ export async function FinancialPage({ filter, error, received, created, notice, 
   if (situacao === "aberto") q = q.gt("open_amount", 0).neq("display_status", "cancelado");
   if (situacao === "vencido") q = q.eq("display_status", "vencido");
   if (situacao === "hoje") q = q.eq("display_status", "vence_hoje");
-  if (situacao === "pago") q = q.in("display_status", ["pago", "cancelado"]);
-  const [{ data }, { data: canCreate }, { data: totalsData }, { data: saleTypes }] = await Promise.all([
+  if (situacao === "pago") q = q.eq("display_status", "pago");
+  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }] = await Promise.all([
     q,
     db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
     // Totais de todos os lancamentos do filtro (antes somava so a pagina).
-    db.rpc("financial_totals", { p_type: filter ?? null, p_q: safeTerm || null, p_from: isDate(filters.de) ? filters.de : null, p_to: isDate(filters.ate) ? filters.ate : null, p_status: situacao ?? null, p_sale_type: servico ?? null }),
+    db.rpc("financial_control_totals", { p_type: filter ?? null, p_q: safeTerm || null, p_from: isDate(filters.de) ? filters.de : null, p_to: isDate(filters.ate) ? filters.ate : null, p_status: situacao ?? null, p_sale_type: servico ?? null }),
     db.from("sale_types").select("id,name").eq("active", true).order("name"),
   ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
-  const pageEntries = entries;
-  const t = (totalsData ?? null) as null | { pending_total: number; pending_count: number; overdue_total: number; overdue_count: number; today_count: number; done_count: number };
-  const overdueCount = t?.overdue_count ?? pageEntries.filter(e => e.display_status === "vencido" && e.open_amount > 0).length;
-  const todayCount = t?.today_count ?? pageEntries.filter(e => e.display_status === "vence_hoje").length;
-  const totalPending = t?.pending_total ?? pageEntries.filter(e => e.open_amount > 0 && e.display_status !== "cancelado").reduce((s, e) => s + e.open_amount, 0);
-  const pendingCount = t?.pending_count ?? pageEntries.filter(e => e.open_amount > 0 && e.display_status !== "cancelado").length;
-  const totalOverdue = t?.overdue_total ?? pageEntries.filter(e => e.display_status === "vencido" && e.open_amount > 0).reduce((s, e) => s + e.open_amount, 0);
-  const doneCount = t?.done_count ?? pageEntries.filter(e => ["pago", "cancelado"].includes(e.display_status)).length;
+  const t = !totalsError && totalsData ? totalsData as {
+    pending_total: number; pending_count: number; overdue_total: number; overdue_count: number;
+    today_count: number; done_count: number; receivable_total: number; payable_total: number;
+    undated_count: number; projection: { days: number; receivable: number; payable: number }[];
+  } : null;
+  const overdueCount = t?.overdue_count ?? 0;
+  const todayCount = t?.today_count ?? 0;
+  const totalPending = t?.pending_total ?? 0;
+  const pendingCount = t?.pending_count ?? 0;
+  const totalOverdue = t?.overdue_total ?? 0;
+  const doneCount = t?.done_count ?? 0;
   const base = filter ? `/financeiro/${filter}` : "/financeiro";
   const keep = new URLSearchParams(Object.entries({ q: term, de: isDate(filters.de) ? filters.de! : "", ate: isDate(filters.ate) ? filters.ate! : "", situacao: situacao ?? "", servico: servico ?? "" }).filter(([, v]) => v));
   const pageHref = (n: number) => { const p = new URLSearchParams(keep); p.set("pagina", String(n)); return `${base}?${p}`; };
@@ -110,6 +114,11 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
 
+      {(entriesError || !t || saleTypesError) && <div role="alert" className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {entriesError && <p>Não foi possível carregar os lançamentos. Atualize a página para tentar novamente.</p>}
+        {!t && <p>Totais indisponíveis. Nenhum valor parcial será apresentado como total.</p>}
+        {saleTypesError && <p>Não foi possível carregar os serviços do filtro.</p>}
+      </div>}
       <form method="get" action={base} className="mb-5 grid gap-2 rounded-2xl border border-sand bg-surface p-3 text-sm sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
         <div><label className="label">Buscar</label><input className="field" name="q" defaultValue={term} placeholder="Cliente, fornecedor ou descrição" /></div>
         <div><label className="label">Vencimento de</label><input className="field" type="date" name="de" defaultValue={isDate(filters.de) ? filters.de : ""} /></div>
@@ -126,11 +135,19 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         </div>
       )}
 
-      <div className="mobile-financial-summary mb-6 grid gap-4 sm:grid-cols-3">
+      {t && <div className="mobile-financial-summary mb-6 grid gap-4 sm:grid-cols-3">
         <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pendingCount} lançamento(s)</p></div>
         <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdueCount} lançamento(s)</p></div>
         <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{doneCount}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
-      </div>
+      </div>}
+      {t && <details className="card mb-6 p-4">
+        <summary className="cursor-pointer font-bold">Previsão de recebimentos e pagamentos</summary>
+        <p className="mt-3 text-sm text-ink/60">Lançamentos em aberto dos filtros atuais. Prazos acumulados de hoje até a data indicada; vencidos e contas sem vencimento ficam fora da projeção.</p>
+        <div className="my-3 flex flex-wrap gap-4 text-sm"><span>A receber: <strong>{money(t.receivable_total)}</strong></span><span>A pagar: <strong>{money(t.payable_total)}</strong></span></div>
+        {t.undated_count > 0 && <p className="mb-3 text-sm text-amber-800">{t.undated_count} lançamento(s) em aberto sem vencimento precisam de uma data.</p>}
+        <div className="overflow-x-auto"><table className="w-full min-w-[380px] text-sm"><caption className="sr-only">Projeção financeira acumulada por prazo</caption><thead><tr className="text-left"><th className="py-2">Prazo</th><th className="text-right">A receber</th><th className="text-right">A pagar</th><th className="text-right">Variação prevista</th></tr></thead><tbody>{t.projection.map(h => <tr key={h.days} className="border-t border-sand"><th className="py-3 text-left font-medium">{h.days} dias</th><td className="text-right">{money(h.receivable)}</td><td className="text-right">{money(h.payable)}</td><td className="text-right font-bold">{money(h.receivable - h.payable)}</td></tr>)}</tbody></table></div>
+        <p className="mt-3 text-xs text-ink/60">A variação prevista depende da liquidação das contas. O saldo bancário inicial e os custos não registrados não estão incluídos.</p>
+      </details>}
 
       {(page > 1 || hasNext) && (
         <div className="mb-4 flex items-center justify-between">
@@ -159,7 +176,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
             </tr>
           </thead>
           <tbody className="divide-y">
-            {entries.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-ink/40">Nenhum lançamento encontrado.</td></tr>}
+            {!entriesError && entries.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-ink/40">Nenhum lançamento encontrado.</td></tr>}
             {entries.map(e => {
               const s = STATUS[e.display_status] ?? STATUS["aguardando_pagamento"];
               const { Icon } = s;
