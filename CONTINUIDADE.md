@@ -1,3 +1,19 @@
+# PONTO EXATO PARA RETOMAR
+
+- PR #67 (categorias, centros de custos e baixas que preservam juros/desconto/parcelas): INTEGRADO na main (dab1b5b) com CI completo verde. Deploy da Vercel não foi conferido pela IA (sem acesso de rede ao site): conferir Ready/Production/Current no painel.
+- Pendência 2 (vínculo e rateios por obra/pedido): IMPLEMENTADA na branch claude/crm-system-not-working-3qhgyk. Ver o PR aberto com o label aplicar-migrations. Só marcar publicada depois de migration, CI, merge e deploy confirmados.
+- Próxima da fila depois dela: item 3 (DRE por competência, custos completos e margem por obra). Nenhum código de DRE iniciado.
+
+## O QUE A PENDÊNCIA 2 ENTREGA
+- Migration 20261112170000_financial_allocations.sql (aditiva e reaplicável): tabela financial_entry_allocations com RLS (leitura por permissão financeira; gravação só pela função), função set_financial_entry_allocations(conta, linhas) e view v_order_financials.
+- Rateio por valor ou percentual entre obras (pedidos) e centros de custos. A soma precisa fechar exatamente o total; no percentual a última linha recebe a sobra dos centavos. Linhas repetidas, cadastro de outra empresa, centro inativo e conta cancelada são recusados. Lista vazia remove o rateio. Auditoria com antes/depois em audit_logs.
+- Resultado por obra sem duplicar: conta rateada entra só pela parte rateada; conta a pagar sem rateio ligada à venda entra inteira; receita extra só de contas a receber sem venda.
+- Tela /financeiro/rateios (lista de contas, formulário de rateio e resultado por obra), links no Financeiro e botão "Ratear" em cada conta.
+- Arquivos: app/(crm)/financeiro/rateios/page.tsx, app/(crm)/financial-allocation-actions.ts, components/financial-allocation-form.tsx, tests/financial-allocations.test.ts, scripts/verificar-banco-producao.sql regenerado.
+- Limites conhecidos: o rateio não tem cenário próprio no teste de navegador (coberto por testes de banco e pela varredura de páginas); a obra é o pedido (orders) existente, sem cadastro separado de obra.
+
+---
+
 # Continuidade — CRM Bielenki
 
 ## Regra de continuidade
@@ -8,8 +24,8 @@ Trabalhar uma pendência de cada vez. Só marcar publicada depois de confirmar m
 - GitHub: https://github.com/anderrsc/crm-bielenki
 - Produção: https://crm-bielenki.vercel.app
 - Supabase: nfyiooalcaosjhpmvmqd
-- Main publicada: 06c4cf197c4adf793babeede9b9bdf6ba9af29b9 (PR #66).
-- Branch atual de trabalho: codex/financial-classification.
+- Main: dab1b5b (PR #67 integrado).
+- Branch atual de trabalho: claude/crm-system-not-working-3qhgyk.
 - Git local: $env:TEMP\crm-git\cmd\git.exe
 - Node/npm: $env:TEMP\crm-tools\node-v22.23.5-win-x64
 - Supabase CLI: npx --yes supabase@2.101.0. Criar migrations pela CLI.
