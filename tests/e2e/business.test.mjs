@@ -192,7 +192,14 @@ test("financeiro: segunda baixa mantém juros, desconto e três parcelas", async
   finally { await db.query("select set_config('request.jwt.claim.sub','',false)"); }
   const before = (await db.query("select to_char(first_installment_due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [entry.id])).rows[0];
   await page.goto(`${BASE}/financeiro/receber?q=${encodeURIComponent(description)}`, { waitUntil: "networkidle0" });
-  await clickAndWait(page, "Dar baixa");
+  // Abrir o dialogo nao navega: clique simples na linha do lancamento.
+  const opened = await page.evaluate((text) => {
+    const row = [...document.querySelectorAll("tr")].find((r) => r.innerText.includes(text) && r.innerText.includes("Dar baixa"));
+    const btn = row && [...row.querySelectorAll("button")].find((b) => b.innerText.includes("Dar baixa"));
+    btn?.click();
+    return Boolean(btn);
+  }, description);
+  assert.ok(opened, "linha do lancamento com 'Dar baixa' nao encontrada");
   await page.waitForSelector('[role="dialog"] input[name="amount"]');
   const defaults = await page.$eval('[role="dialog"] form', form => Object.fromEntries([...form.querySelectorAll('input[name]')].map(el => [el.name, el.value])));
   assert.equal(defaults.interest, "12");
