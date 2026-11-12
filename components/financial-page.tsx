@@ -118,6 +118,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       )}
       {filter !== "pagar" && <ReceivingAccountsManager />}
       <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
+      <Link href="/financeiro/rateios" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Rateios e resultado por obra</Link>
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
@@ -201,6 +202,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
+                      {canClassify === true && e.display_status !== "cancelado" && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/rateios?conta=${e.id}`}>Ratear</Link>}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
