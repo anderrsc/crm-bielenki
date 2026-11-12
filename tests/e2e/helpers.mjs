@@ -90,7 +90,9 @@ export async function selectByText(page, selector, text) {
 export async function setByLabel(page, label, value, nth = 0) {
   const ok = await page.evaluate((l, v, n) => {
     const labels = [...document.querySelectorAll("label")].filter((x) => x.textContent.trim() === l);
-    const el = labels[n]?.parentElement.querySelector("input, select, textarea");
+    const named = [...document.querySelectorAll("input[aria-label], select[aria-label], textarea[aria-label]")]
+      .filter((field) => field.getAttribute("aria-label") === l);
+    const el = named[n] ?? labels[n]?.control ?? labels[n]?.parentElement.querySelector("input, select, textarea");
     if (!el) return false;
     if (el.tagName === "SELECT" && ![...el.options].some((o) => o.value === v)) {
       const opt = [...el.options].find((o) => o.text.includes(v));
