@@ -13,12 +13,19 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
     supabase.rpc("current_user_roles"),
   ]);
   const roles = (roleValues as string[] | null) ?? [];
-  const viewable = isManagement(roles) ? moduleResources : (
+  const viewable = isManagement(roles) ? moduleResources : await viewableModules(supabase);
+  const company = profile?.companies as unknown as { name?: string } | null;
+  return <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "Marquinhos Calhas e Esquadrias"} roles={roles} viewable={viewable}>{children}</AppShell>;
+}
+
+async function viewableModules(supabase: Awaited<ReturnType<typeof getRequestClient>>): Promise<string[]> {
+  const { data, error } = await supabase.rpc("viewable_resources", { p_resources: moduleResources });
+  if (!error && Array.isArray(data)) return data as string[];
+  // Banco ainda sem a funcao nova: consulta modulo por modulo.
+  return (
     await Promise.all(moduleResources.map(async resource => {
       const { data } = await supabase.rpc("has_table_access", { resource, action: "select" });
       return data === true ? resource : null;
     }))
   ).filter((resource): resource is string => resource !== null);
-  const company = profile?.companies as unknown as { name?: string } | null;
-  return <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "Marquinhos Calhas e Esquadrias"} roles={roles} viewable={viewable}>{children}</AppShell>;
 }

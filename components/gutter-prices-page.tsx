@@ -1,3 +1,4 @@
+import { ConfirmButton } from "@/components/confirm-button";
 import Link from "next/link";
 import { ArrowLeft, LockKeyhole, Plus, Save, Trash2 } from "lucide-react";
 import { deleteGutterPrice, saveGutterPrice } from "@/app/(crm)/actions";
@@ -136,9 +137,9 @@ function EditableRow({ price }: { price: GutterPrice }) {
             <button title="Salvar" className="button-ghost p-2">
               <Save className="h-4 w-4" />
             </button>
-            <button title="Excluir" formAction={deleteGutterPrice} className="button-ghost p-2 text-red-600">
+            <ConfirmButton title="Excluir" formAction={deleteGutterPrice} className="button-ghost p-2 text-red-600">
               <Trash2 className="h-4 w-4" />
-            </button>
+            </ConfirmButton>
           </div>
         </form>
       </td>

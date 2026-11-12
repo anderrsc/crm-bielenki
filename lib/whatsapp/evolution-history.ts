@@ -66,11 +66,18 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
   }
 
   for (let i = 0; i < fresh.length; i += 200) {
-    const { error } = await db.from("messages").insert(fresh.slice(i, i + 200).map((r) => ({
+    const rows = fresh.slice(i, i + 200).map((r) => ({
       company_id: companyId, conversation_id: convByPhone.get(r.phone), direction: r.direction, author: r.author,
       sender_name: r.sender_name, body: r.body, external_id: r.external_id, sent_at: r.sent_at, delivery_status: r.direction === "outbound" ? "enviada" : null,
-    })));
-    if (error && error.code !== "23505") throw new Error(`Mensagens não gravadas: ${error.message}`);
+    }));
+    const { error } = await db.from("messages").insert(rows);
+    // Uma repetida recusava o lote inteiro: grava uma a uma, pulando so as repetidas.
+    if (error?.code === "23505") {
+      for (const row of rows) {
+        const { error: one } = await db.from("messages").insert(row);
+        if (one && one.code !== "23505") throw new Error(`Mensagens não gravadas: ${one.message}`);
+      }
+    } else if (error) throw new Error(`Mensagens não gravadas: ${error.message}`);
   }
 
   // Atualiza o resumo de cada conversa com a mensagem mais recente que ela tem.

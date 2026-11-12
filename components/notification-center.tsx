@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 type Notice={id:string;title:string;body:string|null;link:string|null;read_at:string|null};
 export function NotificationCenter(){
  const [open,setOpen]=useState(false),[notices,setNotices]=useState<Notice[]>([]),[key,setKey]=useState<string|null>(null),[error,setError]=useState(''),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false);
- useEffect(()=>{let active=true;const load=async()=>{try{const r=await fetch('/api/notifications');if(!r.ok)return;const d=await r.json();if(active){setNotices(d.notices??[]);setKey(d.publicKey);}}catch{}};load();const t=setInterval(load,30000);if('serviceWorker' in navigator)navigator.serviceWorker.register('/crm-sw.js').then(r=>r.pushManager?.getSubscription()).then(s=>{if(active)setEnabled(!!s)}).catch(()=>{});return()=>{active=false;clearInterval(t)}},[]);
+ useEffect(()=>{let active=true;const load=async()=>{try{const r=await fetch('/api/notifications');if(!r.ok)return;const d=await r.json();if(active){setNotices(d.notices??[]);setKey(d.publicKey);}}catch{}};load();const t=setInterval(()=>{if(document.visibilityState==='visible')load()},60000);const onShow=()=>{if(document.visibilityState==='visible')load()};document.addEventListener('visibilitychange',onShow);if('serviceWorker' in navigator)navigator.serviceWorker.register('/crm-sw.js').then(r=>r.pushManager?.getSubscription()).then(s=>{if(active)setEnabled(!!s)}).catch(()=>{});return()=>{active=false;clearInterval(t);document.removeEventListener('visibilitychange',onShow)}},[]);
  async function enable(){
   setError('');setBusy(true);
   try{

@@ -78,8 +78,10 @@ export function AluminumMatrix({
       setRows((prev) => prev.filter((r) => r.id !== id));
       return;
     }
+    if (!window.confirm("Excluir esta linha de preço?")) return;
     startTransition(async () => {
-      await deleteMatrixRow(id);
+      const result = await deleteMatrixRow(id);
+      if (result?.error) { setErrors((e) => ({ ...e, [id]: result.error! })); return; }
       setRows((prev) => prev.filter((r) => r.id !== id));
     });
   };

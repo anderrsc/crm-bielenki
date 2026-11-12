@@ -128,6 +128,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   return (
     <div className="mx-auto max-w-[1400px]">
       {mobile ? <><MobileAgenda cursor={cursor} view={mobileView} events={events} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
+        {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-bold text-ink/50">Carregando agenda…</p>}
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

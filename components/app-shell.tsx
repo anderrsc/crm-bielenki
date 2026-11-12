@@ -7,7 +7,9 @@ import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,UserCog,Users,WalletCards,X } from "lucide-react";
-import { useEffect,useRef,useState } from "react";
+import { Suspense,useEffect,useRef,useState } from "react";
+import { NavProgress } from "./nav-progress";
+import { InputHelpers } from "./input-helpers";
 import { LogoutButton } from "./logout-button";
 import { AuthorSignature,BrandLogo } from "./brand-logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -42,7 +44,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
     <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></LiveSearchForm>
     <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
-   <main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
+   <Suspense fallback={null}><NavProgress/></Suspense><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
    <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>

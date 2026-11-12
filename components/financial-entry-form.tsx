@@ -3,13 +3,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createFinancialEntry } from "@/app/(crm)/financial-actions";
 import { getRequestClient } from "@/lib/supabase/server";
+import { q } from "@/lib/back-url";
 
 export async function FinancialEntryForm({ type, error }: { type: "pagar" | "receber"; error?: string }) {
   const db = await getRequestClient();
   const back = `/financeiro/${type}`;
   const payable = type === "pagar";
   const { data: canCreate } = await db.rpc("has_table_access", { resource: "financial_entries", action: "insert" });
-  if (canCreate !== true) redirect(`${back}?erro=Você+não+tem+permissão+para+cadastrar+contas`);
+  if (canCreate !== true) redirect(`${q(back)}erro=Você+não+tem+permissão+para+cadastrar+contas`);
 
   const { data: parties } = await db.from(payable ? "suppliers" : "clients").select("id,name").order("name");
 

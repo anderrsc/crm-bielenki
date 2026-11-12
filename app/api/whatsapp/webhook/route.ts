@@ -188,9 +188,17 @@ export async function GET(req: NextRequest) {
 
 // POST: recebe mensagens do WhatsApp
 export async function POST(req: NextRequest) {
+  const body = await req.text();
+  let payload: any;
+  try { payload = JSON.parse(body); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
+  return handleWebhook(req, body, payload, false);
+}
+
+async function handleWebhook(req: NextRequest, body: string, payload: any, trusted: boolean): Promise<NextResponse> {
+  // Evento gravado na trava contra repetidos: se o processamento falhar, a trava
+  // e desfeita para que o reenvio do provedor seja processado (antes a mensagem sumia).
+  let lockedEvent: { provider: string; event_id: string } | null = null;
   try {
-    const body = await req.text();
-    const payload = JSON.parse(body);
 
     // Detecta formato: Evolution API ou Meta
     const isEvolution = !!(payload?.data?.key || payload?.event);
@@ -260,7 +268,7 @@ export async function POST(req: NextRequest) {
       // Meta WhatsApp Business API format
       const signature = req.headers.get("x-hub-signature-256") ?? "";
       const appSecret = process.env.WHATSAPP_APP_SECRET ?? "";
-      if (!verifySignature(body, signature, appSecret)) {
+      if (!trusted && !verifySignature(body, signature, appSecret)) {
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
       const entry = payload?.entry?.[0];
@@ -273,6 +281,19 @@ export async function POST(req: NextRequest) {
         const { data: cfg } = company ? { data: null } : await db.from("ai_agent_config").select("company_id").eq("whatsapp_number_id", phoneId).maybeSingle();
         const companyId = company?.id ?? cfg?.company_id;
         if (companyId) for (const status of value.statuses) await updateDelivery(db, companyId, String(status.id ?? ""), status.status);
+      }
+      // Lote com varias mensagens (ou varias entradas): cada uma e processada.
+      const batch = (payload?.entry ?? []).flatMap((e: any) => (e?.changes ?? []).flatMap((c: any) =>
+        (c?.value?.messages ?? []).map((m: any) => ({ e, c, m }))));
+      if (!trusted && batch.length > 1) {
+        let failed = 0;
+        for (const { e, c, m } of batch) {
+          const single = { ...payload, entry: [{ ...e, changes: [{ ...c, value: { ...c.value, statuses: undefined, messages: [m],
+            contacts: (c.value?.contacts ?? []).filter((x: any) => x?.wa_id === m?.from) } }] }] };
+          const res = await handleWebhook(req, body, single, true);
+          if (res.status >= 500) failed++;
+        }
+        return failed ? NextResponse.json({ error: `${failed} mensagens falharam` }, { status: 500 }) : NextResponse.json({ status: "batch", count: batch.length });
       }
       const messages = value?.messages;
       if (!messages?.length) return NextResponse.json({ status: "no_messages" });
@@ -305,6 +326,7 @@ export async function POST(req: NextRequest) {
         .select("event_id");
       if (dedupeError) throw new Error(`Deduplicação indisponível: ${dedupeError.message}`);
       if (!novo?.length) return NextResponse.json({ status: "duplicate" });
+      lockedEvent = { provider: isEvolution ? "evolution" : "meta", event_id: eventId };
     }
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
@@ -624,6 +646,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok", triagem_concluida: isConcluida });
   } catch (err) {
     console.error("Webhook error:", err);
+    if (lockedEvent) {
+      await getSupabase().from("whatsapp_webhook_events").delete().eq("provider", lockedEvent.provider).eq("event_id", lockedEvent.event_id)
+        .then(({ error }) => { if (error) console.error("Webhook: falha ao liberar evento:", error.message); }, () => undefined);
+    }
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

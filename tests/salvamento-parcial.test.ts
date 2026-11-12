@@ -12,7 +12,7 @@ vi.mock('next/headers',()=>({headers:async()=>({get:()=>null})}));
 vi.mock('@/lib/generate-quote-pdf',()=>({generateQuotePdfBuffer:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>{
   const from=(table:string)=>{
-    let result:any={data:{id:QUOTE,company_id:'company'},error:null};
+    let result:any={data:table==='quote_items'?[{id:'old-item'}]:{id:QUOTE,company_id:'company'},error:null};
     const q:any={then:(r:any,j:any)=>Promise.resolve(result).then(r,j),single:async()=>result,maybeSingle:async()=>result};
     for(const m of ['select','eq','neq','order','limit','in'])q[m]=()=>q;
     q.insert=(v:any)=>{state.inserts.push({table,v});if(state.failInsertOn===table)result={data:null,error:{message:'falha simulada'}};return q};
@@ -53,10 +53,15 @@ test('editar orcamento: itens complementares falham → aviso e subtotal so das 
   expect(subtotalUpdates()).not.toContain(160);
 });
 
-test('editar orcamento: falha ao limpar os itens antigos → para antes de gravar qualquer item novo',async()=>{
+test('editar orcamento: falha ao gravar os itens novos → os antigos nao sao apagados',async()=>{
+  state.failInsertOn='quote_items';
+  await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(/editar\?erro=/);
+  expect(state.deletes.filter(t=>t==='quote_items')).toHaveLength(0);
+});
+
+test('editar orcamento: falha ao limpar os antigos → avisa para salvar de novo',async()=>{
   state.failDeleteOn='quote_items';
   await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(/editar\?erro=/);
-  expect(state.inserts.filter(i=>i.table==='quote_items')).toHaveLength(0);
 });
 
 test('sessao expirada no meio do salvamento: aviso claro, sem quebrar',async()=>{

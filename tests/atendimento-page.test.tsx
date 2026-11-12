@@ -52,7 +52,7 @@ describe('Atendimento estilo WhatsApp', () => {
   test('pre-carrega as conversas do topo e abre na hora, sem "Carregando"', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => detail(id, id === 'a' ? 'Ana Cliente' : id));
     abrirTela([item('a', 'Ana Cliente'), item('c', 'Carla')]);
-    await waitFor(() => expect(actions.loadConversation).toHaveBeenCalledWith('a', { panel: false }));
+    await waitFor(() => expect(actions.loadConversation).toHaveBeenCalledWith('a', { panel: false }), { timeout: 3000 });
     // Abrir de novo nao espera o servidor: o detalhe pre-carregado aparece imediatamente.
     actions.loadConversation.mockImplementation(() => new Promise(() => {}));
     fireEvent.click(await screen.findByText('Ana Cliente'));

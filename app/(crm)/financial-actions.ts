@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
+import { q } from "@/lib/back-url";
 
 export async function createFinancialEntry(formData: FormData) {
   const type = z.enum(["pagar", "receber"]).safeParse(formData.get("entry_type"));
@@ -24,7 +25,7 @@ export async function createFinancialEntry(formData: FormData) {
 
   const db = await createClient();
   const { data: profile } = await selectOwnProfile<{ company_id: string }>(db, "company_id");
-  if (!profile?.company_id) redirect(`${back}?erro=Não+foi+possível+identificar+a+empresa`);
+  if (!profile?.company_id) redirect(`${q(back)}erro=Não+foi+possível+identificar+a+empresa`);
 
   const { id, party_id, notes, ...entry } = parsed.data;
   const payable = type.data === "pagar";
@@ -55,6 +56,6 @@ export async function createFinancialEntry(formData: FormData) {
 
   revalidatePath(back);
   revalidatePath("/financeiro");
-  redirect(`${back}?criado=1`);
+  redirect(`${q(back)}criado=1`);
 }
 

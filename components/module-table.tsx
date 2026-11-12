@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/status-label";
 import { LiveSearchForm } from "./live-search-form";
 import { StatusBadge } from "./status-badge";
 import Link from "next/link";
@@ -25,4 +26,4 @@ export function ModuleTable({ config, rows, base, query, error, page = 1, hasMor
   </div>;
 }
 
-function Status({ value }: { value: string }) { const normalized = value.toLowerCase(); const color = normalized.includes("atras") || normalized.includes("venc") || normalized.includes("bloq") ? "bg-red-50 text-red-700" : normalized.includes("pago") || normalized.includes("concl") || normalized.includes("recebido completo") || normalized.includes("ativo") ? "bg-emerald-50 text-emerald-700" : normalized.includes("parcial") ? "bg-orange-50 text-orange-700" : "bg-amber-50 text-amber-800"; return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>{value.replaceAll("_", " ")}</span> }
+function Status({ value }: { value: string }) { const normalized = value.toLowerCase(); const color = normalized.includes("atras") || normalized.includes("venc") || normalized.includes("bloq") ? "bg-red-50 text-red-700" : normalized.includes("pago") || normalized.includes("concl") || normalized.includes("recebido completo") || normalized.includes("ativo") ? "bg-emerald-50 text-emerald-700" : normalized.includes("parcial") ? "bg-orange-50 text-orange-700" : "bg-amber-50 text-amber-800"; return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>{statusLabel(value)}</span> }

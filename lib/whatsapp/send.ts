@@ -51,6 +51,7 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
     const response = await fetch(`${base}/message/sendText/${encodeURIComponent(c.evolutionInstance)}`, {
       redirect: "error",
       method: "POST",
+      signal: AbortSignal.timeout(20000),
       headers: { apikey: c.evolutionKey, "Content-Type": "application/json" },
       body: JSON.stringify({ number: to, text: body }),
     });
@@ -62,6 +63,7 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
   if (!c.metaToken || !c.phoneNumberId) throw new WhatsAppSendError("WhatsApp (Meta) não configurado: falta o token ou o Phone Number ID.");
   const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION()}/${c.phoneNumberId}/messages`, {
     method: "POST",
+    signal: AbortSignal.timeout(20000),
     headers: { Authorization: `Bearer ${c.metaToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } }),
   });

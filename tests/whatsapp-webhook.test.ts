@@ -9,7 +9,7 @@ const aiReply = vi.fn();
 function query(table: string) {
   const filters: Array<[string, unknown]> = [];
   let joinCompany = false;
-  let pending: { kind: 'insert' | 'update' | 'upsert'; data: Row } | null = null;
+  let pending: { kind: 'insert' | 'update' | 'upsert' | 'delete'; data: Row } | null = null;
   const rows = () => (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v))
     .map(r => joinCompany ? { ...r, company: (tables.companies ?? []).find(c => c.id === r.company_id) } : r);
   const run = () => {
@@ -17,6 +17,7 @@ function query(table: string) {
       const row = { id: `${table}-${(tables[table] ??= []).length + 1}`, ...pending.data };
       tables[table].push(row); return [row];
     }
+    if (pending?.kind === 'delete') { const keep = (tables[table] ??= []).filter(r => !filters.every(([k, v]) => r[k] === v)); const gone = tables[table].length - keep.length; tables[table] = keep; return Array(gone).fill({}); }
     if (pending?.kind === 'update') { const hit = (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v)); hit.forEach(r => Object.assign(r, pending!.data)); return hit; }
     return rows();
   };
@@ -27,6 +28,7 @@ function query(table: string) {
     insert: (data: Row) => { pending = { kind: 'insert', data }; return api; },
     upsert: (data: Row) => { pending = { kind: 'upsert', data }; return api; },
     update: (data: Row) => { pending = { kind: 'update', data }; return api; },
+    delete: () => { pending = { kind: 'delete', data: {} }; return api; },
     single: async () => { const r = run(); return { data: r[0] ?? null, error: r[0] ? null : { message: 'none' } }; },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
     then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: run(), error: null }).then(ok),
@@ -71,6 +73,31 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); aiReply.mockReset(); });
 
 describe('webhook WhatsApp (Meta)', () => {
+  test('lote com duas mensagens grava as duas', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi!', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const body = JSON.stringify({ entry: [{ changes: [{ value: { metadata: { phone_number_id: 'PNID' }, messages: [
+      { timestamp: Math.floor(Date.now()/1000), id: 'b1', from: '5547999990000', type: 'text', text: { body: 'primeira' } },
+      { timestamp: Math.floor(Date.now()/1000), id: 'b2', from: '5547999990001', type: 'text', text: { body: 'segunda' } },
+    ] } }] }] });
+    const sig = 'sha256=' + createHmac('sha256', SECRET).update(body).digest('hex');
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(new Request('https://crm.test/api/whatsapp/webhook', { method: 'POST', body, headers: { 'x-hub-signature-256': sig } }) as never);
+    expect((await res.json()).count).toBe(2);
+    expect(tables.messages.filter(m => m.direction === 'inbound').map(m => m.body)).toEqual(['primeira', 'segunda']);
+  });
+
+  test('falha no meio libera a trava: o reenvio do provedor e processado', async () => {
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    tables.companies = [];
+    const original = tables.ai_agent_config;
+    tables.ai_agent_config = null as never;
+    Object.defineProperty(tables, 'ai_agent_config', { configurable: true, get() { throw new Error('banco fora'); } });
+    const res = await POST(metaRequest('Oi', 'retry1') as never);
+    expect(res.status).toBe(500);
+    expect((tables.whatsapp_webhook_events ?? []).some(e => e.event_id === 'retry1')).toBe(false);
+    Object.defineProperty(tables, 'ai_agent_config', { configurable: true, writable: true, value: original });
+  });
+
   test('primeira mensagem ja recebe resposta da IA pela Meta', async () => {
     aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Olá! Sou a Ana. Qual seu nome?', dados_coletados: { tipo_servico: 'esquadrias' }, triagem_concluida: false, tipo_atendimento: 'comercial' }));
     const { POST } = await import('@/app/api/whatsapp/webhook/route');

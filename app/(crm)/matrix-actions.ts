@@ -58,9 +58,12 @@ export async function saveMatrixRow(row: {
   }
 }
 
-export async function deleteMatrixRow(id: string): Promise<void> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+export async function deleteMatrixRow(id: string): Promise<{ error?: string }> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return {};
   const db = await createClient();
-  await db.from("aluminum_price_matrix").delete().eq("id", id);
+  const { data, error } = await db.from("aluminum_price_matrix").delete().eq("id", id).select("id");
+  if (error) return { error: "Não foi possível excluir: " + error.message };
+  if (!data?.length) return { error: "Linha não excluída (sem permissão ou já removida)." };
   revalidatePath("/configuracoes/tabela-calhas");
+  return {};
 }

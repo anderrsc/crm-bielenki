@@ -63,6 +63,8 @@ function quemEnviou(m: InboxMessage) {
 
 export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[]; initialError?: string }) {
   const [items, setItems] = useState(initial);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const [listError, setListError] = useState(initialError);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"todas" | "naolidas" | "ana" | "equipe">("todas");
@@ -106,26 +108,31 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const prefetching = useRef(false);
   useEffect(() => {
     if (prefetching.current) return;
-    const fila = items.filter((c) => !c.archived && !cache.current.has(c.id)).slice(0, 15).map((c) => c.id);
+    const fila = items.filter((c) => !c.archived && !cache.current.has(c.id)).slice(0, 10).map((c) => c.id);
     if (!fila.length) return;
     prefetching.current = true;
     const worker = async () => {
       for (let id = fila.shift(); id; id = fila.shift()) {
+        if (document.visibilityState !== "visible") break;
         const r = await loadConversation(id, { panel: false }).catch(() => null);
         if (r && !("error" in r) && !cache.current.has(id)) cache.current.set(id, r);
       }
     };
-    void Promise.all([worker(), worker(), worker()]).finally(() => { prefetching.current = false; });
+    // Espera a tela assentar para nao disputar com abrir/enviar.
+    const t = setTimeout(() => { void Promise.all([worker(), worker()]).finally(() => { prefetching.current = false; }); }, 1200);
+    return () => { clearTimeout(t); prefetching.current = false; };
   }, [items]);
 
+  // Tempo real conectado: nada de atualizar a cada 15s. Sem ele, a consulta periodica cobre.
+  const live = useRef(false);
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
       void refreshList();
       if (selected.current) void refreshDetail(selected.current);
     };
-    refresh();
-    const timer = setInterval(refresh, 15000);
+    if (!initial.length) refresh();
+    const timer = setInterval(() => { if (!live.current) refresh(); }, 15000);
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("online", refresh);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("online", refresh); };
@@ -138,24 +145,58 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   useEffect(() => {
     if (!companyId) return;
     const db = createClient();
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (document.visibilityState !== "visible") return;
-        void refreshList();
-        if (selected.current) void refreshDetail(selected.current);
-      }, 200);
+    let listTimer: ReturnType<typeof setTimeout> | undefined;
+    let detailTimer: ReturnType<typeof setTimeout> | undefined;
+    const listSoon = (ms = 400) => {
+      clearTimeout(listTimer);
+      listTimer = setTimeout(() => { if (document.visibilityState === "visible") void refreshList(); }, ms);
+    };
+    const detailSoon = (id: string) => {
+      cache.current.delete(id);
+      if (selected.current !== id) return;
+      clearTimeout(detailTimer);
+      detailTimer = setTimeout(() => { if (selected.current === id) void refreshDetail(id); }, 150);
+    };
+    type Row = Record<string, unknown>;
+    // So o que mudou: a conversa alterada e corrigida na lista; mensagens recarregam so a conversa aberta.
+    const onConversation = (p: { eventType: string; new: Row; old: Row }) => {
+      const row = (p.eventType === "DELETE" ? p.old : p.new) as Row;
+      const id = String(row?.id ?? "");
+      if (!id) return listSoon();
+      if (p.eventType === "DELETE") { setItems((prev) => prev.filter((c) => c.id !== id)); return; }
+      const current = itemsRef.current.find((c) => c.id === id);
+      // Conversa nova, cliente ligado/trocado: busca a lista (com nomes) uma vez.
+      if (!current || current.clientId !== ((row.client_id as string | null) ?? null)) { listSoon(); return; }
+      setItems((prev) => {
+        const i = prev.findIndex((c) => c.id === id);
+        if (i < 0) return prev;
+        const next = [...prev];
+        next[i] = {
+          ...prev[i],
+          preview: String(row.last_message_preview ?? prev[i].preview ?? ""),
+          lastAt: (row.last_message_at as string | null) ?? prev[i].lastAt,
+          unread: Number(row.unread_count ?? 0),
+          aiPaused: !!row.ai_paused,
+          archived: !!row.archived_at,
+        };
+        return next.sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
+      });
     };
     const channel = db.channel(`atendimento:${companyId}`);
-    for (const table of ["messages", "conversations", "clients"]) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `company_id=eq.${companyId}` }, refresh);
-    }
-    channel.subscribe(status => {
-      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : "Reconectando · atualização a cada 15s");
-      if (status === "SUBSCRIBED") refresh();
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `company_id=eq.${companyId}` }, (p) => onConversation(p as never));
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `company_id=eq.${companyId}` }, (p) => {
+      const row = ((p as { new?: Row; old?: Row }).new ?? (p as { old?: Row }).old ?? {}) as Row;
+      if (row.conversation_id) detailSoon(String(row.conversation_id));
     });
-    return () => { clearTimeout(timer); void db.removeChannel(channel); };
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "clients", filter: `company_id=eq.${companyId}` }, () => listSoon(1500));
+    let first = true;
+    channel.subscribe(status => {
+      live.current = status === "SUBSCRIBED";
+      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : "Reconectando · atualização a cada 15s");
+      // Reconexao: pode ter perdido eventos, entao recarrega uma vez.
+      if (status === "SUBSCRIBED") { if (!first) { listSoon(0); if (selected.current) detailSoon(selected.current); } first = false; }
+    });
+    return () => { clearTimeout(listTimer); clearTimeout(detailTimer); live.current = false; void db.removeChannel(channel); };
   }, [companyId, refreshList, refreshDetail]);
 
   const visiveis = useMemo(() => {
@@ -327,7 +368,7 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
     if (!t || enviando) return;
     startEnvio(async () => {
       const r = await sendInboxMessage(c.id, t);
-      if (r.error) setErro(r.error); else { setErro(null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
+      if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
   };

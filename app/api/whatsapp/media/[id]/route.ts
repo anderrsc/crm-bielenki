@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if(!file)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
     const name=(msg.file_name||"arquivo").replace(/[^\w.\- ]/g,"_");
     const inline=/^(image\/(jpeg|png|webp)|audio\/[\w.+-]+|application\/pdf)$/.test(msg.media_type||"");
-    return new NextResponse(await file.arrayBuffer(),{headers:{"Content-Type":inline?msg.media_type:"application/octet-stream","Content-Disposition":`${inline?"inline":"attachment"}; filename="${name}"`,"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+    return new NextResponse(await file.arrayBuffer(),{headers:{"Content-Type":inline?msg.media_type:"application/octet-stream","Content-Disposition":`${inline?"inline":"attachment"}; filename="${name}"`,"Cache-Control":"private, max-age=86400","X-Content-Type-Options":"nosniff"}});
   }
   if(!msg.external_id)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
   const { data: cfg } = await admin.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance").eq("company_id", msg.company_id).maybeSingle();

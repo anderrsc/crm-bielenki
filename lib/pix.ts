@@ -24,7 +24,20 @@ export function normalizePixKey(raw: string): string {
   if (key.startsWith("+")) return `+${digits}`;
   if (/[.\-/]/.test(key) && (digits.length === 11 || digits.length === 14) && !/\(/.test(key)) return digits; // CPF/CNPJ com pontuação
   if (/\(|\)/.test(key) || (digits.length === 11 && digits[2] === "9" && !/^\d{11}$/.test(key))) return `+55${digits}`; // celular
+  // 11 digitos sem mascara: so e CPF se os digitos verificadores baterem; senao, celular.
+  if (/^\d{11}$/.test(key) && digits[2] === "9" && !validCpf(digits)) return `+55${digits}`;
   return digits.length ? digits : key;
+}
+
+export function validCpf(cpf: string): boolean {
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const check = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return check(9) === Number(cpf[9]) && check(10) === Number(cpf[10]);
 }
 
 export function pixCopiaECola(input: { key: string; name: string; city: string; amount: number; txid?: string }): string {
