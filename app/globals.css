@@ -501,4 +501,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 /* Botoes de icone com area de toque minima no celular */
 @media (max-width: 767px) {
   .button-ghost { min-height: 40px; min-width: 40px; }
+  .responsive-pricing-table thead { display: none; }
+  .responsive-pricing-table,
+  .responsive-pricing-table tbody,
+  .responsive-pricing-table tr,
+  .responsive-pricing-table td { display: block; width: 100%; }
+  .responsive-pricing-table .field { min-height: 44px; height: auto; min-width: 0; }
 }
