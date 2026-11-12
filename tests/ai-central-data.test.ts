@@ -21,9 +21,22 @@ describe('loadCentralData', () => {
     delete process.env.WHATSAPP_APP_SECRET;
     const d = await loadCentralData(db as never, 'c1');
     expect(d.stats).toMatchObject({ conversas: 2, concluidas: 1, emAndamento: 1, leads: 1, falhasIa: 1, falhasEnvio: 1 });
-    expect(d.wppProvider).toBe('meta');
+    // Escolheu Evolution: um numero antigo da Meta salvo nao muda isso.
+    expect(d.wppProvider).toBe('evolution');
     expect(d.checks.find(c => c.label.startsWith('Chave da IA'))!.ok).toBe(false);
-    expect(d.checks.find(c => c.label.startsWith('Segredo'))!.ok).toBe(false);
+    expect(d.checks.some(c => c.label.startsWith('Segredo'))).toBe(false);
+    expect(d.checks.find(c => c.label === 'WhatsApp (Evolution)')!.detail).toMatch(/ainda não mandou o endereço/);
     expect(d.events.some(e => e.kind === 'falha' && e.title.includes('…1234'))).toBe(true);
+  });
+
+  test('sem provedor escolhido, numero da Meta preenchido leva aos requisitos da Meta', async () => {
+    delete process.env.WHATSAPP_APP_SECRET;
+    const original = rows.ai_agent_config;
+    rows.ai_agent_config = [{ active: true, ai_provider: 'groq', groq_api_key: 'enc:x' }];
+    try {
+      const d = await loadCentralData(db as never, 'c1');
+      expect(d.wppProvider).toBe('meta');
+      expect(d.checks.find(c => c.label.startsWith('Segredo'))!.ok).toBe(false);
+    } finally { rows.ai_agent_config = original; }
   });
 });

@@ -41,7 +41,12 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const metaToken = has(cfg.whatsapp_token) || has(env.WHATSAPP_ACCESS_TOKEN);
   const evolution = has(cfg.evolution_api_url) && has(cfg.evolution_instance) && has(cfg.evolution_api_key)
     && (has(env.EVOLUTION_WEBHOOK_SECRET) || has(cfg.evolution_webhook_secret));
-  const wppProvider = cfg.wpp_provider === "meta" || (!evolution && (metaNumber || metaToken)) ? "meta" : "evolution";
+  // O provedor escolhido nas configuracoes manda; so sem escolha salva o
+  // sistema deduz pelo que esta preenchido (um numero antigo da Meta salvo
+  // nao pode fazer a Central cobrar requisitos da Meta de quem usa Evolution).
+  const wppProvider: "meta" | "evolution" = cfg.wpp_provider === "meta" || cfg.wpp_provider === "evolution"
+    ? cfg.wpp_provider
+    : !evolution && (metaNumber || metaToken) ? "meta" : "evolution";
   const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI" }[provider];
 
   const checks: CentralCheck[] = [
@@ -56,7 +61,13 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
       { label: "Token de verificação (Vercel)", ok: has(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN), detail: has(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) ? "Configurado" : "Falta WHATSAPP_WEBHOOK_VERIFY_TOKEN: a Meta não valida o webhook" },
     );
   } else {
-    checks.push({ label: "WhatsApp (Evolution)", ok: evolution, detail: evolution ? "Servidor configurado — veja a conexão abaixo" : "Conecte o WhatsApp no quadro abaixo" });
+    checks.push({
+      label: "WhatsApp (Evolution)",
+      ok: evolution,
+      detail: evolution ? "Servidor configurado — veja a conexão abaixo"
+        : !has(cfg.evolution_api_url) ? "O servidor do WhatsApp ainda não mandou o endereço: deixe o PC (ou a nuvem) com o servidor ligado — passo a passo no quadro abaixo"
+        : "Falta concluir a conexão no quadro abaixo (chave ou instância)",
+    });
   }
 
   const sessions = sessionsRes.data ?? [];
