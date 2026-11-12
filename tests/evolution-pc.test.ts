@@ -14,6 +14,13 @@ describe('Evolution no PC (Windows)', () => {
     expect(compose).toContain('$$H');
     expect(s).not.toContain('__');
   });
+  test('banco local nao trava com senha antiga (Evolution HTTP 502 em loop)', () => {
+    const s = evolutionWindowsScript(base);
+    expect(s).toContain('POSTGRES_HOST_AUTH_METHOD: trust');
+    expect(s).toMatch(/password authentication failed/);
+    expect(s).toContain('docker volume rm -f evolution-crm_pgdata');
+    expect(s.split("@'\n")[1].split("'@")[0]).not.toMatch(/ports:/);
+  });
   test('valores estranhos são recusados', () => {
     expect(() => evolutionWindowsScript({ ...base, crmUrl: 'https://x.com"; rm -rf /' })).toThrow();
   });

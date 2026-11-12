@@ -199,8 +199,17 @@ volumes:
   caddydata:
 YML
 
+# O banco do WhatsApp so existe dentro do Docker (sem porta no PC). Se a Evolution
+# nao conseguir entrar nele (senha antiga de uma instalacao anterior), recria o banco.
 docker compose pull
 docker compose up -d
+Start-Sleep -Seconds 25
+if ((docker compose logs evolution --tail 80 2>&1 | Out-String) -match "password authentication failed|P1000|Authentication failed against database") {
+  Write-Host "Banco antigo com outra senha: recriando o banco do WhatsApp..." -ForegroundColor Yellow
+  docker compose down
+  docker volume rm -f evolution-crm_pgdata | Out-Null
+  docker compose up -d
+}
 echo "PRONTO: https://$HOST"
 `;
 }
@@ -254,6 +263,7 @@ export function evolutionWindowsScript(p: { apiKey: string; hookSecret: string; 
       POSTGRES_USER: evolution
       POSTGRES_PASSWORD: __PGPASS__
       POSTGRES_DB: evolution
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - pgdata:/var/lib/postgresql/data
   redis:
@@ -296,8 +306,17 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 Set-Location $dir
 @'
 __COMPOSE__'@ | Set-Content -Encoding ascii -Path docker-compose.yml
+# O banco do WhatsApp so existe dentro do Docker (sem porta no PC). Se a Evolution
+# nao conseguir entrar nele (senha antiga de uma instalacao anterior), recria o banco.
 docker compose pull
 docker compose up -d
+Start-Sleep -Seconds 25
+if ((docker compose logs evolution --tail 80 2>&1 | Out-String) -match "password authentication failed|P1000|Authentication failed against database") {
+  Write-Host "Banco antigo com outra senha: recriando o banco do WhatsApp..." -ForegroundColor Yellow
+  docker compose down
+  docker volume rm -f evolution-crm_pgdata | Out-Null
+  docker compose up -d
+}
 Write-Host ""
 Write-Host "PRONTO. Em 1 a 2 minutos o CRM recebe o endereco sozinho. Volte na Central de IA." -ForegroundColor Green
 `;
