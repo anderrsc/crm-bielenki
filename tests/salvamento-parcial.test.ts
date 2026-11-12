@@ -1,6 +1,4 @@
-// Salvamento parcial do orcamento de calhas: se os itens complementares
-// (condutores, acessorios, pintura) nao gravarem, o usuario e avisado e o
-// subtotal volta a contar so as calhas (o PDF nunca mostra total maior que a soma).
+// Salvamento transacional: falhas não deixam orçamento parcialmente gravado.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const QUOTE='00000000-0000-4000-8000-000000000020';
@@ -34,41 +32,22 @@ const subtotalUpdates=()=>state.updates.filter(u=>u.table==='quotes'&&'subtotal'
 beforeEach(()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');state.rpc.mockResolvedValue({data:QUOTE,error:null});state.inserts=[];state.updates=[];state.deletes=[];state.failInsertOn='';state.failDeleteOn='';state.user={id:'00000000-0000-4000-8000-000000000001'};});
 afterEach(()=>{vi.clearAllMocks();vi.unstubAllEnvs();});
 
-test('novo orcamento: tudo grava e vai para a folha do orcamento',async()=>{
+test('novo orçamento envia itens e preferências em uma única RPC',async()=>{
   await expect(saveGutterQuote(form())).rejects.toThrow(`REDIRECT:/orcamentos/${QUOTE}`);
-  expect(state.inserts.some(i=>i.table==='quote_items')).toBe(true);
-  expect(subtotalUpdates().at(-1)).toBe(160);
+  expect(state.rpc).toHaveBeenCalledWith('save_gutter_quote_complete',expect.objectContaining({p_quote_id:null,p_payload:expect.objectContaining({special_items:expect.any(Array)})}));
+  expect(state.inserts.filter(i=>i.table==='quote_items')).toHaveLength(0);
+  expect(subtotalUpdates()).toEqual([]);
 });
-
-test('novo orcamento: itens complementares falham → aviso na edicao e subtotal so das calhas',async()=>{
-  state.failInsertOn='quote_items';
-  await expect(saveGutterQuote(form())).rejects.toThrow(/REDIRECT:\/orcamentos\/.*\/editar\?erro=.*complementares/);
-  expect(subtotalUpdates().at(-1)).toBe(100);
+test('falha transacional ao criar volta ao formulário sem salvar partes pelo cliente',async()=>{
+  state.rpc.mockResolvedValue({data:null,error:{message:'complemento rejeitado'}});
+  await expect(saveGutterQuote(form())).rejects.toThrow('REDIRECT:/orcamentos/calhas?erro=');
+  expect(state.inserts).toEqual([]); expect(state.updates).toEqual([]);
 });
-
-test('editar orcamento: itens complementares falham → aviso e subtotal so das calhas',async()=>{
-  state.failInsertOn='quote_items';
-  await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(/editar\?erro=.*complementares/);
-  expect(subtotalUpdates().at(-1)).toBe(100);
-  expect(subtotalUpdates()).not.toContain(160);
+test('falha transacional ao editar preserva os dados e volta à edição',async()=>{
+  state.rpc.mockResolvedValue({data:null,error:{message:'complemento rejeitado'}});
+  await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(`REDIRECT:/orcamentos/${QUOTE}/editar?erro=`);
+  expect(state.deletes).toEqual([]); expect(state.updates).toEqual([]);
 });
-
-test('editar orcamento: falha ao gravar os itens novos → os antigos nao sao apagados',async()=>{
-  state.failInsertOn='quote_items';
-  await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(/editar\?erro=/);
-  expect(state.deletes.filter(t=>t==='quote_items')).toHaveLength(0);
-});
-
-test('editar orcamento: falha ao limpar os antigos → avisa para salvar de novo',async()=>{
-  state.failDeleteOn='quote_items';
-  await expect(updateGutterQuote(form({quote_id:QUOTE}))).rejects.toThrow(/editar\?erro=/);
-});
-
-test('sessao expirada no meio do salvamento: aviso claro, sem quebrar',async()=>{
-  state.user=null;
-  await expect(saveGutterQuote(form())).rejects.toThrow(/REDIRECT/);
-});
-
 test('editar com id invalido nao chega no banco',async()=>{
   await expect(updateGutterQuote(form({quote_id:'nao-e-uuid'}))).rejects.toThrow('REDIRECT:/orcamentos?erro=');
   expect(state.rpc).not.toHaveBeenCalled();

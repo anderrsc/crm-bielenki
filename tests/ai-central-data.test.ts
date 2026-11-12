@@ -13,7 +13,7 @@ const rows: Record<string, unknown[]> = {
   outbound_messages: [{ automation_type: 'payment_reminder', status: 'failed', error_message: 'token expirado', phone: '5547', scheduled_at: now }],
   workflow_executions: [],
 };
-const db = { from: (t: string) => { const q: Record<string, unknown> = {}; for (const m of ['select', 'eq', 'gte', 'order', 'limit']) q[m] = () => q;
+const db = { rpc: async () => ({ data: rows.triage_sessions, error: null }), from: (t: string) => { const q: Record<string, unknown> = {}; for (const m of ['select', 'eq', 'gte', 'order', 'limit']) q[m] = () => q;
   q.maybeSingle = async () => ({ data: rows[t][0] ?? null }); q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: rows[t] }).then(ok); return q; } };
 
 describe('loadCentralData', () => {
