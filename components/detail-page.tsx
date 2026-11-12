@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/status-label";
 import Link from "next/link";
 import { ArrowLeft, Check, Circle, Clock3, ClipboardPenLine } from "lucide-react";
 import { deactivateClient, deleteClientRecord, toggleChecklistItem } from "@/app/(crm)/actions";
@@ -6,7 +7,7 @@ import { ModuleConfig } from "@/lib/modules";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 
-export async function DetailPage({ config, id, error: actionError }: { config: ModuleConfig; id: string; subpage?: string; error?: string }) {
+export async function DetailPage({ config, id, error: actionError, base }: { config: ModuleConfig; id: string; subpage?: string; error?: string; base?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
   const db = await getRequestClient();
   const { data, error } = await db.from(config.table).select(config.table === "clients" ? `${config.select},address,neighborhood,postal_code` : config.select).eq("id", id).single();
@@ -28,7 +29,7 @@ export async function DetailPage({ config, id, error: actionError }: { config: M
     : "";
 
   return <div className="mx-auto max-w-6xl">
-    <Link href={`/${config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+    <Link href={`/${base ?? config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
     {actionError && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
     <div className="card p-6 lg:p-8">
       {config.table === "clients" && <div className="no-print mb-5 flex flex-wrap justify-end gap-2"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deleteClientRecord} message="Apagar este cliente de vez? Esta ação não pode ser desfeita. Clientes com orçamento, venda ou lançamento no financeiro não podem ser apagados (use Desativar)." className="button-ghost text-red-700">Apagar cliente</ConfirmButton></form></div>}
@@ -52,5 +53,5 @@ export async function DetailPage({ config, id, error: actionError }: { config: M
 }
 
 const get = (row: Record<string, unknown>, path: string) => path.split(".").reduce<unknown>((value, key) => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, row);
-const format = (value: unknown, kind?: string) => kind === "money" ? money(value as number) : kind === "date" ? shortDate(value as string) : String(value ?? "-").replaceAll("_", " ");
+const format = (value: unknown, kind?: string) => kind === "money" ? money(value as number) : kind === "date" ? shortDate(value as string) : kind === "status" ? statusLabel(String(value ?? "-")) : String(value ?? "-").replaceAll("_", " ");
 function Missing({ message }: { message?: string }) { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-black">Registro não encontrado</h1><p className="mt-2 text-sm text-ink/50">{message ?? "Configure o Supabase e execute as migrações para consultar este registro."}</p></div>; }

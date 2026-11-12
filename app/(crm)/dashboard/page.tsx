@@ -16,17 +16,20 @@ async function loadLeadSources() {
   return (data ?? []) as { id: string; name: string }[];
 }
 
-async function loadDashboard() {
+async function loadDashboard(aba: string) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
   const db = await getRequestClient();
   const date = todayISO();
+  const geral = aba === "geral";
+  const none = Promise.resolve({ data: null });
   const [summaryRes, execRes, actionsRes, alertsRes, reportRes, upcomingRes] = await Promise.all([
     db.rpc("dashboard_summary"),
     db.rpc("dashboard_executivo"),
-    db.from("v_order_overview").select("*").neq("operational_status","finalizado").order("next_action_date",{ascending:true}).limit(6),
-    db.from("operational_alerts").select("*").eq("resolved",false).order("created_at",{ascending:false}).limit(5),
-    db.rpc("reporting_summary", {p_start: date.slice(0,4)+"-01-01", p_end:date}),
-    db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name,source").gte("starts_at",date).order("starts_at").limit(30),
+    // Acoes, alertas, relatorio do ano e agenda so aparecem na aba Geral.
+    geral ? db.from("v_order_overview").select("*").neq("operational_status","finalizado").order("next_action_date",{ascending:true}).limit(6) : none,
+    geral ? db.from("operational_alerts").select("*").eq("resolved",false).order("created_at",{ascending:false}).limit(5) : none,
+    geral ? db.rpc("reporting_summary", {p_start: date.slice(0,4)+"-01-01", p_end:date}) : none,
+    geral ? db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name,source").gte("starts_at",date).order("starts_at").limit(30) : none,
   ]);
   return {
     ...(summaryRes.data as Record<string,unknown> ?? {}),
@@ -45,7 +48,7 @@ const ALERTA_LABEL:Record<string,string>  = { critical:"CRÍTICO", high:"ALTO", 
 export default async function Dashboard({ searchParams }: { searchParams?: Promise<{ aba?: string }> }) {
   const sp   = searchParams ? await searchParams : {};
   const aba  = sp.aba ?? "geral";
-  const [data, sources] = await Promise.all([loadDashboard(), loadLeadSources()]);
+  const [data, sources] = await Promise.all([loadDashboard(aba), loadLeadSources()]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d    = data as any;
 

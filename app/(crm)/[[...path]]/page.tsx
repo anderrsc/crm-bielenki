@@ -1,8 +1,9 @@
+import dynamic from "next/dynamic";
 import { friendlyError } from "@/lib/friendly-error";
 import { SaleDetail } from "@/components/sale-detail";
-import { TriageDraftEditor } from "@/components/triage-draft-editor";
+const TriageDraftEditor = dynamic(() => import("@/components/triage-draft-editor").then((m) => m.TriageDraftEditor));
 import { DesignSystem } from "@/components/design-system";
-import { QuoteWorkspace } from "@/components/quote-workspace";
+const QuoteWorkspace = dynamic(() => import("@/components/quote-workspace").then((m) => m.QuoteWorkspace));
 import { loadActiveGutterPrices, loadGutterQuoteRates } from "@/lib/load-gutter-prices";
 import { selectOwnProfile } from "@/lib/own-profile";
 import { pageNumber, searchFilter } from "@/lib/query";
@@ -22,15 +23,17 @@ import { notFound } from "next/navigation";
 import { FinancialEntryForm } from "@/components/financial-entry-form";
 import { FinancialPage } from "@/components/financial-page";
 import { ClientForm } from "@/components/client-form";
-import { GutterQuote, type GutterQuoteInitial } from "@/components/gutter-quote";
+import { type GutterQuoteInitial } from "@/components/gutter-quote";
+const GutterQuote = dynamic(() => import("@/components/gutter-quote").then((m) => m.GutterQuote));
 import { DetailPage } from "@/components/detail-page";
 import { CompanySettings } from "@/components/company-settings";
 import { QuoteDocument } from "@/components/quote-document";
 import { scheduleQuotePdfPrewarm } from "@/lib/quote-pdf-cache";
-import { VisitSheet, type VisitSheetData } from "@/components/visit-sheet";
+import { type VisitSheetData } from "@/components/visit-sheet";
+const VisitSheet = dynamic(() => import("@/components/visit-sheet").then((m) => m.VisitSheet));
 import { AutomationSettings } from "@/components/automation-settings";
 import { AutomationsHub } from "@/components/automations-hub";
-import { WorkflowBuilder } from "@/components/workflow-builder";
+const WorkflowBuilder = dynamic(() => import("@/components/workflow-builder").then((m) => m.WorkflowBuilder));
 import { GlobalSearch } from "@/components/global-search";
 import { PipelinePage } from "@/components/pipeline-page";
 import { ReportsPage } from "@/components/reports-page";
@@ -39,27 +42,29 @@ import { InstallationChecklistPage } from "@/components/installation-checklist-p
 import { GutterPricesPage } from "@/components/gutter-prices-page";
 import { PricingCenter } from "@/components/pricing-center";
 import type { GutterPrice, QuoteClient } from "@/lib/gutters";
-import { ManualSaleForm } from "@/components/manual-sale-form";
-import { ManualPurchaseForm } from "@/components/manual-purchase-form";
+const ManualSaleForm = dynamic(() => import("@/components/manual-sale-form").then((m) => m.ManualSaleForm));
+const ManualPurchaseForm = dynamic(() => import("@/components/manual-purchase-form").then((m) => m.ManualPurchaseForm));
 import { LeadSourcesPage } from "@/components/lead-sources-page";
 import { SuppliersPage } from "@/components/suppliers-page";
 import { EmployeesPage } from "@/components/employees-page";
 import { RolesPage } from "@/components/roles-page";
-import { AiTriagePage } from "@/components/ai-triage-page";
+const AiTriagePage = dynamic(() => import("@/components/ai-triage-page").then((m) => m.AiTriagePage));
 import { normalizeTriageSession } from "@/lib/triage";
-import { AiCentral } from "@/components/ai-central";
-import { AtendimentoPage } from "@/components/atendimento-page";
+const AiCentral = dynamic(() => import("@/components/ai-central").then((m) => m.AiCentral));
+const AtendimentoPage = dynamic(() => import("@/components/atendimento-page").then((m) => m.AtendimentoPage));
 import { loadInbox } from "@/app/(crm)/atendimento-actions";
 import { loadCentralData } from "@/lib/ai/central-data";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { AuditLogPage } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
-import { WindowQuote } from "@/components/window-quote";
+const WindowQuote = dynamic(() => import("@/components/window-quote").then((m) => m.WindowQuote));
 import { encryptSecret, maskSecret } from "@/lib/encrypt";
-import { AgendaPage } from "@/components/agenda-page";
+const AgendaPage = dynamic(() => import("@/components/agenda-page").then((m) => m.AgendaPage));
 import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
-import { CompanyIdentityEditor, type LogoConfig } from "@/components/company-identity";
-import { TemplatesPage, type DocumentTemplate } from "@/components/templates-page";
+import { type LogoConfig } from "@/components/company-identity";
+const CompanyIdentityEditor = dynamic(() => import("@/components/company-identity").then((m) => m.CompanyIdentityEditor));
+import { type DocumentTemplate } from "@/components/templates-page";
+const TemplatesPage = dynamic(() => import("@/components/templates-page").then((m) => m.TemplatesPage));
 
 export default async function CatchAll({ params, searchParams }: { params: Promise<{ path?: string[] }>; searchParams: Promise<{ q?: string; erro?: string; criado?: string }> }) {
   const path = (await params).path ?? [];
@@ -151,7 +156,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
         whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
       } : null;
-      return <AiTriagePage config={safeConfig as Parameters<typeof AiTriagePage>[0]["config"]} sessions={(sessionsRes.data ?? []).map(normalizeTriageSession) as Parameters<typeof AiTriagePage>[0]["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro ?? (loadError ? `Falha ao consultar os dados: ${loadError}` : undefined)} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
+      return <AiTriagePage config={safeConfig as React.ComponentProps<typeof AiTriagePage>["config"]} sessions={(sessionsRes.data ?? []).map(normalizeTriageSession) as React.ComponentProps<typeof AiTriagePage>["sessions"]} tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro ?? (loadError ? `Falha ao consultar os dados: ${loadError}` : undefined)} ollamaReady={Boolean(process.env.OLLAMA_API_KEY)} />;
     }
     return <AiTriagePage config={null} sessions={[]} tab={tab} />;
   }
@@ -175,7 +180,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
       wf = wfRes.data; templates = tplRes.data ?? [];
     }
     if (!wf) return notFound();
-    return <WorkflowBuilder workflow={wf as Parameters<typeof WorkflowBuilder>[0]["workflow"]} templates={templates} />;
+    return <WorkflowBuilder workflow={wf as React.ComponentProps<typeof WorkflowBuilder>["workflow"]} templates={templates} />;
   }
   if (path[0] === "automacoes") {
     const tab = (search as { aba?: string }).aba ?? "fluxos";
@@ -188,7 +193,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
-  if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} />;
+  if (path[0] === "pipeline") return <PipelinePage error={search.erro} created={(search as { criado?: string }).criado === "1"} filters={search as never} />;
   if (path[0] === "relatorios") return <ReportsPage start={(search as { inicio?: string }).inicio} end={(search as { fim?: string }).fim} />;
   if (path[0] === "producao" && path[1] === "materiais-do-pedido") return <OrderMaterialsPage error={search.erro} received={(search as { recebido?: string }).recebido === "1"} />;
   if (path[0] === "producao" && path[1] && path[1] !== "materiais-do-pedido") return <ProductionFlowPage id={path[1]} error={search.erro} />;
@@ -257,14 +262,14 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const filter = path[1] === "receber" || path[1] === "pagar" ? path[1] : undefined;
     if (filter && path[2] === "novo") return <FinancialEntryForm type={filter} error={search.erro} />;
     const financialPage=pageNumber((search as {pagina?:string}).pagina);
-    return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} notice={(search as {ok?:string}).ok} page={financialPage}/>;
+    return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} notice={(search as {ok?:string}).ok} page={financialPage} filters={search as never}/>;
   }
   if (path[0] === "vendas" && path[1]) return <SaleDetail id={path[1]} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} />;
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
   const isMaterialsList = path[0] === "producao" && path[1] === "materiais-do-pedido";
-    if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} error={search.erro} />;
+    if (path[1] && path[1] !== "novo" && !isMaterialsList) return <DetailPage config={config} id={path[1]} subpage={path[2]} error={search.erro} base={path[0]} />;
   const PAGE_SIZE = 50;
   const page = pageNumber((search as { pagina?: string }).pagina);
   const from = (page - 1) * PAGE_SIZE;
@@ -277,14 +282,41 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const [orderColumn, ascending] = LIST_ORDER[config.table] ?? ["created_at", false];
     let request = db.from(config.table).select(config.select).order(orderColumn, { ascending }).order("id").range(from, to);
     if (path[0] === "orcamentos" && quoteStatus && ["rascunho","enviado","aprovado","recusado","cancelado"].includes(quoteStatus)) request = request.eq("status", quoteStatus);
-    if (search.q && config.search.length) request = request.or(searchFilter(config.search, search.q));
+    // Filtros de orcamentos/vendas: periodo, vendedor e servico.
+    const f = search as { de?: string; ate?: string; vendedor?: string; servico?: string };
+    const isDay = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const isId = (v?: string) => !!v && /^[0-9a-f-]{36}$/i.test(v);
+    if (path[0] === "orcamentos" || path[0] === "vendas") {
+      if (isDay(f.de)) request = request.gte("created_at", `${f.de}T00:00:00-03:00`);
+      if (isDay(f.ate)) request = request.lte("created_at", `${f.ate}T23:59:59-03:00`);
+      if (isId(f.vendedor)) request = request.eq("seller_id", f.vendedor!);
+      if (isId(f.servico)) request = request.eq("sale_type_id", f.servico!);
+    }
+    if (search.q && config.search.length) {
+      let clause = searchFilter(config.search, search.q);
+      // Orcamentos e vendas tambem pelo nome do cliente.
+      if ((path[0] === "orcamentos" || path[0] === "vendas") && search.q.trim().length >= 2) {
+        const { data: found } = await db.from("clients").select("id").or(searchFilter(["name"], search.q.trim())).limit(200);
+        if (found?.length) clause += `,client_id.in.(${found.map((c: { id: string }) => c.id).join(",")})`;
+      }
+      request = request.or(clause);
+    }
     const result = await request;
     const all = (result.data as unknown as Record<string, unknown>[]) ?? [];
     hasMore = all.length > PAGE_SIZE;
     rows = hasMore ? all.slice(0, PAGE_SIZE) : all;
     error = result.error?.message;
   }
-  if (path[0] === "orcamentos") return <QuoteWorkspace rows={rows} error={error} query={search.q} page={page} hasMore={hasMore} status={quoteStatus} />;
+  if (path[0] === "orcamentos") {
+    let sellers: { id: string; name: string }[] = []; let saleTypes: { id: string; name: string }[] = [];
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const db = await getRequestClient();
+      const [p, t] = await Promise.all([db.from("profiles").select("id,full_name").eq("status", "ativo").order("full_name"), db.from("sale_types").select("id,name").eq("active", true).order("name")]);
+      sellers = ((p.data ?? []) as { id: string; full_name: string }[]).map((x) => ({ id: x.id, name: x.full_name }));
+      saleTypes = (t.data ?? []) as { id: string; name: string }[];
+    }
+    return <QuoteWorkspace rows={rows} error={error} query={search.q} page={page} hasMore={hasMore} status={quoteStatus} filters={search as never} sellers={sellers} saleTypes={saleTypes} />;
+  }
   return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} page={page} hasMore={hasMore} />;
 }
 

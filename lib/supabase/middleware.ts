@@ -22,7 +22,10 @@ export async function updateSession(request: NextRequest) {
   const isLogin = request.nextUrl.pathname === "/login";
   if (!user && !isLogin) return NextResponse.redirect(new URL("/login", request.url));
   if (user && isLogin) return NextResponse.redirect(new URL("/dashboard", request.url));
-  if (user) {
+  // Rotas /api e server actions conferem permissao por conta propria (RLS): so a
+  // sessao e renovada aqui, sem a consulta de acesso a cada foto/acao.
+  const lightweight = request.nextUrl.pathname.startsWith("/api/") || (request.method === "POST" && request.headers.has("next-action"));
+  if (user && !lightweight) {
     const { resource, management } = moduleAccess(request.nextUrl.pathname);
     // Status do perfil, cargos e acesso ao modulo numa unica consulta.
     let { data: access, error } = await supabase.rpc("session_access", { p_resource: resource });

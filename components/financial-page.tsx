@@ -36,24 +36,49 @@ const TABS = [
 
 const PAGE_SIZE = 60;
 
-export async function FinancialPage({ filter, error, received, created, notice, page = 1 }: { filter?: string; error?: string; received?: boolean; created?: boolean; notice?: string; page?: number }) {
+export type FinancialFilters = { q?: string; de?: string; ate?: string; situacao?: string; servico?: string };
+const SITUACOES: Record<string, string> = { aberto: "Em aberto", vencido: "Vencidos", hoje: "Vencem hoje", pago: "Quitados" };
+
+export async function FinancialPage({ filter, error, received, created, notice, page = 1, filters = {} }: { filter?: string; error?: string; received?: boolean; created?: boolean; notice?: string; page?: number; filters?: FinancialFilters }) {
   const db = await getRequestClient();
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
-  const q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);
-  const [{ data }, { data: canCreate }] = await Promise.all([
-    filter ? q.eq("entry_type", filter) : q,
+  const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const term = (filters.q ?? "").trim().slice(0, 80);
+  const safeTerm = term.replace(/[,()*%\\]/g, " ").trim();
+  const situacao = filters.situacao && SITUACOES[filters.situacao] ? filters.situacao : undefined;
+  const servico = filters.servico && /^[0-9a-f-]{36}$/i.test(filters.servico) ? filters.servico : undefined;
+  let q = db.from("v_financial_entries").select("*").order("due_date", { ascending: true }).range(from, to);
+  if (filter) q = q.eq("entry_type", filter);
+  if (safeTerm) q = q.or(`description.ilike.*${safeTerm}*,client_name.ilike.*${safeTerm}*,supplier_name.ilike.*${safeTerm}*`);
+  if (isDate(filters.de)) q = q.gte("due_date", filters.de!);
+  if (isDate(filters.ate)) q = q.lte("due_date", filters.ate!);
+  if (servico) q = q.eq("sale_type_id", servico);
+  if (situacao === "aberto") q = q.gt("open_amount", 0).neq("display_status", "cancelado");
+  if (situacao === "vencido") q = q.eq("display_status", "vencido");
+  if (situacao === "hoje") q = q.eq("display_status", "vence_hoje");
+  if (situacao === "pago") q = q.in("display_status", ["pago", "cancelado"]);
+  const [{ data }, { data: canCreate }, { data: totalsData }, { data: saleTypes }] = await Promise.all([
+    q,
     db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
+    // Totais de todos os lancamentos do filtro (antes somava so a pagina).
+    db.rpc("financial_totals", { p_type: filter ?? null, p_q: safeTerm || null, p_from: isDate(filters.de) ? filters.de : null, p_to: isDate(filters.ate) ? filters.ate : null, p_status: situacao ?? null, p_sale_type: servico ?? null }),
+    db.from("sale_types").select("id,name").eq("active", true).order("name"),
   ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
-
-  const overdue  = entries.filter(e => e.display_status === "vencido" && e.open_amount > 0);
-  const dueToday = entries.filter(e => e.display_status === "vence_hoje");
-  const pending  = entries.filter(e => ["aguardando_pagamento","parcialmente_pago"].includes(e.display_status));
-  const done     = entries.filter(e => ["pago","cancelado"].includes(e.display_status));
-  const totalPending = pending.reduce((s, e) => s + e.open_amount, 0);
-  const totalOverdue = overdue.reduce((s, e) => s + e.open_amount, 0);
+  const pageEntries = entries;
+  const t = (totalsData ?? null) as null | { pending_total: number; pending_count: number; overdue_total: number; overdue_count: number; today_count: number; done_count: number };
+  const overdueCount = t?.overdue_count ?? pageEntries.filter(e => e.display_status === "vencido" && e.open_amount > 0).length;
+  const todayCount = t?.today_count ?? pageEntries.filter(e => e.display_status === "vence_hoje").length;
+  const totalPending = t?.pending_total ?? pageEntries.filter(e => e.open_amount > 0 && e.display_status !== "cancelado").reduce((s, e) => s + e.open_amount, 0);
+  const pendingCount = t?.pending_count ?? pageEntries.filter(e => e.open_amount > 0 && e.display_status !== "cancelado").length;
+  const totalOverdue = t?.overdue_total ?? pageEntries.filter(e => e.display_status === "vencido" && e.open_amount > 0).reduce((s, e) => s + e.open_amount, 0);
+  const doneCount = t?.done_count ?? pageEntries.filter(e => ["pago", "cancelado"].includes(e.display_status)).length;
+  const base = filter ? `/financeiro/${filter}` : "/financeiro";
+  const keep = new URLSearchParams(Object.entries({ q: term, de: isDate(filters.de) ? filters.de! : "", ate: isDate(filters.ate) ? filters.ate! : "", situacao: situacao ?? "", servico: servico ?? "" }).filter(([, v]) => v));
+  const pageHref = (n: number) => { const p = new URLSearchParams(keep); p.set("pagina", String(n)); return `${base}?${p}`; };
+  const hasFilters = keep.toString().length > 0;
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -85,17 +110,26 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
 
-      {(overdue.length > 0 || dueToday.length > 0) && (
+      <form method="get" action={base} className="mb-5 grid gap-2 rounded-2xl border border-sand bg-surface p-3 text-sm sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
+        <div><label className="label">Buscar</label><input className="field" name="q" defaultValue={term} placeholder="Cliente, fornecedor ou descrição" /></div>
+        <div><label className="label">Vencimento de</label><input className="field" type="date" name="de" defaultValue={isDate(filters.de) ? filters.de : ""} /></div>
+        <div><label className="label">até</label><input className="field" type="date" name="ate" defaultValue={isDate(filters.ate) ? filters.ate : ""} /></div>
+        <div><label className="label">Situação</label><select className="field" name="situacao" defaultValue={situacao ?? ""}><option value="">Todas</option>{Object.entries(SITUACOES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label className="label">Serviço</label><select className="field" name="servico" defaultValue={servico ?? ""}><option value="">Todos</option>{(saleTypes ?? []).map((x: { id: string; name: string }) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
+        <div className="flex items-end gap-2"><button className="button">Filtrar</button>{hasFilters && <Link href={base} className="pb-2 font-bold text-ink/55 underline">Limpar</Link>}</div>
+      </form>
+
+      {(overdueCount > 0 || todayCount > 0) && (
         <div className="mb-5 flex flex-wrap gap-3">
-          {overdue.length > 0 && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700"><AlertCircle className="h-4 w-4" />{overdue.length} vencido(s) &middot; {money(totalOverdue)} em aberto</div>}
-          {dueToday.length > 0 && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700"><AlertTriangle className="h-4 w-4" />{dueToday.length} vence(m) hoje</div>}
+          {overdueCount > 0 && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700"><AlertCircle className="h-4 w-4" />{overdueCount} vencido(s) &middot; {money(totalOverdue)} em aberto</div>}
+          {todayCount > 0 && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700"><AlertTriangle className="h-4 w-4" />{todayCount} vence(m) hoje</div>}
         </div>
       )}
 
       <div className="mobile-financial-summary mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pending.length} lançamento(s)</p></div>
-        <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdue.length} lançamento(s)</p></div>
-        <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{done.length}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
+        <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pendingCount} lançamento(s)</p></div>
+        <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdueCount} lançamento(s)</p></div>
+        <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{doneCount}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
       </div>
 
       {(page > 1 || hasNext) && (
@@ -103,12 +137,12 @@ export async function FinancialPage({ filter, error, received, created, notice, 
           <span className="text-sm text-ink/50">Página {page}</span>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page - 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
+              <Link href={pageHref(page - 1)} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
                 <ChevronLeft className="h-4 w-4" /> Anterior
               </Link>
             )}
             {hasNext && (
-              <Link href={`${filter ? `/financeiro/${filter}` : "/financeiro"}?pagina=${page + 1}`} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
+              <Link href={pageHref(page + 1)} className="flex items-center gap-1 rounded-xl border border-sand bg-surface px-3 py-2 text-sm font-semibold hover:bg-cream">
                 Próxima <ChevronRight className="h-4 w-4" />
               </Link>
             )}
