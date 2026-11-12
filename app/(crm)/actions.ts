@@ -16,7 +16,6 @@ import { z } from "zod";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
-import { gutterItemTypeForCategory } from "@/lib/gutters";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 import { todayISO } from "@/lib/utils";
 import { parseBRNumber } from "@/lib/br-number";
@@ -215,42 +214,6 @@ const gutterQuotePayloadSchema = z.object({
   if (payload.discount > subtotal + payload.freight) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Desconto maior que o subtotal" });
 });
 
-function gutterQuoteSubtotal(payload: z.infer<typeof gutterQuotePayloadSchema>) {
-  const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
-  const specials = payload.special_items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
-  return fabrication + specials;
-}
-
-// Itens complementares (condutores, acessórios, pintura, deslocamento) do orçamento de calhas.
-// Se falhar, o subtotal volta a contar só as calhas para o PDF nunca mostrar total maior que a soma dos itens.
-async function insertSpecialItems(db: Awaited<ReturnType<typeof createClient>>, quoteId: string, payload: z.infer<typeof gutterQuotePayloadSchema>): Promise<string | null> {
-  if (!payload.special_items.length) return null;
-  const { data: { user } } = await db.auth.getUser();
-  if (!user) return "Sessão expirada: entre de novo e salve o orçamento.";
-  const { data: prof } = await db.from("profiles").select("company_id").eq("id", user.id).single();
-  let error: { message: string } | null = prof?.company_id ? null : { message: "Empresa não encontrada" };
-  if (!error) ({ error } = await db.from("quote_items").insert(payload.special_items.map((item) => ({
-    quote_id: quoteId,
-    company_id: prof!.company_id,
-    product: item.product,
-    description: [item.item_type, item.description].filter(Boolean).join(" | ") || null,
-    unit: item.unit,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    item_type: gutterItemTypeForCategory(item.item_type),
-  }))));
-  if (!error) return null;
-  console.error("Erro ao gravar itens complementares do orçamento", quoteId, error);
-  const fabrication = payload.items.reduce((total, item) => total + item.quantity * item.meters * item.unit_price, 0);
-  await db.from("quotes").update({ subtotal: fabrication }).eq("id", quoteId);
-  return "Orçamento salvo, mas os itens complementares (condutores, acessórios, pintura) não foram gravados. Confira e salve de novo.";
-}
-
-// Gravado à parte: se a migration da coluna ainda não rodou, o resto do orçamento salva normalmente.
-async function saveTravelPriceFlag(db: Awaited<ReturnType<typeof createClient>>, quoteId: string, hide: boolean) {
-  await db.from("quotes").update({ hide_travel_price: hide }).eq("id", quoteId);
-}
-
 export async function saveGutterQuote(formData: FormData) {
   const db = await createClient();
   let payload: unknown;
@@ -259,28 +222,13 @@ export async function saveGutterQuote(formData: FormData) {
   const installationDeadline = String(formData.get("installation_deadline") || "").trim() || null;
   const parsed = gutterQuotePayloadSchema.safeParse(payload);
   if (!parsed.success) redirect("/orcamentos/calhas?erro=Revise os itens do orçamento");
-  const { data, error } = await db.rpc("create_gutter_quote", {
-    p_payload: {
-      ...parsed.data,
-      valid_until: validUntil,
-      installation_deadline: installationDeadline,
-    },
+  const { data, error } = await db.rpc("save_gutter_quote_complete", {
+    p_payload: { ...parsed.data, valid_until: validUntil, installation_deadline: installationDeadline },
+    p_quote_id: null,
   });
-  if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
-  if (data) {
-    const { error: totalError } = await db.from("quotes").update({
-      subtotal: gutterQuoteSubtotal(parsed.data),
-      hide_unit_prices: parsed.data.hide_unit_prices,
-      ...(validUntil ? { valid_until: validUntil } : {}),
-      installation_deadline: installationDeadline,
-    }).eq("id", data);
-    if (totalError) redirect(`/orcamentos/${data}/editar?erro=${encodeURIComponent("Orçamento criado, mas o total não foi atualizado: " + totalError.message)}`);
-    await saveTravelPriceFlag(db, String(data), parsed.data.hide_travel_price);
-    const specialError = await insertSpecialItems(db, String(data), parsed.data);
-    if (specialError) redirect(`/orcamentos/${data}/editar?erro=${encodeURIComponent(specialError)}`);
-  }
+  if (error || !data) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error?.message ?? "Não foi possível salvar o orçamento")}`);
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
-  if (data) await setSellerToCurrentUser(db, String(data));
+
   if (data) await schedulePdfPregeneration(db, data);
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
@@ -296,28 +244,11 @@ export async function updateGutterQuote(formData: FormData) {
   const p = payload as Record<string,unknown>;
   const parsed = gutterQuotePayloadSchema.safeParse(p);
   if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orçamento`);
-  // Validade em branco mantem a que ja existe (antes apagava e o PDF saia sem validade).
-  let keepValid=validUntil.trim();
-  if(!keepValid){const {data:cur}=await db.from("quotes").select("valid_until").eq("id",quoteId).maybeSingle();keepValid=cur?.valid_until??"";}
-  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,valid_until:keepValid,installation_deadline:installationDeadline}});
-  if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
-  if(data) {
-    // Grava os novos itens complementares antes de apagar os antigos: se falhar, nada some.
-    const {data:oldItems,error:oldError}=await db.from("quote_items").select("id").eq("quote_id", quoteId).neq("item_type","calha");
-    if(oldError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível ler os itens complementares. Salve de novo.")}`);
-    const specialError = await insertSpecialItems(db, quoteId, parsed.data);
-    if (specialError) redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(specialError)}`);
-    if(oldItems?.length){
-      const {error:deleteError}=await db.from("quote_items").delete().in("id", oldItems.map((r:{id:string})=>r.id));
-      if(deleteError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível atualizar os itens complementares. Salve de novo.")}`);
-    }
-    const {error:totalError}=await db.from("quotes").update({
-      subtotal: gutterQuoteSubtotal(parsed.data),
-      hide_unit_prices: parsed.data.hide_unit_prices,
-    }).eq("id", quoteId);
-    if(totalError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Itens salvos, mas o total não foi atualizado: "+totalError.message)}`);
-    await saveTravelPriceFlag(db, quoteId, parsed.data.hide_travel_price);
-  }
+  const { data, error } = await db.rpc("save_gutter_quote_complete", {
+    p_quote_id: quoteId,
+    p_payload: { ...parsed.data, valid_until: validUntil.trim(), installation_deadline: installationDeadline },
+  });
+  if (error || !data) redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error?.message ?? "Não foi possível salvar o orçamento")}`);
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if (data) await schedulePdfPregeneration(db, String(data));
   revalidatePath("/orcamentos");redirect(`/orcamentos/${data}`);
