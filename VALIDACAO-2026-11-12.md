@@ -28,8 +28,8 @@ Branch local: `codex/performance-mobile`.
 - PR #64 integrado em `main`, commit `2931c8ade4be6467a6acd59c853e1acdc0671892`. As três migrations anteriores constam em `crm_admin.migrations` em produção.
 - Nova migration aplicada em produção por transação; os hashes das duas funções conferem com a versão testada localmente. Execução anônima permanece bloqueada.
 - `automation-dispatcher` reimplantado com recuperação de reservas interrompidas e reserva atômica antes do envio. O endpoint de envio não foi invocado durante a validação.
-- Código enviado à branch `codex/performance-mobile`; conferência por Git não encontrou diferenças nos arquivos de produção em relação ao commit local testado. Merge e deploy desta branch estão em acompanhamento.
-- Execução do script Evolution no PC e rotação de Groq/Evolution ainda exigem acesso à instalação e aos provedores. A rotação de credenciais pelo navegador requer atuação do titular.
+- PR #65 integrado em `main`, commit `475a375017802781d748c559ab08317e70365cd8`, CI aprovado e deploy Vercel confirmado como Ready / Production.
+- Evolution local respondeu HTTP 200 (v2.3.7); PostgreSQL e túnel foram verificados sem exclusão de volumes. Não foi necessário reexecutar o instalador. Rotação de Groq/Evolution ainda pendente; novas credenciais pelo navegador exigem atuação do titular.
 - A auditoria integral do prompt mestre, incluindo financeiro e controle industrial, não está concluída nem certificada por esta entrega.
 
 ## Publicação e reversão
