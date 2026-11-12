@@ -12,6 +12,10 @@ type Entry = {
   entry_type: string;
   total_amount: number;
   paid_amount: number;
+  interest_amount: number;
+  discount_amount: number;
+  installment_count: number;
+  first_installment_due_date: string | null;
   open_amount: number;
   due_date: string | null;
   display_status: string;
@@ -197,7 +201,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
-                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} />}
+                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
                   </td>
