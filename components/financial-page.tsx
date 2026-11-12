@@ -17,6 +17,8 @@ type Entry = {
   display_status: string;
   client_name: string | null;
   supplier_name: string | null;
+  category_name: string | null;
+  cost_center_name: string | null;
 };
 
 const STATUS: Record<string, { label: string; color: string; Icon: typeof Clock }> = {
@@ -59,12 +61,13 @@ export async function FinancialPage({ filter, error, received, created, notice, 
   if (situacao === "vencido") q = q.eq("display_status", "vencido");
   if (situacao === "hoje") q = q.eq("display_status", "vence_hoje");
   if (situacao === "pago") q = q.eq("display_status", "pago");
-  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }] = await Promise.all([
+  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }, { data: canClassify }] = await Promise.all([
     q,
     db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
     // Totais de todos os lancamentos do filtro (antes somava so a pagina).
     db.rpc("financial_control_totals", { p_type: filter ?? null, p_q: safeTerm || null, p_from: isDate(filters.de) ? filters.de : null, p_to: isDate(filters.ate) ? filters.ate : null, p_status: situacao ?? null, p_sale_type: servico ?? null }),
     db.from("sale_types").select("id,name").eq("active", true).order("name"),
+    db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
   ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
@@ -110,6 +113,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         </div>
       )}
       {filter !== "pagar" && <ReceivingAccountsManager />}
+      <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
@@ -183,7 +187,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
               const isOverdue = e.display_status === "vencido";
               return (
                 <tr key={e.id} className={`hover:bg-cream/50 transition ${isOverdue ? "bg-red-50/30" : ""}`}>
-                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px] truncate">{e.description}</td>
+                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><p className="truncate">{e.description}</p><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
                   <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
                   <td data-label="Cliente / fornecedor" className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
                   <td data-label="Total" className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
@@ -192,6 +196,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                   <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
+                      {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>

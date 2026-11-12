@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createFinancialEntry } from "@/app/(crm)/financial-actions";
 import { getRequestClient } from "@/lib/supabase/server";
 import { q } from "@/lib/back-url";
+import { loadFinancialClassifications } from "@/lib/financial-classification";
+import { FinancialClassificationFields } from "@/components/financial-classification-fields";
 
 export async function FinancialEntryForm({ type, error }: { type: "pagar" | "receber"; error?: string }) {
   const db = await getRequestClient();
@@ -14,6 +16,8 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
   if (canCreate !== true) redirect(`${q(back)}erro=Você+não+tem+permissão+para+cadastrar+contas`);
 
   const { data: parties } = payable ? await db.from("suppliers").select("id,name").order("name") : await db.from("clients").select("id,name").eq("status", "ativo").order("name").order("id").limit(30);
+  const definitions = await loadFinancialClassifications(db).catch(() => null);
+  if (!definitions) return <div><Link href={back}>Voltar ao financeiro</Link><p role="alert">Não foi possível carregar as classificações. Atualize a página para cadastrar a conta.</p></div>;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -44,6 +48,7 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
             {parties?.map(party => <option key={party.id} value={party.id}>{party.name}</option>)}
           </select> : <ClientSelect items={parties ?? []} name="party_id" required={false} />}
         </label>
+        <FinancialClassificationFields {...definitions} type={type} />
         <label className="block">
           <span className="label">Observações (opcional)</span>
           <textarea className="field" name="notes" rows={3} maxLength={2000} />
