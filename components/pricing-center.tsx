@@ -1,4 +1,5 @@
 import { LiveSearchForm } from "./live-search-form";
+import { Children, cloneElement, isValidElement } from "react";
 import { GutterCatalog } from "@/components/gutter-catalog";
 import Link from "next/link";
 import { ArrowLeft, Boxes, Briefcase, History, Package, Palette, Plus, Save, Tag, Trash2, Search } from "lucide-react";
@@ -212,7 +213,7 @@ export async function PricingCenter({
             rows={paints}
             empty="Nenhuma cor cadastrada."
             renderEdit={row => (
-              <form action={savePaint} className="grid grid-cols-[1.5fr_1fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
+              <form action={savePaint} className="grid grid-cols-2 md:grid-cols-[1.5fr_1fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pintura`} />
                 <input className="field h-8 font-semibold" name="color" defaultValue={row.color} />
@@ -266,7 +267,7 @@ export async function PricingCenter({
             rows={parts}
             empty="Nenhuma peça cadastrada."
             renderEdit={row => (
-              <form action={saveSpecialPart} className="grid grid-cols-[2fr_.8fr_.8fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
+              <form action={saveSpecialPart} className="grid grid-cols-2 md:grid-cols-[2fr_.8fr_.8fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pecas-especiais`} />
                 <input className="field h-8 font-semibold" name="item_name" defaultValue={row.item_name} />
@@ -321,7 +322,7 @@ export async function PricingCenter({
             rows={services}
             empty="Nenhum serviço cadastrado."
             renderEdit={row => (
-              <form action={savePricingService} className="grid grid-cols-[2fr_.8fr_.8fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
+              <form action={savePricingService} className="grid grid-cols-2 md:grid-cols-[2fr_.8fr_.8fr_1.5fr_.4fr_auto] items-center gap-2 px-4 py-2">
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="_back" value={`${selfHref}?aba=servicos`} />
                 <input className="field h-8 font-semibold" name="service_name" defaultValue={row.service_name} />
@@ -524,7 +525,7 @@ function PricingTable<T extends { id: string; active: boolean }>({
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[600px] text-left text-sm">
+        <table className="responsive-pricing-table w-full text-left text-sm md:min-w-[600px]">
           <thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45">
             <tr>
               {headers.map(h => <th key={h} className="px-4 py-3">{h}</th>)}
@@ -535,7 +536,7 @@ function PricingTable<T extends { id: string; active: boolean }>({
             {rows.map(row => (
               <tr key={row.id} className={cn("transition hover:bg-cream/30", !row.active && "opacity-40")}>
                 <td colSpan={headers.length + (canManage ? 1 : 0)}>
-                  {canManage ? renderEdit(row) : renderRead(row)}
+                  {canManage ? labelPriceFields(renderEdit(row), headers) : labelReadPrices(renderRead(row), headers)}
                 </td>
               </tr>
             ))}
@@ -549,11 +550,25 @@ function PricingTable<T extends { id: string; active: boolean }>({
   );
 }
 
-function ReadCells({ cells, bold = [] }: { cells: (string|number)[]; bold?: number[] }) {
+function labelPriceFields(form: React.ReactNode, headers: string[]) {
+  if (!isValidElement<{ children?: React.ReactNode }>(form)) return form;
+  let index = 0;
+  return cloneElement(form, {}, Children.map(form.props.children, child => {
+    if (!isValidElement<{ type?: string }>(child) || !["input", "select"].includes(String(child.type)) || child.props.type === "hidden") return child;
+    const label = headers[index++];
+    return <label className="min-w-0"><span className="label md:sr-only">{label}</span>{child}</label>;
+  }));
+}
+
+function labelReadPrices(view: React.ReactNode, labels: string[]) {
+  return isValidElement<{ labels?: string[] }>(view) ? cloneElement(view, { labels }) : view;
+}
+
+function ReadCells({ cells, bold = [], labels = [] }: { cells: (string|number)[]; bold?: number[]; labels?: string[] }) {
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
+    <div className="grid grid-cols-2 items-center gap-4 px-4 py-3 md:flex">
       {cells.map((c, i) => (
-        <span key={i} className={cn("flex-1", bold.includes(i) ? "font-black" : "text-ink/65")}>{c}</span>
+        <span key={i} className={cn("min-w-0 flex-1 break-words", bold.includes(i) ? "font-black" : "text-ink/65")}><span className="label md:hidden">{labels[i]}</span>{c}</span>
       ))}
     </div>
   );

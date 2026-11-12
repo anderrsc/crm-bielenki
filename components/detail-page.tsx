@@ -10,17 +10,15 @@ import { money, shortDate } from "@/lib/utils";
 export async function DetailPage({ config, id, error: actionError, base }: { config: ModuleConfig; id: string; subpage?: string; error?: string; base?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
   const db = await getRequestClient();
-  const { data, error } = await db.from(config.table).select(config.table === "clients" ? `${config.select},address,neighborhood,postal_code` : config.select).eq("id", id).single();
+  const [{ data, error }, checklistResult] = await Promise.all([
+    db.from(config.table).select(config.table === "clients" ? `${config.select},address,neighborhood,postal_code` : config.select).eq("id", id).single(),
+    config.table === "v_order_overview"
+      ? db.from("order_checklist_items").select("id,title,status,due_date,completed_at,notes,responsible:profiles(full_name),sort_order").eq("order_id", id).order("sort_order")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
   if (error || !data) return <Missing message={error?.message} />;
-
   const record = data as unknown as Record<string, unknown>;
-  let checklist: Record<string, unknown>[] = [];
-  if (config.table === "v_order_overview") {
-    const result = await db.from("order_checklist_items")
-      .select("id,title,status,due_date,completed_at,notes,responsible:profiles(full_name),sort_order")
-      .eq("order_id", id).order("sort_order");
-    checklist = (result.data as unknown as Record<string, unknown>[]) ?? [];
-  }
+  const checklist = (checklistResult.data as unknown as Record<string, unknown>[]) ?? [];
   const title = String(record.name ?? record.order_number ?? record.sale_number ?? record.quote_number ?? config.singular);
 
   const postalCode = typeof record.postal_code === "string" ? record.postal_code.replace(/^(\d{5})(\d{3})$/, "$1-$2") : "";

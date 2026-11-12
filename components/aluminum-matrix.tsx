@@ -185,14 +185,14 @@ export function AluminumMatrix({
                         <button
                           onClick={() => handleSave(row)}
                           disabled={!!saving[row.id]}
-                          className="rounded p-1 text-forest opacity-0 transition group-hover:opacity-100 hover:bg-brand-strong/20"
+                          className="min-h-11 min-w-11 rounded p-2 text-forest opacity-100 transition md:opacity-0 md:group-hover:opacity-100 hover:bg-brand-strong/20"
                           title="Salvar"
                         >
                           <Save className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => handleDelete(row.id)}
-                          className="rounded p-1 text-red-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-50"
+                          className="min-h-11 min-w-11 rounded p-2 text-red-400 opacity-100 transition md:opacity-0 md:group-hover:opacity-100 hover:bg-red-50"
                           title="Excluir"
                         >
                           <Trash2 className="h-3 w-3" />

@@ -1,3 +1,4 @@
+import { ClientSelect } from "./client-select";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,7 +13,7 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
   const { data: canCreate } = await db.rpc("has_table_access", { resource: "financial_entries", action: "insert" });
   if (canCreate !== true) redirect(`${q(back)}erro=Você+não+tem+permissão+para+cadastrar+contas`);
 
-  const { data: parties } = await db.from(payable ? "suppliers" : "clients").select("id,name").order("name");
+  const { data: parties } = payable ? await db.from("suppliers").select("id,name").order("name") : await db.from("clients").select("id,name").eq("status", "ativo").order("name").order("id").limit(30);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -38,10 +39,10 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
         </div>
         <label className="block">
           <span className="label">{payable ? "Fornecedor" : "Cliente"} (opcional)</span>
-          <select className="field" name="party_id">
+          {payable ? <select className="field" name="party_id">
             <option value="">Sem vínculo</option>
             {parties?.map(party => <option key={party.id} value={party.id}>{party.name}</option>)}
-          </select>
+          </select> : <ClientSelect items={parties ?? []} name="party_id" required={false} />}
         </label>
         <label className="block">
           <span className="label">Observações (opcional)</span>
