@@ -148,3 +148,37 @@ test("receber material da compra no estoque (Materiais do pedido)", async () => 
   const mov = (await db.query("select count(*)::int n from stock_movements m join purchase_order_items i on i.id=m.purchase_order_item_id where i.purchase_order_id=$1", [state.poId])).rows[0].n;
   assert.ok(mov >= 1, "entrada no estoque nao registrada");
 });
+
+test("financeiro: sugestões, classificação de conta existente e cadastro de conta classificada", async () => {
+  await page.goto(`${BASE}/financeiro/classificacoes`, { waitUntil: "networkidle0" });
+  await clickAndWait(page, "Cadastrar sugestões iniciais");
+  await noProblem("sugestões financeiras");
+  const cid = (await db.query("select company_id from profiles order by created_at limit 1")).rows[0].company_id;
+  const category = (await db.query("select id from financial_categories where company_id=$1 and name='Outras receitas' and entry_type='receber'", [cid])).rows[0];
+  const center = (await db.query("select id from financial_cost_centers where company_id=$1 and name='Administração'", [cid])).rows[0];
+  assert.ok(category && center);
+  const before = (await db.query("select total_amount,paid_amount,due_date,status from financial_entries where id=$1", [state.saleEntry])).rows[0];
+  await page.goto(`${BASE}/financeiro/classificacoes?lancamento=${state.saleEntry}`, { waitUntil: "networkidle0" });
+  await page.select('select[name="category_id"]', category.id);
+  await page.select('select[name="cost_center_id"]', center.id);
+  await clickAndWait(page, "Salvar classificação");
+  await noProblem("classificar conta existente");
+  const saved = (await db.query("select category_id,cost_center_id,total_amount,paid_amount,due_date,status from financial_entries where id=$1", [state.saleEntry])).rows[0];
+  assert.equal(saved.category_id, category.id);
+  assert.equal(saved.cost_center_id, center.id);
+  const { category_id, cost_center_id, ...unchanged } = saved;
+  assert.deepEqual(unchanged, before);
+
+  await page.goto(`${BASE}/financeiro/receber/novo`, { waitUntil: "networkidle0" });
+  await setByLabel(page, "Descrição", `Receita classificada ${RUN}`);
+  await setByLabel(page, "Valor (R$)", "45,67");
+  await setByLabel(page, "Vencimento", new Date(Date.now() + 864e5).toISOString().slice(0, 10));
+  await page.select('select[name="category_id"]', category.id);
+  await page.select('select[name="cost_center_id"]', center.id);
+  await clickAndWait(page, "Salvar conta");
+  await noProblem("nova conta classificada");
+  const created = (await db.query("select category_id,cost_center_id,total_amount from financial_entries where company_id=$1 and description=$2", [cid, `Receita classificada ${RUN}`])).rows[0];
+  assert.equal(created.category_id, category.id);
+  assert.equal(created.cost_center_id, center.id);
+  assert.equal(Number(created.total_amount), 45.67);
+});
