@@ -25,3 +25,11 @@ describe('pix', () => {
     expect(m).toContain('Valor: R$ 500,00');
   });
 });
+
+import { normalizePixKey as nk, validCpf } from '@/lib/pix';
+import { test as t2, expect as e2 } from 'vitest';
+t2('celular so com numeros vira +55; CPF valido continua CPF', () => {
+  e2(nk('47999998888')).toBe('+5547999998888');
+  e2(validCpf('52998224725')).toBe(true);
+  e2(nk('52998224725')).toBe('52998224725');
+});

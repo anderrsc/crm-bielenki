@@ -47,7 +47,7 @@ export async function autoLinkClients(db: SupabaseClient, companyId: string): Pr
   return links.length;
 }
 
-export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean } = {}): Promise<InboxConversation> {
+export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean; retried?: boolean } = {}): Promise<InboxConversation> {
   const { data: found } = await db.from("conversations")
     .select("id,client_id,ai_paused,unread_count,contact_name")
     .eq("company_id", companyId).eq("channel", "whatsapp").eq("external_id", phone)
@@ -68,6 +68,8 @@ export async function getOrCreateConversation(db: SupabaseClient, companyId: str
     contact_name: cleanContactName(contactName), client_id: client?.id ?? null, status: "aberta",
     ...(opts.aiPaused ? { ai_paused: true } : {}),
   }).select("id,client_id,ai_paused,unread_count,contact_name").single();
+  // Outra mensagem do mesmo contato criou a conversa ao mesmo tempo: usa a dela.
+  if (error?.code === "23505" && !opts.retried) return getOrCreateConversation(db, companyId, phone, contactName, { ...opts, retried: true });
   if (error || !created) throw new Error(`Conversa não criada: ${error?.message}`);
   return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0, contact_name: cleanContactName(created.contact_name) };
 }

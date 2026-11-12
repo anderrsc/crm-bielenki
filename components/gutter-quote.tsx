@@ -12,6 +12,7 @@ import { automaticPaintItems, automaticPaintPrefix, fabricatedMeterPrice, paintM
 import { money, addDaysISO, todayISO, DEFAULT_QUOTE_VALIDITY_DAYS } from "@/lib/utils";
 import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useErrorDraft } from "@/lib/form-draft";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
 import { SubmitButton } from "@/components/submit-button";
 import { uniqueProductNames, normalizeProductName, isBeiralProduct, isTwoFloors, withFloors, withoutFloors } from "@/lib/gutter-catalog";
@@ -272,6 +273,12 @@ export function GutterQuote({
     initial?.installation_deadline ?? "Até 15 dias"
   );
 
+  // Erro ao salvar volta com tudo o que foi digitado.
+  const rememberDraft = useErrorDraft(`quote-draft:calhas:${initial?.id ?? "novo"}`,
+    { items, specialItems, discount, freight, hideUnitPrices, hideTravelPrice, clientId, notes, pickup, validUntil, installationDeadline },
+    (d) => { setItems(d.items); setSpecialItems(d.specialItems); setDiscount(d.discount); setFreight(d.freight); setHideUnitPrices(d.hideUnitPrices);
+      setHideTravelPrice(d.hideTravelPrice); setClientId(d.clientId); setNotes(d.notes); setPickup(d.pickup); setValidUntil(d.validUntil); setInstallationDeadline(d.installationDeadline); });
+
   /* ── Cálculos ── */
   const subtotalFab = useMemo(
     () => items.reduce((t, i) => t + i.quantity * i.meters * i.unit_price, 0),
@@ -391,7 +398,7 @@ export function GutterQuote({
       {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <nav className="quote-steps" aria-label="Etapas do orçamento"><a href="#quote-client">1. Cliente</a><a href="#quote-items">2. Itens</a><a href="#quote-attachments">3. Anexos internos</a><a href="#quote-conditions">4. Condições e revisão</a></nav>
-      <form action={initial ? updateGutterQuote : saveGutterQuote} className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <form action={initial ? updateGutterQuote : saveGutterQuote} onSubmit={rememberDraft} className="grid gap-5 xl:grid-cols-[1fr_340px]">
         {initial && <input type="hidden" name="quote_id" value={initial.id} />}
         <input type="hidden" name="payload" value={payload} />
         <input type="hidden" name="valid_until" value={validUntil} />

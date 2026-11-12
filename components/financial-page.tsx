@@ -36,7 +36,7 @@ const TABS = [
 
 const PAGE_SIZE = 60;
 
-export async function FinancialPage({ filter, error, received, created, page = 1 }: { filter?: string; error?: string; received?: boolean; created?: boolean; page?: number }) {
+export async function FinancialPage({ filter, error, received, created, notice, page = 1 }: { filter?: string; error?: string; received?: boolean; created?: boolean; notice?: string; page?: number }) {
   const db = await getRequestClient();
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -82,7 +82,7 @@ export async function FinancialPage({ filter, error, received, created, page = 1
       )}
       {filter !== "pagar" && <ReceivingAccountsManager />}
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
-      {received && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">Pagamento registrado com sucesso.</div>}
+      {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
 
       {(overdue.length > 0 || dueToday.length > 0) && (

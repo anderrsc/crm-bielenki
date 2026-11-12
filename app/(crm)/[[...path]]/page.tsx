@@ -1,3 +1,4 @@
+import { friendlyError } from "@/lib/friendly-error";
 import { SaleDetail } from "@/components/sale-detail";
 import { TriageDraftEditor } from "@/components/triage-draft-editor";
 import { DesignSystem } from "@/components/design-system";
@@ -64,6 +65,8 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const path = (await params).path ?? [];
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
+  // Erro tecnico do banco vira mensagem em portugues claro em todas as telas.
+  if (search.erro) search.erro = friendlyError(search.erro);
   if (path[0] === "design-system") return <DesignSystem />;
   const quoteStatus = (search as {status?:string}).status;
   if (path[0] === "dashboard") { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
@@ -254,7 +257,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const filter = path[1] === "receber" || path[1] === "pagar" ? path[1] : undefined;
     if (filter && path[2] === "novo") return <FinancialEntryForm type={filter} error={search.erro} />;
     const financialPage=pageNumber((search as {pagina?:string}).pagina);
-    return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} page={financialPage}/>;
+    return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} notice={(search as {ok?:string}).ok} page={financialPage}/>;
   }
   if (path[0] === "vendas" && path[1]) return <SaleDetail id={path[1]} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} />;
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];

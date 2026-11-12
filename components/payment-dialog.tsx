@@ -8,8 +8,11 @@ import { createPortal } from "react-dom";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { useFormStatus } from "react-dom";
 
-export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate, backHref="/financeiro", label="Dar baixa", buttonClassName }: { entryId: string; openAmount: number;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null;backHref?:string;label?:string;buttonClassName?:string }) {
+export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate, backHref, label="Dar baixa", buttonClassName }: { entryId: string; openAmount: number;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null;backHref?:string;label?:string;buttonClassName?:string }) {
   const [open, setOpen] = useState(false);
+  // Sem destino fixo: volta para a mesma pagina/aba em que a baixa foi feita.
+  const [here, setHere] = useState("/financeiro");
+  useEffect(() => { if (open) setHere(window.location.pathname + window.location.search); }, [open]);
   useEffect(() => {
     if (!open) return;
     const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
@@ -32,7 +35,7 @@ export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountA
           </div>
           <form action={registerPayment} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
             <input type="hidden" name="entry_id" value={entryId} />
-            <input type="hidden" name="_back" value={backHref} />
+            <input type="hidden" name="_back" value={backHref ?? here} />
             <div><label className="label">Valor pago</label><input className="field" name="amount" type="number" step="0.01" min="0.01" max={openAmount} defaultValue={openAmount} required /></div>
             <div className="grid grid-cols-2 gap-3"><div><label className="label">Juros</label><input className="field" name="interest" type="number" step="0.01" min="0" defaultValue={interestAmount}/></div><div><label className="label">Desconto</label><input className="field" name="discount" type="number" step="0.01" min="0" defaultValue={discountAmount}/></div></div>
             <div className="grid grid-cols-2 gap-3"><div><label className="label">Parcelas</label><input className="field" name="installments" type="number" min="1" max="60" defaultValue={installmentCount}/></div><div><label className="label">1º vencimento</label><input className="field" name="first_due_date" type="date" defaultValue={firstDueDate||localISODate()} required/></div></div>

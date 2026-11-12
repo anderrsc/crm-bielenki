@@ -1,6 +1,9 @@
 "use server";
+import { validIsoDate } from "@/lib/valid-date";
+import { friendlyError } from "@/lib/friendly-error";
 import { correctClientPhone } from "@/lib/client-phone";
 import { saveDraftQuoteAttachments } from "@/lib/quote-attachments";
+import { safeBack, q } from "@/lib/back-url";
 
 
 import { selectOwnProfile } from "@/lib/own-profile";
@@ -117,7 +120,7 @@ export async function deleteClientRecord(formData: FormData) {
 
 export async function registerPayment(formData: FormData) {
   const db = await createClient();
-  const requestedBack = String(formData.get("_back") || "/financeiro");
+  const requestedBack = safeBack(formData.get("_back"), "/financeiro");
   const saleReturn = requestedBack.match(/^\/vendas\/([^/?#]+)$/);
   const back = saleReturn && z.string().uuid().safeParse(saleReturn[1]).success ? requestedBack : requestedBack.startsWith("/financeiro") ? requestedBack : "/financeiro";
   const entryId = String(formData.get("entry_id") || formData.get("financial_entry_id") || "");
@@ -128,16 +131,16 @@ export async function registerPayment(formData: FormData) {
   const paidAt = String(formData.get("paid_at") || todayISO());
   const firstDueDate = String(formData.get("first_due_date")||paidAt);
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
-  if(!parsed.success) redirect(`${back}?erro=Revise+os+dados+do+pagamento`);
+  if(!parsed.success) redirect(`${q(back)}erro=Revise+os+dados+do+pagamento`);
   const accountId = String(formData.get("receiving_account_id") || "");
   const { data: paymentId, error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
-  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
   if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
     const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: accountId });
-    if (accError) { refreshPaymentViews(back); redirect(`${back}?erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
+    if (accError) { refreshPaymentViews(back); redirect(`${q(back)}erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
   }
-  refreshPaymentViews(back); redirect(`${back}?recebido=1`);
+  refreshPaymentViews(back); redirect(`${q(back)}recebido=1`);
 }
 
 function refreshPaymentViews(back: string) {
@@ -157,19 +160,19 @@ export async function rescheduleEntry(formData: FormData) {
   const { error } = await db.rpc("reschedule_entry", { p_entry_id: entryId, p_new_due_date: newDue, p_reason: reason });
   if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/financeiro");
-  redirect("/financeiro?recebido=1");
+  redirect("/financeiro?ok=Vencimento+renegociado");
 }
 
 export async function toggleChecklistItem(formData: FormData) {
   const db = await createClient();
   const id = String(formData.get("id"));
   const orderId = String(formData.get("order_id"));
-  const requestedBack = String(formData.get("_back") || "");
+  const requestedBack = safeBack(formData.get("_back"), "");
   const saleReturn = requestedBack.match(/^\/vendas\/([^/?#]+)$/);
   const back = saleReturn && z.string().uuid().safeParse(saleReturn[1]).success ? requestedBack : `/pedidos/${orderId}/checklist`;
   const status = String(formData.get("status")) === "concluido" ? "pendente" : "concluido";
   const { error } = await db.from("order_checklist_items").update({ status, completed_at: status === "concluido" ? new Date().toISOString() : null }).eq("id", id).eq("order_id", orderId);
-  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/pedidos/${orderId}`);
   revalidatePath("/vendas", "layout");
   if (saleReturn && back === requestedBack) redirect(`${back}#conferencia-medidas`);
@@ -265,12 +268,13 @@ export async function saveGutterQuote(formData: FormData) {
   });
   if (error) redirect(`/orcamentos/calhas?erro=${encodeURIComponent(error.message)}`);
   if (data) {
-    await db.from("quotes").update({
+    const { error: totalError } = await db.from("quotes").update({
       subtotal: gutterQuoteSubtotal(parsed.data),
       hide_unit_prices: parsed.data.hide_unit_prices,
-      valid_until: validUntil,
+      ...(validUntil ? { valid_until: validUntil } : {}),
       installation_deadline: installationDeadline,
     }).eq("id", data);
+    if (totalError) redirect(`/orcamentos/${data}/editar?erro=${encodeURIComponent("Orçamento criado, mas o total não foi atualizado: " + totalError.message)}`);
     await saveTravelPriceFlag(db, String(data), parsed.data.hide_travel_price);
     const specialError = await insertSpecialItems(db, String(data), parsed.data);
     if (specialError) redirect(`/orcamentos/${data}/editar?erro=${encodeURIComponent(specialError)}`);
@@ -281,7 +285,7 @@ export async function saveGutterQuote(formData: FormData) {
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
-export async function reversePayment(formData:FormData){const db=await createClient();const id=String(formData.get("payment_id")||"");const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);revalidatePath("/financeiro");redirect("/financeiro?recebido=1");}
+export async function reversePayment(formData:FormData){const db=await createClient();const id=String(formData.get("payment_id")||"");if(!z.string().uuid().safeParse(id).success)redirect("/financeiro?erro=Pagamento inválido");const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);revalidatePath("/financeiro");redirect("/financeiro?ok=Pagamento+estornado");}
 
 export async function updateGutterQuote(formData: FormData) {
   const db=await createClient();const quoteId=String(formData.get("quote_id")||"");let payload:unknown;
@@ -292,17 +296,26 @@ export async function updateGutterQuote(formData: FormData) {
   const p = payload as Record<string,unknown>;
   const parsed = gutterQuotePayloadSchema.safeParse(p);
   if(!parsed.success)redirect(`/orcamentos/${quoteId}/editar?erro=Revise os itens do orçamento`);
-  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,valid_until:validUntil,installation_deadline:installationDeadline}});
+  // Validade em branco mantem a que ja existe (antes apagava e o PDF saia sem validade).
+  let keepValid=validUntil.trim();
+  if(!keepValid){const {data:cur}=await db.from("quotes").select("valid_until").eq("id",quoteId).maybeSingle();keepValid=cur?.valid_until??"";}
+  const {data,error}=await db.rpc("update_gutter_quote",{p_quote_id:quoteId,p_payload:{...parsed.data,valid_until:keepValid,installation_deadline:installationDeadline}});
   if(error)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(error.message)}`);
   if(data) {
-    const {error:deleteError}=await db.from("quote_items").delete().eq("quote_id", quoteId).neq("item_type","calha");
-    if(deleteError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível atualizar os itens complementares. Salve de novo.")}`);
+    // Grava os novos itens complementares antes de apagar os antigos: se falhar, nada some.
+    const {data:oldItems,error:oldError}=await db.from("quote_items").select("id").eq("quote_id", quoteId).neq("item_type","calha");
+    if(oldError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível ler os itens complementares. Salve de novo.")}`);
     const specialError = await insertSpecialItems(db, quoteId, parsed.data);
     if (specialError) redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent(specialError)}`);
-    await db.from("quotes").update({
+    if(oldItems?.length){
+      const {error:deleteError}=await db.from("quote_items").delete().in("id", oldItems.map((r:{id:string})=>r.id));
+      if(deleteError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Não foi possível atualizar os itens complementares. Salve de novo.")}`);
+    }
+    const {error:totalError}=await db.from("quotes").update({
       subtotal: gutterQuoteSubtotal(parsed.data),
       hide_unit_prices: parsed.data.hide_unit_prices,
     }).eq("id", quoteId);
+    if(totalError)redirect(`/orcamentos/${quoteId}/editar?erro=${encodeURIComponent("Itens salvos, mas o total não foi atualizado: "+totalError.message)}`);
     await saveTravelPriceFlag(db, quoteId, parsed.data.hide_travel_price);
   }
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
@@ -366,6 +379,8 @@ export async function approveQuote(formData: FormData) {
   const db = await createClient();
   const quoteId = String(formData.get("quote_id"));
   const dueDate = String(formData.get("due_date") || "") || null;
+  if (!z.string().uuid().safeParse(quoteId).success) redirect("/orcamentos?erro=Orçamento inválido");
+  if (dueDate && !validIsoDate(dueDate)) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent("Data de vencimento inválida")}`);
   const { data, error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate });
   if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
@@ -448,19 +463,19 @@ export async function updateInstallationStatus(formData:FormData) {
 
 export async function saveGutterPrice(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
-  const back=String(formData.get("_back")||"/configuracoes/tabela-calhas?aba=materia-prima");
-  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${back}&erro=Empresa+não+encontrada`);
+  const back=safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=materia-prima");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${q(back)}erro=Empresa+não+encontrada`);
   const id=String(formData.get("id")||"");const product=String(formData.get("product")||"").trim();const thickness=String(formData.get("thickness")||"");const cutMm=Number(formData.get("cut_mm"));const unitPrice=parseBRNumber(formData.get("unit_price")||"0")??NaN;
-  if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect(`${back}&erro=Revise+produto,+espessura,+corte+e+preço`);
+  if(!product||!thickness||!cutMm||!Number.isFinite(unitPrice)||unitPrice<0)redirect(`${q(back)}erro=Revise+produto,+espessura,+corte+e+preço`);
   const color=String(formData.get("color")||"").trim()||null;
   const values={company_id:profile.company_id,product,thickness,cut_mm:cutMm,color,unit_price:unitPrice,notes:String(formData.get("notes")||"").trim(),active:formData.get("active")==="on",updated_at:new Date().toISOString()};
-  const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`${back}&erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect(`${back}&salvo=1`);
+  const result=id?await db.from("gutter_prices").update(values).eq("id",id):await db.from("gutter_prices").insert(values);if(result.error)redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");revalidatePath("/orcamentos/calhas");redirect(`${q(back)}salvo=1`);
 }
 
 export async function deleteGutterPrice(formData:FormData) {
-  const db=await createClient();const back=String(formData.get("_back")||"/configuracoes/tabela-calhas?aba=materia-prima");
-  const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`${back}&erro=${encodeURIComponent(pgErr(error.message))}`);
+  const db=await createClient();const back=safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=materia-prima");
+  const {error}=await db.from("gutter_prices").delete().eq("id",String(formData.get("id")));if(error)redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas");revalidatePath("/tabela-calhas");redirect(back);
 }
 
@@ -494,28 +509,21 @@ export async function saveLeadSource(formData:FormData) {
 
 export async function saveSupplier(formData:FormData) {
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
-  const back=String(formData.get("_back")||"/configuracoes/fornecedores");
-  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${back}?erro=Empresa+não+encontrada`);
-  const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();if(!name)redirect(`${back}?erro=Informe+o+nome+do+fornecedor`);
+  const back=safeBack(formData.get("_back"), "/configuracoes/fornecedores");
+  const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${q(back)}erro=Empresa+não+encontrada`);
+  const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();if(!name)redirect(`${q(back)}erro=Informe+o+nome+do+fornecedor`);
   const values={company_id:profile.company_id,name,tax_id:String(formData.get("tax_id")||"").trim()||null,phone:String(formData.get("phone")||"").trim()||null,whatsapp:String(formData.get("whatsapp")||"").trim()||null,email:String(formData.get("email")||"").trim()||null,city:String(formData.get("city")||"").trim()||null,state:String(formData.get("state")||"").trim()||null,payment_terms:String(formData.get("payment_terms")||"").trim()||null,notes:String(formData.get("notes")||"").trim()||null,status:formData.get("status_ativo")==="on"?"ativo":"inativo",updated_at:new Date().toISOString()};
-  const result=id?await db.from("suppliers").update(values).eq("id",id):await db.from("suppliers").insert(values);if(result.error)redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(`${back}?salvo=1`);
+  const result=id?await db.from("suppliers").update(values).eq("id",id):await db.from("suppliers").insert(values);if(result.error)redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(`${q(back)}salvo=1`);
 }
 
 export async function deleteSupplier(formData:FormData) {
-  const db=await createClient();const id=String(formData.get("id")||"");const back=String(formData.get("_back")||"/configuracoes/fornecedores");if(!id)redirect(back);
-  const {error}=await db.from("suppliers").update({deleted_at:new Date().toISOString()}).eq("id",id);if(error)redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  const db=await createClient();const id=String(formData.get("id")||"");const back=safeBack(formData.get("_back"), "/configuracoes/fornecedores");if(!id)redirect(back);
+  const {error}=await db.from("suppliers").update({deleted_at:new Date().toISOString()}).eq("id",id);if(error)redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/fornecedores");revalidatePath("/fornecedores");redirect(back);
 }
 
-function pgErr(msg:string):string {
-  if(msg.includes("duplicate key")||msg.includes("unique_violation"))return "Já existe um registro com esses dados";
-  if(msg.includes("violates foreign key"))return "Este registro está vinculado a outros dados e não pode ser removido";
-  if(msg.includes("violates not-null"))return "Campo obrigatório não foi preenchido";
-  if(msg.includes("permission denied"))return "Sem permissão para realizar esta operação";
-  if(msg.includes("JWT"))return "Sessão expirada. Faça login novamente";
-  return msg;
-}
+function pgErr(msg:string):string { return friendlyError(msg) ?? msg; }
 
 export async function inviteUser(formData: FormData) {
   const db = await createClient();
@@ -875,79 +883,79 @@ export async function testAiAgent(input: { provider?: string; model?: string; gr
 
 export async function savePaint(formData: FormData) {
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
-  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pintura");
+  const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pintura");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
-  const id = String(formData.get("id") || ""); const color = String(formData.get("color") || "").trim(); if (!color) redirect(`${back}?erro=Informe+a+cor`);
+  const id = String(formData.get("id") || ""); const color = String(formData.get("color") || "").trim(); if (!color) redirect(`${q(back)}erro=Informe+a+cor`);
   const values = { company_id: profile.company_id, color, price_per_meter: Number(String(formData.get("price_per_meter") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
   const result = id ? await db.from("pricing_paints").update(values).eq("id", id) : await db.from("pricing_paints").insert(values);
-  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+  if (result.error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${q(back)}salvo=1`);
 }
 
 export async function deletePaint(formData: FormData) {
-  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pintura");
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pintura");
   if (!id) redirect(back);
   const { error } = await db.from("pricing_paints").delete().eq("id", id);
-  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
 
 export async function saveSpecialPart(formData: FormData) {
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
-  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pecas-especiais");
+  const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pecas-especiais");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
-  const id = String(formData.get("id") || ""); const item_name = String(formData.get("item_name") || "").trim(); if (!item_name) redirect(`${back}?erro=Informe+o+nome+da+peça`);
+  const id = String(formData.get("id") || ""); const item_name = String(formData.get("item_name") || "").trim(); if (!item_name) redirect(`${q(back)}erro=Informe+o+nome+da+peça`);
   const values = { company_id: profile.company_id, item_name, unit: String(formData.get("unit") || "Unidade"), unit_price: Number(String(formData.get("unit_price") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
   const result = id ? await db.from("pricing_special_parts").update(values).eq("id", id) : await db.from("pricing_special_parts").insert(values);
-  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+  if (result.error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${q(back)}salvo=1`);
 }
 
 export async function deleteSpecialPart(formData: FormData) {
-  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=pecas-especiais");
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pecas-especiais");
   if (!id) redirect(back);
   const { error } = await db.from("pricing_special_parts").delete().eq("id", id);
-  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
 
 export async function savePricingService(formData: FormData) {
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
-  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=servicos");
+  const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=servicos");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
-  const id = String(formData.get("id") || ""); const service_name = String(formData.get("service_name") || "").trim(); if (!service_name) redirect(`${back}?erro=Informe+o+nome+do+serviço`);
+  const id = String(formData.get("id") || ""); const service_name = String(formData.get("service_name") || "").trim(); if (!service_name) redirect(`${q(back)}erro=Informe+o+nome+do+serviço`);
   const values = { company_id: profile.company_id, service_name, unit: String(formData.get("unit") || "Serviço"), price: Number(String(formData.get("price") || "0").replace(",", ".")), notes: String(formData.get("notes") || "").trim() || null, active: formData.get("active") === "on", updated_at: new Date().toISOString() };
   const result = id ? await db.from("pricing_services").update(values).eq("id", id) : await db.from("pricing_services").insert(values);
-  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+  if (result.error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${q(back)}salvo=1`);
 }
 
 export async function deletePricingService(formData: FormData) {
-  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=servicos");
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=servicos");
   if (!id) redirect(back);
   const { error } = await db.from("pricing_services").delete().eq("id", id);
-  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
 
 export async function saveCommercialTable(formData: FormData) {
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
-  const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
+  const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
-  const id = String(formData.get("id") || ""); const name = String(formData.get("name") || "").trim(); if (!name) redirect(`${back}?erro=Informe+o+nome+da+tabela`);
+  const id = String(formData.get("id") || ""); const name = String(formData.get("name") || "").trim(); if (!name) redirect(`${q(back)}erro=Informe+o+nome+da+tabela`);
   const adjustmentType = String(formData.get("adjustment_type") || "desconto");
-  if (!["desconto","acrescimo","multiplicador"].includes(adjustmentType)) redirect(`${back}?erro=Tipo+de+ajuste+inválido`);
+  if (!["desconto","acrescimo","multiplicador"].includes(adjustmentType)) redirect(`${q(back)}erro=Tipo+de+ajuste+inválido`);
   const values = { company_id: profile.company_id, name, description: String(formData.get("description") || "").trim() || null, adjustment_type: adjustmentType, adjustment_value: Number(String(formData.get("adjustment_value") || "0").replace(",", ".")), active: formData.get("active") === "on", updated_at: new Date().toISOString() };
   const result = id ? await db.from("pricing_commercial_tables").update(values).eq("id", id) : await db.from("pricing_commercial_tables").insert(values);
-  if (result.error) redirect(`${back}?erro=${encodeURIComponent(pgErr(result.error.message))}`);
-  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${back}&salvo=1`);
+  if (result.error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(result.error.message))}`);
+  revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(`${q(back)}salvo=1`);
 }
 
 export async function deleteCommercialTable(formData: FormData) {
-  const db = await createClient(); const id = String(formData.get("id") || ""); const back = String(formData.get("_back") || "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
+  const db = await createClient(); const id = String(formData.get("id") || ""); const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
   if (!id) redirect(back);
   const { error } = await db.from("pricing_commercial_tables").delete().eq("id", id);
-  if (error) redirect(`${back}?erro=${encodeURIComponent(pgErr(error.message))}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(pgErr(error.message))}`);
   revalidatePath("/configuracoes/tabela-calhas"); revalidatePath("/tabela-calhas"); redirect(back);
 }
 
@@ -955,25 +963,25 @@ export async function resetUserPassword(formData: FormData) {
   const back = "/configuracoes/funcionarios";
   const profileId = String(formData.get("profile_id") || "");
   const password = String(formData.get("new_password") || "").trim();
-  if (!profileId) redirect(`${back}?erro=ID inválido`);
-  if (password.length < 6) redirect(`${back}?erro=${encodeURIComponent("A nova senha deve ter no mínimo 6 caracteres")}`);
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) redirect(`${back}?erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
+  if (!profileId) redirect(`${q(back)}erro=ID inválido`);
+  if (password.length < 6) redirect(`${q(back)}erro=${encodeURIComponent("A nova senha deve ter no mínimo 6 caracteres")}`);
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) redirect(`${q(back)}erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login");
   const { data: actorRoles } = await db.from("user_roles").select("role").eq("profile_id", user.id).in("role", ["administrador", "gerente"]);
-  if (!actorRoles?.length) redirect(`${back}?erro=Sem permissão`);
+  if (!actorRoles?.length) redirect(`${q(back)}erro=Sem permissão`);
   const { createClient: createAdmin } = await import("@supabase/supabase-js");
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { data: actorProfile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   const { data: targetProfile } = await admin.from("profiles").select("company_id,full_name").eq("id", profileId).single();
-  if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect(`${back}?erro=Usuário inválido`);
-  if (profileId !== user.id && !(await actorIsAdmin(db)) && (await targetIsAdmin(profileId))) redirect(`${back}?erro=${encodeURIComponent("Somente administrador pode trocar a senha de outro administrador")}`);
+  if (!actorProfile?.company_id || targetProfile?.company_id !== actorProfile.company_id) redirect(`${q(back)}erro=Usuário inválido`);
+  if (profileId !== user.id && !(await actorIsAdmin(db)) && (await targetIsAdmin(profileId))) redirect(`${q(back)}erro=${encodeURIComponent("Somente administrador pode trocar a senha de outro administrador")}`);
   // Define a senha direto (sem depender de e-mail), como no cadastro do usuário.
   const { error } = await admin.auth.admin.updateUserById(profileId, { password });
-  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   revalidatePath(back);
-  redirect(`${back}?senha=${encodeURIComponent(targetProfile?.full_name || "usuário")}`);
+  redirect(`${q(back)}senha=${encodeURIComponent(targetProfile?.full_name || "usuário")}`);
 }
 
 export async function advanceProductionStep(formData: FormData) {

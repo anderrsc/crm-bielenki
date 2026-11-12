@@ -231,3 +231,20 @@ test("A03: administrador altera o status de outro funcionario", () => asNewUser(
 test("A07: eventos do WhatsApp so pelo servidor", () => asNewUser("administrador", async () => {
   await assert.rejects(db.query("select * from whatsapp_webhook_events"), /permission denied/);
 }));
+
+test("triagem liga ao cliente existente pelas regras de nome/endereco", async () => {
+  await db.query("begin");
+  try {
+    const ins = async (name, phone, address, city, neighborhood) => (await db.query(
+      "insert into clients(company_id,name,phone,address,city,neighborhood) values($1,$2,$3,$4,$5,$6) returning id",
+      [company, name, phone, address, city, neighborhood])).rows[0].id;
+    const m = async (...a) => (await db.query("select crm_private.triage_match_client($1,$2,$3,$4,$5,$6) id", [company, ...a])).rows[0].id;
+    const full = await ins("Zéfiro Tavares Teste", null, null, null, null);
+    assert.equal(await m("zefiro  tavares teste", null, null, null, null), full, "nome e sobrenome iguais junta");
+    const addr = await ins("Contato WhatsApp 4799", null, "Rua das Hortênsias Teste, 99", "Blumenau", null);
+    assert.equal(await m("Outro Nome Qualquer", "rua das hortensias teste, 99", null, "Blumenau", null), addr, "mesmo endereco sem nome real junta");
+    const first = await ins("Quirino Alves", null, "Rua Primeiro Nome, 1", "Gaspar", "Centro");
+    assert.equal(await m("Quirino", null, null, null, null), null, "so o primeiro nome nao junta");
+    assert.equal(await m("Quirino", null, "Centro", "Gaspar", null), first, "primeiro nome + bairro e cidade junta");
+  } finally { await db.query("rollback"); }
+});

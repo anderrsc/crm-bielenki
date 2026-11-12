@@ -1,5 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { validIsoDate } from "@/lib/valid-date";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -84,7 +85,16 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
     const { db, companyId } = await context();
     // Liga conversas a clientes e atualiza os nomes da agenda DEPOIS de responder:
     // a lista abre na hora e os nomes novos chegam na proxima atualizacao (tempo real).
-    after(() => Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId).catch(() => 0)]));
+    after(async () => {
+      // Reserva atomica no banco: so um servidor sincroniza a cada 10 min.
+      const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const since = new Date(Date.now() - 10 * 60_000).toISOString();
+      const { data: claimed, error } = await admin.from("ai_agent_config").update({ inbox_synced_at: new Date().toISOString() })
+        .eq("company_id", companyId).or(`inbox_synced_at.is.null,inbox_synced_at.lt.${since}`).select("company_id");
+      if (error ? Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 10 * 60_000 : !claimed?.length) return;
+      await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId, true).catch(() => 0)]);
+      agendaSyncedAt.set(companyId, Date.now());
+    });
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
       .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
       .order("last_message_at", { ascending: false }).limit(300);
@@ -211,7 +221,7 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */
-export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean } = {}): Promise<{ ok?: true; error?: string }> {
+export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean } = {}): Promise<{ ok?: true; error?: string; warning?: string }> {
   try {
     const body = text.trim();
     if (!body) return { error: "Mensagem vazia." };
@@ -238,7 +248,13 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
     }
-    await recordOutbound(db, { companyId, conversationId, body: signed, author: "equipe", senderName: myName, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
+    try {
+      await recordOutbound(db, { companyId, conversationId, body: signed, author: "equipe", senderName: myName, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
+    } catch (recordError) {
+      // Enviada mas nao registrada: nao pode parecer falha, senao a atendente reenvia.
+      if (!failure) return { ok: true, warning: "Mensagem enviada, mas não apareceu no histórico. Não reenvie." };
+      throw recordError;
+    }
     // Quem responde assume a conversa: a Lia para de responder esse cliente.
     await db.from("conversations").update({ ai_paused: true, assigned_to: user.id }).eq("id", conversationId);
     return failure ? { error: failure } : { ok: true };
@@ -355,6 +371,7 @@ export async function receiveFromInbox(input: {
 export async function closeQuoteFromInbox(quoteId: string, dueDate?: string): Promise<{ ok?: true; error?: string }> {
   try {
     if (!z.string().uuid().safeParse(quoteId).success) return { error: "Orçamento inválido." };
+    if (dueDate && !validIsoDate(dueDate)) return { error: "Data de vencimento inválida." };
     const { db } = await context();
     const { error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate || null });
     if (error) return { error: error.message };
