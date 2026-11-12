@@ -182,3 +182,31 @@ test("financeiro: sugestões, classificação de conta existente e cadastro de c
   assert.equal(created.cost_center_id, center.id);
   assert.equal(Number(created.total_amount), 45.67);
 });
+
+test("financeiro: segunda baixa mantém juros, desconto e três parcelas", async () => {
+  const profile = (await db.query("select id,company_id from profiles order by created_at limit 1")).rows[0];
+  const description = `Segunda baixa ${RUN}`;
+  const entry = (await db.query("insert into financial_entries(company_id,entry_type,origin,description,total_amount,due_date) values($1,'receber','manual',$2,100,current_date+15) returning id", [profile.company_id, description])).rows[0];
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [profile.id]);
+  try { await db.query("select register_payment_with_adjustment($1,10,current_date,'pix',null,12,2,3,current_date+15)", [entry.id]); }
+  finally { await db.query("select set_config('request.jwt.claim.sub','',false)"); }
+  const before = (await db.query("select to_char(first_installment_due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [entry.id])).rows[0];
+  await page.goto(`${BASE}/financeiro/receber?q=${encodeURIComponent(description)}`, { waitUntil: "networkidle0" });
+  await clickAndWait(page, "Dar baixa");
+  await page.waitForSelector('[role="dialog"] input[name="amount"]');
+  const defaults = await page.$eval('[role="dialog"] form', form => Object.fromEntries([...form.querySelectorAll('input[name]')].map(el => [el.name, el.value])));
+  assert.equal(defaults.interest, "12");
+  assert.equal(defaults.discount, "2");
+  assert.equal(defaults.installments, "3");
+  assert.equal(defaults.first_due_date, before.due);
+  await page.$eval('[role="dialog"] input[name="amount"]', el => { el.value = "10"; });
+  await clickAndWait(page, "Confirmar baixa", { scope: '[role="dialog"]' });
+  await noProblem("segunda baixa parcelada");
+  const saved = (await db.query("select total_amount,paid_amount,interest_amount,discount_amount,installment_count,to_char(first_installment_due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [entry.id])).rows[0];
+  assert.equal(Number(saved.total_amount), 110);
+  assert.equal(Number(saved.paid_amount), 20);
+  assert.equal(Number(saved.interest_amount), 12);
+  assert.equal(Number(saved.discount_amount), 2);
+  assert.equal(saved.installment_count, 3);
+  assert.equal(saved.due, before.due);
+});
