@@ -1,6 +1,6 @@
 begin;
 -- Additive classification only: no existing financial history is rewritten.
-create table public.financial_categories (
+create table if not exists public.financial_categories (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id),
   name text not null check(length(btrim(name)) between 1 and 80),
@@ -10,8 +10,8 @@ create table public.financial_categories (
   updated_at timestamptz not null default now(),
   unique(id,company_id,entry_type)
 );
-create unique index financial_categories_name_key on public.financial_categories(company_id,entry_type,lower(btrim(name)));
-create table public.financial_cost_centers (
+create unique index if not exists financial_categories_name_key on public.financial_categories(company_id,entry_type,lower(btrim(name)));
+create table if not exists public.financial_cost_centers (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id),
   name text not null check(length(btrim(name)) between 1 and 80),
@@ -20,28 +20,35 @@ create table public.financial_cost_centers (
   updated_at timestamptz not null default now(),
   unique(id,company_id)
 );
-create unique index financial_cost_centers_name_key on public.financial_cost_centers(company_id,lower(btrim(name)));
+create unique index if not exists financial_cost_centers_name_key on public.financial_cost_centers(company_id,lower(btrim(name)));
 alter table public.financial_categories enable row level security;
 alter table public.financial_cost_centers enable row level security;
 revoke all on public.financial_categories, public.financial_cost_centers from public,anon,authenticated;
 grant select,insert,update on public.financial_categories,public.financial_cost_centers to authenticated;
 do $$ declare t text; begin
   foreach t in array array['financial_categories','financial_cost_centers'] loop
+    execute format('drop policy if exists classification_select on public.%I',t);
+    execute format('drop policy if exists classification_insert on public.%I',t);
+    execute format('drop policy if exists classification_update on public.%I',t);
     execute format('create policy classification_select on public.%I for select to authenticated using(company_id=(select public.current_company_id()) and (select public.has_table_access(''financial_entries'',''select'')))',t);
     execute format('create policy classification_insert on public.%I for insert to authenticated with check(company_id=(select public.current_company_id()) and (select public.has_table_access(''financial_entries'',''update'')))',t);
     execute format('create policy classification_update on public.%I for update to authenticated using(company_id=(select public.current_company_id()) and (select public.has_table_access(''financial_entries'',''update''))) with check(company_id=(select public.current_company_id()) and (select public.has_table_access(''financial_entries'',''update'')))',t);
   end loop;
 end $$;
 
-alter table public.financial_entries add column category_id uuid, add column cost_center_id uuid;
-alter table public.financial_entries add constraint financial_entry_category_company_type_fk
-  foreign key(category_id,company_id,entry_type) references public.financial_categories(id,company_id,entry_type);
-alter table public.financial_entries add constraint financial_entry_cost_center_company_fk
-  foreign key(cost_center_id,company_id) references public.financial_cost_centers(id,company_id);
-create index financial_entries_category_idx on public.financial_entries(company_id,category_id);
-create index financial_entries_cost_center_idx on public.financial_entries(company_id,cost_center_id);
+alter table public.financial_entries add column if not exists category_id uuid, add column if not exists cost_center_id uuid;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conrelid='public.financial_entries'::regclass and conname='financial_entry_category_company_type_fk') then
+    alter table public.financial_entries add constraint financial_entry_category_company_type_fk foreign key(category_id,company_id,entry_type) references public.financial_categories(id,company_id,entry_type);
+  end if;
+  if not exists(select 1 from pg_constraint where conrelid='public.financial_entries'::regclass and conname='financial_entry_cost_center_company_fk') then
+    alter table public.financial_entries add constraint financial_entry_cost_center_company_fk foreign key(cost_center_id,company_id) references public.financial_cost_centers(id,company_id);
+  end if;
+end $$;
+create index if not exists financial_entries_category_idx on public.financial_entries(company_id,category_id);
+create index if not exists financial_entries_cost_center_idx on public.financial_entries(company_id,cost_center_id);
 
-create function public.validate_financial_classification() returns trigger language plpgsql security invoker set search_path=public as $$
+create or replace function public.validate_financial_classification() returns trigger language plpgsql security invoker set search_path=public as $$
 begin
   if new.category_id is not null and (tg_op='INSERT' or new.category_id is distinct from old.category_id) then
     if not exists(select 1 from public.financial_categories c where c.id=new.category_id and c.company_id=new.company_id and c.entry_type=new.entry_type and c.active) then
@@ -56,12 +63,13 @@ begin
   return new;
 end $$;
 revoke all on function public.validate_financial_classification() from public,anon,authenticated;
+drop trigger if exists financial_entry_classification_validate on public.financial_entries;
 create trigger financial_entry_classification_validate before insert or update of category_id,cost_center_id,company_id,entry_type on public.financial_entries for each row execute function public.validate_financial_classification();
 
 -- Audit writer is private and trigger-only. It cannot be invoked as a public RPC.
 create schema if not exists crm_private;
 revoke all on schema crm_private from public,anon,authenticated;
-create function crm_private.audit_financial_classification() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+create or replace function crm_private.audit_financial_classification() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
 declare previous jsonb; following jsonb;
 begin
   if tg_table_name='financial_entries' then
@@ -77,13 +85,18 @@ begin
   return new;
 end $$;
 revoke all on function crm_private.audit_financial_classification() from public,anon,authenticated;
+drop trigger if exists financial_categories_touch on public.financial_categories;
 create trigger financial_categories_touch before update on public.financial_categories for each row execute function public.touch_updated_at();
+drop trigger if exists financial_cost_centers_touch on public.financial_cost_centers;
 create trigger financial_cost_centers_touch before update on public.financial_cost_centers for each row execute function public.touch_updated_at();
+drop trigger if exists financial_categories_audit on public.financial_categories;
 create trigger financial_categories_audit after insert or update on public.financial_categories for each row execute function crm_private.audit_financial_classification();
+drop trigger if exists financial_cost_centers_audit on public.financial_cost_centers;
 create trigger financial_cost_centers_audit after insert or update on public.financial_cost_centers for each row execute function crm_private.audit_financial_classification();
+drop trigger if exists financial_entry_classification_audit on public.financial_entries;
 create trigger financial_entry_classification_audit after insert or update of category_id,cost_center_id on public.financial_entries for each row execute function crm_private.audit_financial_classification();
 
-create function public.seed_financial_classifications() returns void language plpgsql security invoker set search_path=public as $$
+create or replace function public.seed_financial_classifications() returns void language plpgsql security invoker set search_path=public as $$
 declare cid uuid:=public.current_company_id();
 begin
   perform public.require_table_access('financial_entries','update');
