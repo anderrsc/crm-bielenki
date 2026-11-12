@@ -14,11 +14,16 @@ describe('Evolution no PC (Windows)', () => {
     expect(compose).toContain('$$H');
     expect(s).not.toContain('__');
   });
-  test('banco local nao trava com senha antiga (Evolution HTTP 502 em loop)', () => {
+  test('falha de senha preserva o banco existente e interrompe a instalação', () => {
     const s = evolutionWindowsScript(base);
     expect(s).toContain('POSTGRES_HOST_AUTH_METHOD: trust');
     expect(s).toMatch(/password authentication failed/);
-    expect(s).toContain('docker volume rm -f evolution-crm_pgdata');
+    expect(s).not.toMatch(/docker volume rm|docker compose down|down --volumes/);
+    expect(s).toContain('Dados preservados. Revise as credenciais');
+    expect(s).toContain('Copy-Item -LiteralPath docker-compose.yml');
+    expect(s).toContain('if ($LASTEXITCODE -ne 0)');
+    const failure = s.slice(s.indexOf('if ((docker compose logs'));
+    expect(failure.slice(0, failure.indexOf('Write-Host ""'))).toMatch(/return\s*}/);
     expect(s.split("@'\n")[1].split("'@")[0]).not.toMatch(/ports:/);
   });
   test('valores estranhos são recusados', () => {
