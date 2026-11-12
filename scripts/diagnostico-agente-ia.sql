@@ -17,4 +17,14 @@ select 'config', k || ': ' || coalesce(jsonb_typeof(v), 'nulo') from public.ai_a
 union all
 select 'chave', k || ': ' || case when coalesce(v #>> '{}', '') = '' then 'vazia' when v #>> '{}' like 'enc:%' then 'criptografada' else 'texto' end
 from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k like '%key%' or k like '%token%'
+union all
+-- Valores que nao sao segredo: provedores escolhidos e estado do agente.
+select 'valor', k || ' = ' || coalesce(v #>> '{}', 'nulo')
+from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k in ('ai_provider', 'wpp_provider', 'active', 'openai_model', 'agent_name')
+union all
+-- Campos de conexao: so se estao preenchidos.
+select 'preenchido', k || ': ' || case when coalesce(v #>> '{}', '') = '' then 'vazio' else 'preenchido' end
+from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k in ('evolution_api_url', 'evolution_instance', 'whatsapp_number_id') or k like 'evolution%secret%'
+union all
+select 'empresa', 'whatsapp_phone_number_id: ' || case when coalesce(whatsapp_phone_number_id, '') = '' then 'vazio' else 'preenchido' end from public.companies
 order by 1, 2;
