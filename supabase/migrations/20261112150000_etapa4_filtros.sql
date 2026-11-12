@@ -1,5 +1,8 @@
 -- Etapa 4: filtros do financeiro com totais de todos os lancamentos (nao so da pagina).
-create or replace view public.v_financial_entries with (security_invoker=true) as
+-- Later migrations append columns; replay must preserve that extended view.
+do $compatible$ begin
+  if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='v_financial_entries' and column_name='category_id') then
+    execute $view$create or replace view public.v_financial_entries with (security_invoker=true) as
 select
   fe.id, fe.company_id, fe.description, fe.entry_type, fe.origin,
   fe.total_amount, fe.paid_amount, fe.open_amount, fe.interest_amount, fe.discount_amount, fe.installment_count, fe.first_installment_due_date, fe.due_date, fe.status,
@@ -19,7 +22,9 @@ select
 from public.financial_entries fe
 left join public.clients c on c.id = fe.client_id and c.company_id = fe.company_id
 left join public.suppliers s on s.id = fe.supplier_id and s.company_id = fe.company_id
-left join public.sales sl on sl.id = fe.sale_id and sl.company_id = fe.company_id;
+left join public.sales sl on sl.id = fe.sale_id and sl.company_id = fe.company_id;$view$;
+  end if;
+end $compatible$;
 
 create or replace function public.financial_totals(p_type text default null, p_q text default null, p_from date default null,
   p_to date default null, p_status text default null, p_sale_type uuid default null)

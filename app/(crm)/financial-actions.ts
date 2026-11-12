@@ -20,6 +20,8 @@ export async function createFinancialEntry(formData: FormData) {
     due_date: z.iso.date(),
     party_id: z.uuid().or(z.literal("")),
     notes: z.string().trim().max(2000),
+    category_id: z.uuid().or(z.literal("")).default(""),
+    cost_center_id: z.uuid().or(z.literal("")).default(""),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`${back}/novo?erro=Revise+a+descrição,+o+valor+e+o+vencimento`);
 
@@ -27,7 +29,7 @@ export async function createFinancialEntry(formData: FormData) {
   const { data: profile } = await selectOwnProfile<{ company_id: string }>(db, "company_id");
   if (!profile?.company_id) redirect(`${q(back)}erro=Não+foi+possível+identificar+a+empresa`);
 
-  const { id, party_id, notes, ...entry } = parsed.data;
+  const { id, party_id, notes, category_id, cost_center_id, ...entry } = parsed.data;
   const payable = type.data === "pagar";
   if (party_id) {
     const { data: party } = await db.from(payable ? "suppliers" : "clients").select("id")
@@ -44,6 +46,8 @@ export async function createFinancialEntry(formData: FormData) {
     client_id: payable ? null : party_id || null,
     supplier_id: payable ? party_id || null : null,
     notes: notes || null,
+    category_id: category_id || null,
+    cost_center_id: cost_center_id || null,
   });
   if (error) {
     // A retry of the same form may arrive after the first insert committed.

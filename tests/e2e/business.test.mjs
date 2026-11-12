@@ -148,3 +148,72 @@ test("receber material da compra no estoque (Materiais do pedido)", async () => 
   const mov = (await db.query("select count(*)::int n from stock_movements m join purchase_order_items i on i.id=m.purchase_order_item_id where i.purchase_order_id=$1", [state.poId])).rows[0].n;
   assert.ok(mov >= 1, "entrada no estoque nao registrada");
 });
+
+test("financeiro: sugestões, classificação de conta existente e cadastro de conta classificada", async () => {
+  await page.goto(`${BASE}/financeiro/classificacoes`, { waitUntil: "networkidle0" });
+  await clickAndWait(page, "Cadastrar sugestões iniciais");
+  await noProblem("sugestões financeiras");
+  const cid = (await db.query("select company_id from profiles order by created_at limit 1")).rows[0].company_id;
+  const category = (await db.query("select id from financial_categories where company_id=$1 and name='Outras receitas' and entry_type='receber'", [cid])).rows[0];
+  const center = (await db.query("select id from financial_cost_centers where company_id=$1 and name='Administração'", [cid])).rows[0];
+  assert.ok(category && center);
+  const before = (await db.query("select total_amount,paid_amount,due_date,status from financial_entries where id=$1", [state.saleEntry])).rows[0];
+  await page.goto(`${BASE}/financeiro/classificacoes?lancamento=${state.saleEntry}`, { waitUntil: "networkidle0" });
+  await page.select('select[name="category_id"]', category.id);
+  await page.select('select[name="cost_center_id"]', center.id);
+  await clickAndWait(page, "Salvar classificação");
+  await noProblem("classificar conta existente");
+  const saved = (await db.query("select category_id,cost_center_id,total_amount,paid_amount,due_date,status from financial_entries where id=$1", [state.saleEntry])).rows[0];
+  assert.equal(saved.category_id, category.id);
+  assert.equal(saved.cost_center_id, center.id);
+  const { category_id, cost_center_id, ...unchanged } = saved;
+  assert.deepEqual(unchanged, before);
+
+  await page.goto(`${BASE}/financeiro/receber/novo`, { waitUntil: "networkidle0" });
+  await setByLabel(page, "Descrição", `Receita classificada ${RUN}`);
+  await setByLabel(page, "Valor (R$)", "45,67");
+  await setByLabel(page, "Vencimento", new Date(Date.now() + 864e5).toISOString().slice(0, 10));
+  await page.select('select[name="category_id"]', category.id);
+  await page.select('select[name="cost_center_id"]', center.id);
+  await clickAndWait(page, "Salvar conta");
+  await noProblem("nova conta classificada");
+  const created = (await db.query("select category_id,cost_center_id,total_amount from financial_entries where company_id=$1 and description=$2", [cid, `Receita classificada ${RUN}`])).rows[0];
+  assert.equal(created.category_id, category.id);
+  assert.equal(created.cost_center_id, center.id);
+  assert.equal(Number(created.total_amount), 45.67);
+});
+
+test("financeiro: segunda baixa mantém juros, desconto e três parcelas", async () => {
+  const profile = (await db.query("select id,company_id from profiles order by created_at limit 1")).rows[0];
+  const description = `Segunda baixa ${RUN}`;
+  const entry = (await db.query("insert into financial_entries(company_id,entry_type,origin,description,total_amount,due_date) values($1,'receber','manual',$2,100,current_date+15) returning id", [profile.company_id, description])).rows[0];
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [profile.id]);
+  try { await db.query("select register_payment_with_adjustment($1,10,current_date,'pix',null,12,2,3,current_date+15)", [entry.id]); }
+  finally { await db.query("select set_config('request.jwt.claim.sub','',false)"); }
+  const before = (await db.query("select to_char(first_installment_due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [entry.id])).rows[0];
+  await page.goto(`${BASE}/financeiro/receber?q=${encodeURIComponent(description)}`, { waitUntil: "networkidle0" });
+  // Abrir o dialogo nao navega: clique simples na linha do lancamento.
+  const opened = await page.evaluate((text) => {
+    const row = [...document.querySelectorAll("tr")].find((r) => r.innerText.includes(text) && r.innerText.includes("Dar baixa"));
+    const btn = row && [...row.querySelectorAll("button")].find((b) => b.innerText.includes("Dar baixa"));
+    btn?.click();
+    return Boolean(btn);
+  }, description);
+  assert.ok(opened, "linha do lancamento com 'Dar baixa' nao encontrada");
+  await page.waitForSelector('[role="dialog"] input[name="amount"]');
+  const defaults = await page.$eval('[role="dialog"] form', form => Object.fromEntries([...form.querySelectorAll('input[name]')].map(el => [el.name, el.value])));
+  assert.equal(defaults.interest, "12");
+  assert.equal(defaults.discount, "2");
+  assert.equal(defaults.installments, "3");
+  assert.equal(defaults.first_due_date, before.due);
+  await page.$eval('[role="dialog"] input[name="amount"]', el => { el.value = "10"; });
+  await clickAndWait(page, "Confirmar baixa", { scope: '[role="dialog"]' });
+  await noProblem("segunda baixa parcelada");
+  const saved = (await db.query("select total_amount,paid_amount,interest_amount,discount_amount,installment_count,to_char(first_installment_due_date,'YYYY-MM-DD') due from financial_entries where id=$1", [entry.id])).rows[0];
+  assert.equal(Number(saved.total_amount), 110);
+  assert.equal(Number(saved.paid_amount), 20);
+  assert.equal(Number(saved.interest_amount), 12);
+  assert.equal(Number(saved.discount_amount), 2);
+  assert.equal(saved.installment_count, 3);
+  assert.equal(saved.due, before.due);
+});
