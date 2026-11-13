@@ -27,6 +27,7 @@
     "/financeiro/caixa",
     "/financeiro/conciliacao",
     "/financeiro/recorrencias",
+    "/financeiro/relatorios",
     "/financeiro/receber",
     "/financeiro/pagar",
     "/automacoes",
