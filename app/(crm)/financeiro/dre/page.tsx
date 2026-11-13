@@ -22,9 +22,9 @@ export default async function DrePage({ searchParams }: { searchParams: Promise<
   const { data: types } = await db.from("sale_types").select("id,name").eq("active", true).order("name");
   const tipo = search.tipo && (types ?? []).some((t) => t.id === search.tipo) ? search.tipo : "";
   const { data, error } = validIsoDate(start) && validIsoDate(end)
-    ? await db.rpc("financial_dre_lines", { p_start: start, p_end: end, p_sale_type: tipo || null })
+    ? await db.rpc("financial_dre_data", { p_start: start, p_end: end, p_sale_type: tipo || null })
     : { data: null, error: { message: "Período inválido" } };
-  if (error) return <div className="mx-auto max-w-5xl space-y-4"><Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link><p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">Não foi possível carregar a DRE. Atualize a página.</p></div>;
+  if (error) return <div className="mx-auto max-w-5xl space-y-4"><Link href="/financeiro/dre" className="text-sm font-bold text-forest underline">Revisar período da DRE</Link><p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error.code==='P0001'?error.message:'Não foi possível carregar a DRE. Atualize a página.'}</p></div>;
   const rows = buildDre((data ?? []) as DreLine[], months);
   const receita = rows[0].total, resultado = rows[10].total;
   const margin = receita ? Math.round((resultado / receita) * 1000) / 10 : null;

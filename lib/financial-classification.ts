@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type FinancialCategory = { id: string; name: string; entry_type: "pagar" | "receber"; active: boolean; dre_group?: string | null };
+export type FinancialCategory = { id: string; name: string; entry_type: "pagar" | "receber"; active: boolean; dre_group?: string | null; report_group?: string | null };
 export type FinancialCostCenter = { id: string; name: string; active: boolean };
 
 /** Page through definitions rather than silently relying on the API row cap. */
@@ -15,7 +15,7 @@ export async function loadFinancialClassifications(db: SupabaseClient) {
     }
   }
   const [categories, centers] = await Promise.all([
-    all<FinancialCategory>("financial_categories", "id,name,entry_type,active,dre_group"),
+    all<FinancialCategory>("financial_categories", "id,name,entry_type,active,dre_group,report_group"),
     all<FinancialCostCenter>("financial_cost_centers", "id,name,active"),
   ]);
   return { categories, centers };

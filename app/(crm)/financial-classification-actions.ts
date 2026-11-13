@@ -28,7 +28,7 @@ function refresh() {
 }
 
 export async function saveFinancialDefinition(form: FormData) {
-  const parsed = z.object({ kind: z.enum(["category", "center"]), id: z.uuid().or(z.literal("")).default(""), name: z.string().trim().min(1).max(80), entry_type: z.enum(["pagar", "receber"]).default("pagar"), dre_group: z.string().default("") }).safeParse(Object.fromEntries(form));
+  const parsed = z.object({ kind: z.enum(["category", "center"]), id: z.uuid().or(z.literal("")).default(""), name: z.string().trim().min(1).max(80), entry_type: z.enum(["pagar", "receber"]).default("pagar"), dre_group: z.string().default(""), report_group:z.enum(['','fabricacao','instalacao','veiculos','extraordinarias']).default('') }).safeParse(Object.fromEntries(form));
   if (!parsed.success) redirect(`${base}?erro=Revise+o+nome+e+o+tipo`);
   const { db, companyId } = await context();
   const { kind, id, name, entry_type } = parsed.data;
@@ -36,7 +36,7 @@ export async function saveFinancialDefinition(form: FormData) {
   const allowedGroups: string[] = DRE_GROUPS_BY_TYPE[entry_type];
   const dre_group = allowedGroups.includes(parsed.data.dre_group) ? parsed.data.dre_group : entry_type === "receber" ? "receita" : "administrativa";
   const table = kind === "category" ? "financial_categories" : "financial_cost_centers";
-  const values = { name, active: form.get("active") === "on", ...(kind === "category" ? { entry_type, dre_group } : {}) };
+  const values = { name, active: form.get("active") === "on", ...(kind === "category" ? { entry_type, dre_group, report_group:parsed.data.report_group||null } : {}) };
   const query = id ? db.from(table).update(values).eq("id", id).eq("company_id", companyId) : db.from(table).insert({ ...values, company_id: companyId });
   const { data, error } = await query.select("id").single();
   if (error || !data) redirect(`${base}?erro=${encodeURIComponent(error?.code === "23505" ? "Já existe um cadastro com este nome e tipo." : error?.code === "23503" ? "O tipo de uma categoria já utilizada não pode mudar. Crie outra categoria." : "Não foi possível salvar. Verifique suas permissões e tente novamente.")}`);
