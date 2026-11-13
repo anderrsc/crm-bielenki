@@ -65,7 +65,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
   if (situacao === "vencido") q = q.eq("display_status", "vencido");
   if (situacao === "hoje") q = q.eq("display_status", "vence_hoje");
   if (situacao === "pago") q = q.eq("display_status", "pago");
-  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }, { data: canClassify }, { data: canReconcile }] = await Promise.all([
+  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }, { data: canClassify }, { data: canReconcile }, { data: canRecur }] = await Promise.all([
     q,
     db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
     // Totais de todos os lancamentos do filtro (antes somava so a pagina).
@@ -73,6 +73,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
     db.from("sale_types").select("id,name").eq("active", true).order("name"),
     db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
     db.rpc("has_table_access", { resource: "bank_reconciliation", action: "select" }),
+    db.rpc("has_table_access", { resource: "financial_recurrences", action: "select" }),
   ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
@@ -118,6 +119,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         </div>
       )}
       {canReconcile === true && <Link href="/financeiro/conciliacao" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Conciliação bancária</Link>}
+      {canRecur === true && <Link href="/financeiro/recorrencias" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Contas recorrentes</Link>}
       {filter !== "pagar" && <ReceivingAccountsManager />}
       <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
       <Link href="/financeiro/rateios" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Rateios e resultado por obra</Link>
