@@ -24,6 +24,8 @@
     "/producao/materiais-do-pedido",
     "/instalacoes",
     "/financeiro",
+    "/financeiro/caixa",
+    "/financeiro/conciliacao",
     "/financeiro/receber",
     "/financeiro/pagar",
     "/automacoes",

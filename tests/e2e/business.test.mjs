@@ -3,6 +3,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { launch, login, BASE, pageProblem, clickAndWait, setByLabel, settle as settleRequests, trackRequests } from "./helpers.mjs";
 
 const RUN = Date.now().toString(36);
@@ -22,6 +24,60 @@ before(async () => {
   await login(page, process.env.E2E_EMAIL ?? "admin@teste.local", process.env.E2E_PASSWORD ?? "senha-de-teste-123");
 });
 after(async () => { await browser?.close(); await db?.end(); });
+
+test("conciliação: importar e reimportar não dá baixa; associação e taxa exigem confirmação", async () => {
+  const profile=(await db.query("select id,company_id from profiles order by created_at limit 1")).rows[0];
+  const account=(await db.query("insert into receiving_accounts(company_id,name) values($1,$2) returning id",[profile.company_id,`Banco E2E ${RUN}`])).rows[0];
+  const category=(await db.query("insert into financial_categories(company_id,name,entry_type,dre_group) values($1,$2,'pagar','financeiro') returning id",[profile.company_id,`Taxas E2E ${RUN}`])).rows[0];
+  const description=`Recebimento banco ${RUN}`;
+  const entry=(await db.query("insert into financial_entries(company_id,entry_type,origin,description,total_amount,due_date) values($1,'receber','manual',$2,50,current_date) returning id",[profile.company_id,description])).rows[0];
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[profile.id]);
+  let payment;
+  try{payment=(await db.query("select register_payment($1,50,current_date,'pix') id",[entry.id])).rows[0].id;}
+  finally{await db.query("select set_config('request.jwt.claim.sub','',false)");}
+  const day=(await db.query("select current_date::text d")).rows[0].d;
+  const file=path.resolve('.test-work',`bank-${RUN}.csv`);
+  await fs.mkdir(path.dirname(file),{recursive:true});
+  await fs.writeFile(file,`id;data;valor;descricao\nin-${RUN};${day};50,00;${description}\nout-${RUN};${day};-12,34;Taxa ${RUN}\n`);
+  const count=async()=>Number((await db.query('select count(*) n from payments')).rows[0].n);
+  const before=await count();
+  const root=`${BASE}/financeiro/conciliacao?conta=${account.id}`;
+  const importFile=async()=>{
+    await page.goto(root,{waitUntil:'networkidle0'});await noProblem('conciliação');
+    await page.$eval('details:has(input[name="statement"])',el=>{el.open=true;});
+    await (await page.$('input[name="statement"]')).uploadFile(file);
+    await page.click('input[name="account_confirmed"]');
+    await clickAndWait(page,'Importar movimentos pendentes');await noProblem('importação de extrato');
+  };
+  await importFile();assert.equal(await count(),before);
+  await importFile();assert.equal(await count(),before);
+  const rows=(await db.query('select id,amount from bank_statement_rows where account_id=$1',[account.id])).rows;
+  assert.equal(rows.length,2);
+  const incoming=rows.find(r=>Number(r.amount)>0),outgoing=rows.find(r=>Number(r.amount)<0);
+  await page.goto(`${root}&movimento=${incoming.id}&busca=${encodeURIComponent(description)}`,{waitUntil:'networkidle0'});
+  await noProblem('sugestões bancárias');
+  const match='form:has(input[name="mode"][value="match"])';
+  await page.select(`${match} select[name="target_id"]`,payment);
+  await page.type(`${match} input[name="note"]`,'Comprovante e extrato conferidos');
+  await clickAndWait(page,'Associar baixa existente',{scope:match});await noProblem('associação bancária');
+  assert.equal(await count(),before);
+  assert.equal((await db.query('select payment_id from bank_statement_rows where id=$1',[incoming.id])).rows[0].payment_id,payment);
+  await page.goto(`${root}&movimento=${outgoing.id}`,{waitUntil:'networkidle0'});
+  const fee='form:has(input[name="mode"][value="fee"])';
+  await page.$eval('details:has(input[name="mode"][value="fee"])',el=>{el.open=true;});
+  await page.select(`${fee} select[name="category_id"]`,category.id);
+  await page.type(`${fee} input[name="note"]`,'Taxa conferida no extrato bancário');
+  await clickAndWait(page,'Criar despesa e dar baixa',{scope:fee});await noProblem('taxa bancária');
+  assert.equal(await count(),before+1);
+  const saved=(await db.query('select b.status,p.amount,p.receiving_account_id,e.category_id from bank_statement_rows b join payments p on p.id=b.payment_id join financial_entries e on e.id=p.financial_entry_id where b.id=$1',[outgoing.id])).rows[0];
+  assert.equal(saved.status,'matched');assert.equal(Number(saved.amount),12.34);
+  assert.equal(saved.receiving_account_id,account.id);assert.equal(saved.category_id,category.id);
+  assert.ok(Number((await db.query("select count(*) n from audit_logs where table_name='bank_statement_rows' and record_id=$1",[outgoing.id])).rows[0].n)>0);
+  await page.setViewport({width:375,height:812});
+  await page.goto(`${root}&situacao=matched`,{waitUntil:'networkidle0'});await noProblem('conciliação no celular');
+  assert.ok((await page.evaluate(()=>document.body.innerText)).includes(description));
+  await page.setViewport({width:1366,height:900});
+});
 
 async function noProblem(step) {
   const problem = await pageProblem(page);
