@@ -7,10 +7,11 @@ const resources: Record<string, string> = {
   funcionarios: "profiles", usuarios: "profiles", atendimento: "conversations",
 };
 
-export const moduleResources = [...new Set([...Object.values(resources), "bank_reconciliation"])];
+export const moduleResources = [...new Set([...Object.values(resources), "bank_reconciliation", "financial_recurrences"])];
 
 export function moduleAccess(pathname: string) {
   const [, section, page] = pathname.split("/");
+  if (section === "financeiro" && page === "recorrencias") return { resource: "financial_recurrences", management: false };
   if (section === "financeiro" && page === "conciliacao") return { resource: "bank_reconciliation", management: false };
   if (section === "configuracoes" && (page === "funcionarios" || page === "usuarios")) {
     return { resource: "profiles", management: false };

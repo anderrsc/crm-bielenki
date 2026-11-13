@@ -5,6 +5,7 @@ export type CashOverview = {
   today: string; days: number; accounts: CashAccount[]; unassigned: { inflow: number; outflow: number } | null;
   overdue_receivable: number; overdue_payable: number; undated: number;
   flows: { date: string; receivable: number; payable: number }[];
+  forecast_sources?: {recurrences:boolean;payroll:boolean;purchases:boolean;pending_occurrences:number;unposted_purchases:number};
 };
 export type ScenarioKey = "conservador" | "provavel" | "otimista";
 /** Quanto do que esta para entrar cada cenario considera (a vencer, ja vencido). Saidas entram sempre inteiras. */

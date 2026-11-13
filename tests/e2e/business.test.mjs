@@ -84,6 +84,38 @@ async function noProblem(step) {
   assert.equal(problem, null, `${step}: ${problem} (${page.url()})`);
 }
 
+test("recorrências: planejar não paga, criar competência não duplica a previsão",async()=>{
+ const profile=(await db.query('select id,company_id from profiles order by created_at limit 1')).rows[0];
+ const description=`Aluguel programado ${RUN}`;
+ const today=(await db.query("select (now() at time zone 'America/Sao_Paulo')::date::text d")).rows[0].d;
+ const paymentCount=Number((await db.query('select count(*) n from payments')).rows[0].n);
+ await page.goto(`${BASE}/financeiro/recorrencias`,{waitUntil:'networkidle0'});await noProblem('recorrências');
+ await page.$eval('details:has(input[name="description"])',el=>{el.open=true;});
+ await page.type('input[name="description"]',description);await page.type('input[name="amount"]','123,45');
+ for(const name of ['starts_on','ends_on'])await page.$eval(`input[name="${name}"]`,(el,v)=>{el.value=v;},today);
+ await page.$eval('input[name="day_of_month"]',(el,v)=>{el.value=v;},today.slice(-2));
+ await page.type('input[name="reason"]','Contrato e previsão conferidos');
+ await clickAndWait(page,'Salvar programação');await noProblem('salvar programação');
+ const plan=(await db.query('select id from financial_recurrences where company_id=$1 and description=$2',[profile.company_id,description])).rows[0];assert.ok(plan);
+ assert.equal(Number((await db.query('select count(*) n from financial_recurrence_occurrences where recurrence_id=$1',[plan.id])).rows[0].n),0);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[profile.id]);
+ let before;try{before=(await db.query('select cash_overview(30) d')).rows[0].d;}finally{await db.query("select set_config('request.jwt.claim.sub','',false)");}
+ const form=`form:has(input[name="id"][value="${plan.id}"]):has(input[name="month"])`;
+ await page.goto(`${BASE}/financeiro/recorrencias?mes=${today.slice(0,7)}&q=${encodeURIComponent(description)}`,{waitUntil:'networkidle0'});
+ await noProblem('conferir competência salva');
+ assert.ok(await page.$(form),`Competência indisponível: ${await page.evaluate(()=>document.body.innerText)}`);
+ await page.$eval(`article details:has(input[name="id"][value="${plan.id}"])`,el=>{el.open=true;});
+ await page.type(`${form} input[name="reason"]`,'Competência conferida para lançamento');await page.click(`${form} input[name="confirmed"]`);
+ await clickAndWait(page,'Confirmar criação da conta',{scope:form});await noProblem('criar competência');
+ const entry=(await db.query('select e.total_amount,e.paid_amount from financial_recurrence_occurrences o join financial_entries e on e.id=o.entry_id where o.recurrence_id=$1',[plan.id])).rows;
+ assert.equal(entry.length,1);assert.equal(Number(entry[0].total_amount),123.45);assert.equal(Number(entry[0].paid_amount),0);
+ assert.equal(Number((await db.query('select count(*) n from payments')).rows[0].n),paymentCount);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[profile.id]);
+ try{const after=(await db.query('select cash_overview(30) d')).rows[0].d;assert.deepEqual(after.flows,before.flows);assert.deepEqual(after.accounts,before.accounts);}finally{await db.query("select set_config('request.jwt.claim.sub','',false)");}
+ await page.setViewport({width:375,height:812});await page.goto(`${BASE}/financeiro/recorrencias`,{waitUntil:'networkidle0'});await noProblem('recorrências no celular');
+ assert.ok((await page.evaluate(()=>document.body.innerText)).includes(description));await page.setViewport({width:1366,height:900});
+});
+
 test("venda avulsa com pagamento parcial", async () => {
   await page.goto(`${BASE}/vendas/nova`, { waitUntil: "networkidle0" });
   await setByLabel(page, "Cliente", state.client.name);
