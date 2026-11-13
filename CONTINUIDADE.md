@@ -1,5 +1,16 @@
 # Continuidade — 13/11/2026
 
+## Atualização em andamento — conciliação bancária
+- Workspace: C:\Users\Cliente\Documents\ChatGPT\crm bielenki\crm-bank-reconciliation, branch local/remota codex/bank-reconciliation.
+- Caixa #71: head 5fe3f8447a283f094761c3d9845495064c2a2862, CI completo aprovado (run 43431909290). Aplicação das migrations em andamento (run 43433007273); merge/deploy ainda pendentes.
+- Conciliação implementada: leitor OFX/CSV com limites e IDs estáveis, importação idempotente sem baixas automáticas, sugestões por tipo/valor/data, associação explícita, baixa em conta existente preservando ajustes/parcelas, taxa com categoria, ignorar/reabrir com justificativa, histórico paginado, invalidação ao estornar/alterar pagamento e proteção contra duplicidade.
+- Segurança: recurso bank_reconciliation, RLS por empresa/perfil ativo, tabelas sem escrita direta, funções privadas com autorização explícita, auditoria antes/depois/autor, nenhuma chamada bancária externa.
+- Migration 20261113124117_bank_reconciliation.sql gerada por CLI, aditiva e reaplicável; não apaga histórico nem altera pagamentos na importação.
+- Validação local: 487 testes passaram; typecheck e build passaram; diagnóstico regenerado (1203 colunas,141 funções,65 gatilhos). E2E novo cobre reimportação, associação, taxa, auditoria e celular; ainda precisa CI completo.
+- Publicação da conciliação em curso, ainda sem PR completo/CI/migration/deploy. Não declarar pronta em produção.
+- Próximo: concluir envio de todos os arquivos e comparar remoto/local, abrir PR contra main, aguardar CI; finalizar caixa #71 primeiro, aplicar migrations e merge/deploy de cada etapa.
+- O restante da fila abaixo continua pendente. O texto histórico abaixo foi preservado; esta atualização prevalece para caixa/conciliação.
+
 ## Estado confirmado
 - Produção main: 88584c1a454119e8b21ce1282fe3cd7022bffa67 (PR #70), deployment Production com sucesso.
 - #67: categorias/centros, classificação e preservação de ajustes/parcelas nas baixas — integrado.
