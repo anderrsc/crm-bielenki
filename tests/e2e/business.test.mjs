@@ -217,3 +217,24 @@ test("financeiro: segunda baixa mantém juros, desconto e três parcelas", async
   assert.equal(saved.installment_count, 3);
   assert.equal(saved.due, before.due);
 });
+
+test("caixa: salva saldo inicial com auditoria e renderiza os cenários no celular", async () => {
+  const profile = (await db.query("select id,company_id from profiles order by created_at limit 1")).rows[0];
+  const account = (await db.query("insert into receiving_accounts(company_id,name) values($1,$2) returning id",[profile.company_id,`Caixa E2E ${RUN}`])).rows[0];
+  await page.goto(`${BASE}/financeiro/caixa?dias=15`, { waitUntil: "networkidle0" });
+  await noProblem("caixa");
+  const selector = `form:has(input[name="account_id"][value="${account.id}"])`;
+  await page.$eval(`${selector} input[name="opening_balance"]`, el => { el.value="1.234,56"; });
+  await page.$eval(`${selector} input[name="opening_date"]`, el => { el.value=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); });
+  await clickAndWait(page,"Salvar saldo inicial",{scope:selector});
+  await noProblem("saldo inicial");
+  const saved=(await db.query("select opening_balance from receiving_accounts where id=$1",[account.id])).rows[0];
+  assert.equal(Number(saved.opening_balance),1234.56);
+  const audit=(await db.query("select profile_id,new_data from audit_logs where table_name='receiving_accounts' and record_id=$1 order by id desc limit 1",[account.id])).rows[0];
+  assert.equal(audit.profile_id,profile.id);
+  assert.equal(Number(audit.new_data.opening_balance),1234.56);
+  await page.setViewport({width:375,height:812});
+  const text=await page.evaluate(()=>document.body.innerText);
+  for(const label of ['Conservador','Provável','Otimista','Saldo hoje'])assert.ok(text.includes(label),label);
+  await page.setViewport({width:1366,height:900});
+});
