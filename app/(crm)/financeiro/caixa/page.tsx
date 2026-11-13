@@ -91,7 +91,9 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
           <td className={`px-3 py-2 text-right font-bold ${tone(w.balance)}`}>{money(w.balance)}</td>
         </tr>)}</tbody>
       </table></div>
-      <p className="text-xs text-ink/55">A projeção usa as contas a receber e a pagar em aberto, com as parcelas. Contas recorrentes, folha e compras ainda não lançadas não entram.</p>
+      <p className="text-xs text-ink/55">A projeção usa contas em aberto e parcelas, programações recorrentes ainda não lançadas e compras confirmadas sem conta financeira. Gerar uma competência substitui sua previsão pela conta, sem duplicar valores. Folha agregada depende da permissão específica.</p>
+      {overview.forecast_sources&&<p className="text-xs text-ink/60">Previsões ainda sem conta: {overview.forecast_sources.pending_occurrences} competência(s) recorrente(s) e {overview.forecast_sources.unposted_purchases} compra(s). Valores sem vencimento ficam fora dos cenários.</p>}
+      {overview.forecast_sources&&(!overview.forecast_sources.recurrences||!overview.forecast_sources.payroll||!overview.forecast_sources.purchases)&&<p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Projeção parcial conforme suas permissões: podem faltar previsões de recorrências, folha ou compras. Consulte um responsável com acesso a essas fontes.</p>}
     </section>
   </div>;
 }
