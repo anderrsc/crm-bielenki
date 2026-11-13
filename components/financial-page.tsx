@@ -65,13 +65,14 @@ export async function FinancialPage({ filter, error, received, created, notice, 
   if (situacao === "vencido") q = q.eq("display_status", "vencido");
   if (situacao === "hoje") q = q.eq("display_status", "vence_hoje");
   if (situacao === "pago") q = q.eq("display_status", "pago");
-  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }, { data: canClassify }] = await Promise.all([
+  const [{ data, error: entriesError }, { data: canCreate }, { data: totalsData, error: totalsError }, { data: saleTypes, error: saleTypesError }, { data: canClassify }, { data: canReconcile }] = await Promise.all([
     q,
     db.rpc("has_table_access", { resource: "financial_entries", action: "insert" }),
     // Totais de todos os lancamentos do filtro (antes somava so a pagina).
     db.rpc("financial_control_totals", { p_type: filter ?? null, p_q: safeTerm || null, p_from: isDate(filters.de) ? filters.de : null, p_to: isDate(filters.ate) ? filters.ate : null, p_status: situacao ?? null, p_sale_type: servico ?? null }),
     db.from("sale_types").select("id,name").eq("active", true).order("name"),
     db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
+    db.rpc("has_table_access", { resource: "bank_reconciliation", action: "select" }),
   ]);
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
@@ -116,6 +117,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
           {(!filter || filter === "receber") && <Link className="button" href="/financeiro/receber/novo"><Plus className="h-4 w-4" /> Nova conta a receber</Link>}
         </div>
       )}
+      {canReconcile === true && <Link href="/financeiro/conciliacao" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Conciliação bancária</Link>}
       {filter !== "pagar" && <ReceivingAccountsManager />}
       <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
       <Link href="/financeiro/rateios" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Rateios e resultado por obra</Link>
