@@ -7,7 +7,7 @@ import { friendlyError } from "@/lib/friendly-error";
 import { FinancialAllocationForm, type AllocationRow } from "@/components/financial-allocation-form";
 
 type Entry = { id: string; description: string; entry_type: "pagar" | "receber"; total_amount: number; due_date: string | null; status: string };
-type OrderResult = { order_id: string; order_number: string; client_name: string | null; contracted: number; received: number; receivable: number; extra_revenue: number; cost_total: number; cost_paid: number; margin: number };
+type OrderResult = { order_id: string; order_number: string; client_name: string | null; contracted: number; received: number; received_total:number; receivable: number; extra_revenue: number; cost_total: number; cost_paid: number; margin: number };
 
 export default async function FinancialAllocationsPage({ searchParams }: { searchParams: Promise<{ conta?: string; q?: string; erro?: string; salvo?: string }> }) {
   const search = await searchParams;
@@ -52,7 +52,7 @@ export default async function FinancialAllocationsPage({ searchParams }: { searc
   const [entriesResult, allocatedResult, resultsResult] = await Promise.all([
     entryQuery,
     db.from("financial_entry_allocations").select("entry_id"),
-    db.from("v_order_financials").select("*").order("order_number", { ascending: false }).limit(100),
+    db.from("v_order_financial_report").select("*").order("order_number", { ascending: false }).limit(100),
   ]);
   if (entriesResult.error || resultsResult.error) return <p role="alert">Não foi possível carregar os rateios. Atualize a página.</p>;
   const allocated = new Set((allocatedResult.data ?? []).map((r) => r.entry_id));
@@ -82,7 +82,7 @@ export default async function FinancialAllocationsPage({ searchParams }: { searc
     </section>
     <section className="card space-y-3 p-5">
       <h2 className="text-xl font-bold">Resultado por obra</h2>
-      <p className="text-sm text-ink/65">Custos = contas a pagar rateadas para a obra, mais as contas sem rateio ligadas à venda. Nenhuma conta é contada duas vezes.</p>
+      <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Margem parcial: considera contas rateadas e contas sem rateio ligadas à venda. Materiais consumidos, mão de obra, instalações e outros custos ainda sem lançamento não estão incluídos. Recebimentos incluem receitas adicionais rateadas.</p>
       <div className="overflow-x-auto"><table className="mobile-record-table w-full min-w-[720px] text-sm">
         <thead><tr className="border-b text-left text-xs font-bold uppercase tracking-wider text-ink/40"><th className="px-3 py-2">Obra</th><th className="px-3 py-2">Cliente</th><th className="px-3 py-2 text-right">Contratado</th><th className="px-3 py-2 text-right">Recebido</th><th className="px-3 py-2 text-right">Custos</th><th className="px-3 py-2 text-right">Custos pagos</th><th className="px-3 py-2 text-right">Margem</th></tr></thead>
         <tbody className="divide-y">
@@ -91,7 +91,7 @@ export default async function FinancialAllocationsPage({ searchParams }: { searc
             <td data-label="Obra" className="px-3 py-2 font-medium">{r.order_number}</td>
             <td data-label="Cliente" className="px-3 py-2 text-ink/60">{r.client_name ?? "—"}</td>
             <td data-label="Contratado" className="px-3 py-2 text-right">{money(Number(r.contracted) + Number(r.extra_revenue))}</td>
-            <td data-label="Recebido" className="px-3 py-2 text-right">{money(r.received)}</td>
+            <td data-label="Recebido" className="px-3 py-2 text-right">{money(r.received_total)}</td>
             <td data-label="Custos" className="px-3 py-2 text-right">{money(r.cost_total)}</td>
             <td data-label="Custos pagos" className="px-3 py-2 text-right">{money(r.cost_paid)}</td>
             <td data-label="Margem" className={`px-3 py-2 text-right font-bold ${Number(r.margin) < 0 ? "text-red-700" : "text-emerald-700"}`}>{money(r.margin)}</td>
