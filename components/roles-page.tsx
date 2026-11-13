@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<string, string> = { administrador:"Administrador", ger
 const RESOURCE_LABELS: Record<string, string> = {
   bank_reconciliation: "Conciliação bancária",
   financial_recurrences: "Contas recorrentes",
+  financial_exports: "Relatórios financeiros (criar = exportar)",
   financial_payroll: "Previsão agregada da folha (restrita)",
   activities: "Atividades",
   clients: "Clientes",
