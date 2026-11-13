@@ -234,7 +234,10 @@ test("caixa: salva saldo inicial com auditoria e renderiza os cenários no celul
   assert.equal(audit.profile_id,profile.id);
   assert.equal(Number(audit.new_data.opening_balance),1234.56);
   await page.setViewport({width:375,height:812});
+  await page.goto(`${BASE}/financeiro/caixa?dias=15`, { waitUntil: "networkidle0" });
+  await noProblem("caixa no celular");
+  await page.waitForSelector('a[href*="cenario=conservador"]');
   const text=await page.evaluate(()=>document.body.innerText);
-  for(const label of ['Conservador','Provável','Otimista','Saldo hoje'])assert.ok(text.toLocaleLowerCase('pt-BR').includes(label.toLocaleLowerCase('pt-BR')),label);
+  for(const label of ['Conservador','Provável','Otimista','Saldo hoje'])assert.ok(text.toLocaleLowerCase('pt-BR').includes(label.toLocaleLowerCase('pt-BR')),`${label}: ${text.slice(-3000)}`);
   await page.setViewport({width:1366,height:900});
 });
