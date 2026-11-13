@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseBRNumber } from "@/lib/br-number";
 import { validIsoDate } from "@/lib/valid-date";
+import { todayISO } from "@/lib/utils";
 
 const base = "/financeiro/caixa";
 
@@ -17,6 +18,7 @@ export async function saveOpeningBalance(form: FormData) {
   if (!z.uuid().safeParse(id).success) redirect(`${base}?erro=Conta+inválida`);
   if (amount === null || !Number.isFinite(amount) || Math.abs(amount) > 999_999_999) redirect(`${base}?erro=${encodeURIComponent("Saldo inválido. Use por exemplo 1.500,00")}`);
   if (date && !validIsoDate(date)) redirect(`${base}?erro=Data+inválida`);
+  if (date && date > todayISO()) redirect(`${base}?erro=Saldo+inicial+não+pode+ter+data+futura`);
   const db = await createClient();
   const { data: allowed } = await db.rpc("has_table_access", { resource: "financial_entries", action: "update" });
   if (allowed !== true) redirect(`${base}?erro=Sem+permissão+para+alterar+saldos`);
