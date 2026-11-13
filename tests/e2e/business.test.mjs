@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import pg from "pg";
 import fs from "node:fs/promises";
 import path from "node:path";
+import {PDFDocument} from 'pdf-lib';
 import { launch, login, BASE, pageProblem, clickAndWait, setByLabel, settle as settleRequests, trackRequests } from "./helpers.mjs";
 
 const RUN = Date.now().toString(36);
@@ -83,6 +84,20 @@ async function noProblem(step) {
   const problem = await pageProblem(page);
   assert.equal(problem, null, `${step}: ${problem} (${page.url()})`);
 }
+
+test('relatórios: preview, PDF e CSV mantêm critérios e registram exportação',async()=>{
+ await page.goto(`${BASE}/financeiro/relatorios?relatorio=dre`,{waitUntil:'networkidle0'});await noProblem('relatórios financeiros');
+ await page.waitForSelector('a[href^="/api/financeiro/relatorio?"]');
+ const links=await page.$$eval('a[href^="/api/financeiro/relatorio?"]',els=>els.map(el=>el.href));
+ assert.equal(links.length,2);
+ const results=await page.evaluate(async urls=>{const out=[];for(const url of urls){const response=await fetch(url);out.push({status:response.status,type:response.headers.get('content-type'),cache:response.headers.get('cache-control'),bytes:[...new Uint8Array(await response.arrayBuffer())]});}return out;},links);
+ assert.equal(results[0].status,200,Buffer.from(results[0].bytes).toString().slice(0,300));assert.match(results[0].type,/application\/pdf/);assert.match(results[0].cache,/no-store/);
+ const pdf=await PDFDocument.load(new Uint8Array(results[0].bytes));assert.ok(pdf.getPageCount()>=1);
+ assert.equal(results[1].status,200);assert.match(results[1].type,/text\/csv/);const csv=Buffer.from(results[1].bytes).toString('utf8');assert.ok(csv.includes('DRE gerencial'));assert.ok(csv.includes('Gerado em:'));assert.ok(csv.includes('Período:'));
+ const audit=(await db.query("select new_data from audit_logs where table_name='financial_exports' order by id desc limit 2")).rows;assert.equal(audit.length,2);assert.deepEqual(new Set(audit.map(r=>r.new_data.format)),new Set(['pdf','csv']));
+ await page.setViewport({width:375,height:812});await page.goto(`${BASE}/financeiro/relatorios?relatorio=caixa`,{waitUntil:'networkidle0'});await noProblem('relatórios no celular');
+ assert.ok((await page.evaluate(()=>document.body.innerText)).includes('Fluxo de caixa'));await page.setViewport({width:1366,height:900});
+});
 
 test("recorrências: planejar não paga, criar competência não duplica a previsão",async()=>{
  const profile=(await db.query('select id,company_id from profiles order by created_at limit 1')).rows[0];

@@ -33,3 +33,8 @@ test("PDF de orcamento exige login", async () => {
   const res = await fetch(`${BASE}/api/orcamentos/00000000-0000-0000-0000-000000000000/pdf`, { redirect: "manual" });
   assert.ok(res.status === 307 || res.status === 302 || res.status === 401, `veio ${res.status}`);
 });
+
+test("exportação financeira exige login",async()=>{
+ const res=await fetch(`${BASE}/api/financeiro/relatorio?relatorio=dre&formato=csv`,{redirect:'manual'});
+ assert.ok([401,302,307].includes(res.status),`veio ${res.status}`);
+});
