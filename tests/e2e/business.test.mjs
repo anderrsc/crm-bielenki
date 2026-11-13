@@ -101,6 +101,9 @@ test("recorrências: planejar não paga, criar competência não duplica a previ
  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[profile.id]);
  let before;try{before=(await db.query('select cash_overview(30) d')).rows[0].d;}finally{await db.query("select set_config('request.jwt.claim.sub','',false)");}
  const form=`form:has(input[name="id"][value="${plan.id}"]):has(input[name="month"])`;
+ await page.goto(`${BASE}/financeiro/recorrencias?mes=${today.slice(0,7)}&q=${encodeURIComponent(description)}`,{waitUntil:'networkidle0'});
+ await noProblem('conferir competência salva');
+ assert.ok(await page.$(form),`Competência indisponível: ${await page.evaluate(()=>document.body.innerText)}`);
  await page.$eval(`article details:has(input[name="id"][value="${plan.id}"])`,el=>{el.open=true;});
  await page.type(`${form} input[name="reason"]`,'Competência conferida para lançamento');await page.click(`${form} input[name="confirmed"]`);
  await clickAndWait(page,'Confirmar criação da conta',{scope:form});await noProblem('criar competência');
