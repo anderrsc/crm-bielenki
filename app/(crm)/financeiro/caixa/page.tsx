@@ -56,7 +56,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
           {allowed === true && <form action={saveOpeningBalance} className="mt-3 flex flex-wrap items-end gap-2">
             <input type="hidden" name="account_id" value={a.id} />
             <label><span className="label">Saldo inicial</span><input className="field w-36" name="opening_balance" inputMode="decimal" defaultValue={Number(a.opening_balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} aria-label={`Saldo inicial de ${a.name}`} /></label>
-            <label><span className="label">Contar baixas a partir de</span><input className="field" type="date" name="opening_date" defaultValue={a.opening_date ?? ""} aria-label={`Data inicial de ${a.name}`} /></label>
+            <label><span className="label">Contar baixas a partir de</span><input className="field" type="date" name="opening_date" max={overview.today} defaultValue={a.opening_date ?? ""} aria-label={`Data inicial de ${a.name}`} /></label>
             <SubmitButton className="button-ghost">Salvar saldo inicial</SubmitButton>
           </form>}
         </div>)}
