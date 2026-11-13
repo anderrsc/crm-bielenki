@@ -47,13 +47,14 @@ export default async function FinancialClassificationPage({ searchParams }: { se
   </div>;
 }
 
-function DefinitionForm({ kind, item }: { kind: "category" | "center"; item?: { id: string; name: string; active: boolean; entry_type?: string; dre_group?: string | null } }) {
+function DefinitionForm({ kind, item }: { kind: "category" | "center"; item?: { id: string; name: string; active: boolean; entry_type?: string; dre_group?: string | null; report_group?:string|null } }) {
   const groups = item?.entry_type === "receber" ? DRE_GROUPS_BY_TYPE.receber : item ? DRE_GROUPS_BY_TYPE.pagar : [...DRE_GROUPS_BY_TYPE.pagar, "receita" as const];
-  return <form action={saveFinancialDefinition} className={`grid items-end gap-3 rounded-xl border border-sand p-3 ${kind === "category" ? "sm:grid-cols-[2fr_1fr_1.5fr_auto_auto]" : "sm:grid-cols-[2fr_1fr_auto_auto]"}`}>
+  return <form action={saveFinancialDefinition} className={`grid items-end gap-3 rounded-xl border border-sand p-3 ${kind === "category" ? "sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1.5fr_1.5fr_auto_auto]" : "sm:grid-cols-[2fr_1fr_auto_auto]"}`}>
     <input type="hidden" name="kind" value={kind} /><input type="hidden" name="id" value={item?.id ?? ""} />
     <label><span className="label">{item ? "Nome" : "Novo cadastro"}</span><input name="name" className="field" defaultValue={item?.name} maxLength={80} required /></label>
     {kind === "category" ? <label><span className="label">Tipo</span><select name="entry_type" className="field" defaultValue={item?.entry_type ?? "pagar"}><option value="pagar">Despesa</option><option value="receber">Receita</option></select></label> : <span />}
     {kind === "category" && <label><span className="label">Linha da DRE</span><select name="dre_group" className="field" defaultValue={item?.dre_group ?? ""}><option value="">Padrão do tipo</option>{groups.map(g => <option key={g} value={g}>{DRE_GROUP_LABEL[g]}</option>)}</select></label>}
+    {kind === "category" && <label><span className="label">Grupo do relatório de custos</span><select name="report_group" className="field" defaultValue={item?.report_group??''}><option value="">Sem grupo específico</option><option value="fabricacao">Fabricação</option><option value="instalacao">Instalação</option><option value="veiculos">Veículos</option><option value="extraordinarias">Despesas extraordinárias</option></select></label>}
     <label className="flex min-h-10 items-center gap-2 text-sm"><input name="active" type="checkbox" defaultChecked={item?.active ?? true} />Ativo</label>
     <button className="button">{item ? "Salvar" : "Cadastrar"}</button>
   </form>;
