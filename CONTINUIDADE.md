@@ -1,16 +1,17 @@
 # PONTO EXATO PARA RETOMAR
 
-- PR #67 (categorias, centros de custos e baixas que preservam juros/desconto/parcelas): INTEGRADO na main (dab1b5b) com CI completo verde. Deploy da Vercel não foi conferido pela IA (sem acesso de rede ao site): conferir Ready/Production/Current no painel.
-- Pendência 2 (vínculo e rateios por obra/pedido): IMPLEMENTADA na branch claude/crm-system-not-working-3qhgyk. Ver o PR aberto com o label aplicar-migrations. Só marcar publicada depois de migration, CI, merge e deploy confirmados.
-- Próxima da fila depois dela: item 3 (DRE por competência, custos completos e margem por obra). Nenhum código de DRE iniciado.
+- PRs #67 (categorias/centros de custos) e #69 (rateios por obra) INTEGRADOS na main, com CI verde e migrations aplicadas em produção. O usuário confirmou por imagem que a tela de rateio está no ar.
+- Pedido do usuário em 13/11 (prioridade sobre a fila): (1) pedido fechado entra na aba Produção sozinho; (2) aba Produção organizada por fase do pós-pedido; (3) ao marcar "já foi instalado", o cliente recebe aviso pelo WhatsApp; (4) depois disso, focar nas melhorias do módulo financeiro, mesmo fora da ordem da fila.
+- Itens 1 a 3: IMPLEMENTADOS na branch claude/crm-system-not-working-3qhgyk (ver PR aberto com o label aplicar-migrations). Só marcar publicado depois de migration, CI e merge.
+- DRE gerencial por competência (item 3 da fila): IMPLEMENTADA no mesmo PR. Migration 20261113100000_financial_dre.sql (coluna dre_group nas categorias, competence_date nas contas, função financial_dre_lines). Tela /financeiro/dre com as 11 linhas, comparativo mês a mês, filtro por tipo de venda e detalhe por categoria. Em Categorias dá para escolher a linha da DRE; em Classificar conta, a data de competência.
+- Limites da DRE: a competência usa a data de cadastro quando não informada; a visão por tipo de venda não inclui despesas gerais sem obra; não há exportação (PDF/planilha) nem cenário próprio no teste de navegador.
+- Próximo no financeiro: caixa com saldos iniciais por conta e projeção completa (item 4), depois conciliação OFX/CSV (item 5).
 
-## O QUE A PENDÊNCIA 2 ENTREGA
-- Migration 20261112170000_financial_allocations.sql (aditiva e reaplicável): tabela financial_entry_allocations com RLS (leitura por permissão financeira; gravação só pela função), função set_financial_entry_allocations(conta, linhas) e view v_order_financials.
-- Rateio por valor ou percentual entre obras (pedidos) e centros de custos. A soma precisa fechar exatamente o total; no percentual a última linha recebe a sobra dos centavos. Linhas repetidas, cadastro de outra empresa, centro inativo e conta cancelada são recusados. Lista vazia remove o rateio. Auditoria com antes/depois em audit_logs.
-- Resultado por obra sem duplicar: conta rateada entra só pela parte rateada; conta a pagar sem rateio ligada à venda entra inteira; receita extra só de contas a receber sem venda.
-- Tela /financeiro/rateios (lista de contas, formulário de rateio e resultado por obra), links no Financeiro e botão "Ratear" em cada conta.
-- Arquivos: app/(crm)/financeiro/rateios/page.tsx, app/(crm)/financial-allocation-actions.ts, components/financial-allocation-form.tsx, tests/financial-allocations.test.ts, scripts/verificar-banco-producao.sql regenerado.
-- Limites conhecidos: o rateio não tem cenário próprio no teste de navegador (coberto por testes de banco e pela varredura de páginas); a obra é o pedido (orders) existente, sem cadastro separado de obra.
+## O QUE A ENTREGA DE PRODUÇÃO FAZ
+- Migration 20261113090000_pedido_vai_para_producao.sql: gatilho adiado em orders cria a ordem de produção de todo pedido novo (sem duplicar a que a aprovação do orçamento já cria); pedidos em aberto sem ordem foram incluídos; coluna orders.install_notified_at.
+- components/production-flow-page.tsx: lista por fase (A iniciar, Em fabricação, Agendar instalação, Para instalar, Pós-venda, Concluídos), resumo, busca e botão para concluir a etapa direto no cartão.
+- lib/whatsapp/notify-installed.ts: aviso único por pedido, registrado no Atendimento como "automacao". Dispara ao concluir a etapa Instalação (calhas), ao concluir a instalação em /instalacoes e quando o último item do checklist conclui a instalação. Falha no envio libera nova tentativa.
+- Limites conhecidos: o texto do aviso é fixo (sem tela para editar nem para desligar); nenhum WhatsApp real foi enviado nos testes.
 
 ---
 

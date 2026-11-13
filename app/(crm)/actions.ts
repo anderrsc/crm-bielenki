@@ -1,4 +1,5 @@
 "use server";
+import { notifyInstalled } from "@/lib/whatsapp/notify-installed";
 import { validIsoDate } from "@/lib/valid-date";
 import { friendlyError } from "@/lib/friendly-error";
 import { correctClientPhone } from "@/lib/client-phone";
@@ -384,12 +385,19 @@ export async function receivePurchaseItem(formData:FormData) {
 export async function updateInstallationChecklist(formData:FormData) {
   const db=await createClient();const id=String(formData.get("item_id"));const installationId=String(formData.get("installation_id"));const completed=formData.get("completed")==="on";const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
   const {error}=await db.from("installation_checklists").update({completed,completed_at:completed?new Date().toISOString():null,completed_by:completed?user.id:null,notes:String(formData.get("notes")||"").trim(),updated_at:new Date().toISOString()}).eq("id",id);
-  if(error)redirect(`/instalacoes/${installationId}?erro=${encodeURIComponent(error.message)}`);revalidatePath(`/instalacoes/${installationId}`);revalidatePath("/instalacoes");redirect(`/instalacoes/${installationId}?salvo=1`);
+  if(error)redirect(`/instalacoes/${installationId}?erro=${encodeURIComponent(error.message)}`);
+  // O ultimo item do checklist conclui a instalacao no banco: avisa o cliente tambem.
+  let aviso="";
+  if(completed){const {data:inst}=await db.from("installations").select("order_id,status").eq("id",installationId).maybeSingle();if(inst?.status==="concluida"&&inst.order_id)aviso=await notifyInstalled(inst.order_id);}
+  revalidatePath(`/instalacoes/${installationId}`);revalidatePath("/instalacoes");redirect(`/instalacoes/${installationId}?salvo=1${aviso?`&aviso=${aviso}`:""}`);
 }
 
 export async function updateInstallationStatus(formData:FormData) {
   const db=await createClient();const id=String(formData.get("installation_id"));const status=String(formData.get("status"));if(!["agendada","em_andamento","concluida","cancelada"].includes(status))redirect(`/instalacoes/${id}?erro=Status inválido`);
-  const {error}=await db.from("installations").update({status}).eq("id",id);if(error)redirect(`/instalacoes/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath(`/instalacoes/${id}`);redirect(`/instalacoes/${id}`);
+  const {error}=await db.from("installations").update({status}).eq("id",id);if(error)redirect(`/instalacoes/${id}?erro=${encodeURIComponent(error.message)}`);
+  let aviso="";
+  if(status==="concluida"){const {data:inst}=await db.from("installations").select("order_id").eq("id",id).maybeSingle();if(inst?.order_id)aviso=await notifyInstalled(inst.order_id);}
+  revalidatePath(`/instalacoes/${id}`);redirect(`/instalacoes/${id}${aviso?`?aviso=${aviso}`:""}`);
 }
 
 export async function saveGutterPrice(formData:FormData) {
@@ -924,7 +932,12 @@ export async function advanceProductionStep(formData: FormData) {
   const { error } = await db.rpc("advance_production_step", {
     p_production_order_id: productionOrderId, p_responsible_id: responsibleId, p_notes: notes,
   });
-  if (error) redirect(`/producao/${productionOrderId}?erro=${encodeURIComponent(error.message)}`);
+  const back = formData.get("_list") === "1" ? "/producao" : `/producao/${productionOrderId}`;
+  if (error) redirect(`${back}?erro=${encodeURIComponent(error.message)}`);
+  // Etapa "Instalacao" concluida: avisa o cliente pelo WhatsApp (uma vez por pedido).
+  let aviso = "";
+  const { data: po } = await db.from("production_orders").select("order_id,flow_type,current_step").eq("id", productionOrderId).maybeSingle();
+  if (po && po.flow_type !== "esquadrias" && po.current_step === 7) aviso = await notifyInstalled(po.order_id);
   revalidatePath("/producao");
-  redirect(`/producao/${productionOrderId}`);
+  redirect(`${back}${aviso ? `?aviso=${aviso}` : ""}`);
 }
