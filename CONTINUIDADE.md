@@ -1,17 +1,16 @@
 # PONTO EXATO PARA RETOMAR
 
-- PRs #67 (categorias/centros de custos) e #69 (rateios por obra) INTEGRADOS na main, com CI verde e migrations aplicadas em produção. O usuário confirmou por imagem que a tela de rateio está no ar.
-- Pedido do usuário em 13/11 (prioridade sobre a fila): (1) pedido fechado entra na aba Produção sozinho; (2) aba Produção organizada por fase do pós-pedido; (3) ao marcar "já foi instalado", o cliente recebe aviso pelo WhatsApp; (4) depois disso, focar nas melhorias do módulo financeiro, mesmo fora da ordem da fila.
-- Itens 1 a 3: IMPLEMENTADOS na branch claude/crm-system-not-working-3qhgyk (ver PR aberto com o label aplicar-migrations). Só marcar publicado depois de migration, CI e merge.
-- DRE gerencial por competência (item 3 da fila): IMPLEMENTADA no mesmo PR. Migration 20261113100000_financial_dre.sql (coluna dre_group nas categorias, competence_date nas contas, função financial_dre_lines). Tela /financeiro/dre com as 11 linhas, comparativo mês a mês, filtro por tipo de venda e detalhe por categoria. Em Categorias dá para escolher a linha da DRE; em Classificar conta, a data de competência.
-- Limites da DRE: a competência usa a data de cadastro quando não informada; a visão por tipo de venda não inclui despesas gerais sem obra; não há exportação (PDF/planilha) nem cenário próprio no teste de navegador.
-- Próximo no financeiro: caixa com saldos iniciais por conta e projeção completa (item 4), depois conciliação OFX/CSV (item 5).
+- PUBLICADO na main (PR #70, CI verde, migrations aplicadas): pedido fechado entra na Produção sozinho; aba Produção por fase; aviso de instalado pelo WhatsApp; DRE gerencial por competência (/financeiro/dre).
+- Prioridade definida pelo usuário em 13/11: seguir com as melhorias do módulo financeiro, mesmo fora da ordem da fila.
+- Caixa com saldos por conta e projeção (item 4 da fila): IMPLEMENTADO na branch claude/crm-system-not-working-3qhgyk (ver PR aberto com o label aplicar-migrations). Só marcar publicado depois de migration, CI e merge.
+- Financeiro que falta, nesta ordem: conciliação OFX/CSV (item 5); recorrências, alçadas e auditoria (item 6); relatórios com exportação PDF/planilha (item 7); margem por obra com previsto/contratado/realizado e custo comprometido (parte do item 3).
 
-## O QUE A ENTREGA DE PRODUÇÃO FAZ
-- Migration 20261113090000_pedido_vai_para_producao.sql: gatilho adiado em orders cria a ordem de produção de todo pedido novo (sem duplicar a que a aprovação do orçamento já cria); pedidos em aberto sem ordem foram incluídos; coluna orders.install_notified_at.
-- components/production-flow-page.tsx: lista por fase (A iniciar, Em fabricação, Agendar instalação, Para instalar, Pós-venda, Concluídos), resumo, busca e botão para concluir a etapa direto no cartão.
-- lib/whatsapp/notify-installed.ts: aviso único por pedido, registrado no Atendimento como "automacao". Dispara ao concluir a etapa Instalação (calhas), ao concluir a instalação em /instalacoes e quando o último item do checklist conclui a instalação. Falha no envio libera nova tentativa.
-- Limites conhecidos: o texto do aviso é fixo (sem tela para editar nem para desligar); nenhum WhatsApp real foi enviado nos testes.
+## O QUE A ENTREGA DO CAIXA FAZ
+- Migration 20261113120000_cash_overview.sql (aditiva): receiving_accounts ganha opening_balance e opening_date; função cash_overview(dias) devolve saldo por conta, baixas sem conta, vencidos e o que vence no período (com parcelas).
+- lib/cash-flow.ts: saldo atual e cenários conservador (80% do que vence, 0% do vencido), provável (100% e 50%) e otimista (100% e 100%); saídas sempre inteiras; aviso do dia em que o saldo fica negativo; projeção semanal.
+- Tela /financeiro/caixa: saldo por conta com formulário de saldo inicial, cenários, horizonte 7/15/30/60/90 ou personalizado e tabela semanal. Link no Financeiro.
+- Limites: recorrências, folha e compras não lançadas não entram na projeção; sem cenário próprio no teste de navegador.
+- Limites das entregas anteriores continuam valendo: texto do aviso de instalado é fixo; DRE sem exportação.
 
 ---
 

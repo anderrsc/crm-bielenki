@@ -120,6 +120,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
       <Link href="/financeiro/rateios" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Rateios e resultado por obra</Link>
       <Link href="/financeiro/dre" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">DRE gerencial</Link>
+      <Link href="/financeiro/caixa" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Caixa e projeção</Link>
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
