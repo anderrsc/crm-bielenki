@@ -3,7 +3,9 @@
 - PRs #67 (categorias/centros de custos) e #69 (rateios por obra) INTEGRADOS na main, com CI verde e migrations aplicadas em produção. O usuário confirmou por imagem que a tela de rateio está no ar.
 - Pedido do usuário em 13/11 (prioridade sobre a fila): (1) pedido fechado entra na aba Produção sozinho; (2) aba Produção organizada por fase do pós-pedido; (3) ao marcar "já foi instalado", o cliente recebe aviso pelo WhatsApp; (4) depois disso, focar nas melhorias do módulo financeiro, mesmo fora da ordem da fila.
 - Itens 1 a 3: IMPLEMENTADOS na branch claude/crm-system-not-working-3qhgyk (ver PR aberto com o label aplicar-migrations). Só marcar publicado depois de migration, CI e merge.
-- Próximo: financeiro. Sugestão de ordem: DRE por competência com custos e margem por obra (item 3 da fila), depois caixa com saldos e projeção (item 4).
+- DRE gerencial por competência (item 3 da fila): IMPLEMENTADA no mesmo PR. Migration 20261113100000_financial_dre.sql (coluna dre_group nas categorias, competence_date nas contas, função financial_dre_lines). Tela /financeiro/dre com as 11 linhas, comparativo mês a mês, filtro por tipo de venda e detalhe por categoria. Em Categorias dá para escolher a linha da DRE; em Classificar conta, a data de competência.
+- Limites da DRE: a competência usa a data de cadastro quando não informada; a visão por tipo de venda não inclui despesas gerais sem obra; não há exportação (PDF/planilha) nem cenário próprio no teste de navegador.
+- Próximo no financeiro: caixa com saldos iniciais por conta e projeção completa (item 4), depois conciliação OFX/CSV (item 5).
 
 ## O QUE A ENTREGA DE PRODUÇÃO FAZ
 - Migration 20261113090000_pedido_vai_para_producao.sql: gatilho adiado em orders cria a ordem de produção de todo pedido novo (sem duplicar a que a aprovação do orçamento já cria); pedidos em aberto sem ordem foram incluídos; coluna orders.install_notified_at.
