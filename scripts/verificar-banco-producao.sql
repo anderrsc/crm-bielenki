@@ -75,7 +75,7 @@ with expected_columns(table_name, column_name) as (
     ('quote_internal_attachments', 'company_id,content_type,created_at,file_path,id,original_name,quote_id,size_bytes,uploaded_by'),
     ('quote_items', 'company_id,description,id,item_type,metadata,product,quantity,quote_id,requires_production,requires_purchase,total,unit,unit_price'),
     ('quotes', 'approved_at,attendant_id,client_id,client_notes,company_id,created_at,discount,followup_notified_at,freight,hide_travel_price,hide_unit_prices,id,installation_deadline,measurer_id,measurer_name,notes,payment_methods,pdf_generated_at,quote_number,sale_id,sale_type_id,seller_id,seller_name,sent_at,status,subtotal,total,triage_session_id,updated_at,valid_days,valid_until'),
-    ('receiving_accounts', 'active,company_id,created_at,details,holder_city,holder_name,id,name,pix_key,updated_at'),
+    ('receiving_accounts', 'active,company_id,created_at,details,holder_city,holder_name,id,name,opening_balance,opening_date,pix_key,updated_at'),
     ('sale_items', 'company_id,description,id,notes,product,quantity,requires_production,requires_purchase,sale_id,total,unit,unit_price'),
     ('sale_types', 'active,company_id,id,name,requires_installation,requires_production,requires_purchase'),
     ('sales', 'client_id,company_id,created_at,current_responsible_id,financial_status,id,installation_status,next_action,next_action_date,notes,open_amount,operational_status,paid_amount,production_status,sale_number,sale_type_id,seller_id,total,updated_at'),
@@ -103,6 +103,7 @@ with expected_columns(table_name, column_name) as (
     ('workflows', 'company_id,conditions,created_at,created_by,deleted_at,description,id,last_run_at,name,runs_count,status,steps,success_count,trigger_config,trigger_type,updated_at,version')
   ) v(t, c)
 ), expected_functions(schema, name, args, src) as (values
+  ('crm_private', 'audit_cash_opening_balance', '', 'b6aa53e50b284cc17fe494e446524538'),
   ('crm_private', 'audit_financial_classification', '', '79a3115bbe87e9734c8ceff4e00be2d6'),
   ('crm_private', 'ensure_production_order', '', '9055036805b9160589614e7354adc28a'),
   ('crm_private', 'notify_team', 'cid uuid, event text, title_text text, body_text text, target text, owner_id uuid', '432d907287bcdfafbde0b9d9d3b483f7'),
@@ -121,6 +122,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'bulk_save_prices', 'p_rows jsonb', '4496a754bf303f3a6eb8d70a4799fd6d'),
   ('public', 'calcular_score_triagem', 'p_session_id uuid', 'cb5f3dbb40c330d539802209f7deacf0'),
   ('public', 'cancel_lead_followups', '', '1b2f1fbeb7a24566403e341dca8420d6'),
+  ('public', 'cash_overview', 'p_days integer', 'd6a41db45c901638202a763233a03a99'),
   ('public', 'central_triage_activity', 'p_company_id uuid, p_since timestamp with time zone', '550d376d6b435da3af0d67544feb1f24'),
   ('public', 'check_order_completion', '', '68aef9d070ff69becfa6ef5599065f0d'),
   ('public', 'client_doc_key', 'raw text', 'fe0118dc116e193f40e5035e2bc66a9d'),
@@ -158,6 +160,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'financial_totals', 'p_type text, p_q text, p_from date, p_to date, p_status text, p_sale_type uuid', 'aa9abf4ab6a3669c3457260590c8b9ea'),
   ('public', 'generate_operational_alerts', '', 'f90c6cfb40f46dc766475b7a3a1af8e6'),
   ('public', 'global_search', 'p_query text', '61c02c377e0157cb5b08a4c2cd65f343'),
+  ('public', 'guard_cash_opening_balance', '', 'd0646d5486640755bd4b4e2f04c6a77d'),
   ('public', 'guard_installation_completion', '', '2a117be52760d203d2d08538c65b4d09'),
   ('public', 'guard_profile_update', '', '16b603fce59d1fdaa4d372958a1dc9cf'),
   ('public', 'gutter_catalog_category', 'p_product text', '0101d3321b0ae2547743d572ed8587fa'),
@@ -289,6 +292,8 @@ with expected_columns(table_name, column_name) as (
   ('quotes', 'quotes_pipeline_sync'),
   ('quotes', 'quotes_touch'),
   ('quotes', 'wf_quote_status'),
+  ('receiving_accounts', 'cash_opening_audit'),
+  ('receiving_accounts', 'cash_opening_guard'),
   ('sales', 'sales_touch'),
   ('suppliers', 'suppliers_touch'),
   ('triage_sessions', 'triage_create_draft'),
