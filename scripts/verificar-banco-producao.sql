@@ -51,7 +51,7 @@ with expected_columns(table_name, column_name) as (
     ('order_checklist_items', 'attachment_url,category,checklist_id,company_id,completed_at,due_date,id,item_name,notes,order_id,required,responsible_id,sort_order,status,title'),
     ('order_checklists', 'company_id,completed_at,created_at,id,order_id,status,template_id'),
     ('order_items', 'company_id,description,id,notes,order_id,product,quantity,sale_item_id,unit'),
-    ('orders', 'blocked_reason,client_id,company_id,created_at,current_responsible_id,id,installation_status,next_action,next_action_date,notes,operational_status,order_number,production_status,purchase_status,sale_id,sale_type_id,updated_at'),
+    ('orders', 'blocked_reason,client_id,company_id,created_at,current_responsible_id,id,install_notified_at,installation_status,next_action,next_action_date,notes,operational_status,order_number,production_status,purchase_status,sale_id,sale_type_id,updated_at'),
     ('outbound_messages', 'attempts,automation_type,body,client_id,company_id,conversation_id,created_at,dedupe_key,error_message,external_id,id,payload,phone,scheduled_at,sent_at,status,template_id,updated_at'),
     ('payments', 'amount,company_id,created_at,created_by,financial_entry_id,id,notes,paid_at,payment_method,receipt_url,receiving_account_id,receiving_account_name,reversal_notes,reversed_at,reversed_by'),
     ('permissions', 'can_create,can_delete,can_update,can_view,id,resource,role'),
@@ -104,6 +104,7 @@ with expected_columns(table_name, column_name) as (
   ) v(t, c)
 ), expected_functions(schema, name, args, src) as (values
   ('crm_private', 'audit_financial_classification', '', '79a3115bbe87e9734c8ceff4e00be2d6'),
+  ('crm_private', 'ensure_production_order', '', '9055036805b9160589614e7354adc28a'),
   ('crm_private', 'notify_team', 'cid uuid, event text, title_text text, body_text text, target text, owner_id uuid', '432d907287bcdfafbde0b9d9d3b483f7'),
   ('crm_private', 'operations_tick', '', 'a3e23c72a8f7781df9c76e911647f06d'),
   ('crm_private', 'quote_sent_clock', '', '14d45900057fb4d346ccf6f607b87590'),
@@ -265,6 +266,7 @@ with expected_columns(table_name, column_name) as (
   ('leads', 'wf_lead_created'),
   ('measurements', 'measurements_pipeline_sync'),
   ('order_checklist_items', 'checklist_completion'),
+  ('orders', 'orders_ensure_production'),
   ('orders', 'orders_touch'),
   ('orders', 'trg_auto_checklist_on_order'),
   ('orders', 'trg_auto_order_checklist'),

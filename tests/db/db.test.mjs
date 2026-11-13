@@ -248,3 +248,19 @@ test("triagem liga ao cliente existente pelas regras de nome/endereco", async ()
     assert.equal(await m("Quirino", null, "Centro", "Gaspar", null), first, "primeiro nome + bairro e cidade junta");
   } finally { await db.query("rollback"); }
 });
+
+test("pedido fechado entra na producao sozinho, sem duplicar a ordem", async () => {
+  await db.query("begin");
+  try {
+    const base = (await db.query("select client_id, sale_type_id from sales where company_id=$1 limit 1", [company])).rows[0];
+    const sale = (await db.query("insert into sales(company_id,sale_number,client_id,sale_type_id,total) values($1,'VEN-TST-PROD',$2,$3,10) returning id", [company, base.client_id, base.sale_type_id])).rows[0].id;
+    const order = (await db.query("insert into orders(company_id,order_number,sale_id,client_id,sale_type_id) values($1,'PED-TST-PROD',$2,$3,$4) returning id", [company, sale, base.client_id, base.sale_type_id])).rows[0].id;
+    await db.query("set constraints all immediate");
+    const n = async () => (await db.query("select count(*)::int n from production_orders where order_id=$1", [order])).rows[0].n;
+    assert.equal(await n(), 1, "ordem de producao criada no fechamento");
+    await db.query("set constraints all deferred");
+    await db.query("update orders set next_action='x' where id=$1", [order]);
+    await db.query("set constraints all immediate");
+    assert.equal(await n(), 1, "nao duplica");
+  } finally { await db.query("rollback"); }
+});
