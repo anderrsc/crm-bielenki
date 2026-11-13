@@ -16,6 +16,14 @@
 - E2E novo verifica preview, PDF/CSV, critérios, auditoria e celular; ainda precisa CI completo. Diagnóstico regenerado: 1242 colunas,153 funções,65 gatilhos.
 - Próximo: concluir envio, comparar remoto/local, abrir PR contra main, aguardar CI, aplicar migration, merge e confirmar Vercel.
 
+## Em PR (sessão Claude, branch claude/crm-system-not-working-3qhgyk) — resultado por obra
+- Migration 20261113160000_order_result.sql (aditiva; não altera v_order_financials nem v_order_financial_report): coluna orders.expected_cost, função set_order_expected_cost (permissão financeira + auditoria) e view v_order_result.
+- v_order_result por obra: contratado (venda + receitas extras rateadas), custo previsto, comprometido (contas de compras da obra ainda não recebidas por completo), realizado (rateios + contas ligadas à venda ou a compra já recebida), pago, margem prevista e margem atual. Nada é contado duas vezes.
+- Tela /financeiro/obras: busca por cliente/pedido, filtro de situação, paginação de 25, formulário do custo previsto e aviso de obra acima do previsto. Link no Financeiro. Rota incluída em scripts/route-inventory.json.
+- Testes: tests/order-result.test.ts (banco isolado). Sem cenário próprio de navegador além do inventário de rotas.
+- Ainda pendente do item 2 da fila: mão de obra, impostos e comissões automáticos por obra, consumo de material do estoque e a paginação/seleção de obras na tela de rateios.
+- Atenção: duas sessões (Codex e Claude) trabalham neste repositório. Antes de começar um item, conferir os PRs abertos para não duplicar. Um rascunho duplicado de conciliação/recorrências da sessão Claude ficou só em stash local e NÃO deve ser publicado.
+
 ## Fila ainda pendente
 1. Alçadas de aprovação e permissões próprias para aprovar/cancelar; auditoria financeira integral com justificativas.
 2. Resultado completo por obra: previsto/comprometido/realizado, extras, consumo, compras, mão de obra, instalações, impostos/comissões. Corrigir também limites/paginação e seleção de obras na tela de rateios.
