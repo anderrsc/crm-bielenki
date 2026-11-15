@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { advanceProductionStep } from "@/app/(crm)/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { shortDate, todayISO } from "@/lib/utils";
+import { OP_STAGE_LABEL } from "@/components/order-operation-card";
 
 const STEPS_CALHAS = [
   "Medição",
@@ -30,6 +31,7 @@ const STEPS_ESQUADRIAS = [
 
 // Fases do pos-pedido, na ordem em que o trabalho anda.
 const PHASES = [
+  { key: "medidas", title: "Medidas e liberação para corte", hint: "Falta conferir medidas ou confirmar o envio para corte" },
   { key: "novo", title: "A iniciar", hint: "Pedido fechado, produção ainda não começou" },
   { key: "fabricacao", title: "Em fabricação", hint: "Corte, dobra, pintura e montagem" },
   { key: "agendar", title: "Agendar instalação", hint: "Pronto: combinar a data com o cliente" },
@@ -38,9 +40,11 @@ const PHASES = [
   { key: "concluido", title: "Concluídos", hint: "Toque para ver" },
 ] as const;
 
-function phaseOf(o: { flow_type: string; current_step: number; status: string }) {
+function phaseOf(o: { flow_type: string; current_step: number; status: string; order?: { op_stage?: string | null } | null }) {
   const total = o.flow_type === "esquadrias" ? STEPS_ESQUADRIAS.length : STEPS_CALHAS.length;
   if (o.current_step > total || o.status === "finalizado") return "concluido";
+  // Pedido novo ainda sem liberacao para corte: a producao espera.
+  if (o.order?.op_stage && o.order.op_stage !== "liberado_corte") return "medidas";
   if (o.current_step === 1 && o.status === "aguardando_material") return "novo";
   if (o.flow_type === "esquadrias") return "fabricacao";
   return o.current_step <= 4 ? "fabricacao" : o.current_step === 5 ? "agendar" : o.current_step === 6 ? "instalar" : "posvenda";
@@ -58,7 +62,7 @@ type Order = {
   status: string;
   planned_end: string | null;
   responsible: { full_name: string } | null;
-  order: { id?: string; order_number: string; sale_id?: string | null; client?: { name: string; phone?: string | null; neighborhood?: string | null; city?: string | null } } | null;
+  order: { id?: string; order_number: string; sale_id?: string | null; op_stage?: string | null; client?: { name: string; phone?: string | null; neighborhood?: string | null; city?: string | null } } | null;
 };
 
 type StepLog = {
@@ -273,7 +277,7 @@ export async function ProductionFlowPage({
     .select(
       "id,production_number,flow_type,current_step,status,planned_end,created_at," +
         "responsible:profiles!production_orders_responsible_id_fkey(full_name)," +
-        "order:orders(id,order_number,sale_id,client:clients(name,phone,neighborhood,city))"
+        "order:orders(id,order_number,sale_id,op_stage,client:clients(name,phone,neighborhood,city))"
     )
     .neq("status", "cancelado")
     .order("created_at", { ascending: false })
@@ -317,8 +321,8 @@ export async function ProductionFlowPage({
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
         <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-1 text-2xl font-black">{open.length}</p></div>
-        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">A iniciar</p><p className="mt-1 text-2xl font-black">{groups[0].items.length}</p></div>
-        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Para instalar</p><p className="mt-1 text-2xl font-black">{groups[2].items.length + groups[3].items.length}</p></div>
+        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Aguardando medidas ou corte</p><p className="mt-1 text-2xl font-black">{groups[0].items.length}</p></div>
+        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Para instalar</p><p className="mt-1 text-2xl font-black">{groups[3].items.length + groups[4].items.length}</p></div>
         <div className={`card p-4 ${late ? "border-red-200" : ""}`}><p className={`text-xs font-bold uppercase tracking-wider ${late ? "text-red-600" : "text-ink/45"}`}>Atrasados</p><p className={`mt-1 text-2xl font-black ${late ? "text-red-700" : ""}`}>{late}</p></div>
       </div>
 
@@ -344,6 +348,7 @@ export async function ProductionFlowPage({
                 const client = order.order?.client;
                 const place = [client?.neighborhood, client?.city].filter(Boolean).join(" · ");
                 const installing = order.flow_type !== "esquadrias" && order.current_step === 6;
+                const waiting = group.key === "medidas";
                 return (
                   <div key={order.id} className={`card p-4 ${overdue ? "border-red-200 bg-red-50/30" : ""}`}>
                     <div className="flex items-start justify-between gap-3">
@@ -357,7 +362,7 @@ export async function ProductionFlowPage({
                         {order.flow_type === "esquadrias" ? "Esquadrias" : "Calhas"}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm font-bold">{finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
+                    <p className="mt-3 text-sm font-bold">{waiting ? OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas" : finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sand">
                       <div className={`h-full rounded-full ${finished ? "bg-emerald-500" : overdue ? "bg-red-500" : "bg-brand-strong"}`} style={{ width: `${pct}%` }} />
                     </div>
@@ -366,7 +371,8 @@ export async function ProductionFlowPage({
                       {order.responsible?.full_name ? ` · ${order.responsible.full_name}` : ""}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {!finished && (
+                      {waiting && order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}#etapa-operacional`} className="button">Resolver etapa</Link>}
+                      {!finished && !waiting && (
                         <form action={advanceProductionStep}>
                           <input type="hidden" name="production_order_id" value={order.id} />
                           <input type="hidden" name="_list" value="1" />

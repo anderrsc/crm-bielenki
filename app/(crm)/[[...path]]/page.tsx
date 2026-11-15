@@ -1,3 +1,4 @@
+import { OperationalPending } from "@/components/operational-pending";
 import dynamic from "next/dynamic";
 import { friendlyError } from "@/lib/friendly-error";
 import { SaleDetail } from "@/components/sale-detail";
@@ -189,7 +190,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
-    try { return <AgendaPage initialEvents={await getAgendaEvents()} />; }
+    try { return <><OperationalPending /><AgendaPage initialEvents={await getAgendaEvents()} /></>; }
     catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
@@ -264,7 +265,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const financialPage=pageNumber((search as {pagina?:string}).pagina);
     return <FinancialPage filter={filter} error={search.erro} created={search.criado === "1"} received={(search as {recebido?:string}).recebido === "1"} notice={(search as {ok?:string}).ok} page={financialPage} filters={search as never}/>;
   }
-  if (path[0] === "vendas" && path[1]) return <SaleDetail id={path[1]} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} />;
+  if (path[0] === "vendas" && path[1]) return <SaleDetail id={path[1]} error={search.erro} received={(search as {recebido?:string}).recebido === "1"} notice={(search as {ok?:string}).ok} />;
   const key = path[0] === "producao" && path[1] === "materiais-do-pedido" ? "materiais" : path[0];
   const config = modules[key];
   if (!config) return <ComingSoon name={path[0] ?? "Página"} />;
