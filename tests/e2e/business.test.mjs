@@ -386,14 +386,14 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
     await page.select('select[name="classification"]', "corretiva");
     await page.type('textarea[name="description"]', "Calha vazando na emenda");
     await page.type('input[name="expected_amount"]', "120,00");
-    await clickAndWait(page, "Criar serviço");
+    await tapAndWait(page, "Criar serviço");
     assert.equal(await pageProblem(page), null);
     await page.waitForSelector("form textarea[name=done]");
     const service = (await db.query("select id,service_number,client_id,order_id from service_orders where order_id=$1", [order])).rows[0];
     assert.equal(service.client_id, state.client.id);
     await page.$eval("details:has(form textarea[name=done])", (el) => { el.open = true; });
     await page.type('textarea[name="done"]', "Vedação da emenda refeita");
-    await clickAndWait(page, "Confirmar conclusão");
+    await tapAndWait(page, "Confirmar conclusão");
     assert.equal(await pageProblem(page), null);
     const done = (await db.query("select status,financial_entry_id,final_amount from service_orders where id=$1", [service.id])).rows[0];
     assert.equal(done.status, "concluido");
@@ -401,3 +401,16 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
     assert.equal((await db.query("select count(*)::int n from financial_entries where description=$1", [`Serviço ${service.service_number}`])).rows[0].n, 1);
   } finally { await page.setViewport({ width: 1366, height: 900 }); }
 });
+
+// No celular a barra fixa inferior pode cobrir o botao: aciona o botao pelo DOM, como um toque nele.
+async function tapAndWait(page, text) {
+  const ok = page.evaluate((t) => {
+    const el = [...document.querySelectorAll("button")].find((b) => b.innerText.trim().toLowerCase().includes(t.toLowerCase()) && !b.disabled);
+    if (!el) return false;
+    el.scrollIntoView({ block: "center" });
+    setTimeout(() => el.click(), 0);
+    return true;
+  }, text);
+  const [found] = await Promise.all([ok, page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 })]);
+  if (!found) throw new Error(`botao "${text}" nao encontrado em ${page.url()}`);
+}
