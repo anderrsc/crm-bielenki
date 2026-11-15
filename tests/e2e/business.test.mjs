@@ -366,6 +366,8 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
   assert.equal(await pageProblem(page), null);
   assert.equal((await db.query("select count(*)::int n from operational_events where order_id=$1 and status='agendado'", [order])).rows[0].n, 1);
   await page.waitForSelector('#etapa-operacional select[name="result"]');
+  // O resultado da visita fica numa secao recolhida: abre como o usuario faria.
+  await page.$$eval("#etapa-operacional details", (all) => all.forEach((d) => { d.open = true; }));
   await page.$eval('#etapa-operacional select[name="result"]', (el) => { el.value = "conferidas"; });
   await clickAndWait(page, "Salvar resultado", { scope: "#etapa-operacional" });
   assert.equal(await pageProblem(page), null);
