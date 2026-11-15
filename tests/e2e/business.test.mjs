@@ -365,10 +365,12 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
   await clickAndWait(page, "Salvar agendamento", { scope: "#etapa-operacional" });
   assert.equal(await pageProblem(page), null);
   assert.equal((await db.query("select count(*)::int n from operational_events where order_id=$1 and status='agendado'", [order])).rows[0].n, 1);
+  await page.waitForSelector('#etapa-operacional select[name="result"]');
   await page.$eval('#etapa-operacional select[name="result"]', (el) => { el.value = "conferidas"; });
   await clickAndWait(page, "Salvar resultado", { scope: "#etapa-operacional" });
   assert.equal(await pageProblem(page), null);
   assert.equal(await stage(), "aguardando_liberacao_corte");
+  await page.waitForFunction(() => document.querySelector("#etapa-operacional")?.innerText.includes("Confirmar envio para corte"));
   await clickAndWait(page, "Confirmar envio para corte", { scope: "#etapa-operacional" });
   assert.equal(await pageProblem(page), null);
   assert.equal(await stage(), "liberado_corte");
@@ -384,6 +386,7 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
     await setByLabel(page, "Valor previsto", "120,00");
     await clickAndWait(page, "Criar serviço");
     assert.equal(await pageProblem(page), null);
+    await page.waitForSelector("form textarea[name=done]");
     const service = (await db.query("select id,service_number,client_id,order_id from service_orders where order_id=$1", [order])).rows[0];
     assert.equal(service.client_id, state.client.id);
     await page.$eval("details:has(form textarea[name=done])", (el) => { el.open = true; });
