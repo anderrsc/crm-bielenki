@@ -23,6 +23,8 @@
     "/producao",
     "/producao/materiais-do-pedido",
     "/instalacoes",
+    "/servicos/novo",
+    "/servicos",
     "/financeiro",
     "/financeiro/caixa",
     "/financeiro/conciliacao",

@@ -96,7 +96,7 @@ export async function ProductionFlowPage({
         .select(
           "id,production_number,flow_type,current_step,status,planned_start,planned_end,notes," +
             "responsible:profiles!production_orders_responsible_id_fkey(full_name)," +
-            "order:orders(order_number,client:clients(name))"
+            "order:orders(order_number,sale_id,op_stage,client:clients(name))"
         )
         .eq("id", id)
         .single(),
@@ -123,6 +123,8 @@ export async function ProductionFlowPage({
     const profiles = profilesRes.data ?? [];
     const steps = stepList(order.flow_type);
     const isFinished = order.current_step > steps.length;
+    // Pedido novo ainda sem liberacao para corte: a producao espera a etapa de medidas.
+    const waitingCut = !isFinished && !!order.order?.op_stage && order.order.op_stage !== "liberado_corte";
 
     return (
       <div className="mx-auto max-w-4xl">
@@ -225,7 +227,14 @@ export async function ProductionFlowPage({
         </div>
 
         {/* Avançar etapa */}
-        {!isFinished && (
+        {waitingCut && (
+          <div className="card border-amber-300 bg-amber-50/60 p-6">
+            <p className="font-bold">{OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas"}</p>
+            <p className="mt-1 text-sm">A produção começa depois que as medidas forem confirmadas e o pedido for liberado para corte.</p>
+            {order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}#etapa-operacional`} className="button mt-4 inline-flex">Resolver etapa do pedido</Link>}
+          </div>
+        )}
+        {!isFinished && !waitingCut && (
           <div className="card p-6">
             <h2 className="mb-4 font-bold">
               Concluir etapa {order.current_step}: {steps[order.current_step - 1]}

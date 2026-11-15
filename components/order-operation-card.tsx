@@ -32,11 +32,12 @@ export function OrderOperationCard({ op, people, canUpdate, isManager, back, com
 
     {stage === "aguardando_decisao" && <>
       <p className="mt-2 text-sm">Este pedido precisa de conferência de medidas antes de iniciar a produção?</p>
-      {canUpdate ? <form action={answerMeasureDecision} className="mt-4 flex flex-wrap gap-3">{hidden}
-        <SubmitButton className="button"><span className="inline-flex items-center gap-2"><Ruler size={16} /> Sim, precisa conferir</span></SubmitButton>
-        <button name="needs" value="nao" className="button-ghost"><span className="inline-flex items-center gap-2"><CheckCircle2 size={16} /> Não, medidas já conferidas</span></button>
-        <input type="hidden" name="needs" value="sim" />
-      </form> : <p className="mt-3 text-sm text-ink/60">Seu acesso não permite responder.</p>}
+      {canUpdate ? <div className="mt-4 flex flex-wrap gap-3">
+        <form action={answerMeasureDecision}>{hidden}<input type="hidden" name="needs" value="sim" />
+          <SubmitButton className="button"><span className="inline-flex items-center gap-2"><Ruler size={16} /> Sim, precisa conferir</span></SubmitButton></form>
+        <form action={answerMeasureDecision}>{hidden}<input type="hidden" name="needs" value="nao" />
+          <SubmitButton className="button-ghost"><span className="inline-flex items-center gap-2"><CheckCircle2 size={16} /> Não, medidas já conferidas</span></SubmitButton></form>
+      </div> : <p className="mt-3 text-sm text-ink/60">Seu acesso não permite responder.</p>}
       <p className="mt-3 text-xs text-ink/55">Você pode responder depois: o pedido continua marcado como pendente na Agenda e na Produção.</p>
     </>}
 

@@ -40,7 +40,10 @@ test("A/C/D: precisa de conferencia -> pendencia unica, agenda, conclui e libera
   await expect(row("select order_release_cut($1)", [order])).rejects.toThrow(/Confirme as medidas/);
   await row("select order_schedule_measure_check($1, now() + interval '2 days', $2, 'levar trena')", [order, manager]);
   expect(await checks(order)).toEqual(["agendada"]);
+  await row("select order_schedule_measure_check($1, now() + interval '3 days', $2, 'reagendada')", [order, manager]);
+  expect((await row("select count(*)::int n, min(status) status, min(event_type) tipo from operational_events where order_id=$1", [order]))).toMatchObject({ n: 1, status: "agendado", tipo: "medicao" });
   expect(await row("select order_finish_measure_check($1,'conferidas','ok') s", [order])).toMatchObject({ s: "aguardando_liberacao_corte" });
+  expect((await row("select status from operational_events where order_id=$1", [order])).status).toBe("concluido");
   await row("select order_release_cut($1,$2,'corte liberado')", [order, manager]);
   await row("select order_release_cut($1,$2,'de novo')", [order, manager]); // clique duplicado
   expect(await stage(order)).toBe("liberado_corte");
@@ -48,7 +51,7 @@ test("A/C/D: precisa de conferencia -> pendencia unica, agenda, conclui e libera
   expect((await row("select cut_notes from orders where id=$1", [order])).cut_notes).toBe("corte liberado");
   expect((await row("select count(*)::int n from v_order_pending where order_id=$1", [order])).n).toBe(0);
   const history = (await db.query<{ action: string }>("select action from audit_logs where table_name='order_operations' and record_id=$1 order by created_at,id", [order])).rows.map((r) => r.action);
-  expect(history).toEqual(["DECISAO_MEDIDAS", "CONFERENCIA_AGENDADA", "CONFERENCIA_CONCLUIDA", "LIBERADO_CORTE"]);
+  expect(history).toEqual(["DECISAO_MEDIDAS", "CONFERENCIA_AGENDADA", "CONFERENCIA_AGENDADA", "CONFERENCIA_CONCLUIDA", "LIBERADO_CORTE"]);
 });
 
 test("B: medidas ja conferidas -> sem visita, aguarda liberacao, e corte continua separado", async () => {

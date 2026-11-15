@@ -44,6 +44,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
         {canPay && pendingEntries.length > 1 && <a className="button" href="#contas-da-venda">Registrar pagamento</a>}
         {hasMeasurements && <a className="button-ghost" href="#conferencia-medidas"><Ruler size={16} /> Conferir medidas</a>}
         {order && <Link className="button-ghost" href={`/pedidos/${order.id}`}><ClipboardCheck size={16} /> Abrir pedido</Link>}
+        {order && <Link className="button-ghost" href={`/servicos/novo?pedido=${order.id}`}>Abrir serviço ou manutenção</Link>}
         {quote && <Link className="button-ghost" href={`/orcamentos/${quote.id}`}><FileText size={16} /> Abrir orçamento</Link>}
       </nav>
     </section>

@@ -36,6 +36,9 @@ create table if not exists public.order_measure_checks (
   created_by uuid default auth.uid() references public.profiles(id),
   created_at timestamptz not null default now()
 );
+-- Compromisso correspondente na Agenda (criado quando a visita ganha data).
+alter table public.order_measure_checks add column if not exists agenda_event_id uuid references public.operational_events(id) on delete set null;
+create index if not exists order_measure_checks_event_idx on public.order_measure_checks(agenda_event_id);
 -- Uma unica conferencia em aberto por pedido: cliques repetidos nao criam pendencias em dobro.
 create unique index if not exists order_measure_checks_open_key on public.order_measure_checks(order_id) where status in ('pendente','agendada');
 create index if not exists order_measure_checks_company_idx on public.order_measure_checks(company_id,status,scheduled_at);
@@ -84,6 +87,8 @@ begin
       on conflict (order_id) where status in ('pendente','agendada') do nothing;
   else
     stage := 'aguardando_liberacao_corte';
+    update public.operational_events set status='cancelado', updated_at=now()
+      where id in (select agenda_event_id from public.order_measure_checks where order_id=o.id and status in ('pendente','agendada')) and status not in ('concluido','cancelado');
     update public.order_measure_checks set status='cancelada' where order_id=o.id and status in ('pendente','agendada');
   end if;
   update public.orders set op_stage=stage, op_stage_at=now(),
@@ -96,7 +101,7 @@ end $$;
 
 create or replace function public.order_schedule_measure_check(p_order_id uuid, p_at timestamptz, p_responsible uuid default null, p_notes text default null)
 returns void language plpgsql security definer set search_path=pg_catalog,public as $$
-declare o public.orders := crm_private.order_for_operation(p_order_id); n integer;
+declare o public.orders := crm_private.order_for_operation(p_order_id); n integer; ev uuid;
 begin
   if p_at is null then raise exception 'Informe a data da conferencia'; end if;
   if p_responsible is not null and not exists(select 1 from public.profiles where id=p_responsible and company_id=o.company_id and status='ativo') then
@@ -105,6 +110,17 @@ begin
     where order_id=o.id and status in ('pendente','agendada');
   get diagnostics n = row_count;
   if n=0 then raise exception 'Este pedido nao tem conferencia em aberto'; end if;
+  -- Compromisso na Agenda: cria na primeira vez, atualiza ao reagendar.
+  select agenda_event_id into ev from public.order_measure_checks where order_id=o.id and status='agendada';
+  if ev is not null and exists(select 1 from public.operational_events where id=ev) then
+    update public.operational_events set starts_at=p_at, responsible_id=p_responsible, notes=nullif(btrim(coalesce(p_notes,'')),''), status='agendado', updated_at=now() where id=ev;
+  else
+    insert into public.operational_events(company_id,event_type,title,client_id,order_id,responsible_id,starts_at,address,phone,status,notes,created_by)
+    select o.company_id,'medicao','Conferência de medidas - Pedido '||o.order_number,o.client_id,o.id,p_responsible,p_at,
+      nullif(concat_ws(', ',nullif(c.address,''),nullif(c.neighborhood,''),nullif(c.city,'')),''),coalesce(nullif(c.whatsapp,''),c.phone),'agendado',nullif(btrim(coalesce(p_notes,'')),''),auth.uid()
+    from public.clients c where c.id=o.client_id returning id into ev;
+    update public.order_measure_checks set agenda_event_id=ev where order_id=o.id and status='agendada';
+  end if;
   update public.orders set next_action='Fazer a conferência de medidas', next_action_date=(p_at at time zone 'America/Sao_Paulo')::date where id=o.id;
   perform crm_private.order_op_log(o.id,o.company_id,'CONFERENCIA_AGENDADA',null,jsonb_build_object('data',p_at,'responsavel',p_responsible));
 end $$;
@@ -115,6 +131,8 @@ returns text language plpgsql security definer set search_path=pg_catalog,public
 declare o public.orders := crm_private.order_for_operation(p_order_id); stage text; n integer;
 begin
   if p_result not in ('conferidas','alteradas','revisar_orcamento','nova_visita') then raise exception 'Resultado invalido'; end if;
+  update public.operational_events set status='concluido', updated_at=now()
+    where id in (select agenda_event_id from public.order_measure_checks where order_id=o.id and status in ('pendente','agendada')) and status not in ('concluido','cancelado');
   update public.order_measure_checks set status='concluida', result=p_result, result_notes=nullif(btrim(coalesce(p_notes,'')),''), completed_at=now(), completed_by=auth.uid()
     where order_id=o.id and status in ('pendente','agendada');
   get diagnostics n = row_count;
