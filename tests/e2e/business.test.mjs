@@ -382,17 +382,17 @@ test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, liber
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
   try {
     await page.goto(`${BASE}/servicos/novo?pedido=${order}`, { waitUntil: "networkidle0" });
-    await setByLabel(page, "Tipo de serviço", "manutencao_calhas");
-    await setByLabel(page, "Classificação (manutenções)", "corretiva");
-    await setByLabel(page, "Descrição do problema ou da atividade", "Calha vazando na emenda");
-    await setByLabel(page, "Valor previsto", "120,00");
+    await page.select('select[name="kind"]', "manutencao_calhas");
+    await page.select('select[name="classification"]', "corretiva");
+    await page.type('textarea[name="description"]', "Calha vazando na emenda");
+    await page.type('input[name="expected_amount"]', "120,00");
     await clickAndWait(page, "Criar serviço");
     assert.equal(await pageProblem(page), null);
     await page.waitForSelector("form textarea[name=done]");
     const service = (await db.query("select id,service_number,client_id,order_id from service_orders where order_id=$1", [order])).rows[0];
     assert.equal(service.client_id, state.client.id);
     await page.$eval("details:has(form textarea[name=done])", (el) => { el.open = true; });
-    await setByLabel(page, "O que foi executado", "Vedação da emenda refeita");
+    await page.type('textarea[name="done"]', "Vedação da emenda refeita");
     await clickAndWait(page, "Confirmar conclusão");
     assert.equal(await pageProblem(page), null);
     const done = (await db.query("select status,financial_entry_id,final_amount from service_orders where id=$1", [service.id])).rows[0];
