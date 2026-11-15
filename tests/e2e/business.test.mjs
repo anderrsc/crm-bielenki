@@ -344,3 +344,73 @@ test("caixa: salva saldo inicial com auditoria e renderiza os cenários no celul
   for(const label of ['Conservador','Provável','Otimista','Saldo hoje'])assert.ok(text.toLocaleLowerCase('pt-BR').includes(label.toLocaleLowerCase('pt-BR')),`${label}: ${text.slice(-3000)}`);
   await page.setViewport({width:1366,height:900});
 });
+
+test("pós-venda: pedido fechado pergunta a conferência, agenda, conclui, libera para corte e abre serviço", async () => {
+  const profile = (await db.query("select id,company_id from profiles order by created_at limit 1")).rows[0];
+  const type = (await db.query("select id from sale_types where company_id=$1 limit 1", [profile.company_id])).rows[0].id;
+  const sale = (await db.query("insert into sales(company_id,sale_number,client_id,sale_type_id,total) values($1,$2,$3,$4,300) returning id", [profile.company_id, `VEN-OP-${RUN}`, state.client.id, type])).rows[0].id;
+  const order = (await db.query("insert into orders(company_id,order_number,sale_id,client_id,sale_type_id) values($1,$2,$3,$4,$5) returning id", [profile.company_id, `PED-OP-${RUN}`, sale, state.client.id, type])).rows[0].id;
+  const stage = async () => (await db.query("select op_stage from orders where id=$1", [order])).rows[0].op_stage;
+  await page.goto(`${BASE}/vendas/${sale}`, { waitUntil: "networkidle0" });
+  assert.match(await page.evaluate(() => document.body.innerText), /precisa de conferência de medidas/);
+  await clickAndWait(page, "Sim, precisa conferir");
+  assert.equal(await pageProblem(page), null);
+  assert.equal(await stage(), "aguardando_conferencia");
+  // Agenda mostra a pendência sem data, separada dos compromissos.
+  await page.goto(`${BASE}/agenda`, { waitUntil: "networkidle0" });
+  assert.match(await page.evaluate(() => document.querySelector('[aria-label="Pendências operacionais"]')?.innerText ?? ""), new RegExp(`PED-OP-${RUN}`));
+  await page.goto(`${BASE}/vendas/${sale}`, { waitUntil: "networkidle0" });
+  const day = (await db.query("select (current_date + 1)::text d")).rows[0].d;
+  await page.$eval('#etapa-operacional input[name="date"]', (el, d) => { el.value = d; }, day);
+  await clickAndWait(page, "Salvar agendamento", { scope: "#etapa-operacional" });
+  assert.equal(await pageProblem(page), null);
+  assert.equal((await db.query("select count(*)::int n from operational_events where order_id=$1 and status='agendado'", [order])).rows[0].n, 1);
+  await page.waitForSelector('#etapa-operacional select[name="result"]');
+  // O resultado da visita fica numa secao recolhida: abre como o usuario faria.
+  await page.$$eval("#etapa-operacional details", (all) => all.forEach((d) => { d.open = true; }));
+  await page.$eval('#etapa-operacional select[name="result"]', (el) => { el.value = "conferidas"; });
+  await clickAndWait(page, "Salvar resultado", { scope: "#etapa-operacional" });
+  assert.equal(await pageProblem(page), null);
+  assert.equal(await stage(), "aguardando_liberacao_corte");
+  await page.waitForFunction(() => document.querySelector("#etapa-operacional")?.innerText.includes("Confirmar envio para corte"));
+  await clickAndWait(page, "Confirmar envio para corte", { scope: "#etapa-operacional" });
+  assert.equal(await pageProblem(page), null);
+  assert.equal(await stage(), "liberado_corte");
+  const history = (await db.query("select action from audit_logs where table_name='order_operations' and record_id=$1 order by id", [order])).rows.map((r) => r.action);
+  assert.deepEqual(history, ["DECISAO_MEDIDAS", "CONFERENCIA_AGENDADA", "CONFERENCIA_CONCLUIDA", "LIBERADO_CORTE"]);
+  // Manutenção ligada a este pedido, pelo celular: criar, concluir e cobrar no financeiro.
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+  try {
+    await page.goto(`${BASE}/servicos/novo?pedido=${order}`, { waitUntil: "networkidle0" });
+    await page.select('select[name="kind"]', "manutencao_calhas");
+    await page.select('select[name="classification"]', "corretiva");
+    await page.type('textarea[name="description"]', "Calha vazando na emenda");
+    await page.type('input[name="expected_amount"]', "120,00");
+    await tapAndWait(page, "Criar serviço");
+    assert.equal(await pageProblem(page), null);
+    await page.waitForSelector("form textarea[name=done]");
+    const service = (await db.query("select id,service_number,client_id,order_id from service_orders where order_id=$1", [order])).rows[0];
+    assert.equal(service.client_id, state.client.id);
+    await page.$eval("details:has(form textarea[name=done])", (el) => { el.open = true; });
+    await page.type('textarea[name="done"]', "Vedação da emenda refeita");
+    await tapAndWait(page, "Confirmar conclusão");
+    assert.equal(await pageProblem(page), null);
+    const done = (await db.query("select status,financial_entry_id,final_amount from service_orders where id=$1", [service.id])).rows[0];
+    assert.equal(done.status, "concluido");
+    assert.equal(Number(done.final_amount), 120);
+    assert.equal((await db.query("select count(*)::int n from financial_entries where description=$1", [`Serviço ${service.service_number}`])).rows[0].n, 1);
+  } finally { await page.setViewport({ width: 1366, height: 900 }); }
+});
+
+// No celular a barra fixa inferior pode cobrir o botao: aciona o botao pelo DOM, como um toque nele.
+async function tapAndWait(page, text) {
+  const ok = page.evaluate((t) => {
+    const el = [...document.querySelectorAll("button")].find((b) => b.innerText.trim().toLowerCase().includes(t.toLowerCase()) && !b.disabled);
+    if (!el) return false;
+    el.scrollIntoView({ block: "center" });
+    setTimeout(() => el.click(), 0);
+    return true;
+  }, text);
+  const [found] = await Promise.all([ok, page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 })]);
+  if (!found) throw new Error(`botao "${text}" nao encontrado em ${page.url()}`);
+}

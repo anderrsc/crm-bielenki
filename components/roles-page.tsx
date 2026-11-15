@@ -9,6 +9,7 @@ const ALL_ROLES = ["administrador","gerente","vendedor","compras","producao","es
 const ROLE_LABELS: Record<string, string> = { administrador:"Administrador", gerente:"Gerente", vendedor:"Vendedor", compras:"Compras", producao:"Produção", estoque:"Estoque", instalador:"Instalador", financeiro:"Financeiro", atendente:"Atendente" };
 const RESOURCE_LABELS: Record<string, string> = {
   bank_reconciliation: "Conciliação bancária",
+  service_orders: "Serviços e manutenções",
   financial_recurrences: "Contas recorrentes",
   financial_exports: "Relatórios financeiros (criar = exportar)",
   financial_payroll: "Previsão agregada da folha (restrita)",

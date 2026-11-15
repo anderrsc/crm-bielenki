@@ -1,7 +1,7 @@
 const resources: Record<string, string> = {
   clientes: "clients", pipeline: "leads", orcamentos: "quotes", vendas: "sales",
   pedidos: "orders", compras: "purchase_orders", fornecedores: "suppliers",
-  estoque: "materials", producao: "production_orders", instalacoes: "installations",
+  estoque: "materials", producao: "production_orders", instalacoes: "installations", servicos: "service_orders",
   financeiro: "financial_entries", relatorios: "sales", auditoria: "audit_logs",
   agenda: "operational_events", medicoes: "measurements", "tabela-calhas": "gutter_prices",
   funcionarios: "profiles", usuarios: "profiles", atendimento: "conversations",

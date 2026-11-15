@@ -24,6 +24,13 @@
 - Ainda pendente do item 2 da fila: mão de obra, impostos e comissões automáticos por obra, consumo de material do estoque e a paginação/seleção de obras na tela de rateios.
 - Atenção: duas sessões (Codex e Claude) trabalham neste repositório. Antes de começar um item, conferir os PRs abertos para não duplicar. Um rascunho duplicado de conciliação/recorrências da sessão Claude ficou só em stash local e NÃO deve ser publicado.
 
+## Em PR (sessão Claude) — pós-venda operacional, Serviços e painel (pedido do usuário em 15/11)
+- Migration 20261115100000_order_operations.sql: orders.op_stage (só pedidos novos; antigos ficam nulos e seguem como antes), order_measure_checks (uma conferência aberta por pedido), funções order_measure_decision / order_schedule_measure_check / order_finish_measure_check / order_validate_measures (só gerência) / order_release_cut, histórico em audit_logs (table_name='order_operations'), view v_order_pending, gatilho que impede a produção de avançar antes da liberação para corte.
+- Migration 20261115110000_service_orders.sql: service_orders (SRV-…), service_photos + bucket privado service-photos, permissão service_orders (todos operam, gerência exclui), funções service_set_status / service_schedule (cria compromisso na Agenda) / service_complete (uma conta a receber por serviço), operational_indicators().
+- Telas: cartão "Etapa do pedido" na venda (pergunta Sim/Não, agendar, resultado, validação, liberar corte, nova conferência, histórico); fase "Medidas e liberação para corte" na Produção; pendências sem data e painel na Agenda; módulo /servicos (lista com filtros, novo, detalhe com ligar/WhatsApp/mapa, fotos antes/depois, agendar, concluir e cobrar).
+- Testes: tests/order-operations.test.ts, tests/service-orders.test.ts, cenário de navegador em tests/e2e/business.test.mjs (inclui celular).
+- Fora desta entrega: responsáveis por corte/dobra/conferência por etapa da produção com fotos; status "Aguardando conferência das peças" separado; envio do aviso de instalado ao concluir serviço de instalação avulsa.
+
 ## Fila ainda pendente
 1. Alçadas de aprovação e permissões próprias para aprovar/cancelar; auditoria financeira integral com justificativas.
 2. Resultado completo por obra: previsto/comprometido/realizado, extras, consumo, compras, mão de obra, instalações, impostos/comissões. Corrigir também limites/paginação e seleção de obras na tela de rateios.
