@@ -85,7 +85,7 @@ export async function PricingCenter({
   backHref?: string;
   selfHref?: string;
 }) {
-  let canManage = false;
+  let canManage = false; let canViewFinancial = false;
   let companyId: string | undefined;
   let prices: GutterRow[] = [];
   let matrixRows: import("@/components/aluminum-matrix").MatrixRow[] = [];
@@ -102,6 +102,7 @@ export async function PricingCenter({
       user ? db.from("profiles").select("company_id").eq("id", user.id).single() : Promise.resolve({ data: null }),
       db.rpc("has_table_access", { resource: "gutter_prices", action: "update" }),
     ]);
+    canViewFinancial = (await db.rpc("has_table_access", { resource: "financial_entries", action: "select" })).data === true;
     const cid = profile?.company_id;
     companyId = cid;
     canManage = Boolean(perm.data);
@@ -150,7 +151,7 @@ export async function PricingCenter({
           <h1 className="mt-2 text-3xl font-black">Central de Preços</h1>
           <p className="mt-1 text-sm text-ink/50">Matéria-prima, pintura, peças, serviços e políticas comerciais em um só lugar.</p>
         </div>
-        {canManage ? <Link href={tabHref("custo-aluminio")} className="button-ghost">Preço do kg do alumínio</Link> : <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
+        {canManage && canViewFinancial ? <Link href={tabHref("custo-aluminio")} className="button-ghost">Preço do kg do alumínio</Link> : <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
       </div>
 
       {error  && <p className="mb-5 rounded-xl bg-red-50     p-4 text-sm text-red-700">{error}</p>}
@@ -158,7 +159,7 @@ export async function PricingCenter({
 
       {/* ─── Tabs ─────────────────────────────────── */}
       <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl bg-cream p-1">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {TABS.filter(item => item.key !== "custo-aluminio" || canViewFinancial).map(({ key, label, icon: Icon }) => (
           <Link key={key} href={tabHref(key)}
             className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition",
               tab === key ? "bg-surface shadow text-ink" : "text-ink/50 hover:text-ink")}>
@@ -168,7 +169,7 @@ export async function PricingCenter({
       </div>
 
       {tab === "catalogo" && <GutterCatalog />}
-      {tab === "custo-aluminio" && <AluminumCostPanel companyId={companyId} canManage={canManage} selfHref={selfHref} />}
+      {canViewFinancial && tab === "custo-aluminio" && <AluminumCostPanel companyId={companyId} canManage={canManage} selfHref={selfHref} />}
 
       {/* ─── Matéria-Prima ─── */}
       {tab === "materia-prima" && (

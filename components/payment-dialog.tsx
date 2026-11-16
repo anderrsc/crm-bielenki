@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { useFormStatus } from "react-dom";
 
-export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate, backHref, label="Dar baixa", buttonClassName }: { entryId: string; openAmount: number;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null;backHref?:string;label?:string;buttonClassName?:string }) {
+export function PaymentDialog({ entryId, openAmount, entryType="receber", interestAmount=0, discountAmount=0, installmentCount=1, firstDueDate, backHref, label="Dar baixa", buttonClassName }: { entryId: string; openAmount: number;entryType?:string;interestAmount?:number;discountAmount?:number;installmentCount?:number;firstDueDate?:string|null;backHref?:string;label?:string;buttonClassName?:string }) {
   const [open, setOpen] = useState(false);
   // Sem destino fixo: volta para a mesma pagina/aba em que a baixa foi feita.
   const [here, setHere] = useState("/financeiro");
@@ -44,7 +44,7 @@ export function PaymentDialog({ entryId, openAmount, interestAmount=0, discountA
               <option value="cartao_debito">Cartão de débito</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="cheque">Cheque</option>
             </select></div>
             <div><label className="label">Data do pagamento</label><input className="field" name="paid_at" type="date" defaultValue={localISODate()} required /></div>
-            <div><label className="label">Conta que recebeu</label><ReceivingAccountSelect className="field" /></div>
+            <div><label className="label">{entryType === "pagar" ? "Conta que pagou" : "Conta que recebeu"}</label><ReceivingAccountSelect className="field" /></div>
             <div><label className="label">Observação</label><input className="field" name="notes" type="text" placeholder="Ex.: comprovante no WhatsApp, pago pela esposa…" /></div>
             <SubmitPayment />
           </form>

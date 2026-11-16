@@ -596,13 +596,13 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
         <Mini label="Enviados" value={String(r.enviados)} />
         <Mini label="Fechados" value={String(r.fechados)} />
         <Mini label="Fechado" value={brl(r.valorFechado)} />
-        <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />
-        <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />
+        {panel.canViewFinancial === true && <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />}
+        {panel.canViewFinancial === true && <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />}
       </div>
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{erro}</p>}
 
-      <div className="card p-3">
+      {panel.canViewFinancial === true && <div className="card p-3">
         <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
         <div className="mb-2"><PixCharge conversationId={conversationId} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
@@ -640,7 +640,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
             </ul>
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">

@@ -1,4 +1,4 @@
-﻿import { getRequestClient } from "@/lib/supabase/server";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
 import Link from "next/link";
@@ -212,7 +212,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                     <div className="flex items-center gap-1">
                       {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
                       {canClassify === true && e.display_status !== "cancelado" && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/rateios?conta=${e.id}`}>Ratear</Link>}
-                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
+                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
                   </td>
