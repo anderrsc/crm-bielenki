@@ -27,4 +27,23 @@ select 'preenchido', k || ': ' || case when coalesce(v #>> '{}', '') = '' then '
 from public.ai_agent_config c, lateral jsonb_each(to_jsonb(c)) e(k, v) where k in ('evolution_api_url', 'evolution_instance', 'whatsapp_number_id') or k like 'evolution%secret%'
 union all
 select 'empresa', 'whatsapp_phone_number_id: ' || case when coalesce(whatsapp_phone_number_id, '') = '' then 'vazio' else 'preenchido' end from public.companies
+union all
+-- Saude do recebimento do WhatsApp: so horarios (Brasilia) e contagens.
+select 'whatsapp', 'ultima mensagem recebida (gravada): ' || coalesce(to_char(max(sent_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nenhuma') from public.messages where direction='inbound'
+union all
+select 'whatsapp', 'ultima mensagem enviada (gravada): ' || coalesce(to_char(max(sent_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nenhuma') from public.messages where direction='outbound'
+union all
+select 'whatsapp', 'recebidas nas ultimas 24h: ' || count(*) from public.messages where direction='inbound' and sent_at > now() - interval '24 hours'
+union all
+select 'whatsapp', 'ultimo evento do webhook: ' || coalesce(to_char(max(received_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nenhum') from public.whatsapp_webhook_events
+union all
+select 'whatsapp', 'eventos do webhook nas ultimas 24h: ' || count(*) from public.whatsapp_webhook_events where received_at > now() - interval '24 hours'
+union all
+select 'whatsapp', 'config atualizada em: ' || coalesce(to_char(max(updated_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') from public.ai_agent_config
+union all
+select 'whatsapp', 'agenda sincronizada em: ' || coalesce(to_char(max(evolution_known_synced_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') from public.ai_agent_config
+union all
+select 'whatsapp', 'conversas com nao lidas: ' || count(*) || ' (total ' || coalesce(sum(unread_count),0) || ')' from public.conversations where unread_count > 0
+union all
+select 'whatsapp', 'agora: ' || to_char(now() at time zone 'America/Sao_Paulo','DD/MM HH24:MI')
 order by 1, 2;
