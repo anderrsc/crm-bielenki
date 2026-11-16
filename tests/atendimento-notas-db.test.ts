@@ -58,3 +58,17 @@ test("outra empresa não vê nem mexe", async () => {
   await expect(as(outsider, () => row("select conversation_add_note($1,'invasão')", [conv]))).rejects.toThrow(/não encontrada/);
   await expect(as(clerk, () => row("select conversation_set_status($1,'resolvida')", [otherConv]))).rejects.toThrow(/não encontrada/);
 });
+
+test("resumo da Lia para o JARVIS: só da própria empresa e sem segredos", async () => {
+  await db.query("insert into ai_agent_config(company_id,active,lia_mode,openai_api_key) values($1,true,'semiautomatica','segredo') on conflict (company_id) do update set active=true,lia_mode='semiautomatica',openai_api_key='segredo'", [company]);
+  await db.query("update conversations set ai_suggestion='Pode mandar fotos?', ai_suggestion_at=now() where id=$1", [conv]);
+  await db.query("insert into ai_decisions(company_id,conversation_id,decisao,motivo) values($1,$2,'sugeriu','Pós-venda'),($1,$2,'falhou','Groq 429')", [company, conv]);
+  const r = await as(clerk, async () => (await row("select lia_status_center() r")).r);
+  expect(r).toMatchObject({ ativa: true, modo: "semiautomatica", hoje: { sugeriu: 1, falhou: 1 } });
+  expect(r.sugestoes).toEqual([expect.objectContaining({ conversa: conv, contato: "João", texto: "Pode mandar fotos?" })]);
+  expect(r.falhas_24h[0].motivo).toBe("Groq 429");
+  expect(JSON.stringify(r)).not.toContain("segredo");
+  const fora = await as(outsider, async () => (await row("select lia_status_center() r")).r);
+  expect(fora.sugestoes).toEqual([]);
+  expect(fora.hoje).toEqual({});
+});

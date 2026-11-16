@@ -216,6 +216,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'launch_client_pipeline', 'p_client_id uuid, p_mode text, p_scheduled_at timestamp with time zone, p_estimated_value numeric, p_next_action text, p_next_action_date date', 'c0aa3fa92065774a49e1b38276e4eb03'),
   ('public', 'leads_normalize_phone', '', '12401ea6d151f616a589dd2c013b2534'),
   ('public', 'leads_stage_history', '', '3337459a49739a41920fbcfe0c096ef1'),
+  ('public', 'lia_status_center', '', '0cb9bf1080f79fe966c7e7338e07f9cd'),
   ('public', 'log_pricing_audit', '', '4cbd1031d4a8b86c0dac3496fcbf34d6'),
   ('public', 'log_pricing_change', '', '6d5c12d1d51575fdd94df59a2b16632d'),
   ('public', 'mark_quote_sent', 'p_quote_id uuid', '259ab73551a4054052dbfcfb8bce5e1d'),
