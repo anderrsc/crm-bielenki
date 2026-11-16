@@ -1,4 +1,4 @@
-import { updateDelivery } from "@/lib/whatsapp/delivery";
+import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
@@ -245,8 +245,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       const db = getSupabase();
       const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
       if (cfg) for (const event of (Array.isArray(payload.data) ? payload.data : [payload.data])) {
-        if (event?.fromMe === false || event?.key?.fromMe === false) continue;
-        await updateDelivery(db, cfg.company_id, String(event?.keyId ?? event?.key?.id ?? ""), event?.status ?? event?.update?.status);
+        const id = String(event?.keyId ?? event?.key?.id ?? "");
+        const status = event?.status ?? event?.update?.status;
+        if (event?.fromMe === false || event?.key?.fromMe === false) await updateIncomingRead(db, cfg.company_id, id, status);
+        else await updateDelivery(db, cfg.company_id, id, status);
       }
       return NextResponse.json({ status: "receipts_updated" });
     }

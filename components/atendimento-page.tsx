@@ -4,11 +4,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
-  markInboxRead, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
+  markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
   type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
@@ -18,14 +19,10 @@ import { QuickReplies } from "@/components/quick-replies";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { PixCharge } from "@/components/pix-charge";
 import { fillQuickReply, QUOTE_MESSAGE, quickReplyQuery } from "@/lib/quick-replies";
+import { inboxClock, inboxDay, inboxDayLabel, inboxListTime } from "@/lib/whatsapp/inbox-display";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const hora = (iso: string | null) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const hoje = new Date().toDateString() === d.toDateString();
-  return d.toLocaleString("pt-BR", hoje ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "2-digit" });
-};
+const hora = inboxListTime;
 const dataBr = (iso: string | null) => (iso ? new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("pt-BR") : "—");
 const hojeISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 
@@ -67,7 +64,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   itemsRef.current = items;
   const [listError, setListError] = useState(initialError);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<"todas" | "naolidas" | "ana" | "equipe">("todas");
+  const [filtro, setFiltro] = useState<"todas" | "naolidas" | "lidas" | "ana" | "equipe">("todas");
   const [verArquivadas, setVerArquivadas] = useState(false);
   // Conversas ja carregadas ficam guardadas: abrir de novo mostra na hora e atualiza por tras.
   const cache = useRef(new Map<string, ConversationDetail>());
@@ -78,6 +75,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
 
   const [companyId, setCompanyId] = useState<string>();
   const [aiActive, setAiActive] = useState(false);
+  const [provider, setProvider] = useState<"meta" | "evolution">();
   const [connection, setConnection] = useState("Conectando…");
   const [syncing, setSyncing] = useState(false);
   const selected = useRef(openId);
@@ -92,6 +90,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
     setListError(r.error);
     if (r.companyId) setCompanyId(r.companyId);
     setAiActive(r.aiActive === true);
+    if (r.provider) setProvider(r.provider);
   }, []);
 
   const refreshDetail = useCallback(async (id: string) => {
@@ -131,11 +130,14 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       void refreshList();
       if (selected.current) void refreshDetail(selected.current);
     };
-    if (!initial.length) refresh();
-    const timer = setInterval(() => { if (!live.current) refresh(); }, 15000);
+    refresh();
+    // A assinatura pode continuar conectada e perder um evento: reconcilia também nesse caso.
+    let ticks = 0;
+    const timer = setInterval(() => { if (!live.current || ++ticks % 2 === 0) refresh(); }, 15000);
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("online", refresh);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("online", refresh); };
+    window.addEventListener("focus", refresh);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("online", refresh); window.removeEventListener("focus", refresh); };
   }, [refreshList, refreshDetail]);
 
   useEffect(() => {
@@ -208,6 +210,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
     return items.filter((c) => {
       if (c.archived !== verArquivadas) return false;
       if (filtro === "naolidas" && c.unread === 0) return false;
+      if (filtro === "lidas" && c.unread > 0) return false;
       if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
       if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
@@ -225,13 +228,30 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   };
 
   const atual = detail && detail.conversation.id === openId ? detail : null;
+  const [organizing, setOrganizing] = useState<string | null>(null);
+  const organizar = async (c: InboxItem, unread: boolean) => {
+    if (unread && selected.current === c.id) { selected.current = null; setOpenId(null); setDetail(null); }
+    setOrganizing(c.id);
+    try {
+      const r = unread ? await markConversationUnread(c.id) : await markConversationRead(c.id);
+      if (r.error) setListError(r.error);
+      else {
+        setItems(prev => prev.map(item => item.id === c.id ? { ...item, unread: unread ? Math.max(1, item.unread) : item.unread } : item));
+        await refreshList();
+        const warning = "warning" in r ? r.warning : "receiptError" in r ? r.receiptError : null;
+        if (warning) setListError(String(warning));
+      }
+      cache.current.delete(c.id);
+      if (selected.current === c.id) await refreshDetail(c.id);
+    } finally { setOrganizing(null); }
+  };
 
   return (
     <div className="wa-inbox mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
       {/* Lista */}
       <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
         <div className="space-y-2 p-3">
-          <div className="flex items-center justify-between"><h1 className="text-xl font-black">Atendimento</h1>
+          <div className="flex items-center justify-between"><div><h1 className="text-[22px] font-bold tracking-tight">Conversas</h1><p className="wa-muted text-[11px]">Atendimento · WhatsApp</p></div>
           <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
             setSyncing(true);
             try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
@@ -244,7 +264,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
           </div>
           <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
-            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
+            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
               <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip rounded-full px-3 py-1">{l}</button>
             ))}
           </div>
@@ -260,14 +280,14 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
               <span className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
             </button></li>
           )}
-          {visiveis.length === 0 && !listError && <li className="p-6 text-center text-sm text-ink/50">{verArquivadas ? "Nenhuma conversa arquivada." : "Nenhuma conversa ainda. Quando um cliente chamar no WhatsApp, aparece aqui."}</li>}
+          {visiveis.length === 0 && !listError && <li className="wa-muted p-8 text-center text-sm">{busca ? "Nenhuma conversa encontrada." : verArquivadas ? "Nenhuma conversa arquivada." : filtro === "naolidas" ? "Você está em dia. Nenhuma conversa não lida." : filtro === "lidas" ? "Nenhuma conversa lida neste filtro." : "Quando um cliente chamar no WhatsApp, a conversa aparece aqui."}</li>}
           {visiveis.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} className="group relative">
               <button onClick={() => abrir(c.id)} aria-current={openId === c.id} className="wa-row flex w-full items-center gap-3 px-3 text-left">
                 <div className="wa-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-medium">{c.name.slice(0, 1).toUpperCase()}</div>
-                <div className="wa-line min-w-0 flex-1 border-b py-3">
+                <div className="wa-line min-w-0 flex-1 border-b py-3 pr-6">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[15px] font-medium">{c.name}</p>
+                    <p className={cn("truncate text-[15px]", c.unread > 0 ? "font-bold" : "font-medium")}>{c.name}</p>
                     <span className={cn("shrink-0 text-xs", c.unread > 0 ? "wa-unread-time" : "wa-muted")}>{hora(c.lastAt)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -277,6 +297,13 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
                   {(!c.aiPaused && aiActive) || c.assignedName ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{!c.aiPaused && aiActive ? "Lia" : c.assignedName}</p> : null}
                 </div>
               </button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild><button aria-label={`Opções da conversa com ${c.name}`} disabled={organizing === c.id} className="wa-muted wa-row absolute right-1 top-6 rounded-full p-1.5 opacity-70 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 data-[state=open]:opacity-100"><MoreVertical className="h-4 w-4" /></button></DropdownMenu.Trigger>
+                <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-52 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
+                  <DropdownMenu.Item onSelect={() => void organizar(c, c.unread === 0)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream">{c.unread > 0 ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}{c.unread > 0 ? "Marcar como lida" : "Marcar como não lida"}</DropdownMenu.Item>
+                  <DropdownMenu.Item onSelect={() => void setConversationArchived(c.id, !c.archived).then(r => { if (r.error) setListError(r.error); else void refreshList(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Archive className="h-4 w-4" />{c.archived ? "Desarquivar conversa" : "Arquivar conversa"}</DropdownMenu.Item>
+                </DropdownMenu.Content></DropdownMenu.Portal>
+              </DropdownMenu.Root>
             </li>
           ))}
         </ul>
@@ -285,19 +312,19 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       {/* Conversa */}
       <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
         {!openId ? (
-          <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-2 text-center"><p className="text-2xl font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm">Escolha uma conversa à esquerda. A ficha do cliente, orçamentos e cobrança ficam ao lado.</p></div>
+          <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-4 border-b-4 px-6 text-center" style={{ borderColor: "var(--wa-green)" }}><span className="wa-avatar flex h-24 w-24 items-center justify-center rounded-full"><MessageCircle className="h-12 w-12" strokeWidth={1.25} /></span><p className="text-[28px] font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm leading-6">Suas conversas do WhatsApp, organizadas em um só lugar. Escolha um contato para conversar ou acompanhar o atendimento.</p></div>
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
-          <Conversa key={atual.conversation.id} detail={atual} aiActive={aiActive} visible={!showPanel} onBack={() => setOpenId(null)} onPanel={() => setShowPanel(true)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
+          <Conversa key={atual.conversation.id} detail={atual} aiActive={aiActive} officialWindow={provider === "meta"} visible={!showPanel} onBack={() => setOpenId(null)} onUnread={() => void organizar(atual.conversation, true)} onPanel={() => setShowPanel(v => !v)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
         )}
       </section>
 
       {/* Ficha do cliente */}
-      {atual && (
-        <aside className={cn("wa-line w-full flex-col overflow-y-auto border-l bg-surface text-ink xl:flex xl:w-[320px] xl:shrink-0", showPanel ? "flex" : "hidden")}>
-          <div className="flex items-center gap-2 border-b border-sand/80 p-3 xl:hidden">
-            <button onClick={() => setShowPanel(false)} className="rounded-lg p-1 hover:bg-cream"><ArrowLeft className="h-5 w-5" /></button>
+      {atual && showPanel && (
+        <aside className="wa-line flex w-full flex-col overflow-y-auto border-l bg-surface text-ink xl:w-[320px] xl:shrink-0">
+          <div className="flex items-center gap-2 border-b border-sand/80 p-3">
+            <button aria-label="Fechar ficha do cliente" onClick={() => setShowPanel(false)} className="rounded-lg p-1 hover:bg-cream"><X className="h-5 w-5" /></button>
             <p className="font-bold">Ficha do cliente</p>
           </div>
           <Ficha detail={atual} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
@@ -307,7 +334,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   );
 }
 
-function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { aiActive: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onPanel: () => void; onChanged: () => void }) {
+function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread, onPanel, onChanged }: { aiActive: boolean; officialWindow: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onUnread: () => void; onPanel: () => void; onChanged: () => void }) {
   const { conversation: c } = detail;
   // Historico antigo: carrega sozinho ao rolar para o topo.
   const [antigas, setAntigas] = useState<InboxMessage[]>([]);
@@ -339,18 +366,24 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
   const [mudandoIa, startIa] = useTransition();
   const fim = useRef<HTMLDivElement>(null);
   const ultimo = messages.at(-1)?.id;
+  const [pesquisando, setPesquisando] = useState(false);
+  const [buscaMensagem, setBuscaMensagem] = useState("");
+  const termo = buscaMensagem.trim().toLocaleLowerCase("pt-BR");
+  const exibidas = useMemo(() => termo ? messages.filter(m => m.body.toLocaleLowerCase("pt-BR").includes(termo)) : messages, [messages, termo]);
+  const primeiraNaoLida = useRef(c.unread > 0 ? messages.filter(m => m.direction === "inbound").slice(-c.unread)[0]?.id : null);
 
   const [atBottom, setAtBottom] = useState(true);
   const readBusy = useRef(false);
   const [readError, setReadError] = useState<string | null>(null);
+  const [readRetry, setReadRetry] = useState(0);
   const readKey = useRef("");
   const changed = useRef(onChanged);
   changed.current = onChanged;
   useEffect(() => { if (atBottom) fim.current?.scrollIntoView({ block: "end" }); }, [ultimo, c.id, atBottom]);
   useEffect(() => {
     const read = async () => {
-      if (!visible || !atBottom || document.visibilityState !== "visible" || readBusy.current) return;
-      const inbound = messages.filter(m => m.direction === "inbound");
+      if (!visible || !atBottom || termo || document.visibilityState !== "visible" || readBusy.current) return;
+      const inbound = messages.filter(m => m.direction === "inbound").slice(-200);
       if (!c.unread && !inbound.some(m => m.deliveryStatus !== "lida")) return;
       const key = `${c.id}:${ultimo}:${detail.readSnapshot.count}:${detail.readSnapshot.lastInbound}:${detail.readSnapshot.generation}`;
       if (readKey.current === key) return;
@@ -359,13 +392,13 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
       readBusy.current = false;
       if (r.error) { setReadError(`Confirmação de leitura pendente: ${r.error}`); return; }
       readKey.current = key;
-      setReadError(null);
+      setReadError(r.receiptError ? "Lida no Atendimento. A confirmação de leitura no WhatsApp está pendente." : null);
       changed.current();
     };
     void read();
     document.addEventListener("visibilitychange", read);
     return () => document.removeEventListener("visibilitychange", read);
-  }, [messages, c.id, c.unread, ultimo, detail.readSnapshot, visible, atBottom]);
+  }, [messages, c.id, c.unread, ultimo, detail.readSnapshot, visible, atBottom, termo, readRetry]);
 
   const enviar = () => {
     const t = texto.trim();
@@ -379,7 +412,7 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
 
   return (
     <>
-      <header className="wa-head flex items-center gap-3 px-3 py-2">
+      <header className="wa-head flex items-center gap-1.5 px-2 py-2 sm:gap-3 sm:px-3">
         <button onClick={onBack} className="wa-row rounded-full p-1 md:hidden" aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></button>
         <button onClick={onPanel} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Ficha do cliente">
           <span className="wa-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-medium">{c.name.slice(0, 1).toUpperCase()}</span>
@@ -394,46 +427,56 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
           className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold", c.aiPaused ? "wa-chip" : "wa-send")}
           title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
-          <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Lia" : "Assumir"}
+          <Bot className="h-4 w-4" /> <span className="hidden sm:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
         </button>
+        <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
+        <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
         <button
           disabled={arquivando}
           onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
-          className="wa-row wa-muted rounded-full p-2"
+          className="wa-row wa-muted hidden rounded-full p-2 sm:block"
           title={c.archived ? "Desarquivar conversa" : "Arquivar conversa"} aria-label={c.archived ? "Desarquivar conversa" : "Arquivar conversa"}
         >
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         </button>
-        <button onClick={onPanel} className="wa-chip rounded-full px-3 py-1.5 text-xs font-bold xl:hidden">Ficha</button>
+        <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-row wa-muted rounded-full p-2"><PanelRightOpen className="h-4 w-4" /></button>
       </header>
+      {pesquisando && <div className="wa-head wa-line flex items-center gap-2 border-t px-4 py-2"><Search className="wa-muted h-4 w-4" /><input aria-label="Buscar mensagens nesta conversa" autoFocus value={buscaMensagem} onChange={e => setBuscaMensagem(e.target.value)} placeholder="Pesquisar nesta conversa" className="wa-input min-w-0 flex-1 rounded-lg px-3 py-2 text-sm outline-none" /><span role="status" className="wa-muted text-xs">{termo ? `${exibidas.length} encontradas` : ""}</span><button aria-label="Fechar busca de mensagens" onClick={() => { setPesquisando(false); setBuscaMensagem(""); }} className="wa-muted rounded-full p-2"><X className="h-4 w-4" /></button></div>}
 
       <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat flex-1 space-y-1.5 overflow-y-auto px-[5%] py-3">
         {temAntigas && <p className="wa-muted text-center text-xs">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
-        {messages.length === 0 && <p className="text-center text-sm text-ink/50">Sem mensagens.</p>}
-        {messages.map((m) => {
+        {exibidas.length === 0 && <p className="wa-muted p-6 text-center text-sm">{termo ? "Nenhuma mensagem encontrada nas mensagens carregadas." : "Sem mensagens."}</p>}
+        {exibidas.map((m, index) => {
           const nome = quemEnviou(m);
           const saida = m.direction === "outbound";
+          const anterior = exibidas[index - 1];
+          const novoDia = !anterior || inboxDay(anterior.at) !== inboxDay(m.at);
+          const mesmoGrupo = !novoDia && anterior.direction === m.direction && anterior.senderName === m.senderName && anterior.author === m.author;
           return (
-            <div key={m.id} className={cn("flex", saida ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[75%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)]", saida ? "wa-out rounded-tr-none" : "wa-in rounded-tl-none", m.failed && "ring-2 ring-red-400")}>
-                {nome && <p className={cn("mb-0.5 text-xs font-black", m.author === "ana" ? "text-blue-400" : "text-forest")}>{nome}</p>}
+            <Fragment key={m.id}>
+            {novoDia && <div className="sticky top-1 z-10 flex justify-center py-3"><span className="wa-date rounded-lg px-3 py-1.5 text-xs shadow-sm">{inboxDayLabel(m.at)}</span></div>}
+            {!termo && primeiraNaoLida.current === m.id && <div role="separator" aria-label="Mensagens não lidas" className="wa-unread-divider -mx-[5%] my-4 flex justify-center py-2"><span className="wa-date rounded-full px-4 py-1.5 text-xs uppercase tracking-wide shadow-sm">Mensagens não lidas</span></div>}
+            <div className={cn("flex", saida ? "justify-end" : "justify-start", !mesmoGrupo && "pt-1.5")}>
+              <div className={cn("max-w-[88%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)] sm:max-w-[78%]", saida ? "wa-out" : "wa-in", !mesmoGrupo && (saida ? "rounded-tr-none" : "rounded-tl-none"), m.failed && "ring-2 ring-red-400")}>
+                {nome && !mesmoGrupo && <p className={cn("mb-0.5 text-xs font-bold", m.author === "ana" ? "text-blue-400" : "wa-sender")}>{nome}</p>}
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
-                  {hora(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3 w-3", m.deliveryStatus === "lida" && "text-blue-500")} /> : <Check aria-label="Enviada" className="h-3 w-3" />)}
+                  {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
               </div>
             </div>
+            </Fragment>
           );
         })}
         <div ref={fim} />
       </div>
 
-      {!atBottom && <button className="wa-head py-2 text-xs font-bold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}>Ir para mensagens recentes ↓</button>}
+      {!atBottom && <button className="wa-head flex items-center justify-center gap-2 py-2 text-xs font-bold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}><ArrowDown className="h-4 w-4" />Ir para mensagens recentes ↓{c.unread > 0 && <span className="wa-badge rounded-full px-2 py-0.5">{c.unread}</span>}</button>}
       <footer className="wa-head px-3 py-2">
-        {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
-        {readError && <p className="mb-2 text-xs text-amber-700">{readError}</p>}
+        {officialWindow && !detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
+        {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-bold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
         {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
