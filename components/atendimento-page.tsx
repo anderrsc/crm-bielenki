@@ -202,6 +202,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
     return () => { clearTimeout(listTimer); clearTimeout(detailTimer); live.current = false; void db.removeChannel(channel); };
   }, [companyId, refreshList, refreshDetail]);
 
+  const totalNaoLidas = useMemo(() => items.filter((c) => !c.archived && c.unread > 0).length, [items]);
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return items.filter((c) => {
@@ -226,54 +227,54 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const atual = detail && detail.conversation.id === openId ? detail : null;
 
   return (
-    <div className="mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border border-sand/80 bg-surface">
+    <div className="wa-inbox mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
       {/* Lista */}
-      <aside className={cn("flex w-full flex-col border-r border-sand/80 md:w-80 md:shrink-0", openId && "hidden md:flex")}>
-        <div className="space-y-2 border-b border-sand/80 p-3">
-          <div className="flex items-center justify-between"><h1 className="text-lg font-black">Atendimento</h1>
+      <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
+        <div className="space-y-2 p-3">
+          <div className="flex items-center justify-between"><h1 className="text-xl font-black">Atendimento</h1>
           <button aria-label="Sincronizar contatos" title="Sincronizar contatos" disabled={syncing} onClick={async () => {
             setSyncing(true);
             try { const r = await syncInboxContacts(); await refreshList(); if (r.error) setListError(r.error); }
             finally { setSyncing(false); }
-          }} className="rounded-lg p-2 hover:bg-cream"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
-          <p className="text-[11px] text-ink/60">{connection} · {items.reduce((n, c) => n + c.unread, 0)} não lidas</p>
+          }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
+          <p className="wa-muted text-[11px]">{connection}</p>
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
-          <div className="flex items-center gap-2 rounded-xl bg-cream px-3 py-2">
-            <Search className="h-4 w-4 text-ink/40" />
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+          <div className="wa-search flex items-center gap-3 rounded-lg px-3 py-2">
+            <Search className="wa-muted h-4 w-4" />
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
           </div>
-          <div className="flex gap-1 text-xs font-bold">
-            {([["todas", "Todas"], ["naolidas", "Não lidas"], ["ana", "Com a Lia"], ["equipe", "Com a equipe"]] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setFiltro(k)} className={cn("rounded-lg px-2 py-1", filtro === k ? "bg-forest text-white" : "bg-cream text-ink/60")}>{l}</button>
+          <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
+            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
+              <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip rounded-full px-3 py-1">{l}</button>
             ))}
           </div>
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
         <ul className="flex-1 overflow-y-auto">
           {verArquivadas ? (
-            <li><button onClick={() => setVerArquivadas(false)} className="flex w-full items-center gap-3 border-b border-sand/50 px-3 py-3 text-left font-bold hover:bg-cream/60"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
+            <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-bold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
           ) : arquivadas.length > 0 && (
-            <li><button onClick={() => setVerArquivadas(true)} className="flex w-full items-center gap-3 border-b border-sand/50 px-3 py-3 text-left hover:bg-cream/60">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-forest"><Archive className="h-5 w-5" /></span>
-              <span className="flex-1 font-bold">Arquivadas</span>
-              <span className="text-xs font-bold text-forest">{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
+            <li><button onClick={() => setVerArquivadas(true)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center" style={{ color: "var(--wa-green)" }}><Archive className="h-5 w-5" /></span>
+              <span className="flex-1 font-medium">Arquivadas</span>
+              <span className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
             </button></li>
           )}
           {visiveis.length === 0 && !listError && <li className="p-6 text-center text-sm text-ink/50">{verArquivadas ? "Nenhuma conversa arquivada." : "Nenhuma conversa ainda. Quando um cliente chamar no WhatsApp, aparece aqui."}</li>}
           {visiveis.map((c) => (
             <li key={c.id}>
-              <button onClick={() => abrir(c.id)} className={cn("flex w-full gap-3 border-b border-sand/50 px-3 py-3 text-left hover:bg-cream/60", openId === c.id && "bg-cream")}>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-forest/10 font-black text-forest">{c.name.slice(0, 1).toUpperCase()}</div>
-                <div className="min-w-0 flex-1">
+              <button onClick={() => abrir(c.id)} aria-current={openId === c.id} className="wa-row flex w-full items-center gap-3 px-3 text-left">
+                <div className="wa-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-medium">{c.name.slice(0, 1).toUpperCase()}</div>
+                <div className="wa-line min-w-0 flex-1 border-b py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-bold">{c.name}</p>
-                    <span className="shrink-0 text-[11px] text-ink/45">{hora(c.lastAt)}</span>
+                    <p className="truncate text-[15px] font-medium">{c.name}</p>
+                    <span className={cn("shrink-0 text-xs", c.unread > 0 ? "wa-unread-time" : "wa-muted")}>{hora(c.lastAt)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm text-ink/55">{c.preview || "—"}</p>
-                    {c.unread > 0 && <span className="shrink-0 rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">{c.unread}</span>}
+                    <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
+                    {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused || !aiActive ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{!c.clientId && " · sem cadastro"}</p>
+                  {(!c.aiPaused && aiActive) || c.assignedName ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{!c.aiPaused && aiActive ? "Lia" : c.assignedName}</p> : null}
                 </div>
               </button>
             </li>
@@ -282,9 +283,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       </aside>
 
       {/* Conversa */}
-      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden lg:flex")}>
+      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
         {!openId ? (
-          <div className="m-auto max-w-xs text-center text-sm text-ink/50">Escolha uma conversa. O nome de quem respondeu aparece em cima de cada mensagem, e a ficha do cliente fica ao lado.</div>
+          <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-2 text-center"><p className="text-2xl font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm">Escolha uma conversa à esquerda. A ficha do cliente, orçamentos e cobrança ficam ao lado.</p></div>
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
@@ -294,8 +295,8 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
 
       {/* Ficha do cliente */}
       {atual && (
-        <aside className={cn("w-full flex-col overflow-y-auto border-l border-sand/80 bg-cream/30 lg:flex lg:w-[360px] lg:shrink-0", showPanel ? "flex" : "hidden")}>
-          <div className="flex items-center gap-2 border-b border-sand/80 p-3 lg:hidden">
+        <aside className={cn("wa-line w-full flex-col overflow-y-auto border-l bg-surface text-ink xl:flex xl:w-[320px] xl:shrink-0", showPanel ? "flex" : "hidden")}>
+          <div className="flex items-center gap-2 border-b border-sand/80 p-3 xl:hidden">
             <button onClick={() => setShowPanel(false)} className="rounded-lg p-1 hover:bg-cream"><ArrowLeft className="h-5 w-5" /></button>
             <p className="font-bold">Ficha do cliente</p>
           </div>
@@ -378,16 +379,19 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
 
   return (
     <>
-      <header className="flex items-center gap-2 border-b border-sand/80 p-3">
-        <button onClick={onBack} className="rounded-lg p-1 hover:bg-cream md:hidden"><ArrowLeft className="h-5 w-5" /></button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-black">{c.name}</p>
-          <p className="whitespace-nowrap text-xs text-ink/50">{formatBrPhone(c.phone)}</p>
-        </div>
+      <header className="wa-head flex items-center gap-3 px-3 py-2">
+        <button onClick={onBack} className="wa-row rounded-full p-1 md:hidden" aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></button>
+        <button onClick={onPanel} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Ficha do cliente">
+          <span className="wa-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-medium">{c.name.slice(0, 1).toUpperCase()}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{c.name}</span>
+            <span className="wa-muted block truncate text-xs">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · Lia respondendo"}</span>
+          </span>
+        </button>
         <button
           disabled={mudandoIa || (!aiActive && c.aiPaused)}
           onClick={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })}
-          className={cn("flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold", c.aiPaused ? "bg-cream text-ink/70" : "bg-forest text-white")}
+          className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold", c.aiPaused ? "wa-chip" : "wa-send")}
           title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
           <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Lia" : "Assumir"}
@@ -395,27 +399,27 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         <button
           disabled={arquivando}
           onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
-          className="rounded-xl bg-cream p-2 text-ink/70 hover:text-forest"
+          className="wa-row wa-muted rounded-full p-2"
           title={c.archived ? "Desarquivar conversa" : "Arquivar conversa"} aria-label={c.archived ? "Desarquivar conversa" : "Arquivar conversa"}
         >
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         </button>
-        <button onClick={onPanel} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold lg:hidden">Ficha</button>
+        <button onClick={onPanel} className="wa-chip rounded-full px-3 py-1.5 text-xs font-bold xl:hidden">Ficha</button>
       </header>
 
-      <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
-        {temAntigas && <p className="text-center text-xs text-ink/45">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
+      <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat flex-1 space-y-1.5 overflow-y-auto px-[5%] py-3">
+        {temAntigas && <p className="wa-muted text-center text-xs">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
         {messages.length === 0 && <p className="text-center text-sm text-ink/50">Sem mensagens.</p>}
         {messages.map((m) => {
           const nome = quemEnviou(m);
           const saida = m.direction === "outbound";
           return (
             <div key={m.id} className={cn("flex", saida ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm", saida ? "rounded-tr-sm bg-green-500/15" : "rounded-tl-sm bg-surface", m.failed && "ring-2 ring-red-400")}>
+              <div className={cn("max-w-[75%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)]", saida ? "wa-out rounded-tr-none" : "wa-in rounded-tl-none", m.failed && "ring-2 ring-red-400")}>
                 {nome && <p className={cn("mb-0.5 text-xs font-black", m.author === "ana" ? "text-blue-400" : "text-forest")}>{nome}</p>}
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
-                <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-ink/45">
+                <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
                   {hora(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3 w-3", m.deliveryStatus === "lida" && "text-blue-500")} /> : <Check aria-label="Enviada" className="h-3 w-3" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
@@ -426,8 +430,8 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         <div ref={fim} />
       </div>
 
-      {!atBottom && <button className="bg-surface py-2 text-xs font-bold text-forest" onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}>Ir para mensagens recentes ↓</button>}
-      <footer className="border-t border-sand/80 p-3">
+      {!atBottom && <button className="wa-head py-2 text-xs font-bold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}>Ir para mensagens recentes ↓</button>}
+      <footer className="wa-head px-3 py-2">
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
         {readError && <p className="mb-2 text-xs text-amber-700">{readError}</p>}
         {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
@@ -444,10 +448,11 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder="Escreva a mensagem ou / para respostas prontas"
-            className="field max-h-40 flex-1 resize-none"
+            placeholder="Mensagem"
+            title="Digite / para respostas prontas"
+            className="wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none"
           />
-          <button onClick={enviar} disabled={enviando || !texto.trim()} className="rounded-xl bg-green-600 p-3 text-white disabled:opacity-50" aria-label="Enviar">
+          <button onClick={enviar} disabled={enviando || !texto.trim()} className="wa-send rounded-full p-3 disabled:opacity-50" aria-label="Enviar">
             <Send className="h-5 w-5" />
           </button>
         </div>

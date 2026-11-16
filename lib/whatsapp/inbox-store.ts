@@ -10,6 +10,8 @@ const preview = (body: string) => body.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").r
 
 /** Cliente do cadastro com o mesmo telefone (DDD + 8 últimos dígitos). */
 export async function findClientByPhone(db: SupabaseClient, companyId: string, phone: string): Promise<{ id: string; name: string } | null> {
+  // Contato "@lid" nao tem numero: nao da para achar cliente pelo telefone.
+  if (/@lid$/.test(phone)) return null;
   const last4 = digitsOnly(phone).slice(-4);
   if (last4.length < 4) return null;
   const { data } = await db.from("clients")
@@ -39,6 +41,7 @@ export async function autoLinkClients(db: SupabaseClient, companyId: string): Pr
     }
   }
   const links = (convs as Array<{ id: string; phone: string | null; external_id: string | null }>)
+    .filter((c) => !/@lid$/.test(c.phone || c.external_id || ""))
     .map((c) => ({ id: c.id, client: byKey.get(phoneKey(c.phone || c.external_id)) }))
     .filter((l): l is { id: string; client: string } => !!l.client);
   for (let i = 0; i < links.length; i += 25) {

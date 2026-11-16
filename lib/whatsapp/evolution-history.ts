@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
 import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
-import { evolutionJidPhone, evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
 
 export const HISTORY_PAGE_SIZE = 400;
 const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
@@ -30,8 +30,18 @@ const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " 
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[]) {
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
   const rows: Row[] = [];
+  // Contas "@lid" sem numero: usa a ligacao lid -> telefone ja conhecida, senao fica com o lid.
+  const links = new Map<string, string>();
+  const lidPhones = new Map<string, string>();
+  const lids = [...new Set(records.map((r) => evolutionContact(r.key)?.lid).filter((v): v is string => !!v))];
+  for (let i = 0; i < lids.length; i += 200) {
+    const { data } = await db.from("whatsapp_lid_map").select("lid,phone").eq("company_id", companyId).in("lid", lids.slice(i, i + 200));
+    for (const m of data ?? []) lidPhones.set(m.lid as string, m.phone as string);
+  }
   for (const r of records) {
-    const phone = evolutionJidPhone(r.key);
+    const contact = evolutionContact(r.key);
+    if (contact?.lid && contact.phone) links.set(contact.lid, contact.phone);
+    const phone = contact?.phone ?? (contact?.lid ? lidPhones.get(contact.lid) ?? contact.lid : null);
     const id = typeof r.key?.id === "string" ? r.key.id : "";
     const { text } = evolutionMessageText(r.message);
     const ts = Number(r.messageTimestamp);
@@ -44,6 +54,10 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       sender_name: fromMe ? (text.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)") : cleanContactName(r.pushName),
       contact: fromMe ? null : cleanContactName(r.pushName),
     });
+  }
+  // Lid com numero descoberto nesta pagina: registra e junta a conversa que estava so com o lid.
+  for (const [lid, phone] of links) {
+    if (lidPhones.get(lid) !== phone) await db.rpc("link_whatsapp_lid", { p_company: companyId, p_lid: lid, p_phone: phone }).then(() => undefined, () => undefined);
   }
   if (!rows.length) return { inserted: 0, conversations: 0 };
 
