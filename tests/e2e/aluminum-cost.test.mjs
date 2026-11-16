@@ -24,7 +24,10 @@ after(async()=>{
 async function setPrice(value){
  await page.goto(`${BASE}/tabela-calhas?aba=custo-aluminio`,{waitUntil:'networkidle0'});
  await page.waitForSelector('input[name="price_per_kg"]');
- await page.click('input[name="price_per_kg"]',{clickCount:3});await page.type('input[name="price_per_kg"]',value);
+ await page.click('input[name="price_per_kg"]');
+ await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');
+ await page.type('input[name="price_per_kg"]',value);
+ assert.equal(await page.$eval('input[name="price_per_kg"]',el=>el.value),value,'substitui todo o preço anterior antes de salvar');
  await clickAndWait(page,'Salvar preço do kg');
  assert.equal(await pageProblem(page),null);
 }
