@@ -17,6 +17,7 @@ import { getAllPrices } from "@/app/(crm)/pricing-actions";
 import { getMatrixRows } from "@/app/(crm)/matrix-actions";
 import { PricingSpreadsheet } from "@/components/pricing-spreadsheet";
 import { AluminumMatrix } from "@/components/aluminum-matrix";
+import { AluminumCostPanel } from "@/components/aluminum-cost-panel";
 import { ConfirmButton } from "@/components/confirm-button";
 
 // ─── Listas de referência ───────────────────────────────────────────────────
@@ -49,6 +50,7 @@ const COMMERCIAL_DEFAULTS = ["Cliente Final","Construtora","Calheiro Parceiro","
 const TABS = [
   { key:"catalogo", label:"Catálogo de peças 3D", icon: Boxes },
   { key:"materia-prima",       label:"Matéria-Prima",        icon: Package    },
+  { key:"custo-aluminio",      label:"Custo do Alumínio",    icon: Package    },
   { key:"pintura",             label:"Pintura",               icon: Palette    },
   { key:"pecas-especiais",     label:"Peças Especiais",       icon: Boxes      },
   { key:"servicos",            label:"Serviços e Logística",  icon: Briefcase  },
@@ -84,6 +86,7 @@ export async function PricingCenter({
   selfHref?: string;
 }) {
   let canManage = false;
+  let companyId: string | undefined;
   let prices: GutterRow[] = [];
   let matrixRows: import("@/components/aluminum-matrix").MatrixRow[] = [];
   let paints: PaintRow[] = [];
@@ -100,6 +103,7 @@ export async function PricingCenter({
       db.rpc("has_table_access", { resource: "gutter_prices", action: "update" }),
     ]);
     const cid = profile?.company_id;
+    companyId = cid;
     canManage = Boolean(perm.data);
 
     if (cid) {
@@ -140,13 +144,13 @@ export async function PricingCenter({
         <ArrowLeft className="h-4 w-4" />Voltar
       </Link>
 
-      <div className="mb-7 flex items-end justify-between gap-4">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Precificação</p>
           <h1 className="mt-2 text-3xl font-black">Central de Preços</h1>
           <p className="mt-1 text-sm text-ink/50">Matéria-prima, pintura, peças, serviços e políticas comerciais em um só lugar.</p>
         </div>
-        {!canManage && <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
+        {canManage ? <Link href={tabHref("custo-aluminio")} className="button-ghost">Preço do kg do alumínio</Link> : <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
       </div>
 
       {error  && <p className="mb-5 rounded-xl bg-red-50     p-4 text-sm text-red-700">{error}</p>}
@@ -164,6 +168,7 @@ export async function PricingCenter({
       </div>
 
       {tab === "catalogo" && <GutterCatalog />}
+      {tab === "custo-aluminio" && <AluminumCostPanel companyId={companyId} canManage={canManage} selfHref={selfHref} />}
 
       {/* ─── Matéria-Prima ─── */}
       {tab === "materia-prima" && (

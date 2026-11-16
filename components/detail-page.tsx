@@ -38,6 +38,7 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
         <p className="mt-1 font-bold">{clientAddress}</p>
       </div>}
     </div>
+    {config.table === "v_order_overview" && <OrderAluminumCost orderId={id} />}
     {config.table === "v_order_overview" && <div id="checklist-operacional" className="card mt-5 scroll-mt-28 overflow-hidden">
       <div className="border-b p-5"><h2 className="font-black">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
       <div className="divide-y">{checklist.length ? checklist.map((item) => <form action={toggleChecklistItem} className="flex items-center gap-4 p-4" key={String(item.id)}>
@@ -53,3 +54,4 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
 const get = (row: Record<string, unknown>, path: string) => path.split(".").reduce<unknown>((value, key) => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, row);
 const format = (value: unknown, kind?: string) => kind === "money" ? money(value as number) : kind === "date" ? shortDate(value as string) : kind === "status" ? statusLabel(String(value ?? "-")) : String(value ?? "-").replaceAll("_", " ");
 function Missing({ message }: { message?: string }) { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-black">Registro não encontrado</h1><p className="mt-2 text-sm text-ink/50">{message ?? "Configure o Supabase e execute as migrações para consultar este registro."}</p></div>; }
+import { OrderAluminumCost } from "./aluminum-cost-summary";
