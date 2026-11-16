@@ -70,6 +70,17 @@ describe('importa o histórico', () => {
       expect(t.conversations[0]).toMatchObject({ ai_paused: false, assigned_to: 'vendedor', unread_count: 3, last_message_preview: 'nova' });
     } finally { vi.unstubAllGlobals(); }
   });
+  test('reimportar corrige data de mensagem enviada sem duplicar nem alterar conteúdo ou atribuição', async () => {
+    const { t, db } = fakeDb();
+    const page = [rec('sent', 1700000100, 'enviada', true), rec('received', 1700000200, 'resposta')];
+    await importHistoryPage(db as never, 'c1', page);
+    Object.assign(t.messages[0], { sent_at: '2026-11-16T10:00:00Z', body: 'conteúdo preservado', delivery_status: 'lida' });
+    Object.assign(t.conversations[0], { ai_paused: true, assigned_to: 'vendedor', unread_count: 2 });
+    expect(await importHistoryPage(db as never, 'c1', page)).toMatchObject({ inserted: 0, conversations: 1 });
+    expect(t.messages).toHaveLength(2);
+    expect(t.messages[0]).toMatchObject({ sent_at: new Date(1700000100000).toISOString(), body: 'conteúdo preservado', delivery_status: 'lida' });
+    expect(t.conversations[0]).toMatchObject({ last_message_preview: 'resposta', ai_paused: true, assigned_to: 'vendedor', unread_count: 2 });
+  });
 });
 
 import { agendaNameMap } from '@/lib/whatsapp/evolution-history';
