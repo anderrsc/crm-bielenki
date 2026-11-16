@@ -9,6 +9,7 @@ import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then(module => module.WhatsappConnect), { loading: () => <p role="status">Carregando conexão…</p> });
+const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da Lia…</p> });
 const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
 
 const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType; cls: string }> = {
@@ -75,6 +76,8 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </div>
         {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
       </div>
+
+      <LiaModeSettings />
 
       <details className="card p-4" onToggle={event => setConnectionOpen(event.currentTarget.open)}>
         <summary className="cursor-pointer font-bold">Conexão do WhatsApp</summary>

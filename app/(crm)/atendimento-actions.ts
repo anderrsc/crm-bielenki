@@ -31,7 +31,7 @@ export type ClientPanel = {
   pipeline: { etapa: string | null; valor: number | null; proximaAcao: string | null; data: string | null } | null;
 };
 export type TriageInfo = { resumo: string | null; dados: Record<string, unknown> } | null;
-export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; hasOlder: boolean; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
+export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; hasOlder: boolean; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; suggestion: { text: string; at: string } | null; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
 
 async function context() {
   const db = await createClient();
@@ -116,21 +116,29 @@ export async function loadConversation(conversationId: string, opts: { panel?: b
     const { data: conv, error } = await db.from("conversations").select(CONV_COLUMNS).eq("id", conversationId).eq("company_id", companyId).single();
     if (error || !conv) return { error: "Conversa não encontrada." };
     const row = conv as unknown as ConvRow;
-    const [{ data: msgs, error: messagesError }, panel, triage] = await Promise.all([
+    const [{ data: msgs, error: messagesError }, panel, triage, suggestion] = await Promise.all([
       db.from("messages").select(MESSAGE_COLUMNS)
         .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(PAGE + 1),
       row.client_id && opts.panel !== false ? loadClientPanel(db, companyId, row.client_id) : Promise.resolve(null),
       opts.panel !== false ? loadTriage(db, companyId, row.phone || row.external_id || "") : Promise.resolve(null),
+      loadSuggestion(db, conversationId),
     ]);
     if (messagesError) return { error: messagesError.message };
     const hasOlder = (msgs ?? []).length > PAGE;
     const messages: InboxMessage[] = (msgs ?? []).slice(0, PAGE).reverse().map(toMessage);
     const lastInbound = row.last_inbound_at ?? [...messages].reverse().find((m) => m.direction === "inbound")?.at ?? null;
     const windowOpen = !!lastInbound && Date.now() - new Date(lastInbound).getTime() < 24 * 60 * 60_000;
-    return { conversation: toItem(row), messages, hasOlder, panel, triage, windowOpen, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
+    return { conversation: toItem(row), messages, hasOlder, panel, triage, windowOpen, suggestion, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/** Resposta que a Lia deixou para a equipe aprovar (modos assistente/semiautomático). */
+async function loadSuggestion(db: Awaited<ReturnType<typeof context>>["db"], conversationId: string) {
+  const { data, error } = await db.from("conversations").select("ai_suggestion,ai_suggestion_at").eq("id", conversationId).maybeSingle();
+  if (error || !data?.ai_suggestion) return null;
+  return { text: String(data.ai_suggestion), at: String(data.ai_suggestion_at ?? "") };
 }
 
 const MESSAGE_COLUMNS = "id,direction,author,sender_name,body,sent_at,delivery_status,error_message";
@@ -239,6 +247,7 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     ]);
     const { error: pauseError } = await db.from("conversations").update({ ai_paused: true, assigned_to: user.id, ai_generation_id: null }).eq("id", conversationId).eq("company_id", companyId);
     if (pauseError) return { error: pauseError.message };
+    await db.from("conversations").update({ ai_suggestion: null, ai_suggestion_at: null }).eq("id", conversationId).not("ai_suggestion", "is", null);
     // Sem assinatura só para o que o cliente precisa copiar inteiro (ex.: Pix copia e cola).
     const signed = opts.unsigned ? body : `*${myName}:*\n${body}`;
     let externalId: string | null = null;
@@ -433,4 +442,68 @@ export async function syncInboxContacts() {
     await autoLinkClients(db, companyId);
     return { ok: true, count };
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}
+
+/**
+ * Envia a sugestão da Lia como está, aprovada por quem clicou. Sai como mensagem da
+ * Lia (a conversa continua com ela) e fica registrada com quem aprovou.
+ */
+export async function approveLiaSuggestion(conversationId: string, expectedAt: string): Promise<{ ok?: true; error?: string; warning?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const { db, user, companyId, myName } = await context();
+    const { data: conv } = await db.from("conversations").select("id,phone,external_id,ai_suggestion,ai_suggestion_at")
+      .eq("id", conversationId).eq("company_id", companyId).maybeSingle();
+    if (!conv) return { error: "Conversa não encontrada." };
+    const text = String(conv.ai_suggestion ?? "").trim();
+    if (!text || conv.ai_suggestion_at !== expectedAt) return { error: "Essa sugestão já foi usada, descartada ou substituída por uma nova." };
+    // Retira a sugestão de forma condicional: dois cliques (ou duas pessoas) não enviam duas vezes.
+    const { data: taken, error: takeError } = await db.from("conversations")
+      .update({ ai_suggestion: null, ai_suggestion_at: null })
+      .eq("id", conversationId).eq("company_id", companyId).eq("ai_suggestion_at", expectedAt)
+      .select("id");
+    if (takeError) return { error: takeError.message };
+    if (!taken?.length) return { error: "Essa sugestão já foi usada por outra pessoa." };
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor." };
+    const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const [{ data: cfg }, { data: company }] = await Promise.all([
+      admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+      admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
+    ]);
+    const agentName = cfg?.agent_name && cfg.agent_name !== "Ana" ? String(cfg.agent_name) : "Lia";
+    let externalId: string | null = null;
+    let failure: string | null = null;
+    try {
+      externalId = await sendWhatsAppText(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), text);
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    }
+    try {
+      await recordOutbound(db, { companyId, conversationId, body: text, author: "ana", senderName: `${agentName} (aprovada por ${myName})`, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
+    } catch (recordError) {
+      if (!failure) return { ok: true, warning: "Mensagem enviada, mas não apareceu no histórico. Não reenvie." };
+      throw recordError;
+    }
+    if (failure) {
+      // Volta a sugestão para tentar de novo.
+      await db.from("conversations").update({ ai_suggestion: text, ai_suggestion_at: new Date().toISOString() }).eq("id", conversationId).is("ai_suggestion", null);
+      return { error: failure };
+    }
+    await admin.from("ai_decisions").insert({ company_id: companyId, conversation_id: conversationId, phone: conv.phone, decisao: "aprovada", motivo: `Sugestão aprovada por ${myName}`, modo: cfg?.lia_mode ?? null });
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Descarta a sugestão da Lia (a equipe responde do seu jeito). */
+export async function discardLiaSuggestion(conversationId: string): Promise<{ ok?: true; error?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const { db, companyId } = await context();
+    const { error } = await db.from("conversations").update({ ai_suggestion: null, ai_suggestion_at: null }).eq("id", conversationId).eq("company_id", companyId);
+    return error ? { error: error.message } : { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
 }
