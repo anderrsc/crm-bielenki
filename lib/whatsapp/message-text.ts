@@ -45,3 +45,20 @@ export function evolutionJidPhone(key: Record<string, unknown> | undefined | nul
   }
   return null;
 }
+
+/**
+ * Contato da mensagem: o telefone quando a Evolution informa, senao o identificador "NNN@lid"
+ * (contas novas do WhatsApp chegam assim, muitas vezes sem o numero). Null para grupo/status.
+ * lid vem preenchido sempre que a conversa for "@lid", para registrar a ligacao lid -> telefone.
+ */
+export function evolutionContact(key: Record<string, unknown> | undefined | null): { id: string; phone: string | null; lid: string | null } | null {
+  const jid = str(key?.remoteJid);
+  if (!jid || /@g\.us$|@broadcast$|^status@|@newsletter$/.test(jid)) return null;
+  const phone = evolutionJidPhone(key);
+  const lid = /^\d{5,25}@lid$/.test(jid) ? jid : null;
+  if (phone) return { id: phone, phone, lid };
+  return lid ? { id: lid, phone: null, lid } : null;
+}
+
+/** Conversa identificada so pelo "@lid" (sem numero de telefone conhecido). */
+export const isLidContact = (value: string | null | undefined) => /@lid$/.test(String(value ?? ""));

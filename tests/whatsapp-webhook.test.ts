@@ -36,7 +36,9 @@ function query(table: string) {
   return api;
 }
 
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: string) => query(t), rpc: async (_name: string, p: Record<string, unknown>) => {
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: string) => query(t), rpc: async (name: string, p: Record<string, unknown>) => {
+ if (name === 'link_whatsapp_lid') { (tables.whatsapp_lid_map ??= []).push({ company_id: p.p_company, lid: p.p_lid, phone: p.p_phone }); return { error: null }; }
+ if (name !== 'inbox_receive') return { error: null };
  const c = tables.conversations.find(c => c.id === p.p_id && c.company_id === p.p_company)!;
  Object.assign(c, { unread_count: Number(c.unread_count ?? 0) + (p.p_historical ? 0 : 1), ai_generation_id: p.p_generation, last_message_at: p.p_at, last_inbound_at: p.p_at, last_message_preview: p.p_preview });
  return { error: null };
@@ -260,6 +262,25 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     await POST(evo(msg('e6', 'Oi', {}, { remoteJid: '123456789@lid', senderPn: '5547988887777@s.whatsapp.net' })) as never);
     expect(tables.conversations[0].external_id).toBe('5547988887777');
     expect(sent[0].body).toMatchObject({ number: '5547988887777' });
+  });
+
+  test('contato "@lid" sem numero entra no Atendimento e a resposta vai para o lid', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi!', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('e6b', 'Bom dia, quero um orçamento', {}, { remoteJid: '987654321012345@lid' })) as never);
+    expect(res.status).toBe(200);
+    expect(tables.conversations[0].external_id).toBe('987654321012345@lid');
+    expect(tables.messages.filter(m => m.direction === 'inbound').map(m => m.body)).toEqual(['Bom dia, quero um orçamento']);
+    expect(sent[0].body).toMatchObject({ number: '987654321012345@lid' });
+  });
+
+  test('lid ja ligado a um numero usa o numero', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi!', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('e6c', 'Oi', {}, { remoteJid: '111222333@lid', senderPn: '5547911112222@s.whatsapp.net' })) as never);
+    await POST(evo(msg('e6d', 'De novo', {}, { remoteJid: '111222333@lid' })) as never);
+    expect(tables.whatsapp_lid_map).toEqual([expect.objectContaining({ lid: '111222333@lid', phone: '5547911112222' })]);
+    expect(new Set(tables.messages.filter(m => m.direction === 'inbound').map(m => tables.conversations.find(c => c.id === m.conversation_id)?.external_id))).toEqual(new Set(['5547911112222']));
   });
 
   test('grupo é ignorado', async () => {

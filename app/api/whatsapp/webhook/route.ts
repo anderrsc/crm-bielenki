@@ -8,7 +8,7 @@ import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, parseAiProvider } from
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
-import { evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
@@ -279,7 +279,20 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       const jid = String(data?.key?.remoteJid ?? "");
       // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
       if (/@g\.us$|@broadcast$|^status@|@newsletter$/.test(jid)) return NextResponse.json({ status: "ignored_group" });
-      const phone = evolutionPhone(data?.key);
+      // Contas novas do WhatsApp chegam como "@lid", as vezes sem o numero: antes eram descartadas.
+      const contact = evolutionContact(data?.key);
+      let phone = contact?.id ?? null;
+      if (contact?.lid) {
+        const db = getSupabase();
+        const { data: cfgLid } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance ?? "")).maybeSingle();
+        if (cfgLid?.company_id) {
+          if (contact.phone) await db.rpc("link_whatsapp_lid", { p_company: cfgLid.company_id, p_lid: contact.lid, p_phone: contact.phone }).then(() => undefined, () => undefined);
+          else {
+            const { data: known } = await db.from("whatsapp_lid_map").select("phone").eq("company_id", cfgLid.company_id).eq("lid", contact.lid).maybeSingle();
+            if (known?.phone) phone = known.phone;
+          }
+        }
+      }
       if (!phone) return NextResponse.json({ status: fromMe ? "own_message" : "no_phone" });
       from = phone;
       phoneNumberId = payload.instance ?? process.env.EVOLUTION_INSTANCE ?? "";

@@ -1,5 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
@@ -229,7 +230,8 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     const { db, user, companyId, myName } = await context();
     const { data: conv } = await db.from("conversations").select("id,phone,external_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
-    const to = digitsOnly(conv.phone || conv.external_id);
+    // Contato "@lid" (sem numero): a Evolution envia direto para o identificador.
+    const to = whatsappTarget(conv.phone || conv.external_id);
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor." };
     // A config do WhatsApp tem segredos: lida com a chave de serviço, só desta empresa.
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -414,7 +416,7 @@ export async function markInboxRead(id: string, messageIds: string[], _snapshot?
           admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
           admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
         ]);
-        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), pending.map(m => m.external_id));
+        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), whatsappTarget(conv.phone || conv.external_id), pending.map(m => m.external_id));
         const { error: receiptUpdate } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
         if (receiptUpdate) receiptError = receiptUpdate.message;
       } catch (error) {

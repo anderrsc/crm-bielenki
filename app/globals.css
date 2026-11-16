@@ -508,3 +508,36 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   .responsive-pricing-table td { display: block; width: 100%; }
   .responsive-pricing-table .field { min-height: 44px; height: auto; min-width: 0; }
 }
+
+/* Atendimento com a cara do WhatsApp (claro e escuro) */
+.wa-inbox {
+  --wa-panel: #111b21; --wa-head: #202c33; --wa-chat: #0b141a; --wa-in: #202c33; --wa-out: #005c4b;
+  --wa-text: #e9edef; --wa-muted: #8696a0; --wa-line: rgb(134 150 160 / .15); --wa-green: #00a884; --wa-hover: #2a3942; --wa-active: #2a3942;
+  --wa-chip: #202c33; --wa-input: #2a3942;
+  background: var(--wa-panel); color: var(--wa-text); border-color: var(--wa-line);
+}
+[data-theme="light"] .wa-inbox {
+  --wa-panel: #ffffff; --wa-head: #f0f2f5; --wa-chat: #efeae2; --wa-in: #ffffff; --wa-out: #d9fdd3;
+  --wa-text: #111b21; --wa-muted: #667781; --wa-line: #e9edef; --wa-green: #00a884; --wa-hover: #f5f6f6; --wa-active: #f0f2f5;
+  --wa-chip: #f0f2f5; --wa-input: #ffffff;
+}
+.wa-inbox .wa-head { background: var(--wa-head); }
+.wa-inbox .wa-muted { color: var(--wa-muted); }
+.wa-inbox .wa-line { border-color: var(--wa-line); }
+.wa-inbox .wa-row:hover { background: var(--wa-hover); }
+.wa-inbox .wa-row[aria-current="true"] { background: var(--wa-active); }
+.wa-inbox .wa-chip { background: var(--wa-chip); color: var(--wa-muted); }
+.wa-inbox .wa-chip[aria-pressed="true"] { background: rgb(0 168 132 / .18); color: var(--wa-green); }
+.wa-inbox .wa-search { background: var(--wa-chip); }
+.wa-inbox .wa-chat {
+  background-color: var(--wa-chat);
+  background-image: radial-gradient(rgb(134 150 160 / .07) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.wa-inbox .wa-in { background: var(--wa-in); color: var(--wa-text); }
+.wa-inbox .wa-out { background: var(--wa-out); color: var(--wa-text); }
+.wa-inbox .wa-badge { background: var(--wa-green); color: #fff; }
+.wa-inbox .wa-unread-time { color: var(--wa-green); font-weight: 700; }
+.wa-inbox .wa-input { background: var(--wa-input); color: var(--wa-text); border: 0; }
+.wa-inbox .wa-send { background: var(--wa-green); color: #fff; }
+.wa-inbox .wa-avatar { background: rgb(134 150 160 / .25); color: var(--wa-text); }
