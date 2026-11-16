@@ -5,11 +5,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
-  approveLiaSuggestion, discardLiaSuggestion, markInboxRead, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
-  type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
+  addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
+  type ClientPanel, type ConversationDetail, type ConversationStatus, type InboxEvent, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -61,7 +61,11 @@ function quemEnviou(m: InboxMessage) {
   return m.senderName || "Equipe";
 }
 
-export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[]; initialError?: string }) {
+export const STATUS_LABEL: Record<ConversationStatus, string> = { aberta: "Aberta", aguardando_cliente: "Aguardando cliente", resolvida: "Resolvida" };
+export const SETORES: Array<[string, string]> = [["comercial", "Comercial"], ["pos_venda", "Pós-venda"], ["financeiro", "Financeiro"], ["producao", "Produção/Instalação"]];
+const setorNome = (v: string | null) => SETORES.find(([k]) => k === v)?.[1] ?? null;
+
+export function AtendimentoPage({ initial, initialError, initialOpen }: { initial: InboxItem[]; initialError?: string; initialOpen?: string }) {
   const [items, setItems] = useState(initial);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -69,9 +73,13 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"todas" | "naolidas" | "ana" | "equipe">("todas");
   const [verArquivadas, setVerArquivadas] = useState(false);
+  const [status, setStatus] = useState<"" | ConversationStatus>("");
+  const [setor, setSetor] = useState("");
+  const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
+  const [buscandoHistorico, startHistorico] = useTransition();
   // Conversas ja carregadas ficam guardadas: abrir de novo mostra na hora e atualiza por tras.
   const cache = useRef(new Map<string, ConversationDetail>());
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpen ?? null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
@@ -166,7 +174,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       if (p.eventType === "DELETE") { setItems((prev) => prev.filter((c) => c.id !== id)); return; }
       const current = itemsRef.current.find((c) => c.id === id);
       // Conversa nova, cliente ligado/trocado: busca a lista (com nomes) uma vez.
-      if (!current || current.clientId !== ((row.client_id as string | null) ?? null)) { listSoon(); return; }
+      if (!current || current.clientId !== ((row.client_id as string | null) ?? null) || current.assignedTo !== ((row.assigned_to as string | null) ?? null)) { listSoon(); if (selected.current === id) detailSoon(id); return; }
+      // Transferência de setor ou troca de status na conversa aberta: mostra no histórico.
+      if (selected.current === id && (current.status !== (row.status ?? "aberta") || current.department !== ((row.department as string | null) ?? null))) detailSoon(id);
       // Conversa aberta voltou a ter não lidas (mensagem nova ou corrida com o webhook):
       // recarrega a conversa para a leitura ser confirmada de novo com o estado atual.
       if (selected.current === id && Number(row.unread_count ?? 0) > 0) detailSoon(id);
@@ -183,6 +193,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
           unread: Number(row.unread_count ?? 0),
           aiPaused: !!row.ai_paused,
           archived: !!row.archived_at,
+          status: row.status === "aguardando_cliente" || row.status === "resolvida" ? row.status : "aberta",
+          department: (row.department as string | null | undefined) ?? null,
+          assignedTo: (row.assigned_to as string | null | undefined) ?? null,
         };
         return next.sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
       });
@@ -211,9 +224,11 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       if (filtro === "naolidas" && c.unread === 0) return false;
       if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
       if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
+      if (status && c.status !== status) return false;
+      if (setor && c.department !== setor) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro, aiActive, verArquivadas]);
+  }, [items, busca, filtro, aiActive, verArquivadas, status, setor]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -242,7 +257,22 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
           <div className="flex items-center gap-2 rounded-xl bg-cream px-3 py-2">
             <Search className="h-4 w-4 text-ink/40" />
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+            <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Buscar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+          </div>
+          {busca.trim().length >= 3 && (
+            <button disabled={buscandoHistorico} onClick={() => startHistorico(async () => setHistorico((await searchInboxHistory(busca)).results))} className="text-xs font-bold text-forest">
+              {buscandoHistorico ? "Buscando nas mensagens…" : `Buscar "${busca.trim()}" no texto das mensagens`}
+            </button>
+          )}
+          <div className="flex gap-2">
+            <select value={status} onChange={(e) => setStatus(e.target.value as "" | ConversationStatus)} className="field flex-1 py-1 text-xs" aria-label="Status">
+              <option value="">Todos os status</option>
+              {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+            <select value={setor} onChange={(e) => setSetor(e.target.value)} className="field flex-1 py-1 text-xs" aria-label="Setor">
+              <option value="">Todos os setores</option>
+              {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
           </div>
           <div className="flex gap-1 text-xs font-bold">
             {([["todas", "Todas"], ["naolidas", "Não lidas"], ["ana", "Com a Lia"], ["equipe", "Com a equipe"]] as const).map(([k, l]) => (
@@ -252,6 +282,21 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
         <ul className="flex-1 overflow-y-auto">
+          {historico && (
+            <li className="border-b border-sand/80 bg-cream/40 p-2">
+              <div className="flex items-center justify-between px-1"><p className="text-xs font-black">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
+              {historico.length === 0 && <p className="p-2 text-xs text-ink/50">Nada encontrado no histórico.</p>}
+              {historico.map(h => {
+                const conv = items.find(i => i.id === h.conversationId);
+                return (
+                  <button key={h.conversationId} onClick={() => abrir(h.conversationId)} className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-cream">
+                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span className="text-[11px] font-normal text-ink/45">{hora(h.at)}</span></p>
+                    <p className="truncate text-xs text-ink/60">{h.snippet}</p>
+                  </button>
+                );
+              })}
+            </li>
+          )}
           {verArquivadas ? (
             <li><button onClick={() => setVerArquivadas(false)} className="flex w-full items-center gap-3 border-b border-sand/50 px-3 py-3 text-left font-bold hover:bg-cream/60"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
           ) : arquivadas.length > 0 && (
@@ -275,7 +320,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
                     <p className="truncate text-sm text-ink/55">{c.preview || "—"}</p>
                     {c.unread > 0 && <span className="shrink-0 rounded-full bg-green-600 px-1.5 text-[11px] font-bold text-white">{c.unread}</span>}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused || !aiActive ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{!c.clientId && " · sem cadastro"}</p>
+                  <p className="mt-0.5 text-[11px] text-ink/45">{c.aiPaused || !aiActive ? `Com ${c.assignedName ?? "a equipe"}` : "Com a Lia (IA)"}{c.department && ` · ${setorNome(c.department)}`}{c.status !== "aberta" && ` · ${STATUS_LABEL[c.status]}`}{!c.clientId && " · sem cadastro"}</p>
                 </div>
               </button>
             </li>
@@ -339,6 +384,15 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
   const [enviando, startEnvio] = useTransition();
   const [mudandoIa, startIa] = useTransition();
   const [sugerindo, startSugestao] = useTransition();
+  const [modoNota, setModoNota] = useState(false);
+  const [transferir, setTransferir] = useState(false);
+  const [mudandoStatus, startStatus] = useTransition();
+  // Mensagens e registros internos (notas, transferências, status) numa linha do tempo só.
+  const linha = useMemo(() => {
+    const desde = temAntigas ? messages[0]?.at ?? "" : "";
+    const eventos = (detail.events ?? []).filter(e => e.at >= desde).map(e => ({ at: e.at, e, m: null as InboxMessage | null }));
+    return [...messages.map(m => ({ at: m.at, m, e: null as InboxEvent | null })), ...eventos].sort((a, b) => a.at.localeCompare(b.at));
+  }, [messages, detail.events, temAntigas]);
   const fim = useRef<HTMLDivElement>(null);
   const ultimo = messages.at(-1)?.id;
 
@@ -373,7 +427,7 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
     const t = texto.trim();
     if (!t || enviando) return;
     startEnvio(async () => {
-      const r = await sendInboxMessage(c.id, t);
+      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t);
       if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
@@ -395,6 +449,14 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         >
           <Bot className="h-4 w-4" /> {c.aiPaused ? "Devolver p/ Lia" : "Assumir"}
         </button>
+        <select value={c.status} disabled={mudandoStatus} aria-label="Status da conversa"
+          onChange={(e) => { const v = e.target.value as ConversationStatus; startStatus(async () => { const r = await setConversationStatus(c.id, v); setErro(r.error ?? null); onChanged(); }); }}
+          className="hidden rounded-xl bg-cream px-2 py-2 text-xs font-bold sm:block">
+          {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        <button onClick={() => setTransferir(v => !v)} className="rounded-xl bg-cream p-2 text-ink/70 hover:text-forest" title="Transferir conversa" aria-label="Transferir conversa">
+          <ArrowRightLeft className="h-4 w-4" />
+        </button>
         <button
           disabled={arquivando}
           onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
@@ -405,11 +467,14 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         </button>
         <button onClick={onPanel} className="rounded-xl bg-cream px-3 py-2 text-xs font-bold lg:hidden">Ficha</button>
       </header>
+      {transferir && <Transferencia conversation={c} onStatus={(v) => startStatus(async () => { const r = await setConversationStatus(c.id, v); setErro(r.error ?? null); onChanged(); })} onDone={(error) => { setErro(error); if (!error) setTransferir(false); onChanged(); }} />}
 
       <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="flex-1 space-y-2 overflow-y-auto bg-cream p-3">
         {temAntigas && <p className="text-center text-xs text-ink/45">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
         {messages.length === 0 && <p className="text-center text-sm text-ink/50">Sem mensagens.</p>}
-        {messages.map((m) => {
+        {linha.map(({ m: msg, e: ev }) => {
+          if (ev) return <Evento key={`e-${ev.id}`} e={ev} />;
+          const m = msg!;
           const nome = quemEnviou(m);
           const saida = m.direction === "outbound";
           return (
@@ -433,7 +498,8 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
       <footer className="border-t border-sand/80 p-3">
         {!detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
         {readError && <p className="mb-2 text-xs text-amber-700">{readError}</p>}
-        {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
+        {modoNota ? <p className="mb-2 text-xs font-bold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
+          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         {detail.suggestion && (
           <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da Lia">
@@ -464,10 +530,14 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder="Escreva a mensagem ou / para respostas prontas"
-            className="field max-h-40 flex-1 resize-none"
+            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Escreva a mensagem ou / para respostas prontas"}
+            className={cn("field max-h-40 flex-1 resize-none", modoNota && "bg-amber-500/10 ring-1 ring-amber-500/50")}
           />
-          <button onClick={enviar} disabled={enviando || !texto.trim()} className="rounded-xl bg-green-600 p-3 text-white disabled:opacity-50" aria-label="Enviar">
+          <button onClick={() => setModoNota(v => !v)} aria-pressed={modoNota} title={modoNota ? "Voltar a escrever para o cliente" : "Escrever nota interna (o cliente não vê)"}
+            className={cn("rounded-xl p-3", modoNota ? "bg-amber-500 text-white" : "bg-cream text-ink/60")} aria-label="Nota interna">
+            <StickyNote className="h-5 w-5" />
+          </button>
+          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("rounded-xl p-3 text-white disabled:opacity-50", modoNota ? "bg-amber-600" : "bg-green-600")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
             <Send className="h-5 w-5" />
           </button>
         </div>
@@ -705,6 +775,59 @@ function FecharForm({ pending, onSubmit, onCancel }: { pending: boolean; onCance
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold">Cancelar</button>
         <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-bold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
+      </div>
+    </div>
+  );
+}
+
+function Evento({ e }: { e: InboxEvent }) {
+  const quem = e.byName ?? "Equipe";
+  const texto = e.kind === "nota" ? null
+    : e.kind === "status" ? `${quem} marcou como ${STATUS_LABEL[(e.status as ConversationStatus) ?? "aberta"] ?? e.status}`
+    : `${quem} transferiu${e.toName ? ` para ${e.toName}` : ""}${e.department ? ` (${setorNome(e.department)})` : ""}`;
+  if (e.kind === "nota") return (
+    <div className="mx-auto max-w-[90%] rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+      <p className="mb-0.5 flex items-center gap-1 text-xs font-black text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
+      <p className="whitespace-pre-wrap break-words">{e.body}</p>
+      <p className="mt-1 text-right text-[10px] text-ink/45">{hora(e.at)}</p>
+    </div>
+  );
+  return (
+    <div className="text-center">
+      <span className="inline-block rounded-full bg-surface px-3 py-1 text-[11px] text-ink/60 shadow-sm">{texto}{e.body ? `: ${e.body}` : ""} · {hora(e.at)}</span>
+    </div>
+  );
+}
+
+function Transferencia({ conversation: c, onStatus, onDone }: { conversation: InboxItem; onStatus: (s: ConversationStatus) => void; onDone: (error: string | null) => void }) {
+  const [equipe, setEquipe] = useState<Array<{ id: string; name: string }>>([]);
+  const [para, setPara] = useState("");
+  const [setor, setSetor] = useState(c.department ?? "");
+  const [obs, setObs] = useState("");
+  const [salvando, startSalvar] = useTransition();
+  useEffect(() => { let vivo = true; void listInboxTeam().then(r => { if (vivo) setEquipe(r); }); return () => { vivo = false; }; }, []);
+  return (
+    <div className="space-y-2 border-b border-sand/80 bg-cream/50 p-3 text-sm">
+      <div className="flex flex-wrap gap-2">
+        <select value={para} onChange={e => setPara(e.target.value)} className="field flex-1 py-1.5" aria-label="Transferir para">
+          <option value="">Pessoa (opcional)</option>
+          {equipe.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={setor} onChange={e => setSetor(e.target.value)} className="field flex-1 py-1.5" aria-label="Setor">
+          <option value="">Setor (opcional)</option>
+          {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <input value={obs} onChange={e => setObs(e.target.value)} maxLength={1000} placeholder="Observação para quem recebe (opcional)" className="field w-full py-1.5" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button disabled={salvando || (!para && !setor)} className="rounded-xl bg-forest px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          onClick={() => startSalvar(async () => { const r = await transferConversation(c.id, { toProfile: para || null, department: setor || null, note: obs }); onDone(r.error ?? null); })}>
+          {salvando ? "Transferindo…" : "Transferir"}
+        </button>
+        <span className="text-xs text-ink/50">Com pessoa escolhida, a Lia para de responder e ela recebe um aviso.</span>
+        <select value={c.status} onChange={e => onStatus(e.target.value as ConversationStatus)} className="field ml-auto py-1.5 text-xs sm:hidden" aria-label="Status da conversa">
+          {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
       </div>
     </div>
   );

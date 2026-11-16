@@ -8,12 +8,17 @@ const actions = vi.hoisted(() => ({
   loadOlderMessages: vi.fn(),
   setConversationArchived: vi.fn(async () => ({ ok: true })),
   markInboxRead: vi.fn(async () => ({ ok: true, cleared: true })),
+  addInboxNote: vi.fn(async () => ({ ok: true })),
+  sendInboxMessage: vi.fn(async () => ({ ok: true })),
+  approveLiaSuggestion: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock('@/app/(crm)/atendimento-actions', () => ({
   ...actions,
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
   markInboxRead: actions.markInboxRead, syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
-  searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
+  searchClientsForLink: vi.fn(async () => []), sendInboxMessage: actions.sendInboxMessage, setConversationAi: vi.fn(),
+  addInboxNote: actions.addInboxNote, approveLiaSuggestion: actions.approveLiaSuggestion, discardLiaSuggestion: vi.fn(), listInboxTeam: vi.fn(async () => []),
+  searchInboxHistory: vi.fn(async () => ({ results: [] })), setConversationStatus: vi.fn(async () => ({ ok: true })), transferConversation: vi.fn(async () => ({ ok: true })),
 }));
 const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => ({
@@ -33,9 +38,9 @@ function abrirTela(items: ReturnType<typeof item>[]) {
   return render(<AtendimentoPage initial={items} />);
 }
 
-const item = (id: string, name: string, archived = false) => ({ id, name, phone: '47999990000', clientId: null, clientName: null, preview: 'oi', lastAt: new Date().toISOString(), unread: archived ? 2 : 0, aiPaused: true, assignedName: null, archived });
+const item = (id: string, name: string, archived = false) => ({ id, name, phone: '47999990000', clientId: null, clientName: null, preview: 'oi', lastAt: new Date().toISOString(), unread: archived ? 2 : 0, aiPaused: true, assignedName: null, archived, status: 'aberta' as const, department: null, assignedTo: null });
 const detail = (id: string, name: string, n = 3, hasOlder = false) => ({
-  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true, suggestion: null,
+  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true, suggestion: null, events: [],
   readSnapshot: { count: 0, lastInbound: null, generation: null },
   messages: Array.from({ length: n }, (_, i) => ({ id: `${id}-m${i}`, direction: 'inbound', author: null, senderName: null, body: `mensagem ${i} de ${name}`, at: new Date(Date.UTC(2026, 10, 12, 10, i)).toISOString(), failed: false, error: null, deliveryStatus: 'lida' })),
 });
@@ -91,5 +96,29 @@ describe('Atendimento estilo WhatsApp', () => {
     const conv = rt.handlers.find(h => h.table === 'conversations')!;
     conv.cb({ eventType: 'UPDATE', new: { id: 'a', client_id: null, unread_count: 2, last_message_preview: 'oi', last_message_at: new Date().toISOString() }, old: {} });
     await waitFor(() => expect(actions.markInboxRead).toHaveBeenCalledTimes(2), { timeout: 3000 });
+  });
+
+  test('nota interna nao vai para o cliente; historico mostra notas, transferencias e a sugestao da Lia', async () => {
+    const d = { ...detail('a', 'Ana Cliente'),
+      suggestion: { text: 'Bom dia! Pode mandar fotos da calha?', at: '2026-11-12T10:05:00.000Z' },
+      events: [
+        { id: 'e1', kind: 'nota', body: 'Cliente prefere ligação à tarde', toName: null, department: null, status: null, byName: 'Rose', at: '2026-11-12T10:01:30.000Z' },
+        { id: 'e2', kind: 'transferencia', body: null, toName: 'Carlos', department: 'pos_venda', status: null, byName: 'Rose', at: '2026-11-12T10:03:00.000Z' },
+      ] };
+    actions.loadConversation.mockImplementation(async () => d);
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    expect(await screen.findByText('Cliente prefere ligação à tarde')).toBeTruthy();
+    expect(screen.getByText(/Rose transferiu para Carlos \(Pós-venda\)/)).toBeTruthy();
+    expect(screen.getByText('Bom dia! Pode mandar fotos da calha?')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Nota interna'));
+    fireEvent.change(screen.getByPlaceholderText('Nota interna: só a equipe vê'), { target: { value: 'Ligar amanhã' } });
+    fireEvent.click(screen.getByLabelText('Salvar nota'));
+    await waitFor(() => expect(actions.addInboxNote).toHaveBeenCalledWith('a', 'Ligar amanhã'));
+    expect(actions.sendInboxMessage).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Usar'));
+    await waitFor(() => expect(actions.approveLiaSuggestion).toHaveBeenCalledWith('a', '2026-11-12T10:05:00.000Z'));
   });
 });

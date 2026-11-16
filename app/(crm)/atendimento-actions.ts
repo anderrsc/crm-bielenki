@@ -17,7 +17,11 @@ import { markWhatsAppRead, sendWhatsAppText, whatsappCredentials } from "@/lib/w
 export type InboxItem = {
   id: string; name: string; phone: string; clientId: string | null; clientName: string | null;
   preview: string; lastAt: string | null; unread: number; aiPaused: boolean; assignedName: string | null; archived: boolean;
+  status: ConversationStatus; department: string | null; assignedTo: string | null;
 };
+export type ConversationStatus = "aberta" | "aguardando_cliente" | "resolvida";
+/** Nota interna, transferência ou troca de status: só a equipe vê. */
+export type InboxEvent = { id: string; kind: "nota" | "transferencia" | "status"; body: string | null; toName: string | null; department: string | null; status: string | null; byName: string | null; at: string };
 export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
   body: string; at: string; failed: boolean; error: string | null; pending?: boolean; deliveryStatus?: string | null;
@@ -31,7 +35,7 @@ export type ClientPanel = {
   pipeline: { etapa: string | null; valor: number | null; proximaAcao: string | null; data: string | null } | null;
 };
 export type TriageInfo = { resumo: string | null; dados: Record<string, unknown> } | null;
-export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; hasOlder: boolean; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; suggestion: { text: string; at: string } | null; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
+export type ConversationDetail = { conversation: InboxItem; messages: InboxMessage[]; events: InboxEvent[]; hasOlder: boolean; panel: ClientPanel | null; triage: TriageInfo; windowOpen: boolean; suggestion: { text: string; at: string } | null; readSnapshot: { count: number; lastInbound: string | null; generation: string | null } };
 
 async function context() {
   const db = await createClient();
@@ -46,9 +50,10 @@ type ConvRow = {
   id: string; contact_name: string | null; phone: string | null; external_id: string | null; client_id: string | null;
   last_message_preview: string | null; last_message_at: string | null; created_at: string; unread_count: number | null;
   ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null; archived_at?: string | null;
+  status?: string | null; department?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
 };
-const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
+const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
 
 function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
@@ -64,6 +69,9 @@ function toItem(c: ConvRow): InboxItem {
     aiPaused: !!c.ai_paused,
     assignedName: c.profiles?.full_name ? firstName(c.profiles.full_name) : null,
     archived: !!c.archived_at,
+    status: c.status === "aguardando_cliente" || c.status === "resolvida" ? c.status : "aberta",
+    department: c.department ?? null,
+    assignedTo: c.assigned_to,
   };
 }
 
@@ -116,19 +124,20 @@ export async function loadConversation(conversationId: string, opts: { panel?: b
     const { data: conv, error } = await db.from("conversations").select(CONV_COLUMNS).eq("id", conversationId).eq("company_id", companyId).single();
     if (error || !conv) return { error: "Conversa não encontrada." };
     const row = conv as unknown as ConvRow;
-    const [{ data: msgs, error: messagesError }, panel, triage, suggestion] = await Promise.all([
+    const [{ data: msgs, error: messagesError }, panel, triage, suggestion, events] = await Promise.all([
       db.from("messages").select(MESSAGE_COLUMNS)
         .eq("conversation_id", conversationId).order("sent_at", { ascending: false }).limit(PAGE + 1),
       row.client_id && opts.panel !== false ? loadClientPanel(db, companyId, row.client_id) : Promise.resolve(null),
       opts.panel !== false ? loadTriage(db, companyId, row.phone || row.external_id || "") : Promise.resolve(null),
       loadSuggestion(db, conversationId),
+      loadEvents(db, conversationId),
     ]);
     if (messagesError) return { error: messagesError.message };
     const hasOlder = (msgs ?? []).length > PAGE;
     const messages: InboxMessage[] = (msgs ?? []).slice(0, PAGE).reverse().map(toMessage);
     const lastInbound = row.last_inbound_at ?? [...messages].reverse().find((m) => m.direction === "inbound")?.at ?? null;
     const windowOpen = !!lastInbound && Date.now() - new Date(lastInbound).getTime() < 24 * 60 * 60_000;
-    return { conversation: toItem(row), messages, hasOlder, panel, triage, windowOpen, suggestion, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
+    return { conversation: toItem(row), messages, events, hasOlder, panel, triage, windowOpen, suggestion, readSnapshot: { count: row.unread_count ?? 0, lastInbound: row.last_inbound_at ?? null, generation: row.ai_generation_id ?? null } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -139,6 +148,18 @@ async function loadSuggestion(db: Awaited<ReturnType<typeof context>>["db"], con
   const { data, error } = await db.from("conversations").select("ai_suggestion,ai_suggestion_at").eq("id", conversationId).maybeSingle();
   if (error || !data?.ai_suggestion) return null;
   return { text: String(data.ai_suggestion), at: String(data.ai_suggestion_at ?? "") };
+}
+
+async function loadEvents(db: Awaited<ReturnType<typeof context>>["db"], conversationId: string): Promise<InboxEvent[]> {
+  const { data, error } = await db.from("conversation_events")
+    .select("id,kind,body,department,status,created_at,to:profiles!conversation_events_to_profile_fkey(full_name),by:profiles!conversation_events_created_by_fkey(full_name)")
+    .eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(100);
+  if (error) return [];
+  type Row = { id: string; kind: InboxEvent["kind"]; body: string | null; department: string | null; status: string | null; created_at: string; to: { full_name: string } | null; by: { full_name: string } | null };
+  return ((data ?? []) as unknown as Row[]).reverse().map(e => ({
+    id: e.id, kind: e.kind, body: e.body, department: e.department, status: e.status, at: e.created_at,
+    toName: e.to?.full_name ? firstName(e.to.full_name) : null, byName: e.by?.full_name ? firstName(e.by.full_name) : null,
+  }));
 }
 
 const MESSAGE_COLUMNS = "id,direction,author,sender_name,body,sent_at,delivery_status,error_message";
@@ -505,5 +526,79 @@ export async function discardLiaSuggestion(conversationId: string): Promise<{ ok
     return error ? { error: error.message } : { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+const rpcError = (message: string) => message.replace(/^.*?:\s*/, "").slice(0, 200) || "Não foi possível concluir.";
+
+export async function addInboxNote(conversationId: string, body: string): Promise<{ ok?: true; error?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const { db } = await context();
+    const { error } = await db.rpc("conversation_add_note", { p_conversation: conversationId, p_body: body });
+    return error ? { error: rpcError(error.message) } : { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function transferConversation(conversationId: string, input: { toProfile: string | null; department: string | null; note?: string }): Promise<{ ok?: true; error?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    if (input.toProfile && !z.string().uuid().safeParse(input.toProfile).success) return { error: "Atendente inválido." };
+    const { db } = await context();
+    const { error } = await db.rpc("conversation_transfer", { p_conversation: conversationId, p_to_profile: input.toProfile, p_department: input.department, p_note: input.note ?? null });
+    return error ? { error: rpcError(error.message) } : { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function setConversationStatus(conversationId: string, status: ConversationStatus): Promise<{ ok?: true; error?: string }> {
+  try {
+    if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const { db } = await context();
+    const { error } = await db.rpc("conversation_set_status", { p_conversation: conversationId, p_status: status });
+    return error ? { error: rpcError(error.message) } : { ok: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Pessoas ativas da empresa, para transferir a conversa. */
+export async function listInboxTeam(): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const { db, companyId } = await context();
+    const { data } = await db.from("profiles").select("id,full_name").eq("company_id", companyId).eq("status", "ativo").order("full_name");
+    return (data ?? []).map(p => ({ id: p.id, name: p.full_name }));
+  } catch {
+    return [];
+  }
+}
+
+/** Busca no texto das mensagens (histórico inteiro). Devolve a conversa e um trecho. */
+export async function searchInboxHistory(term: string): Promise<{ results: Array<{ conversationId: string; snippet: string; at: string }>; error?: string }> {
+  try {
+    const q = term.trim();
+    if (q.length < 3) return { results: [] };
+    const { db, companyId } = await context();
+    const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const { data, error } = await db.from("messages").select("conversation_id,body,sent_at")
+      .eq("company_id", companyId).ilike("body", pattern).order("sent_at", { ascending: false }).limit(80);
+    if (error) return { results: [], error: "Não foi possível buscar no histórico." };
+    const seen = new Set<string>();
+    const results: Array<{ conversationId: string; snippet: string; at: string }> = [];
+    for (const m of data ?? []) {
+      if (seen.has(m.conversation_id)) continue;
+      seen.add(m.conversation_id);
+      const body = String(m.body ?? "");
+      const i = body.toLowerCase().indexOf(q.toLowerCase());
+      const start = Math.max(0, i - 30);
+      results.push({ conversationId: m.conversation_id, snippet: (start > 0 ? "…" : "") + body.slice(start, start + 90), at: m.sent_at });
+      if (results.length >= 30) break;
+    }
+    return { results };
+  } catch (error) {
+    return { results: [], error: error instanceof Error ? error.message : String(error) };
   }
 }
