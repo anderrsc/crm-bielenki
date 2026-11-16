@@ -142,6 +142,7 @@ with expected_columns(table_name, column_name) as (
   ('crm_private', 'service_orders_guard', '', 'f4c63816783229cd7697667e4dcefce1'),
   ('crm_private', 'triage_draft', '', '74f32ce6aeaf5866bbea293a1246903c'),
   ('crm_private', 'triage_match_client', 'p_company uuid, p_name text, p_street text, p_district text, p_city text, p_doc text', 'bb6b8e15c321cb5bdaa1ecbcb8498f27'),
+  ('public', 'account_statement', 'p_account uuid, p_from date, p_to date', '231be9887bc75128d63547a517bb2347'),
   ('public', 'advance_production_step', 'p_production_order_id uuid, p_responsible_id uuid, p_notes text', 'c918f78445ecf85324df06fb8e50dec0'),
   ('public', 'approve_quote', 'p_quote_id uuid, p_due_date date', '4fcecaf419af10685040f9dce100f910'),
   ('public', 'approve_quote_unchecked', 'p_quote_id uuid, p_due_date date', '26f5a1f9ccb57d65f758bde2803150ff'),
