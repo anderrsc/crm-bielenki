@@ -24,7 +24,7 @@ export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
   body: string; at: string; failed: boolean; error: string | null; pending?: boolean; deliveryStatus?: string | null;
 };
-export type ClientPanel = {
+export type ClientPanel = { canViewFinancial?: boolean;
   client: { id: string; name: string; phone: string | null; email: string | null; city: string | null; address: string | null; notes: string | null; created_at: string };
   resumo: { feitos: number; enviados: number; fechados: number; valorFechado: number; recebido: number; aReceber: number; vencido: number };
   orcamentos: Array<{ id: string; numero: string; status: string; total: number; data: string; fechado: boolean }>;
@@ -196,10 +196,12 @@ async function loadTriage(db: Awaited<ReturnType<typeof createClient>>, companyI
 }
 
 async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, companyId: string, clientId: string): Promise<ClientPanel | null> {
+  const { data: financialAccess } = await db.rpc("has_table_access", { resource: "financial_entries", action: "select" });
+  const canViewFinancial = financialAccess === true;
   const [clientRes, quotesRes, entriesRes, leadRes] = await Promise.all([
     db.from("clients").select("id,name,phone,whatsapp,email,city,neighborhood,address,notes,created_at").eq("id", clientId).eq("company_id", companyId).maybeSingle(),
     db.from("quotes").select("id,quote_number,status,total,created_at,approved_at,sale_id").eq("client_id", clientId).eq("company_id", companyId).order("created_at", { ascending: false }).limit(30),
-    db.from("financial_entries").select("id,description,total_amount,paid_amount,open_amount,due_date,status").eq("client_id", clientId).eq("company_id", companyId).eq("entry_type", "receber").neq("status", "cancelado").order("due_date", { ascending: true }).limit(50),
+    canViewFinancial ? db.from("financial_entries").select("id,description,total_amount,paid_amount,open_amount,due_date,status").eq("client_id", clientId).eq("company_id", companyId).eq("entry_type", "receber").neq("status", "cancelado").order("due_date", { ascending: true }).limit(50) : Promise.resolve({ data: [] }),
     db.from("leads").select("estimated_value,next_action,next_action_date,status,pipeline_stages(name)").eq("client_id", clientId).eq("company_id", companyId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const c = clientRes.data;
@@ -219,6 +221,7 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
   }));
   const lead = leadRes.data as unknown as { estimated_value: number | null; next_action: string | null; next_action_date: string | null; pipeline_stages?: { name: string } | null } | null;
   return {
+    canViewFinancial,
     client: { id: c.id, name: c.name, phone: c.phone || c.whatsapp, email: c.email, city: c.city, address: [c.address, c.neighborhood].filter(Boolean).join(", ") || null, notes: c.notes, created_at: c.created_at },
     resumo: {
       feitos: quotes.length,
