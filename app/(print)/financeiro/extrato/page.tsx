@@ -71,7 +71,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       </header>
 
       <section className="mt-4 grid grid-cols-4 overflow-hidden rounded-[2mm] border border-[#e4e4e7] bg-[#f7f7f8] text-[#111]">
-        {[["Saldo anterior", st.saldo_anterior, ""], ["Entradas", st.entradas, "text-emerald-700"], ["Saídas", -st.saidas, "text-[#b30b0b]"], ["Saldo final", st.saldo_final, st.saldo_final < 0 ? "text-[#b30b0b]" : ""]].map(([l, v, c], i) => (
+        {[["Saldo anterior", st.saldo_anterior, ""], ["Entradas", st.entradas, "text-emerald-700"], ["Saídas", st.saidas ? -st.saidas : 0, "text-[#b30b0b]"], ["Saldo final", st.saldo_final, st.saldo_final < 0 ? "text-[#b30b0b]" : ""]].map(([l, v, c], i) => (
           <div key={String(l)} className={`p-3 ${i ? "border-l border-[#e4e4e7]" : ""}`}>
             <p className="text-[7px] font-bold uppercase tracking-wider text-[#666]">{l}</p>
             <p className={`text-[11px] font-black tabular-nums ${c}`}>{money(Number(v))}</p>
