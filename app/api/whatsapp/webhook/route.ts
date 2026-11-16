@@ -7,6 +7,7 @@ import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
+import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
 import { evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
@@ -505,12 +506,17 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       + (isNewSession && !previousMessages.length ? ` Este é o primeiro contato do cliente: cumprimente, diga que é a ${agentName}, assistente virtual (IA) da Marquinhos Calhas e Esquadrias, e já responda ao que ele escreveu, com a próxima pergunta que fizer sentido.` : "")
       + (Object.keys(dadosAtuais).length > 0 ? `\n\nDADOS JÁ COLETADOS NESTA TRIAGEM: ${JSON.stringify(dadosAtuais)}\n\nContinue de onde parou.` : "");
 
-    const companyRules = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? agentConfig.system_prompt : null);
+    // Regras confirmadas pela gerência (correções feitas à Lia). Falha ao ler não trava o atendimento.
+    const { data: learnedRows, error: learnedError } = await supabase.from("ai_lia_rules").select("quando,instrucao")
+      .eq("company_id", company.id).eq("status", "ativa").order("ativada_em", { ascending: true }).limit(LIA_RULES_LIMIT);
+    if (learnedError) console.error("Regras da Lia não carregadas:", learnedError.message);
+    const confirmedRules = liaRulesForPrompt(learnedRows ?? []);
+    const companyRules = [rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? agentConfig.system_prompt : null), confirmedRules].filter(Boolean).join("\n\n");
 
     // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI). Se falhar (limite por minuto,
     // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
     const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
-    const rulesShort = rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null);
+    const rulesShort = [rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null), confirmedRules].filter(Boolean).join("\n\n");
     const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
