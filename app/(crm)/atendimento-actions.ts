@@ -2,6 +2,7 @@
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
+import { formatRegistrationName } from "@/lib/brazilian-input";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -301,7 +302,7 @@ export async function setConversationAi(conversationId: string, aiOn: boolean): 
 export async function createClientFromConversation(conversationId: string, name: string): Promise<{ ok?: true; error?: string }> {
   try {
     const { db, companyId } = await context();
-    const cleanName = name.trim();
+    const cleanName = formatRegistrationName(name);
     if (cleanName.length < 2) return { error: "Informe o nome do cliente." };
     const { data: conv } = await db.from("conversations").select("id,phone,external_id,client_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
@@ -468,7 +469,9 @@ export async function markConversationUnread(id: string) {
     try {
       const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       const { data: cfg } = await admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle();
-      await markWhatsAppUnread(whatsappCredentials(cfg), whatsappTarget(conv.phone || conv.external_id));
+      const { data: last } = await db.from("messages").select("external_id").eq("conversation_id", id).eq("company_id", companyId)
+        .not("external_id", "is", null).order("sent_at", { ascending: false }).limit(1).maybeSingle();
+      await markWhatsAppUnread(whatsappCredentials(cfg), whatsappTarget(conv.phone || conv.external_id), last?.external_id);
       return { ok: true };
     } catch { return { ok: true, warning: "Conversa marcada como não lida no CRM. A marcação no WhatsApp está pendente." }; }
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
