@@ -21,7 +21,7 @@ create index if not exists conversation_events_conv_idx on public.conversation_e
 alter table public.conversation_events enable row level security;
 drop policy if exists conversation_events_select on public.conversation_events;
 create policy conversation_events_select on public.conversation_events for select to authenticated
-  using (company_id = public.current_company_id());
+  using (company_id = (select public.current_company_id()));
 revoke insert, update, delete on public.conversation_events from authenticated, anon;
 grant select on public.conversation_events to authenticated;
 grant all on public.conversation_events to service_role;
