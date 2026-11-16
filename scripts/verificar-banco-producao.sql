@@ -216,6 +216,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'lia_rule_propose', 'p_quando text, p_instrucao text, p_pedido text, p_exemplo text, p_anterior uuid', '0761408c117a9d0004c5bff7554491b5'),
   ('public', 'log_pricing_audit', '', '4cbd1031d4a8b86c0dac3496fcbf34d6'),
   ('public', 'log_pricing_change', '', '6d5c12d1d51575fdd94df59a2b16632d'),
+  ('public', 'log_whatsapp_webhook', 'p jsonb', '490f5146ef01490b6a4807fe6c2123d1'),
   ('public', 'mark_quote_sent', 'p_quote_id uuid', '259ab73551a4054052dbfcfb8bce5e1d'),
   ('public', 'materialize_financial_recurrence', 'p_id uuid, p_month date, p_reason text', '016cbb5cb8324342622dcfa1920d4ad2'),
   ('public', 'measurement_pipeline_sync', '', 'e466ed213648d5bce00c2ead4c4ed211'),

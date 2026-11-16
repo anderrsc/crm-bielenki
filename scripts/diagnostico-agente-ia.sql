@@ -45,5 +45,12 @@ select 'whatsapp', 'agenda sincronizada em: ' || coalesce(to_char(max(evolution_
 union all
 select 'whatsapp', 'conversas com nao lidas: ' || count(*) || ' (total ' || coalesce(sum(unread_count),0) || ')' from public.conversations where unread_count > 0
 union all
+-- Resultado dos eventos do webhook nas ultimas 24h (sem conteudo).
+select 'webhook', coalesce(event,'?') || ' | ' || coalesce(status,'?') || ' | http ' || coalesce(http::text,'?') || ' | ' || case when from_me then 'enviada' else 'recebida' end
+  || ' | ' || coalesce(nullif(jid_kind,''),'-') || ' | tipos: ' || coalesce(nullif(message_types,''),'-') || ' | chave: ' || coalesce(nullif(key_fields,''),'-') || ' = ' || count(*)
+  || ' (ultimo ' || to_char(max(at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI') || ')'
+from crm_admin.whatsapp_webhook_log where at > now() - interval '24 hours'
+group by event,status,http,from_me,jid_kind,message_types,key_fields
+union all
 select 'whatsapp', 'agora: ' || to_char(now() at time zone 'America/Sao_Paulo','DD/MM HH24:MI')
 order by 1, 2;

@@ -192,7 +192,29 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   let payload: any;
   try { payload = JSON.parse(body); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
-  return handleWebhook(req, body, payload, false);
+  const res = await handleWebhook(req, body, payload, false);
+  await logWebhook(payload, res).catch(() => undefined);
+  return res;
+}
+
+// Registro tecnico do resultado (sem texto, nome ou telefone) para diagnosticar mensagens que nao entram.
+async function logWebhook(payload: any, res: NextResponse) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const isEvolution = !!(payload?.data?.key || payload?.event);
+  const data = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+  const metaMsg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const key = (isEvolution ? data?.key : null) ?? {};
+  const jid = String(key.remoteJid ?? "");
+  const status = await res.clone().json().then((b: any) => String(b?.status ?? b?.error ?? "")).catch(() => "");
+  await getSupabase().rpc("log_whatsapp_webhook", { p: {
+    provider: isEvolution ? "evolution" : "meta",
+    event: isEvolution ? String(payload?.event ?? "") + (Array.isArray(payload?.data) ? `[${payload.data.length}]` : "") : metaMsg ? "message" : "status",
+    status: status.slice(0, 60), http: res.status,
+    from_me: isEvolution ? !!key.fromMe : false,
+    jid_kind: jid ? jid.replace(/^[^@]*/, "") : metaMsg ? "meta" : "",
+    message_types: isEvolution && data?.message && typeof data.message === "object" ? Object.keys(data.message).join(",") : metaMsg ? String(metaMsg.type ?? "") : "",
+    key_fields: Object.keys(key).filter((k) => key[k] !== null && key[k] !== undefined && key[k] !== "").join(","),
+  } });
 }
 
 async function handleWebhook(req: NextRequest, body: string, payload: any, trusted: boolean): Promise<NextResponse> {
