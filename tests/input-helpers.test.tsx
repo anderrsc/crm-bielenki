@@ -27,3 +27,16 @@ test('máscaras chegam ao estado de campos controlados e nomes são padronizados
   fireEvent.focusOut(screen.getByLabelText('Pessoa'));
   expect(screen.getByText('(47) 99999-0000|João da Silva')).toBeTruthy();
 });
+test('mudanças do formulário durante a digitação não removem espaços do nome em edição', async () => {
+  render(<><InputHelpers /><input aria-label="Nome em edição" name="name" defaultValue="" /></>);
+  const input=screen.getByLabelText('Nome em edição') as HTMLInputElement;
+  input.focus();
+  for (const letter of 'Cliente Fluxo 123') {
+    fireEvent.input(input,{target:{value:input.value+letter}});
+    input.setAttribute('autocomplete','name');
+    await Promise.resolve();
+  }
+  expect(input.value).toBe('Cliente Fluxo 123');
+  fireEvent.focusOut(input);
+  expect(input.value).toBe('Cliente Fluxo 123');
+});
