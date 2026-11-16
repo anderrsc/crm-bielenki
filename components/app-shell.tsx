@@ -6,7 +6,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,UserCog,Users,WalletCards,X } from "lucide-react";
+import { Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -20,6 +20,8 @@ const groups=[
  {title:"Equipe",items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield]]},
  {title:"Geral",items:[["Automações", "/automacoes",Bot],["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
 ] as const;
+// Painel do Jarvis (fila de tarefas de IA na VPS). Projeto separado: anderrsc/JARVIS-AI-CRM-Bielenki.
+const JARVIS_URL="https://jarvis-ai-crm-bielenki.vercel.app";
 export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[];viewable?:string[]}){
  const pathname=usePathname(),[open,setOpen]=useState(false),[collapsed,setCollapsed]=useState(false),searchRef=useRef<HTMLInputElement>(null);
  useEffect(()=>{try{setCollapsed(localStorage.getItem("marquinhos-sidebar")==="collapsed")}catch{}const shortcut=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();searchRef.current?.focus()}if(e.key==="Escape")setOpen(false)};addEventListener("keydown",shortcut);return()=>removeEventListener("keydown",shortcut)},[]);
@@ -35,7 +37,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
    <div className="sidebar-brand"><Link href="/dashboard" aria-label="Marquinhos Calhas e Esquadrias — início"><BrandLogo compact={compact}/></Link><button className="sidebar-close" aria-label="Fechar navegação" onClick={()=>setOpen(false)}><X size={18}/></button></div>
-   <nav className="sidebar-nav" aria-label="Navegação principal">{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;return <div className="sidebar-section" key={group.title}>{!compact&&<p>{group.title}</p>}{items.map(([label,href,Icon])=>{const active=pathname===href||(href!=="/dashboard"&&pathname.startsWith(href+"/"));return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}</nav>
+   <nav className="sidebar-nav" aria-label="Navegação principal">{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;return <div className="sidebar-section" key={group.title}>{!compact&&<p>{group.title}</p>}{items.map(([label,href,Icon])=>{const active=pathname===href||(href!=="/dashboard"&&pathname.startsWith(href+"/"));return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}</nav>
    <div className="sidebar-footer"><LogoutButton collapsed={compact}/>{!compact&&<div className="sidebar-credit"><AuthorSignature/></div>}</div>
    <button className="sidebar-collapse" aria-label={collapsed?"Expandir menu":"Recolher menu"} onClick={toggleSidebar}>{collapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button>
   </aside>
