@@ -35,7 +35,7 @@ create index if not exists ai_decisions_conversation_idx on public.ai_decisions(
 alter table public.ai_decisions enable row level security;
 drop policy if exists ai_decisions_select on public.ai_decisions;
 create policy ai_decisions_select on public.ai_decisions for select to authenticated
-  using (company_id = public.current_company_id());
+  using (company_id = (select public.current_company_id()));
 -- Só o webhook (service_role) grava decisões.
 revoke insert, update, delete on public.ai_decisions from authenticated, anon;
 grant select on public.ai_decisions to authenticated;
