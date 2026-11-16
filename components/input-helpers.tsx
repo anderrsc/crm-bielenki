@@ -35,7 +35,7 @@ export function InputHelpers() {
       const fields = [...(root instanceof HTMLElement && root.matches(selector) ? [root] : []), ...Array.from(root.querySelectorAll<HTMLElement>(selector))];
       for (const field of fields) {
         if (field.getAttribute("autocomplete") !== "off") field.setAttribute("autocomplete", "off");
-        if (field instanceof HTMLInputElement) format(field);
+        if (field instanceof HTMLInputElement && field !== document.activeElement) format(field);
       }
     };
     prepare(document.body);
