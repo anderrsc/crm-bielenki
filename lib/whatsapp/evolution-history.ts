@@ -26,6 +26,12 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
 
 const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
+/** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
+export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string) {
+  const page = await fetchEvolutionMessages(base, key, instance, 1);
+  return importHistoryPage(db, companyId, page.messages?.records ?? []);
+}
+
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[]) {
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
