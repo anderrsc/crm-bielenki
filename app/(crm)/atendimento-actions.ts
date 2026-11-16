@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
 import { todayISO } from "@/lib/utils";
 import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
-import { syncAgendaNames } from "@/lib/whatsapp/evolution-history";
+import { syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
 import { markWhatsAppRead, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
@@ -69,6 +69,18 @@ function toItem(c: ConvRow): InboxItem {
 }
 
 const agendaSyncedAt = new Map<string, number>();
+/** Recupera a página recente sem disparar respostas da IA nem alterar a atribuição. */
+async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"], companyId: string) {
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const { data: cfg, error } = await admin.from("ai_agent_config")
+    .select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
+  if (error) throw new Error("Não foi possível consultar a conexão do WhatsApp.");
+  if (cfg?.wpp_provider !== "evolution") return 0;
+  const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
+  if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
+  const result = await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
+  return result.inserted;
+}
 /** Nomes da agenda do celular, no máximo a cada 6 h (só quem pode ver a configuração da Evolution). */
 async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string, force = false) {
   if (!force && Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 5 * 60_000) return 0;
@@ -93,7 +105,8 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
       const { data: claimed, error } = await admin.from("ai_agent_config").update({ inbox_synced_at: new Date().toISOString() })
         .eq("company_id", companyId).or(`inbox_synced_at.is.null,inbox_synced_at.lt.${since}`).select("company_id");
       if (error ? Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 10 * 60_000 : !claimed?.length) return;
-      await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId, true).catch(() => 0)]);
+      await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId, true).catch(() => 0),
+        refreshInboxMessages(db, companyId).catch(() => 0)]);
       agendaSyncedAt.set(companyId, Date.now());
     });
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
@@ -431,8 +444,9 @@ export async function markInboxRead(id: string, messageIds: string[], _snapshot?
 export async function syncInboxContacts() {
   try {
     const { db, companyId } = await context();
+    const inserted = await refreshInboxMessages(db, companyId);
     const count = await refreshAgendaNames(db, companyId, true);
     await autoLinkClients(db, companyId);
-    return { ok: true, count };
+    return { ok: true, count, inserted };
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
