@@ -229,7 +229,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   return (
     <div className="wa-inbox mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
       {/* Lista */}
-      <aside className={cn("wa-line flex w-full flex-col border-r md:w-[380px] md:shrink-0", openId && "hidden md:flex")}>
+      <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
         <div className="space-y-2 p-3">
           <div className="flex items-center justify-between"><h1 className="text-xl font-black">Atendimento</h1>
           <button aria-label="Sincronizar contatos" title="Sincronizar contatos" disabled={syncing} onClick={async () => {
@@ -283,7 +283,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       </aside>
 
       {/* Conversa */}
-      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden lg:flex")}>
+      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
         {!openId ? (
           <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-2 text-center"><p className="text-2xl font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm">Escolha uma conversa à esquerda. A ficha do cliente, orçamentos e cobrança ficam ao lado.</p></div>
         ) : !atual ? (
@@ -295,8 +295,8 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
 
       {/* Ficha do cliente */}
       {atual && (
-        <aside className={cn("wa-line w-full flex-col overflow-y-auto border-l bg-surface text-ink lg:flex lg:w-[360px] lg:shrink-0", showPanel ? "flex" : "hidden")}>
-          <div className="flex items-center gap-2 border-b border-sand/80 p-3 lg:hidden">
+        <aside className={cn("wa-line w-full flex-col overflow-y-auto border-l bg-surface text-ink xl:flex xl:w-[320px] xl:shrink-0", showPanel ? "flex" : "hidden")}>
+          <div className="flex items-center gap-2 border-b border-sand/80 p-3 xl:hidden">
             <button onClick={() => setShowPanel(false)} className="rounded-lg p-1 hover:bg-cream"><ArrowLeft className="h-5 w-5" /></button>
             <p className="font-bold">Ficha do cliente</p>
           </div>
@@ -404,7 +404,7 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
         >
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         </button>
-        <button onClick={onPanel} className="wa-chip rounded-full px-3 py-1.5 text-xs font-bold lg:hidden">Ficha</button>
+        <button onClick={onPanel} className="wa-chip rounded-full px-3 py-1.5 text-xs font-bold xl:hidden">Ficha</button>
       </header>
 
       <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat flex-1 space-y-1.5 overflow-y-auto px-[5%] py-3">
@@ -448,7 +448,8 @@ function Conversa({ detail, aiActive, visible, onBack, onPanel, onChanged }: { a
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder="Digite uma mensagem (/ para respostas prontas)"
+            placeholder="Mensagem"
+            title="Digite / para respostas prontas"
             className="wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none"
           />
           <button onClick={enviar} disabled={enviando || !texto.trim()} className="wa-send rounded-full p-3 disabled:opacity-50" aria-label="Enviar">
