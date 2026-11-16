@@ -6,6 +6,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 // (Auth and Storage) are represented locally; business functions are unmodified.
 export async function createTestDatabase() {
   const db = new PGlite({ extensions: { pgcrypto } });
+  // Mesmo fuso do banco de produção (migração 20261112130000): current_date em horário de Brasília.
+  await db.exec("set timezone to 'America/Sao_Paulo'");
   await db.exec(`
     create role authenticated; create role anon; create role service_role;
     create schema auth; create schema storage;
