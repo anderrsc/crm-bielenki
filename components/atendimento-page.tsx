@@ -232,9 +232,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
         <div className="space-y-2 p-3">
           <div className="flex items-center justify-between"><h1 className="text-xl font-black">Atendimento</h1>
-          <button aria-label="Sincronizar contatos" title="Sincronizar contatos" disabled={syncing} onClick={async () => {
+          <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
             setSyncing(true);
-            try { const r = await syncInboxContacts(); await refreshList(); if (r.error) setListError(r.error); }
+            try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
             finally { setSyncing(false); }
           }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
           <p className="wa-muted text-[11px]">{connection}</p>
