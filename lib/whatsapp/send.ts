@@ -1,6 +1,7 @@
 // Envio de texto pelo WhatsApp (Meta oficial ou Evolution). Somente no servidor.
 import { decryptSecret } from "@/lib/encrypt";
 import { safeExternalUrl } from "@/lib/safe-url";
+import { whatsappTarget } from "@/lib/whatsapp/phone";
 
 export type WhatsAppProvider = "meta" | "evolution";
 export type WhatsAppCredentials = {
@@ -114,7 +115,7 @@ export async function markWhatsAppRead(c: WhatsAppCredentials, phone: string, id
     const r = await fetch(`${base}/chat/markMessageAsRead/${encodeURIComponent(c.evolutionInstance)}`, {
       method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
       headers: { apikey: c.evolutionKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ readMessages: ids.map(id => ({ id, fromMe: false, remoteJid: `${phone}@s.whatsapp.net` })) }),
+      body: JSON.stringify({ readMessages: ids.map(id => ({ id, fromMe: false, remoteJid: evolutionChatJid(phone) })) }),
     });
     if (!r.ok) throw new Error(`Confirmação de leitura: HTTP ${r.status}`);
   } else {
@@ -126,4 +127,23 @@ export async function markWhatsAppRead(c: WhatsAppCredentials, phone: string, id
       if (!r.ok) throw new Error(`Confirmação de leitura: HTTP ${r.status}`);
     }
   }
+}
+
+function evolutionChatJid(phone: string) {
+  const target = whatsappTarget(phone);
+  if (!target) throw new Error("Contato inválido.");
+  return target.endsWith("@lid") ? target : `${target}@s.whatsapp.net`;
+}
+
+/** Marca para retorno também no celular; a Meta não oferece esta operação. */
+export async function markWhatsAppUnread(c: WhatsAppCredentials, phone: string) {
+  if (c.provider !== "evolution") return;
+  const base = safeExternalUrl(c.evolutionUrl);
+  if (!base || !c.evolutionInstance || !c.evolutionKey) throw new Error("WhatsApp não conectado.");
+  const response = await fetch(`${base}/chat/markChatUnread/${encodeURIComponent(c.evolutionInstance)}`, {
+    method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
+    headers: { apikey: c.evolutionKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ chat: evolutionChatJid(phone) }),
+  });
+  if (!response.ok) throw new Error(`Marcação no WhatsApp: HTTP ${response.status}`);
 }
