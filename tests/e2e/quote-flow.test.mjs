@@ -29,7 +29,7 @@ function pdfMediaBox(buffer) {
 }
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5499/crm";
-const RUN = Date.now().toString(36);
+const RUN = Date.now().toString();
 const CLIENT = `Cliente Fluxo ${RUN}`;
 
 let browser, page, db;
@@ -75,7 +75,8 @@ test("cadastrar cliente", async () => {
   await page.goto(`${BASE}/clientes/novo`, { waitUntil: "networkidle0" });
   await page.type('input[name="name"]', CLIENT);
   await page.type('input[name="phone"]', "(47) 98888-7777");
-  await page.type('input[autocomplete="address-line1"]', "Rua das Calhas");
+  assert.equal(await page.$eval('input[name="phone"]', el => el.autocomplete), 'off');
+  await page.type('input[placeholder="Ex. Rua Vicente Bernardes"]', "Rua das Calhas");
   await page.type('input[placeholder="Ex. 120 ou S/N"]', "100");
   await page.type('input[name="city"]', "Jaraguá do Sul");
   assert.equal(await page.$eval('select[name="state"]', (el) => el.value), "SC", "UF deve vir SC por padrao");
