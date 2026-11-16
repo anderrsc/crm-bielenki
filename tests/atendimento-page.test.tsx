@@ -8,11 +8,12 @@ const actions = vi.hoisted(() => ({
   loadOlderMessages: vi.fn(),
   setConversationArchived: vi.fn(async () => ({ ok: true })),
   markInboxRead: vi.fn(async () => ({ ok: true, cleared: true })),
+  syncInboxContacts: vi.fn(async () => ({})),
 }));
 vi.mock('@/app/(crm)/atendimento-actions', () => ({
   ...actions,
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
-  markInboxRead: actions.markInboxRead, syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
+  markInboxRead: actions.markInboxRead, syncInboxContacts: actions.syncInboxContacts, receiveFromInbox: vi.fn(),
   searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
 }));
 const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
@@ -44,6 +45,16 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); rt.handlers.length = 0; });
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 describe('Atendimento estilo WhatsApp', () => {
+  test('sincronizar também atualiza as mensagens da conversa aberta', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 1));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    await screen.findByText('mensagem 0 de Ana Cliente');
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 2));
+    fireEvent.click(screen.getByLabelText('Sincronizar mensagens e contatos'));
+    expect(await screen.findByText('mensagem 1 de Ana Cliente')).toBeTruthy();
+    expect(actions.syncInboxContacts).toHaveBeenCalledTimes(1);
+  });
   test('arquivadas ficam numa aba propria, com contador', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => detail(id, id));
     abrirTela([item('a', 'Ana Cliente'), item('b', 'Bruno Arquivado', true)]);

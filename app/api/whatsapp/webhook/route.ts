@@ -405,7 +405,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
     if (fromMe) {
-      await recordOwnMessage(supabase, company.id, from, clientText, eventId);
+      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at);
       return NextResponse.json({ status: "own_message" });
     }
 
@@ -700,7 +700,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
  * ou a Lia enviaram são ignorados; o resto entra como "equipe" (nome pela
  * assinatura *Rose:*) e a Lia para de responder esse cliente.
  */
-async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string) {
+async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string, sentAt: string) {
   try {
     const known = async () => {
       if (!externalId) return false;
@@ -717,7 +717,7 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
       .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).gte("sent_at", since).limit(1);
     if (same?.length) return;
     const name = body.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)";
-    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null });
+    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null, sentAt });
     await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
   } catch (error) {
     console.error("Atendimento: falha ao gravar mensagem da equipe:", error instanceof Error ? error.message : error);

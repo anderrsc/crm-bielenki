@@ -241,8 +241,9 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
 
   test('resposta da Rose pelo celular entra no Atendimento e pausa a Ana', async () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
-    await POST(evo(msg('e4', '*Rose:*\nJá te mando o orçamento', {}, { fromMe: true })) as never);
-    expect(tables.messages.at(-1)).toMatchObject({ direction: 'outbound', author: 'equipe', sender_name: 'Rose' });
+    const messageTimestamp = Math.floor(Date.now() / 1000) - 86400;
+    await POST(evo(msg('e4', '*Rose:*\nJá te mando o orçamento', { messageTimestamp }, { fromMe: true })) as never);
+    expect(tables.messages.at(-1)).toMatchObject({ direction: 'outbound', author: 'equipe', sender_name: 'Rose', sent_at: new Date(messageTimestamp * 1000).toISOString() });
     expect(tables.conversations[0].ai_paused).toBe(true);
     expect(aiReply).not.toHaveBeenCalled();
   }, 10000);

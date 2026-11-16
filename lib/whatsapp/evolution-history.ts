@@ -26,6 +26,12 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
 
 const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
+/** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
+export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string) {
+  const page = await fetchEvolutionMessages(base, key, instance, 1);
+  return importHistoryPage(db, companyId, page.messages?.records ?? []);
+}
+
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[]) {
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
@@ -61,18 +67,29 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
   }
   if (!rows.length) return { inserted: 0, conversations: 0 };
 
-  // Já importadas (ou que chegaram pelo webhook) ficam de fora.
+  // Já importadas não duplicam; corrige a data dos ecos antigos gravados ao reconectar.
   const known = new Set<string>();
+  const corrected = new Map<string, string>();
   const ids = rows.map((r) => r.external_id);
   for (let i = 0; i < ids.length; i += 200) {
-    const { data } = await db.from("messages").select("external_id").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200));
-    for (const m of data ?? []) known.add(m.external_id as string);
+    const { data, error } = await db.from("messages").select("id,external_id,conversation_id,direction,sent_at").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200));
+    if (error) throw new Error(`Histórico não consultado: ${error.message}`);
+    for (const m of data ?? []) {
+      known.add(m.external_id as string);
+      const original = rows.find((r) => r.external_id === m.external_id);
+      if (original?.direction === "outbound" && m.direction === "outbound" && m.sent_at && new Date(m.sent_at).getTime() !== new Date(original.sent_at).getTime()) {
+        const { error: correctionError } = await db.from("messages").update({ sent_at: original.sent_at })
+          .eq("company_id", companyId).eq("id", m.id).eq("sent_at", m.sent_at);
+        if (correctionError) throw new Error(`Data da mensagem não corrigida: ${correctionError.message}`);
+        corrected.set(original.phone, m.conversation_id as string);
+      }
+    }
   }
   const fresh = rows.filter((r) => !known.has(r.external_id));
-  if (!fresh.length) return { inserted: 0, conversations: 0 };
+  if (!fresh.length && !corrected.size) return { inserted: 0, conversations: 0 };
 
   // Uma conversa por telefone; as que já existiam no WhatsApp são da equipe (a Ana não entra).
-  const convByPhone = new Map<string, string>();
+  const convByPhone = new Map<string, string>(corrected);
   for (const phone of new Set(fresh.map((r) => r.phone))) {
     const contact = fresh.find((r) => r.phone === phone && r.contact)?.contact ?? null;
     const conv = await getOrCreateConversation(db, companyId, phone, contact, { aiPaused: true });

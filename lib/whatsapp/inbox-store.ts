@@ -102,15 +102,16 @@ export async function recordInbound(db: SupabaseClient, p: {
 
 export async function recordOutbound(db: SupabaseClient, p: {
   companyId: string; conversationId: string; body: string; author: MessageAuthor; senderName?: string | null;
-  sentBy?: string | null; externalId?: string | null; deliveryStatus?: "enviada" | "falhou"; error?: string | null;
+  sentBy?: string | null; externalId?: string | null; deliveryStatus?: "enviada" | "falhou"; error?: string | null; sentAt?: string;
 }) {
-  const at = new Date().toISOString();
+  const at = p.sentAt ?? new Date().toISOString();
   const { data, error } = await db.from("messages").insert({
     company_id: p.companyId, conversation_id: p.conversationId, direction: "outbound", author: p.author,
     sender_name: p.senderName || null, sent_by: p.sentBy || null, body: p.body, external_id: p.externalId || null,
     delivery_status: p.deliveryStatus ?? "enviada", error_message: p.error || null, sent_at: at,
   }).select("id").single();
   if (error) throw new Error(`Mensagem não gravada: ${error.message}`);
-  await db.from("conversations").update({ last_message_at: at, last_message_preview: preview(p.body), updated_at: at }).eq("id", p.conversationId);
+  await db.from("conversations").update({ last_message_at: at, last_message_preview: preview(p.body), updated_at: new Date().toISOString() })
+    .eq("id", p.conversationId).eq("company_id", p.companyId).or(`last_message_at.is.null,last_message_at.lte.${at}`);
   return data.id as string;
 }
