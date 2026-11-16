@@ -167,6 +167,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       const current = itemsRef.current.find((c) => c.id === id);
       // Conversa nova, cliente ligado/trocado: busca a lista (com nomes) uma vez.
       if (!current || current.clientId !== ((row.client_id as string | null) ?? null)) { listSoon(); return; }
+      // Conversa aberta voltou a ter não lidas (mensagem nova ou corrida com o webhook):
+      // recarrega a conversa para a leitura ser confirmada de novo com o estado atual.
+      if (selected.current === id && Number(row.unread_count ?? 0) > 0) detailSoon(id);
       setItems((prev) => {
         const i = prev.findIndex((c) => c.id === id);
         if (i < 0) return prev;

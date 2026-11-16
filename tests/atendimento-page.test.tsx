@@ -7,14 +7,19 @@ const actions = vi.hoisted(() => ({
   loadConversation: vi.fn(),
   loadOlderMessages: vi.fn(),
   setConversationArchived: vi.fn(async () => ({ ok: true })),
+  markInboxRead: vi.fn(async () => ({ ok: true, cleared: true })),
 }));
 vi.mock('@/app/(crm)/atendimento-actions', () => ({
   ...actions,
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
-  markInboxRead: vi.fn(async () => ({ ok: true })), syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
+  markInboxRead: actions.markInboxRead, syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
   searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
 }));
-vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel: vi.fn() }) }));
+const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => ({
+  on(_e: string, f: { table: string }, cb: (p: unknown) => void) { rt.handlers.push({ table: f.table, cb }); return this; },
+  subscribe(cb?: (s: string) => void) { cb?.('SUBSCRIBED'); return this; },
+}), removeChannel: vi.fn() }) }));
 vi.mock('@/components/inbox-attachments', () => ({ InboxAttachments: () => null }));
 vi.mock('@/components/quick-replies', () => ({ QuickReplies: () => null }));
 vi.mock('@/components/receiving-account-select', () => ({ ReceivingAccountSelect: () => null }));
@@ -35,7 +40,7 @@ const detail = (id: string, name: string, n = 3, hasOlder = false) => ({
   messages: Array.from({ length: n }, (_, i) => ({ id: `${id}-m${i}`, direction: 'inbound', author: null, senderName: null, body: `mensagem ${i} de ${name}`, at: new Date(Date.UTC(2026, 10, 12, 10, i)).toISOString(), failed: false, error: null, deliveryStatus: 'lida' })),
 });
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); rt.handlers.length = 0; });
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 describe('Atendimento estilo WhatsApp', () => {
@@ -70,5 +75,21 @@ describe('Atendimento estilo WhatsApp', () => {
     expect(actions.loadOlderMessages).toHaveBeenCalledWith('a', expect.any(String));
     fireEvent.click(screen.getByLabelText('Arquivar conversa'));
     await waitFor(() => expect(actions.setConversationArchived).toHaveBeenCalledWith('a', true));
+  });
+
+  test('conversa aberta que volta a ter nao lidas e lida de novo com o estado atual', async () => {
+    const unread = (id: string, n: number) => ({ ...detail(id, 'Ana Cliente'), conversation: { ...item(id, 'Ana Cliente'), unread: n },
+      readSnapshot: { count: n, lastInbound: '2026-11-12T10:02:00.000Z', generation: null } });
+    actions.loadInbox.mockResolvedValue({ items: [item('a', 'Ana Cliente')], companyId: 'emp', aiActive: false } as never);
+    actions.loadConversation.mockImplementation(async (id: string) => unread(id, 1));
+    render(<AtendimentoPage initial={[item('a', 'Ana Cliente')]} />);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    await waitFor(() => expect(actions.markInboxRead).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(rt.handlers.some(h => h.table === 'conversations')).toBe(true));
+    // Webhook contou a mensagem depois da leitura: o contador volta a 1 na conversa aberta.
+    actions.loadConversation.mockImplementation(async (id: string) => unread(id, 2));
+    const conv = rt.handlers.find(h => h.table === 'conversations')!;
+    conv.cb({ eventType: 'UPDATE', new: { id: 'a', client_id: null, unread_count: 2, last_message_preview: 'oi', last_message_at: new Date().toISOString() }, old: {} });
+    await waitFor(() => expect(actions.markInboxRead).toHaveBeenCalledTimes(2), { timeout: 3000 });
   });
 });

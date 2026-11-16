@@ -383,31 +383,46 @@ export async function closeQuoteFromInbox(quoteId: string, dueDate?: string): Pr
 }
 
 /** Called only after the visible conversation has rendered. CAS preserves arrivals during load. */
-export async function markInboxRead(id: string, messageIds: string[], snapshot: { count: number; lastInbound: string | null; generation: string | null }) {
+// Leitura interna (contador do CRM) e confirmação de leitura no WhatsApp são coisas separadas:
+// a interna é gravada primeiro e não depende do WhatsApp responder.
+// O contador só zera se nenhuma mensagem do cliente chegou depois da última que a pessoa viu na tela.
+export async function markInboxRead(id: string, messageIds: string[], _snapshot?: { count: number; lastInbound: string | null; generation: string | null }) {
   try {
     if (!z.string().uuid().safeParse(id).success || messageIds.length > 200 || !messageIds.every(v => z.string().uuid().safeParse(v).success)) return { error: "Leitura inválida." };
     const { db, companyId } = await context();
-    const { data: conv } = await db.from("conversations").select("phone,external_id").eq("id", id).eq("company_id", companyId).single();
+    const { data: conv } = await db.from("conversations").select("phone,external_id,unread_count").eq("id", id).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
-    let update = db.from("conversations").update({ unread_count: 0 }).eq("id", id).eq("company_id", companyId).eq("unread_count", snapshot.count);
-    update = snapshot.lastInbound ? update.eq("last_inbound_at", snapshot.lastInbound) : update.is("last_inbound_at", null);
-    update = snapshot.generation ? update.eq("ai_generation_id", snapshot.generation) : update.is("ai_generation_id", null);
-    const { data: cleared, error } = await update.select("id");
-    if (error) return { error: error.message };
-    const { data: messages, error: msgError } = await db.from("messages").select("id,external_id,delivery_status").eq("company_id", companyId).eq("conversation_id", id).eq("direction", "inbound").in("id", messageIds);
+    const { data: seen, error: msgError } = messageIds.length
+      ? await db.from("messages").select("id,external_id,delivery_status,sent_at").eq("company_id", companyId).eq("conversation_id", id).eq("direction", "inbound").in("id", messageIds)
+      : { data: [], error: null };
     if (msgError) return { error: msgError.message };
-    const pending = (messages ?? []).filter(m => m.external_id && m.delivery_status !== "lida");
-    if (pending.length) {
-      const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-      const [{ data: cfg }, { data: company }] = await Promise.all([
-        admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
-        admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
-      ]);
-      await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), pending.map(m => m.external_id));
-      const { error: receiptError } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
-      if (receiptError) return { error: receiptError.message };
+    const lastSeen = (seen ?? []).reduce<string | null>((max, m) => (!max || new Date(m.sent_at).getTime() > new Date(max).getTime() ? m.sent_at : max), null);
+    let cleared = (conv.unread_count ?? 0) === 0;
+    if (!cleared) {
+      let update = db.from("conversations").update({ unread_count: 0 }).eq("id", id).eq("company_id", companyId).gt("unread_count", 0);
+      update = lastSeen ? update.lte("last_inbound_at", lastSeen) : update.is("last_inbound_at", null);
+      const { data, error } = await update.select("id");
+      if (error) return { error: error.message };
+      cleared = !!data?.length;
     }
-    return { ok: true, cleared: !!cleared?.length };
+    const pending = (seen ?? []).filter(m => m.external_id && m.delivery_status !== "lida");
+    let receiptError: string | null = null;
+    if (pending.length) {
+      try {
+        const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const [{ data: cfg }, { data: company }] = await Promise.all([
+          admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+          admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
+        ]);
+        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), pending.map(m => m.external_id));
+        const { error: receiptUpdate } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
+        if (receiptUpdate) receiptError = receiptUpdate.message;
+      } catch (error) {
+        // Sem confirmação no WhatsApp agora: a leitura interna já valeu; tenta de novo na próxima abertura.
+        receiptError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    return { ok: true, cleared, receiptError };
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 
