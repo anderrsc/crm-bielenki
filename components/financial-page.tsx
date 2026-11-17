@@ -223,7 +223,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
           </tbody>
         </table>
       </div>
-      <PaymentReversals entryIds={entries.filter(e => Number(e.paid_amount) > 0).map(e => e.id)} />
+      {await PaymentReversals({ entryIds: entries.filter(e => Number(e.paid_amount) > 0).map(e => e.id) })}
     </div>
   );
 }
