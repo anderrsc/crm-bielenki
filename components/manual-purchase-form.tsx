@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 
 type Supplier = { id: string; name: string; credit?: number };
 type Material = { id: string; name: string; unit: string };
+type Order = { id: string; label: string };
 type Item = { category: string; description: string; quantity: number; unit_price: number };
 type PaidMode = "total" | "parte" | "nao";
 
@@ -20,7 +21,7 @@ const METHODS = ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito",
 const blank = (): Item => ({ category: "Perfil", description: "", quantity: 1, unit_price: 0 });
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]; materials?: Material[]; error?: string }) {
+export function ManualPurchaseForm({ suppliers, orders = [], error }: { suppliers: Supplier[]; orders?: Order[]; materials?: Material[]; error?: string }) {
   const [items, setItems] = useState<Item[]>([blank()]);
   const [supplierId, setSupplierId] = useState("");
   const [mode, setMode] = useState<PaidMode>("total");
@@ -31,8 +32,11 @@ export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]
   const [due, setDue] = useState("");
   const [useCredit, setUseCredit] = useState(false);
   const [notes, setNotes] = useState("");
-  const rememberDraft = useErrorDraft("draft:compra-manual-v2", { items, supplierId, mode, paid, paidAt, method, due, notes }, (d) => {
-    setItems(d.items); setSupplierId(d.supplierId); setMode(d.mode); setPaid(d.paid); setPaidAt(d.paidAt); setMethod(d.method); setDue(d.due); setNotes(d.notes);
+  const [expected, setExpected] = useState("");
+  const [destino, setDestino] = useState<"estoque" | "pedido">("estoque");
+  const [orderId, setOrderId] = useState("");
+  const rememberDraft = useErrorDraft("draft:compra-manual-v3", { items, supplierId, mode, paid, paidAt, method, due, notes, expected, destino, orderId }, (d) => {
+    setItems(d.items); setSupplierId(d.supplierId); setMode(d.mode); setPaid(d.paid); setPaidAt(d.paidAt); setMethod(d.method); setDue(d.due); setNotes(d.notes); setExpected(d.expected); setDestino(d.destino); setOrderId(d.orderId);
   });
   const total = useMemo(() => round(items.reduce((sum, x) => sum + x.quantity * x.unit_price, 0)), [items]);
   const credit = suppliers.find((s) => s.id === supplierId)?.credit ?? 0;
@@ -42,7 +46,7 @@ export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]
   const invalidItem = items.some((x) => (x.category === "Outro" && !x.description.trim()) || x.quantity <= 0 || x.unit_price < 0 || !Number.isFinite(x.quantity * x.unit_price));
   const payload = JSON.stringify({
     supplier_id: supplierId, paid_amount: payNow, paid_at: paidAt, payment_method: method, receiving_account_id: payNow > 0 ? account : "",
-    use_credit: creditUsed, due_date: balance > 0 ? due : "", notes,
+    use_credit: creditUsed, due_date: balance > 0 ? due : "", notes, expected_at: expected, order_id: destino === "pedido" ? orderId : "",
     items: items.map((x) => ({ category: x.category, description: x.description.trim() || x.category, unit: "un", quantity: x.quantity, unit_price: x.unit_price, notes: "" })),
   });
   const update = (index: number, patch: Partial<Item>) => setItems((current) => current.map((x, i) => (i === index ? { ...x, ...patch } : x)));
@@ -72,6 +76,15 @@ export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]
           {items.length > 1 && <p className="mt-2 text-right text-sm font-black">{money(item.quantity * item.unit_price)}</p>}
         </div>)}
         <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems((x) => [...x, blank()])}><Plus className="h-4 w-4" />Adicionar outro item</button>
+        <div className="card grid gap-4 p-5 sm:grid-cols-2">
+          <div><label className="label" htmlFor="compra-previsao">Previsão de entrega</label><input id="compra-previsao" className="field" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} /><p className="mt-1 text-xs text-ink/50">Deixe vazio se já chegou.</p></div>
+          <fieldset><legend className="label">É para</legend>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-cream p-1 text-sm font-bold">
+              {([["estoque", "Estoque"], ["pedido", "Um pedido"]] as const).map(([v, l]) => <button type="button" key={v} onClick={() => setDestino(v)} className={`rounded-lg px-2 py-2 ${destino === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
+            </div>
+            {destino === "pedido" && <select aria-label="Pedido" className="field mt-2" value={orderId} onChange={(e) => setOrderId(e.target.value)} required><option value="">Escolha o pedido</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>}
+          </fieldset>
+        </div>
         <div className="card p-5"><label className="label" htmlFor="compra-obs">Observações</label><textarea id="compra-obs" className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
       </div>
 
@@ -94,7 +107,7 @@ export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]
           {balance > 0 ? `Fica devendo ${money(balance)} ao fornecedor` : balance < 0 ? `Fica ${money(-balance)} de crédito com o fornecedor` : "Compra quitada"}
         </div>}
         {balance > 0 && <div><label className="label" htmlFor="compra-venc">Vencimento do que ficou devendo</label><input id="compra-venc" className="field" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
-        <button disabled={!supplierId || total <= 0 || payNow < 0 || invalidItem} className="button w-full"><Save className="h-4 w-4" />Cadastrar compra</button>
+        <button disabled={!supplierId || total <= 0 || payNow < 0 || invalidItem || (destino === "pedido" && !orderId)} className="button w-full"><Save className="h-4 w-4" />Cadastrar compra</button>
       </aside>
     </form>
   </div>;

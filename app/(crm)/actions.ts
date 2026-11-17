@@ -161,11 +161,14 @@ export async function rescheduleEntry(formData: FormData) {
   const newDue    = String(formData.get("new_due_date") || "");
   const reason    = String(formData.get("reason") || "");
   const parsed = z.object({ entryId: z.string().uuid(), newDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({ entryId, newDue });
-  if (!parsed.success) redirect("/financeiro?erro=Data+de+vencimento+inválida");
+  const requested = safeBack(formData.get("_back"), "/financeiro");
+  const back = requested.startsWith("/financeiro") ? requested : "/financeiro";
+  if (!parsed.success) redirect(`${q(back)}erro=Data+de+vencimento+inválida`);
   const { error } = await db.rpc("reschedule_entry", { p_entry_id: entryId, p_new_due_date: newDue, p_reason: reason });
-  if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/financeiro");
-  redirect("/financeiro?ok=Vencimento+renegociado");
+  revalidatePath(back.split("?")[0]);
+  redirect(`${q(back)}ok=Vencimento+renegociado`);
 }
 
 export async function toggleChecklistItem(formData: FormData) {
@@ -239,7 +242,7 @@ export async function saveGutterQuote(formData: FormData) {
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
-export async function reversePayment(formData:FormData){const db=await createClient();const id=String(formData.get("payment_id")||"");if(!z.string().uuid().safeParse(id).success)redirect("/financeiro?erro=Pagamento inválido");const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);revalidatePath("/financeiro");redirect("/financeiro?ok=Pagamento+estornado");}
+export async function reversePayment(formData:FormData){const db=await createClient();const requested=safeBack(formData.get("_back"),"/financeiro");const back=requested.startsWith("/financeiro")?requested:"/financeiro";const id=String(formData.get("payment_id")||"");if(!z.string().uuid().safeParse(id).success)redirect(`${q(back)}erro=Pagamento inválido`);const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);refreshPaymentViews(back);redirect(`${q(back)}ok=Pagamento+estornado`);}
 
 export async function updateGutterQuote(formData: FormData) {
   const db=await createClient();const quoteId=String(formData.get("quote_id")||"");let payload:unknown;
