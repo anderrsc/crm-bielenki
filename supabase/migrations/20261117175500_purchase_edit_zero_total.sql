@@ -1,4 +1,4 @@
--- Reaplica update_purchase_order: compra que ja estava sem valor pode ser corrigida.
+-- Reaplica update_purchase_order: total so muda quando quantidade/valor dos itens mudou.
 begin;
 -- Corrigir compra lancada errado: fornecedor, previsao, pedido, observacao e itens
 -- (descricao, tipo, quantidade, valor) enquanto nada foi recebido. Cancelar compra sem
@@ -7,7 +7,7 @@ create or replace function public.update_purchase_order(p_id uuid, p_payload jso
 returns void language plpgsql security definer set search_path = pg_catalog, public as $$
 declare c uuid := public.current_company_id(); po public.purchase_orders; e public.financial_entries; item jsonb; it public.purchase_order_items;
   new_total numeric; target_order uuid := nullif(p_payload->>'order_id','')::uuid; o public.orders; supplier uuid := nullif(p_payload->>'supplier_id','')::uuid;
-  received boolean; before jsonb;
+  received boolean; before jsonb; changed boolean := false;
 begin
   perform public.require_table_access('purchase_orders','update');
   select * into po from public.purchase_orders where id = p_id and company_id = c for update;
@@ -32,6 +32,7 @@ begin
       if (item->>'quantity')::numeric <= 0 or (item->>'unit_price')::numeric < 0 then raise exception 'Quantidade ou valor inválido'; end if;
       if received and ((item->>'quantity')::numeric <> it.purchased_quantity or (item->>'unit_price')::numeric <> it.unit_price) then
         raise exception 'Material já recebido no estoque: quantidade e valor não podem mudar'; end if;
+      if (item->>'quantity')::numeric <> it.purchased_quantity or (item->>'unit_price')::numeric <> it.unit_price then changed := true; end if;
       update public.purchase_order_items set description = coalesce(nullif(btrim(item->>'description'),''), description), category = coalesce(nullif(item->>'category',''), category),
         purchased_quantity = (item->>'quantity')::numeric, requested_quantity = (item->>'quantity')::numeric, unit_price = (item->>'unit_price')::numeric,
         order_id = case when p_payload ? 'order_id' then o.id else order_id end, sale_id = case when p_payload ? 'order_id' then o.sale_id else sale_id end,
@@ -39,8 +40,11 @@ begin
         where id = it.id;
     end loop;
   end if;
-  select round(coalesce(sum(total),0),2) into new_total from public.purchase_order_items where purchase_order_id = po.id;
-  if new_total <= 0 and po.total > 0 then raise exception 'A compra precisa ter valor'; end if;
+  -- O total so e recalculado quando quantidade/valor dos itens mudou.
+  if changed then
+    select round(coalesce(sum(total),0),2) into new_total from public.purchase_order_items where purchase_order_id = po.id;
+    if new_total <= 0 then raise exception 'A compra precisa ter valor'; end if;
+  else new_total := po.total; end if;
   if e.id is not null and new_total < e.paid_amount then raise exception 'O novo total (%) é menor que o já pago (%). Estorne o pagamento antes', new_total, e.paid_amount; end if;
   update public.purchase_orders set total = new_total, supplier_id = coalesce(supplier, supplier_id),
     expected_at = case when p_payload ? 'expected_at' then nullif(p_payload->>'expected_at','')::date else expected_at end,
