@@ -3,18 +3,21 @@ import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { saveSupplier, deleteSupplier } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 import { getRequestClient } from "@/lib/supabase/server";
+import { money } from "@/lib/utils";
 
 type Supplier = { id: string; name: string; tax_id: string | null; phone: string | null; whatsapp: string | null; email: string | null; city: string | null; state: string | null; payment_terms: string | null; notes: string | null; status: string };
 const states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 export async function SuppliersPage({ error, saved, backHref = "/configuracoes", selfHref = "/configuracoes/fornecedores" }: { error?: string; saved?: boolean; backHref?: string; selfHref?: string }) {
-  let suppliers: Supplier[] = []; let loadError = ""; let canManage = false;
+  let suppliers: Supplier[] = []; let loadError = ""; let canManage = false; let credit = new Map<string, number>();
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     const db = await getRequestClient();
-    const [perm, result] = await Promise.all([
+    const [perm, result, credits] = await Promise.all([
       db.rpc("has_table_access", { resource: "suppliers", action: "update" }),
       db.from("suppliers").select("id,name,tax_id,phone,whatsapp,email,city,state,payment_terms,notes,status").is("deleted_at", null).order("name"),
+      db.from("v_supplier_credit_balance").select("supplier_id,balance").neq("balance", 0),
     ]);
+    credit = new Map(((credits.data ?? []) as { supplier_id: string; balance: number }[]).map(c => [c.supplier_id, Number(c.balance)]));
     canManage = Boolean(perm.data);
     suppliers = (result.data as Supplier[]) ?? [];
     loadError = result.error?.message ?? "";
@@ -43,7 +46,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
                 <p className="font-bold">{s.name}</p>
                 <p className="text-xs text-ink/50">{[s.city, s.state].filter(Boolean).join(" – ") || "Sem localização"} · {s.status === "ativo" ? "Ativo" : "Inativo"}</p>
               </div>
-              <span className="text-xs text-ink/40">{s.phone || s.email || ""}</span>
+              <span className="flex items-center gap-2 text-xs text-ink/40">{credit.get(s.id) ? <a href="/financeiro/pagar#creditos-fornecedores" className="rounded-lg bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">Crédito {money(credit.get(s.id))}</a> : null}{s.phone || s.email || ""}</span>
             </summary>
             <form action={saveSupplier} className="grid gap-3 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="id" value={s.id} />

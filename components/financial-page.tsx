@@ -1,4 +1,5 @@
 import { PaymentReversals } from "@/components/payment-reversals";
+import { SupplierCredits } from "@/components/supplier-credits";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
@@ -21,6 +22,7 @@ type Entry = {
   due_date: string | null;
   display_status: string;
   client_name: string | null;
+  supplier_id: string | null;
   supplier_name: string | null;
   category_name: string | null;
   cost_center_name: string | null;
@@ -77,6 +79,9 @@ export async function FinancialPage({ filter, error, received, created, notice, 
     db.rpc("has_table_access", { resource: "financial_recurrences", action: "select" }),
     db.rpc("has_table_access", { resource: "financial_exports", action: "select" }),
   ]);
+  const creditSuppliers = [...new Set((data ?? []).map((e: { supplier_id?: string | null }) => e.supplier_id).filter(Boolean))] as string[];
+  const { data: credits } = creditSuppliers.length ? await db.from("v_supplier_credit_balance").select("supplier_id,balance").in("supplier_id", creditSuppliers) : { data: [] };
+  const creditOf = new Map(((credits ?? []) as { supplier_id: string; balance: number }[]).map(c => [c.supplier_id, Number(c.balance)]));
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
   const t = !totalsError && totalsData ? totalsData as {
@@ -168,6 +173,8 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         <p className="mt-3 text-xs text-ink/60">A variação prevista depende da liquidação das contas. O saldo bancário inicial e os custos não registrados não estão incluídos.</p>
       </details>}
 
+      {filter === "pagar" && await SupplierCredits({ canManage: canClassify === true })}
+
       {(page > 1 || hasNext) && (
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-ink/50">Página {page}</span>
@@ -213,7 +220,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                     <div className="flex items-center gap-1">
                       {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
                       {canClassify === true && e.display_status !== "cancelado" && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/rateios?conta=${e.id}`}>Ratear</Link>}
-                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
+                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog canOverpay={e.entry_type === "pagar" && !!e.supplier_id} supplierCredit={e.entry_type === "pagar" && e.supplier_id ? creditOf.get(e.supplier_id) ?? 0 : 0} entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
                   </td>

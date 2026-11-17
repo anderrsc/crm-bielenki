@@ -136,7 +136,9 @@ export async function registerPayment(formData: FormData) {
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
   if(!parsed.success) redirect(`${q(back)}erro=Revise+os+dados+do+pagamento`);
   const accountId = String(formData.get("receiving_account_id") || "");
-  const { data: paymentId, error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
+  // Conta a pagar de fornecedor aceita valor maior: o que passar vira crédito com o fornecedor.
+  const validAccount = accountId && z.string().uuid().safeParse(accountId).success ? accountId : null;
+  const { data: paymentId, error } = await db.rpc("register_payment_with_supplier_credit", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate,p_account:validAccount });
   if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
   if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
