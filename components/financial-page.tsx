@@ -1,3 +1,4 @@
+import { PaymentReversals } from "@/components/payment-reversals";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
@@ -222,6 +223,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
           </tbody>
         </table>
       </div>
+      <PaymentReversals entryIds={entries.filter(e => Number(e.paid_amount) > 0).map(e => e.id)} />
     </div>
   );
 }
