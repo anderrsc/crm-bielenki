@@ -8,6 +8,7 @@ import { money, shortDate } from "@/lib/utils";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PurchaseEditForm } from "@/components/purchase-edit-form";
 import { cancelPurchase } from "@/app/(crm)/purchase-edit-actions";
+import { undoStockReceipt } from "@/app/(crm)/undo-actions";
 
 type Po = { id: string; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
 type Item = { id: string; description: string; category: string | null; unit: string; purchased_quantity: number; received_quantity: number; pending_quantity: number; unit_price: number; total: number };
@@ -20,13 +21,17 @@ export default async function PurchasePage({ params, searchParams }: { params: P
   const { data } = await db.from("purchase_orders").select("id,order_number,status,total,paid_amount,open_amount,ordered_at,expected_at,received_at,notes,supplier_id,order_id,supplier:suppliers(name),order:orders(id,order_number,client:clients(name))").eq("id", id).maybeSingle();
   if (!data) notFound();
   const po = data as unknown as Po;
-  const [items, entry, canEdit, suppliers, orders] = await Promise.all([
+  const [items, entry, canEdit, suppliers, orders, moves] = await Promise.all([
     db.from("purchase_order_items").select("id,description,category,unit,purchased_quantity,received_quantity,pending_quantity,unit_price,total").eq("purchase_order_id", id).order("id"),
     db.from("financial_entries").select("id,open_amount,paid_amount,due_date,status").eq("purchase_order_id", id).maybeSingle(),
     db.rpc("has_table_access", { resource: "purchase_orders", action: "update" }),
     db.from("suppliers").select("id,name").is("deleted_at", null).order("name"),
     db.from("orders").select("id,order_number,client:clients(name)").not("operational_status", "in", "(finalizado,cancelado)").order("created_at", { ascending: false }).limit(300),
+    db.from("stock_movements").select("id,quantity,movement_type,created_at,notes,reverses_movement_id,purchase_order_item_id,location:stock_locations(name),item:purchase_order_items!inner(purchase_order_id,description,unit)").eq("item.purchase_order_id", id).order("created_at", { ascending: false }),
   ]);
+  type Mov = { id: string; quantity: number; movement_type: string; created_at: string; notes: string | null; reverses_movement_id: string | null; location: { name: string } | null; item: { description: string; unit: string } | null };
+  const movList = (moves.data ?? []) as unknown as Mov[];
+  const undone = new Set(movList.map((m) => m.reverses_movement_id).filter(Boolean));
   const list = (items.data ?? []) as Item[];
   const fe = entry.data as { id: string; open_amount: number; paid_amount: number; due_date: string | null; status: string } | null;
   const cancelled = ["cancelado", "cancelada"].includes(po.status);
@@ -62,6 +67,17 @@ export default async function PurchasePage({ params, searchParams }: { params: P
         {list.map((i) => <tr key={i.id} className="border-t border-sand"><td className="py-2">{i.description}</td><td>{i.category ?? "—"}</td><td className="text-right">{Number(i.purchased_quantity)} {i.unit}</td><td className="text-right">{Number(i.received_quantity)}</td><td className="text-right">{money(i.unit_price)}</td><td className="text-right font-bold">{money(i.total)}</td></tr>)}
       </tbody></table></div>
     </section>
+    {movList.some((m) => m.movement_type === "entrada") && <section className="card p-5"><h2 className="mb-3 font-black">Entradas no estoque</h2>
+      <ul className="divide-y divide-sand text-sm">{movList.filter((m) => m.movement_type === "entrada").map((m) => <li key={m.id} className="py-2">
+        <div className="flex flex-wrap justify-between gap-2"><span>{shortDate(m.created_at)} · {m.item?.description} · {Number(m.quantity)} {m.item?.unit} · {m.location?.name ?? "—"}</span>{undone.has(m.id) && <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Desfeita</span>}</div>
+        {!undone.has(m.id) && canEdit.data === true && <details className="mt-1"><summary className="cursor-pointer text-xs font-bold text-forest">Desfazer esta entrada</summary>
+          <form action={undoStockReceipt} className="mt-2 flex flex-wrap items-end gap-2">
+            <input type="hidden" name="movement_id" value={m.id} /><input type="hidden" name="_back" value={`/compras/${po.id}`} />
+            <input className="field flex-1" name="reason" aria-label="Motivo para desfazer" placeholder="Motivo (ex.: recebido no item errado)" required minLength={3} maxLength={500} />
+            <ConfirmButton formAction={undoStockReceipt} className="button-ghost text-red-700" message="Desfazer esta entrada? O material sai do estoque e volta a ficar pendente.">Desfazer</ConfirmButton>
+          </form></details>}
+      </li>)}</ul>
+    </section>}
     {canEdit.data === true && !cancelled && <section className="card p-5">
       <details><summary className="cursor-pointer font-black">Corrigir esta compra</summary>
         <PurchaseEditForm id={po.id} supplierId={po.supplier_id} suppliers={(suppliers.data ?? []) as { id: string; name: string }[]} expectedAt={po.expected_at ?? ""} notes={po.notes ?? ""} orderId={po.order_id ?? ""} orders={orderOptions} locked={received}
