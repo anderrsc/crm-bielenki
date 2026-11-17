@@ -161,3 +161,15 @@ test("venda manual pode ser corrigida e cancelada; venda de orçamento não", as
   await row("select cancel_manual_sale($1,'lançada errada')", [sale]);
   expect((await row("select status from financial_entries where sale_id=$1", [sale])).status).toBe("cancelado");
 });
+
+test("revisão: relatório não conta uso de crédito como saída de caixa e ajuste de estorno não é editável", async () => {
+  const before = (await row("select reporting_summary('2026-01-01','2026-12-31') r")).r;
+  const id = await entry("pagar", 100);
+  await row("select add_supplier_credit($1,100,'abatimento','2026-11-20',null,'devolução')", [supplier]);
+  await row("select use_supplier_credit($1,100,'2026-11-20')", [id]);
+  const after = (await row("select reporting_summary('2026-01-01','2026-12-31') r")).r;
+  expect(after).toHaveProperty("paid");
+  expect(Number(after.paid)).toBe(Number(before.paid));
+  const adj = await row("select id from supplier_credits where kind='ajuste' and payment_id is not null limit 1");
+  if (adj) await expect(row("select delete_supplier_credit($1,'teste')", [adj.id])).rejects.toThrow(/estorne a baixa/);
+});

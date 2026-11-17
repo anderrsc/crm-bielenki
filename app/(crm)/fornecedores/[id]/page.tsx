@@ -13,7 +13,7 @@ type Supplier = { id: string; name: string; tax_id: string | null; phone: string
 type Entry = { id: string; description: string; total_amount: number; paid_amount: number; open_amount: number; due_date: string | null; display_status: string };
 type Purchase = { id: string; order_number: string; total: number; paid_amount: number; open_amount: number; status: string; ordered_at: string | null; expected_at: string | null; received_at: string | null; order: { order_number: string } | null };
 type Pay = { id: string; amount: number; paid_at: string; payment_method: string | null; receiving_account_name: string | null; entry: { id: string; description: string } | null };
-type Move = { id: string; amount: number; kind: string; moved_at: string; notes: string | null; account_id: string | null };
+type Move = { id: string; amount: number; kind: string; moved_at: string; notes: string | null; account_id: string | null; payment_id: string | null; financial_entry_id: string | null };
 
 const KIND: Record<string, string> = { excedente: "Pago a mais", adiantamento: "Adiantamento", abatimento: "Abatimento/devolução", uso: "Usado em conta", estorno_uso: "Uso estornado", ajuste: "Ajuste" };
 const STATUS: Record<string, string> = { pago: "Pago", parcialmente_pago: "Parcial", aguardando_pagamento: "Aguardando", vence_hoje: "Vence hoje", vencido: "Vencido", cancelado: "Cancelado" };
@@ -32,7 +32,7 @@ export default async function SupplierPage({ params, searchParams }: { params: P
     db.from("v_financial_entries").select("id,description,total_amount,paid_amount,open_amount,due_date,display_status").eq("supplier_id", id).neq("display_status", "cancelado").order("due_date", { ascending: false, nullsFirst: true }).limit(30),
     db.from("purchase_orders").select("id,order_number,total,paid_amount,open_amount,status,ordered_at,expected_at,received_at,order:orders(order_number)").eq("supplier_id", id).order("created_at", { ascending: false }).limit(30),
     db.from("payments").select("id,amount,paid_at,payment_method,receiving_account_name,entry:financial_entries!inner(id,description,supplier_id)").eq("entry.supplier_id", id).is("reversed_at", null).order("paid_at", { ascending: false }).limit(20),
-    db.from("supplier_credits").select("id,amount,kind,moved_at,notes,account_id").eq("supplier_id", id).order("created_at", { ascending: false }).limit(20),
+    db.from("supplier_credits").select("id,amount,kind,moved_at,notes,account_id,payment_id,financial_entry_id").eq("supplier_id", id).order("created_at", { ascending: false }).limit(20),
     db.from("v_supplier_credit_balance").select("balance").eq("supplier_id", id).maybeSingle(),
     db.rpc("has_table_access", { resource: "financial_entries", action: "select" }),
     db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
@@ -97,7 +97,7 @@ export default async function SupplierPage({ params, searchParams }: { params: P
       <p className="mb-3 text-sm text-ink/60">Pago a mais, adiantamentos e abatimentos. É usado no &quot;Dar baixa&quot; das contas deste fornecedor ou na Nova compra.</p>
       {!!(moves.data ?? []).length && <ul className="mb-4 divide-y divide-sand text-sm">{((moves.data ?? []) as Move[]).map((m) => <li key={m.id} className="py-2">
         <div className="flex justify-between gap-2"><span>{shortDate(m.moved_at)} · {KIND[m.kind] ?? m.kind}{m.notes ? <span className="text-ink/50"> · {m.notes}</span> : null}</span><strong className={m.amount < 0 ? "text-ink/60" : "text-emerald-700"}>{money(m.amount)}</strong></div>
-        {canCredit === true && EDITABLE.has(m.kind) && <details className="mt-1"><summary className="cursor-pointer text-xs font-bold text-forest">Corrigir</summary>
+        {canCredit === true && EDITABLE.has(m.kind) && !m.payment_id && !m.financial_entry_id && <details className="mt-1"><summary className="cursor-pointer text-xs font-bold text-forest">Corrigir</summary>
           <form action={updateSupplierCredit} className="mt-2 grid gap-2 rounded-xl border border-sand p-3 sm:grid-cols-2">
             <input type="hidden" name="_back" value={self} /><input type="hidden" name="id" value={m.id} />
             <div><label className="label" htmlFor={`v-${m.id}`}>Valor</label><input id={`v-${m.id}`} className="field" name="amount" type="number" step="0.01" defaultValue={Number(m.amount)} required /></div>
