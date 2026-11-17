@@ -183,7 +183,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'create_gutter_quote', 'p_payload jsonb', '0be8894981a020041d555a259fdea23d'),
   ('public', 'create_gutter_quote_unchecked', 'p_payload jsonb', '370ee5b8d7fe55e8da66c41c11f74930'),
   ('public', 'create_manual_purchase', 'p_payload jsonb', '8fd7671f1adfabbab7826f6d27b80dc3'),
-  ('public', 'create_manual_purchase_unchecked', 'p_payload jsonb', '23367609c2e70f29837590ff927dce36'),
+  ('public', 'create_manual_purchase_unchecked', 'p_payload jsonb', 'b06cf3d7f5e83bb85ed0c66563e30bd2'),
   ('public', 'create_manual_sale', 'p_payload jsonb', 'afaacfe8b5cffe03a6e083e51079c331'),
   ('public', 'create_manual_sale_unchecked', 'p_payload jsonb', '6c01a89c38698385d2f4c69f9d1bfb00'),
   ('public', 'create_measurement_from_client', 'p_client_id uuid, p_scheduled_at timestamp with time zone', '4b4def00a673374884ae2638c84ea5d5'),

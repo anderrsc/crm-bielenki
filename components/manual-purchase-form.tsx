@@ -6,21 +6,96 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { createManualPurchase } from "@/app/(crm)/actions";
 import { money } from "@/lib/utils";
+import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { useMemo, useState } from "react";
-import type { ReactElement } from "react";
 
-type Supplier={id:string;name:string};type Material={id:string;name:string;unit:string};type Item={material_id:string;description:string;category:string;unit:string;quantity:number;unit_price:number;notes:string};
-const categories=["Perfis de alumínio","Parafusos","Silicone","PU","Borrachas","Acessórios","Ferramentas","Tintas e pintura","Vidros","Chapas de calha","Bobinas","Ferragens","Embalagens","Motores","Outros"];
-const blank=():Item=>({material_id:"",description:"",category:"Outros",unit:"un",quantity:1,unit_price:0,notes:""});
-export function ManualPurchaseForm({suppliers,materials,error}:{suppliers:Supplier[];materials:Material[];error?:string}){
-  const [items,setItems]=useState<Item[]>([blank()]);const [supplierId,setSupplierId]=useState("");const [expected,setExpected]=useState("");const [paid,setPaid]=useState(0);const [method,setMethod]=useState("Pix");const [notes,setNotes]=useState("");const rememberDraft=useErrorDraft("draft:compra-manual",{items,supplierId,expected,paid,method,notes},(d)=>{setItems(d.items);setSupplierId(d.supplierId);setExpected(d.expected);setPaid(d.paid);setMethod(d.method);setNotes(d.notes);});const total=useMemo(()=>items.reduce((sum,x)=>sum+x.quantity*x.unit_price,0),[items]);const payload=JSON.stringify({supplier_id:supplierId,expected_at:expected,paid_amount:paid,paid_at:todayISO(),payment_method:method,notes,items});
-  const update=(index:number,key:keyof Item,value:string)=>setItems(current=>current.map((x,i)=>{if(i!==index)return x;const next={...x,[key]:["quantity","unit_price"].includes(key)?Number(value):value} as Item;if(key==="material_id"&&value){const material=materials.find(m=>m.id===value);if(material){next.description=material.name;next.unit=material.unit}}return next}));
-  return <div className="mx-auto max-w-6xl"><Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4"/>Voltar</Link><div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-black">Nova compra</h1><p className="mt-1 text-sm text-ink/50">Perfis, parafusos, vedantes, tintas, borrachas, acessórios, ferramentas e outros materiais.</p></div>{error&&<p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    <form onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 xl:grid-cols-[1fr_330px]"><input type="hidden" name="payload" value={payload}/><div className="space-y-4"><div className="card p-5"><label className="label">Fornecedor</label><select aria-label="Fornecedor" className="field" value={supplierId} onChange={e=>setSupplierId(e.target.value)} required><option value="">Selecione</option>{suppliers.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></div>{items.map((item,index)=><div className="card p-5" key={index}><div className="mb-4 flex justify-between"><b>Item {index+1}</b><button type="button" disabled={items.length===1} className="button-ghost p-2 text-red-600" onClick={()=>setItems(x=>x.filter((_,i)=>i!==index))}><Trash2 className="h-4 w-4"/></button></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="sm:col-span-2"><label className="label">Material existente (opcional)</label><select aria-label="Material existente" className="field" value={item.material_id} onChange={e=>update(index,"material_id",e.target.value)}><option value="">Cadastrar pelo nome abaixo</option>{materials.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></div><Field label="Descrição do material" value={item.description} onChange={v=>update(index,"description",v)}/><div><label className="label">Categoria</label><select className="field" value={item.category} onChange={e=>update(index,"category",e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></div><Field label="Unidade" value={item.unit} onChange={v=>update(index,"unit",v)}/><Number label="Quantidade" value={item.quantity} onChange={v=>update(index,"quantity",v)}/><Number label="Valor unitário" value={item.unit_price} onChange={v=>update(index,"unit_price",v)}/><Field required={false} label="Observação" value={item.notes} onChange={v=>update(index,"notes",v)}/></div><p className="mt-3 text-right font-black">{money(item.quantity*item.unit_price)}</p></div>)}<button type="button" className="button-ghost w-full border-dashed" onClick={()=>setItems(x=>[...x,blank()])}><Plus className="h-4 w-4"/>Adicionar item</button></div>
-      <aside className="card h-fit p-5 xl:sticky xl:top-24"><h2 className="font-black">Resumo da compra</h2><p className="mt-4 text-3xl font-black text-forest">{money(total)}</p><div className="mt-5 space-y-4"><Number label="Valor já pago" value={paid} onChange={v=>setPaid(Number(v))}/><div><label className="label">Previsão de chegada</label><input className="field" type="date" value={expected} onChange={e=>setExpected(e.target.value)}/></div><div><label className="label">Forma de pagamento</label><select className="field" value={method} onChange={e=>setMethod(e.target.value)}>{["Pix","Dinheiro","Cartão de crédito","Boleto","Transferência","Prazo com fornecedor","Outro"].map(x=><option key={x}>{x}</option>)}</select></div><div><label className="label">Observações</label><textarea className="field min-h-24" value={notes} onChange={e=>setNotes(e.target.value)}/></div><button disabled={!supplierId||total<=0||paid>total||paid<0||items.some(x=>!x.description.trim()||x.quantity<=0||x.unit_price<0||!globalThis.Number.isFinite(x.quantity*x.unit_price))} className="button w-full"><Save className="h-4 w-4"/>Cadastrar compra</button></div></aside></form>
+type Supplier = { id: string; name: string; credit?: number };
+type Material = { id: string; name: string; unit: string };
+type Item = { category: string; description: string; quantity: number; unit_price: number };
+type PaidMode = "total" | "parte" | "nao";
+
+// Tipos do que se compra na Marquinhos; "Outro" pede para digitar.
+export const PURCHASE_TYPES = ["Perfil", "Acessório", "Componentes para calhas", "Componentes para esquadrias", "Alumínio bobina", "Cano", "Material elétrico/eletrônico", "Outro"];
+const METHODS = ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Boleto", "Transferência", "Cheque", "Outro"];
+const blank = (): Item => ({ category: "Perfil", description: "", quantity: 1, unit_price: 0 });
+const round = (n: number) => Math.round(n * 100) / 100;
+
+export function ManualPurchaseForm({ suppliers, error }: { suppliers: Supplier[]; materials?: Material[]; error?: string }) {
+  const [items, setItems] = useState<Item[]>([blank()]);
+  const [supplierId, setSupplierId] = useState("");
+  const [mode, setMode] = useState<PaidMode>("total");
+  const [paid, setPaid] = useState(0);
+  const [paidAt, setPaidAt] = useState(todayISO());
+  const [method, setMethod] = useState("Pix");
+  const [account, setAccount] = useState("");
+  const [due, setDue] = useState("");
+  const [useCredit, setUseCredit] = useState(false);
+  const [notes, setNotes] = useState("");
+  const rememberDraft = useErrorDraft("draft:compra-manual-v2", { items, supplierId, mode, paid, paidAt, method, due, notes }, (d) => {
+    setItems(d.items); setSupplierId(d.supplierId); setMode(d.mode); setPaid(d.paid); setPaidAt(d.paidAt); setMethod(d.method); setDue(d.due); setNotes(d.notes);
+  });
+  const total = useMemo(() => round(items.reduce((sum, x) => sum + x.quantity * x.unit_price, 0)), [items]);
+  const credit = suppliers.find((s) => s.id === supplierId)?.credit ?? 0;
+  const creditUsed = useCredit ? round(Math.min(credit, total)) : 0;
+  const payNow = mode === "nao" ? 0 : mode === "total" ? round(total - creditUsed) : paid;
+  const balance = round(total - creditUsed - payNow); // >0 devendo, <0 credito
+  const invalidItem = items.some((x) => (x.category === "Outro" && !x.description.trim()) || x.quantity <= 0 || x.unit_price < 0 || !Number.isFinite(x.quantity * x.unit_price));
+  const payload = JSON.stringify({
+    supplier_id: supplierId, paid_amount: payNow, paid_at: paidAt, payment_method: method, receiving_account_id: payNow > 0 ? account : "",
+    use_credit: creditUsed, due_date: balance > 0 ? due : "", notes,
+    items: items.map((x) => ({ category: x.category, description: x.description.trim() || x.category, unit: "un", quantity: x.quantity, unit_price: x.unit_price, notes: "" })),
+  });
+  const update = (index: number, patch: Partial<Item>) => setItems((current) => current.map((x, i) => (i === index ? { ...x, ...patch } : x)));
+
+  return <div className="mx-auto max-w-5xl">
+    <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+    <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-black">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
+    {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    <form onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 lg:grid-cols-[1fr_340px]">
+      <input type="hidden" name="payload" value={payload} />
+      <div className="space-y-4">
+        <div className="card p-5"><label className="label" htmlFor="compra-fornecedor">Fornecedor</label>
+          <select id="compra-fornecedor" aria-label="Fornecedor" className="field" value={supplierId} onChange={(e) => { setSupplierId(e.target.value); setUseCredit(false); }} required>
+            <option value="">Selecione</option>{suppliers.map((x) => <option value={x.id} key={x.id}>{x.name}</option>)}
+          </select>
+          {credit > 0 && <label className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-sm font-bold text-emerald-800"><input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />Usar crédito que o fornecedor tem ({money(credit)})</label>}
+        </div>
+        {items.map((item, index) => <div className="card p-5" key={index}>
+          <div className="mb-3 flex items-center justify-between"><b>{items.length > 1 ? `Item ${index + 1}` : "O que está comprando"}</b>
+            {items.length > 1 && <button type="button" aria-label="Remover item" className="button-ghost p-2 text-red-600" onClick={() => setItems((x) => x.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></button>}</div>
+          <div className="mb-3 flex flex-wrap gap-2">{PURCHASE_TYPES.map((t) => <button type="button" key={t} onClick={() => update(index, { category: t })} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${item.category === t ? "border-forest bg-brand-strong text-white" : "border-sand bg-surface hover:bg-cream"}`}>{t}</button>)}</div>
+          <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr]">
+            <div><label className="label" htmlFor={`desc-${index}`}>Descrição do material</label><input id={`desc-${index}`} aria-label="Descrição do material" className="field" value={item.description} onChange={(e) => update(index, { description: e.target.value })} required={item.category === "Outro"} placeholder={item.category === "Outro" ? "Digite o que está comprando" : `${item.category} (opcional: detalhe)`} /></div>
+            <div><label className="label" htmlFor={`qtd-${index}`}>Quantidade</label><input id={`qtd-${index}`} aria-label="Quantidade" className="field" type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => update(index, { quantity: Number(e.target.value) })} required /></div>
+            <div><label className="label" htmlFor={`val-${index}`}>Valor unitário</label><input id={`val-${index}`} aria-label="Valor unitário" className="field" type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => update(index, { unit_price: Number(e.target.value) })} required /></div>
+          </div>
+          {items.length > 1 && <p className="mt-2 text-right text-sm font-black">{money(item.quantity * item.unit_price)}</p>}
+        </div>)}
+        <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems((x) => [...x, blank()])}><Plus className="h-4 w-4" />Adicionar outro item</button>
+        <div className="card p-5"><label className="label" htmlFor="compra-obs">Observações</label><textarea id="compra-obs" className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+      </div>
+
+      <aside className="card h-fit space-y-4 p-5 lg:sticky lg:top-24">
+        <div><h2 className="font-black">Total da compra</h2><p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>{creditUsed > 0 && <p className="text-sm text-emerald-700">− {money(creditUsed)} de crédito</p>}</div>
+        <fieldset><legend className="label">Pagou?</legend>
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1 text-sm font-bold">
+            {([["total", "Pagou tudo"], ["parte", "Outro valor"], ["nao", "Não pagou"]] as [PaidMode, string][]).map(([v, l]) => <button type="button" key={v} onClick={() => { setMode(v); if (v === "parte") setPaid(round(total - creditUsed)); }} className={`rounded-lg px-2 py-2 ${mode === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
+          </div>
+        </fieldset>
+        {mode === "parte" && <div><label className="label" htmlFor="compra-pago">Valor pago</label><input id="compra-pago" aria-label="Valor já pago" className="field" type="number" min="0" step="0.01" value={paid} onChange={(e) => setPaid(Number(e.target.value))} required /></div>}
+        {mode !== "nao" && <>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label" htmlFor="compra-metodo">Como pagou</label><select id="compra-metodo" className="field" value={method} onChange={(e) => setMethod(e.target.value)}>{METHODS.map((x) => <option key={x}>{x}</option>)}</select></div>
+            <div><label className="label" htmlFor="compra-data">Quando</label><input id="compra-data" className="field" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} required /></div>
+          </div>
+          <div><label className="label">Conta que pagou</label><ReceivingAccountSelect name="_conta" value={account} onChange={setAccount} className="field" /></div>
+        </>}
+        {total > 0 && <div className={`rounded-xl p-3 text-sm font-bold ${balance > 0 ? "bg-amber-50 text-amber-800" : balance < 0 ? "bg-emerald-50 text-emerald-800" : "bg-cream text-ink/70"}`}>
+          {balance > 0 ? `Fica devendo ${money(balance)} ao fornecedor` : balance < 0 ? `Fica ${money(-balance)} de crédito com o fornecedor` : "Compra quitada"}
+        </div>}
+        {balance > 0 && <div><label className="label" htmlFor="compra-venc">Vencimento do que ficou devendo</label><input id="compra-venc" className="field" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
+        <button disabled={!supplierId || total <= 0 || payNow < 0 || invalidItem} className="button w-full"><Save className="h-4 w-4" />Cadastrar compra</button>
+      </aside>
+    </form>
   </div>;
 }
-function Field({label,value,onChange,required=true}:{label:string;value:string;onChange:(v:string)=>void;required?:boolean}){return <div><label className="label">{label}</label><input aria-label={label} className="field" value={value} onChange={e=>onChange(e.target.value)} required={required}/></div>}
-function Number(value:string):number;
-function Number(props:{label:string;value:number;onChange:(v:string)=>void}):ReactElement;
-function Number(input:string|{label:string;value:number;onChange:(v:string)=>void}){if(typeof input==="string")return globalThis.Number(input);const{label,value,onChange}=input;return <div><label className="label">{label}</label><input aria-label={label} className="field" type="number" min="0" step="0.001" value={value} onChange={e=>onChange(e.target.value)} required/></div>}

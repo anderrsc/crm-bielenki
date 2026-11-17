@@ -68,3 +68,18 @@ test("adiantamento exige conta, ajuste não deixa saldo negativo", async () => {
   await row("select add_supplier_credit($1,-400,'ajuste',null,null,'zerar')", [supplier]);
   expect(await balance()).toBe(0);
 });
+
+test("compra manual: pagou a mais vira crédito, pagou menos fica devendo com vencimento", async () => {
+  const buy = async (payload: object) => (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, items: [{ category: "Perfil", description: "Perfil", quantity: 1, unit_price: 500 }], ...payload })])).id;
+  const entryOf = async (po: string) => row("select open_amount, due_date::text due from financial_entries where purchase_order_id=$1", [po]);
+  const before = await balance();
+  const a = await buy({ paid_amount: 600, paid_at: "2026-11-08", payment_method: "Pix", receiving_account_id: banco });
+  expect(Number((await entryOf(a)).open_amount)).toBe(0);
+  expect(await balance()).toBe(before + 100);
+  expect((await row("select receiving_account_id from payments p join financial_entries e on e.id=p.financial_entry_id where e.purchase_order_id=$1", [a])).receiving_account_id).toBe(banco);
+  const b = await buy({ paid_amount: 200, due_date: "2026-12-10" });
+  expect(await entryOf(b)).toMatchObject({ open_amount: "300.00", due: "2026-12-10" });
+  const c = await buy({ paid_amount: 0, use_credit: 100 });
+  expect(Number((await entryOf(c)).open_amount)).toBe(400);
+  expect(await balance()).toBe(before);
+});
