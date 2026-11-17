@@ -209,9 +209,9 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     return <ManualSaleForm clients={clients} saleTypes={saleTypes} error={search.erro}/>;
   }
   if (path[0] === "compras" && path[1] === "nova") {
-    let suppliers:{id:string;name:string}[]=[];let materials:{id:string;name:string;unit:string}[]=[];
-    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [supplierResult,materialResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("materials").select("id,name,unit").eq("active",true).order("name")]);suppliers=supplierResult.data??[];materials=materialResult.data??[];}
-    return <ManualPurchaseForm suppliers={suppliers} materials={materials} error={search.erro}/>;
+    let suppliers:{id:string;name:string;credit?:number}[]=[];
+    if(process.env.NEXT_PUBLIC_SUPABASE_URL){const db=await getRequestClient();const [supplierResult,creditResult]=await Promise.all([db.from("suppliers").select("id,name").eq("status","ativo").order("name"),db.from("v_supplier_credit_balance").select("supplier_id,balance").gt("balance",0)]);const credit=new Map(((creditResult.data??[]) as {supplier_id:string;balance:number}[]).map(c=>[c.supplier_id,Number(c.balance)]));suppliers=(supplierResult.data??[]).map(s=>({...s,credit:credit.get(s.id)??0}));}
+    return <ManualPurchaseForm suppliers={suppliers} error={search.erro}/>;
   }
   if (path[0] === "clientes" && path[1] && path[2] === "ficha-visita") {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return notFound();
