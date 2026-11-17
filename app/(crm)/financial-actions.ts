@@ -63,3 +63,29 @@ export async function createFinancialEntry(formData: FormData) {
   redirect(`${q(back)}criado=1`);
 }
 
+
+// Corrigir/cancelar conta lançada errado (tela da conta).
+export async function editFinancialEntry(formData: FormData) {
+  const raw = Object.fromEntries(formData);
+  const id = String(raw.id ?? "");
+  const back = `/financeiro/lancamento/${z.uuid().safeParse(id).success ? id : ""}`;
+  const total = raw.total_amount === undefined || raw.total_amount === "" ? null : Number(String(raw.total_amount).replace(",", "."));
+  const p = z.object({ id: z.uuid(), description: z.string().trim().min(2).max(300), due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).default(""), notes: z.string().max(2000).default(""), party_id: z.uuid().or(z.literal("")).default("") }).safeParse(raw);
+  if (!p.success || (total !== null && !(Number.isFinite(total) && total > 0))) redirect(`${q(back)}erro=${encodeURIComponent("Revise descrição, valor e vencimento")}`);
+  const db = await createClient();
+  const { error } = await db.rpc("update_financial_entry", { p_id: p.data.id, p_description: p.data.description, p_total: total, p_due_date: p.data.due_date || null, p_notes: p.data.notes, p_party: p.data.party_id || null });
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
+  for (const r of ["/financeiro", "/financeiro/pagar", "/financeiro/receber", "/financeiro/caixa", back]) revalidatePath(r);
+  redirect(`${q(back)}ok=${encodeURIComponent("Conta corrigida")}`);
+}
+
+export async function cancelFinancialEntry(formData: FormData) {
+  const p = z.object({ id: z.uuid(), reason: z.string().trim().min(3).max(500) }).safeParse(Object.fromEntries(formData));
+  const back = `/financeiro/lancamento/${p.success ? p.data.id : ""}`;
+  if (!p.success) redirect(`${q(back)}erro=${encodeURIComponent("Informe o motivo do cancelamento")}`);
+  const db = await createClient();
+  const { error } = await db.rpc("cancel_financial_entry", { p_id: p.data.id, p_reason: p.data.reason });
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
+  for (const r of ["/financeiro", "/financeiro/pagar", "/financeiro/receber", "/financeiro/caixa", back]) revalidatePath(r);
+  redirect(`${q(back)}ok=${encodeURIComponent("Conta cancelada")}`);
+}

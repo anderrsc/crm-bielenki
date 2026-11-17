@@ -94,3 +94,33 @@ test("compra manual ligada a um pedido grava o pedido e a previsão de entrega",
   expect(await row("select order_id, client_id, description from purchase_order_items where purchase_order_id=$1", [po])).toMatchObject({ order_id: order, client_id: client, description: "Cano" });
   await expect(row("select create_manual_purchase($1::jsonb)", [JSON.stringify({ supplier_id: supplier, order_id: "00000000-0000-4000-8000-000000000999", items: [{ category: "Cano", quantity: 1, unit_price: 1 }] })])).rejects.toThrow(/Pedido inválido/);
 });
+
+test("crédito lançado errado pode ser corrigido ou excluído; o da baixa não", async () => {
+  const id = (await row("select add_supplier_credit($1,3000,'adiantamento','2026-11-17',$2,'cheque') id", [supplier, banco])).id;
+  const start = await balance();
+  await row("select update_supplier_credit($1,1190,'2026-11-16',$2,'cheque de R$ 1.190')", [id, banco]);
+  expect(await balance()).toBe(start - 1810);
+  expect(await row("select amount, moved_at::text d from supplier_credits where id=$1", [id])).toMatchObject({ amount: "1190.00", d: "2026-11-16" });
+  expect(Number((await row("select count(*) n from audit_logs where record_id=$1 and action='UPDATE'", [id])).n)).toBe(1);
+  const fromPayment = (await row("select id from supplier_credits where kind='excedente' limit 1")).id;
+  await expect(row("select update_supplier_credit($1,1,null,null,'x y z')", [fromPayment])).rejects.toThrow(/estorne a baixa/);
+  await row("select delete_supplier_credit($1,'lançado em duplicidade')", [id]);
+  expect(await balance()).toBe(start - 3000);
+});
+
+test("conta avulsa pode ser corrigida e cancelada; conta de compra só descrição/vencimento", async () => {
+  const id = (await row("insert into financial_entries(company_id,entry_type,origin,description,total_amount,supplier_id) values($1,'pagar','manual','Aluguel',1000,$2) returning id", [company, supplier])).id;
+  await row("select update_financial_entry($1,'Aluguel novembro',1200,'2026-11-30','corrigido',$2)", [id, other]);
+  expect(await row("select description, total_amount, due_date::text d, supplier_id from financial_entries where id=$1", [id])).toMatchObject({ description: "Aluguel novembro", total_amount: "1200.00", d: "2026-11-30", supplier_id: other });
+  const pid = (await row("select register_payment($1,500,'2026-11-10','pix',null) id", [id])).id;
+  await expect(row("select update_financial_entry($1,'Aluguel',400,null,null)", [id])).rejects.toThrow(/menor que o já pago/);
+  await expect(row("select cancel_financial_entry($1,'duplicada')", [id])).rejects.toThrow(/Estorne/);
+  await row("select reverse_payment($1,'errado')", [pid]);
+  await row("select cancel_financial_entry($1,'duplicada')", [id]);
+  expect((await row("select status from financial_entries where id=$1", [id])).status).toBe("cancelado");
+  const po = (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, items: [{ category: "Cano", quantity: 1, unit_price: 80 }] })])).id;
+  const fe = (await row("select id from financial_entries where purchase_order_id=$1", [po])).id;
+  await expect(row("select update_financial_entry($1,'Compra',90,null,null)", [fe])).rejects.toThrow(/venda\/compra/);
+  await row("select update_financial_entry($1,'Compra de cano',80,'2026-12-05',null)", [fe]);
+  expect((await row("select description from financial_entries where id=$1", [fe])).description).toBe("Compra de cano");
+});

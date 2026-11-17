@@ -1,4 +1,5 @@
 // Crédito com fornecedores: saldo por fornecedor, últimos movimentos e lançamento manual.
+import Link from "next/link";
 import { addSupplierCredit } from "@/app/(crm)/supplier-credit-actions";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
 import { getRequestClient } from "@/lib/supabase/server";
@@ -24,7 +25,7 @@ export async function SupplierCredits({ canManage, back = "/financeiro/pagar" }:
     <details className="card mb-6 p-4" id="creditos-fornecedores">
       <summary className="cursor-pointer font-bold">Créditos com fornecedores {total > 0 && <span className="ml-2 rounded-lg bg-emerald-50 px-2 py-0.5 text-sm text-emerald-700">{money(total)}</span>}</summary>
       <p className="mt-3 text-sm text-ink/60">Quando você paga a mais, adianta ou o fornecedor dá um abatimento, o valor fica aqui e é usado no &quot;Dar baixa&quot; das próximas contas desse fornecedor.</p>
-      {list.length ? <ul className="mt-3 divide-y divide-sand text-sm">{list.map(b => <li key={b.supplier_id} className="flex justify-between py-2"><span>{b.supplier_name}</span><strong className="text-emerald-700">{money(b.balance)}</strong></li>)}</ul>
+      {list.length ? <ul className="mt-3 divide-y divide-sand text-sm">{list.map(b => <li key={b.supplier_id} className="flex justify-between py-2"><Link className="hover:underline" href={`/fornecedores/${b.supplier_id}`}>{b.supplier_name}</Link><strong className="text-emerald-700">{money(b.balance)}</strong></li>)}</ul>
         : <p className="mt-3 text-sm text-ink/45">Nenhum fornecedor com crédito.</p>}
       {canManage && names.size === 0 && <p className="mt-4 text-sm text-ink/45">Cadastre um fornecedor para lançar crédito.</p>}
       {canManage && names.size > 0 && <form action={addSupplierCredit} className="mt-4 grid gap-3 rounded-xl border border-sand p-3 sm:grid-cols-2">
@@ -39,7 +40,7 @@ export async function SupplierCredits({ canManage, back = "/financeiro/pagar" }:
         <button className="button sm:col-span-2">Lançar crédito</button>
       </form>}
       {!!(moves ?? []).length && <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[480px] text-sm"><caption className="sr-only">Últimos movimentos de crédito</caption><thead><tr className="text-left text-xs text-ink/50"><th className="py-1">Data</th><th>Fornecedor</th><th>Movimento</th><th className="text-right">Valor</th></tr></thead><tbody>
-        {((moves ?? []) as Move[]).map(m => <tr key={m.id} className="border-t border-sand"><td className="py-2">{shortDate(m.moved_at)}</td><td>{names.get(m.supplier_id) ?? "—"}</td><td title={m.notes ?? ""}>{KIND[m.kind] ?? m.kind}</td><td className={`text-right font-bold ${m.amount < 0 ? "text-ink/60" : "text-emerald-700"}`}>{money(m.amount)}</td></tr>)}
+        {((moves ?? []) as Move[]).map(m => <tr key={m.id} className="border-t border-sand"><td className="py-2">{shortDate(m.moved_at)}</td><td><Link className="hover:underline" href={`/fornecedores/${m.supplier_id}`}>{names.get(m.supplier_id) ?? "—"}</Link></td><td title={m.notes ?? ""}>{KIND[m.kind] ?? m.kind}</td><td className={`text-right font-bold ${m.amount < 0 ? "text-ink/60" : "text-emerald-700"}`}>{money(m.amount)}</td></tr>)}
       </tbody></table></div>}
     </details>
   );
