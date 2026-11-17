@@ -173,3 +173,24 @@ test("revisão: relatório não conta uso de crédito como saída de caixa e aju
   const adj = await row("select id from supplier_credits where kind='ajuste' and payment_id is not null limit 1");
   if (adj) await expect(row("select delete_supplier_credit($1,'teste')", [adj.id])).rejects.toThrow(/estorne a baixa/);
 });
+
+test("desfazer entrada no estoque e voltar etapa da produção", async () => {
+  const loc = (await row("insert into stock_locations(company_id,name) values($1,'Depósito') returning id", [company])).id;
+  const po = (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, items: [{ category: "Cano", description: "Cano 100", quantity: 5, unit_price: 10 }] })])).id;
+  const item = (await row("select id, material_id from purchase_order_items where purchase_order_id=$1", [po]));
+  const mov = (await row("select receive_purchase_item($1,5,$2) id", [item.id, loc])).id;
+  expect((await row("select status from purchase_orders where id=$1", [po])).status).toBe("recebido_completo");
+  await row("select undo_stock_receipt($1,'lançado no item errado')", [mov]);
+  expect(await row("select received_quantity, status from purchase_order_items where id=$1", [item.id])).toMatchObject({ received_quantity: "0.000", status: "comprado" });
+  expect((await row("select status from purchase_orders where id=$1", [po])).status).toBe("pedido_enviado_ao_fornecedor");
+  expect(Number((await row("select balance from v_stock_balance where id=$1 and location='Depósito'", [item.material_id])).balance)).toBe(0);
+  await expect(row("select undo_stock_receipt($1,'de novo')", [mov])).rejects.toThrow(/já foi desfeita/);
+
+  const client = (await row("insert into clients(company_id,name) values($1,'Cliente Prod') returning id", [company])).id;
+  const st = (await row("select id from sale_types where company_id=$1 limit 1", [company])).id;
+  const sale = (await row("insert into sales(company_id,sale_number,client_id,sale_type_id,total) values($1,'VEN-P-1',$2,$3,100) returning id", [company, client, st])).id;
+  const order = (await row("insert into orders(company_id,order_number,sale_id,client_id,sale_type_id,op_stage) values($1,'PED-P-1',$2,$3,$4,'liberado_corte') returning id", [company, sale, client, st])).id;
+  const prod = (await row("insert into production_orders(company_id,production_number,order_id,flow_type,current_step,status) values($1,'PRD-P-1',$2,'calhas',3,'em_producao') returning id", [company, order])).id;
+  expect((await row("select production_step_back($1,'corte refeito') s", [prod])).s).toBe(2);
+  expect(Number((await row("select current_step from production_orders where id=$1", [prod])).current_step)).toBe(2);
+});
