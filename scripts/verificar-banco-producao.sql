@@ -309,7 +309,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'update_financial_entry', 'p_id uuid, p_description text, p_total numeric, p_due_date date, p_notes text, p_party uuid', 'a0ed50b296e8b1c0368223963082ca63'),
   ('public', 'update_gutter_quote', 'p_quote_id uuid, p_payload jsonb', '5883b068a5d4bf0d902cb5001000114b'),
   ('public', 'update_manual_sale', 'p_id uuid, p_payload jsonb', '381ae5c2237c74ef2c7c9d1bc3904f74'),
-  ('public', 'update_purchase_order', 'p_id uuid, p_payload jsonb', 'c6ce37351394d3051df086910bddb317'),
+  ('public', 'update_purchase_order', 'p_id uuid, p_payload jsonb', '7a20ae68abd22ba617631bbaf1409f81'),
   ('public', 'update_supplier_credit', 'p_id uuid, p_amount numeric, p_date date, p_account uuid, p_notes text', '20d2bedb4cdb4f048461886f5f5c5b9e'),
   ('public', 'use_supplier_credit', 'p_entry_id uuid, p_amount numeric, p_date date', 'b4616e34433859e8a3bbe8d65205c12b'),
   ('public', 'validate_financial_classification', '', '2571396d12a0036c6dfa770d4b875d36'),

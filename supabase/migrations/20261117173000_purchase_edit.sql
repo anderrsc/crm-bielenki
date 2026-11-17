@@ -39,7 +39,7 @@ begin
     end loop;
   end if;
   select round(coalesce(sum(total),0),2) into new_total from public.purchase_order_items where purchase_order_id = po.id;
-  if new_total <= 0 then raise exception 'A compra precisa ter valor'; end if;
+  if new_total <= 0 and po.total > 0 then raise exception 'A compra precisa ter valor'; end if;
   if e.id is not null and new_total < e.paid_amount then raise exception 'O novo total (%) é menor que o já pago (%). Estorne o pagamento antes', new_total, e.paid_amount; end if;
   update public.purchase_orders set total = new_total, supplier_id = coalesce(supplier, supplier_id),
     expected_at = case when p_payload ? 'expected_at' then nullif(p_payload->>'expected_at','')::date else expected_at end,
