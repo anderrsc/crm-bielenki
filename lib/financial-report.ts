@@ -1,7 +1,7 @@
 import {buildDre,monthsBetween,type DreLine} from '@/lib/financial-dre';
 import {currentBalance,projectScenario,weeklyProjection,SCENARIOS,type CashOverview,type ScenarioKey} from '@/lib/cash-flow';
 import {validIsoDate} from '@/lib/valid-date';
-export const REPORTS={executivo:'Resumo financeiro executivo',mensal:'Resultado mensal',dre:'DRE gerencial',caixa:'Fluxo de caixa',vencidos:'Contas vencidas',fornecedores:'Contas por fornecedor',clientes:'Recebimentos por cliente',obras:'Resultado por obra',setores:'Resultado por setor',fabricacao:'Custos de fabricação',instalacao:'Custos de instalação',veiculos:'Despesas com veículos',materiais:'Evolução do custo dos materiais',extraordinarias:'Despesas extraordinárias',orcado_realizado:'Contratado x custos lançados'} as const;
+export const REPORTS={executivo:'Resumo financeiro executivo',mensal:'Resultado mensal',dre:'DRE gerencial',caixa:'Fluxo de caixa',vencidos:'Contas vencidas',fornecedores:'Fornecedores: dívidas e créditos',clientes:'Recebimentos por cliente',obras:'Resultado por obra',setores:'Resultado por setor',fabricacao:'Custos de fabricação',instalacao:'Custos de instalação',veiculos:'Despesas com veículos',materiais:'Evolução do custo dos materiais',extraordinarias:'Despesas extraordinárias',orcado_realizado:'Contratado x custos lançados'} as const;
 export type ReportKind=keyof typeof REPORTS;
 export type ReportFilters={kind:ReportKind;from:string;to:string;saleType:string;days:number;scenario:ScenarioKey};
 export type ReportColumn={key:string;label:string;format?:'money'|'number'|'date'|'unitcost'};
@@ -49,8 +49,8 @@ export function buildFinancialReport(f:ReportFilters,data:any,generatedAt=new Da
   report.criteria+=' Vencimento no período, anterior à geração; saldo em aberto, sem cancelados.';
   report.columns=[col('description','Descrição'),col('pessoa','Cliente / fornecedor'),col('tipo','Tipo'),col('due_date','Vencimento','date'),moneyCol('total','Total'),moneyCol('pago','Pago'),moneyCol('aberto','Em aberto')];report.rows=data;
  }else if(f.kind==='fornecedores'){
-  report.criteria+=' Contas a pagar por vencimento, sem cancelados. Quantidade de contas, sem duplicar baixas.';
-  report.columns=[col('fornecedor','Fornecedor'),col('quantidade','Contas','number'),moneyCol('total','Total'),moneyCol('pago','Pago'),moneyCol('aberto','Em aberto')];report.rows=data;
+  report.criteria+=' Contas a pagar por vencimento, sem cancelados. Crédito = saldo atual com o fornecedor (pago a mais, adiantamentos e abatimentos). Saldo = em aberto menos crédito: positivo é dívida, negativo é crédito a usar.';
+  report.columns=[col('fornecedor','Fornecedor'),col('quantidade','Contas','number'),moneyCol('total','Total'),moneyCol('pago','Pago'),moneyCol('aberto','Em aberto'),moneyCol('vencido','Vencido'),moneyCol('credito','Crédito'),moneyCol('saldo','Saldo (deve − crédito)')];report.rows=data;
  }else if(f.kind==='clientes'){
   report.criteria+=' Data efetiva da baixa; estornos excluídos.';report.columns=[col('cliente','Cliente'),col('baixas','Baixas','number'),moneyCol('recebido','Recebido')];report.rows=data;
  }else if(['obras','setores','orcado_realizado'].includes(f.kind)){

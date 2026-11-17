@@ -5,6 +5,7 @@ import { loadSaleWorkspace, type SaleWorkspaceData, type SaleEntry } from "@/lib
 import { money, shortDate } from "@/lib/utils";
 import { StatusBadge } from "./status-badge";
 import { PaymentDialog } from "./payment-dialog";
+import { SaleCorrection } from "./sale-correction";
 import { ConfirmButton } from "./confirm-button";
 import { toggleChecklistItem } from "@/app/(crm)/actions";
 import { OrderOperationCard } from "./order-operation-card";
@@ -16,7 +17,7 @@ export async function SaleDetail({ id, error, received, notice }: { id: string; 
   const data = await loadSaleWorkspace(db, id);
   if (!data) return <MissingSale />;
   const operation = data.order ? await loadOrderOperation(db, data.order.id).catch(() => null) : null;
-  return <SaleWorkspace data={data} error={error} received={received} notice={notice} operation={operation} />;
+  return <><SaleWorkspace data={data} error={error} received={received} notice={notice} operation={operation} />{await SaleCorrection({ saleId: id })}</>;
 }
 
 export function SaleWorkspace({ data, error, received, notice, operation }: { data: SaleWorkspaceData; error?: string; received?: boolean; notice?: string; operation?: OrderOperationData | null }) {

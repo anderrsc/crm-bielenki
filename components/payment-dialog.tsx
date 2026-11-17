@@ -17,7 +17,7 @@ export function PaymentDialog({ entryId, openAmount, entryType="receber", intere
   const creditUse = Math.min(supplierCredit, openAmount);
   // Sem destino fixo: volta para a mesma pagina/aba em que a baixa foi feita.
   const [here, setHere] = useState("/financeiro");
-  useEffect(() => { if (open) setHere(window.location.pathname + window.location.search); }, [open]);
+  useEffect(() => { if (open) { setHere(window.location.pathname + window.location.search); setAmount(openAmount); } }, [open, openAmount]);
   useEffect(() => {
     if (!open) return;
     const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);

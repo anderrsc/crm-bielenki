@@ -10,11 +10,12 @@ import { PaymentDialog } from "@/components/payment-dialog";
 import { RescheduleDialog } from "@/components/reschedule-dialog";
 import { ConfirmButton } from "@/components/confirm-button";
 import { reversePayment } from "@/app/(crm)/actions";
+import { cancelFinancialEntry, editFinancialEntry } from "@/app/(crm)/financial-actions";
 
 type Entry = {
   id: string; description: string; entry_type: string; origin: string | null; total_amount: number; paid_amount: number; open_amount: number;
   interest_amount: number; discount_amount: number; installment_count: number; first_installment_due_date: string | null; due_date: string | null;
-  display_status: string; notes: string | null; client_id: string | null; supplier_id: string | null; sale_id: string | null; purchase_order_id: string | null;
+  display_status: string; status: string; notes: string | null; client_id: string | null; supplier_id: string | null; sale_id: string | null; purchase_order_id: string | null;
   client_name: string | null; supplier_name: string | null; category_name: string | null; cost_center_name: string | null; created_at: string;
 };
 type Payment = { id: string; amount: number; paid_at: string; payment_method: string | null; receiving_account_name: string | null; notes: string | null; reversed_at: string | null; reversal_notes?: string | null };
@@ -30,11 +31,12 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
   const { data: entry } = await db.from("v_financial_entries").select("*").eq("id", id).maybeSingle();
   if (!entry) notFound();
   const e = entry as Entry;
-  const [{ data: payments }, { data: canPay }, { data: canReverse }, { data: canClassify }, { data: credit }] = await Promise.all([
+  const [{ data: payments }, { data: canPay }, { data: canReverse }, { data: canClassify }, { data: supplierList }, { data: credit }] = await Promise.all([
     db.from("payments").select("*").eq("financial_entry_id", id).order("paid_at", { ascending: false }).order("created_at", { ascending: false }),
     db.rpc("has_table_access", { resource: "payments", action: "insert" }),
     db.rpc("has_table_access", { resource: "payments", action: "update" }),
     db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
+    e.entry_type === "pagar" && !e.sale_id && !e.purchase_order_id ? db.from("suppliers").select("id,name").is("deleted_at", null).order("name") : Promise.resolve({ data: null }),
     e.entry_type === "pagar" && e.supplier_id ? db.from("v_supplier_credit_balance").select("balance").eq("supplier_id", e.supplier_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
   const self = `/financeiro/lancamento/${id}`;
@@ -43,6 +45,8 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
   const pagar = e.entry_type === "pagar";
   const person = e.client_name || e.supplier_name;
   const personHref = e.client_id ? `/clientes/${e.client_id}` : null;
+  const avulsa = ["manual", "despesa", "ajuste"].includes(e.origin ?? "") && !e.sale_id && !e.purchase_order_id;
+  const hasValidPayment = list.some((p) => !p.reversed_at);
   const origin = e.sale_id ? { href: `/vendas/${e.sale_id}`, label: "Abrir venda" } : e.purchase_order_id ? { href: `/compras/${e.purchase_order_id}`, label: "Abrir compra" } : null;
 
   return <div className="mx-auto max-w-4xl space-y-5">
@@ -82,6 +86,26 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
         {origin && <Link className="button-ghost border border-sand" href={origin.href}>{origin.label}</Link>}
       </div>
     </section>
+
+    {canClassify === true && e.display_status !== "cancelado" && <section className="card p-5">
+      <details><summary className="cursor-pointer font-black">Corrigir esta conta</summary>
+        <form action={editFinancialEntry} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input type="hidden" name="id" value={e.id} />
+          <div className="sm:col-span-2"><label className="label" htmlFor="ed-desc">Descrição</label><input id="ed-desc" className="field" name="description" defaultValue={e.description} required minLength={2} maxLength={300} /></div>
+          {avulsa ? <div><label className="label" htmlFor="ed-total">Valor total</label><input id="ed-total" className="field" name="total_amount" type="number" step="0.01" min="0.01" defaultValue={Number(e.total_amount)} required /></div>
+            : <p className="self-end text-xs text-ink/55">O valor desta conta vem da {e.sale_id ? "venda" : "compra"}; corrija por lá.</p>}
+          <div><label className="label" htmlFor="ed-venc">Vencimento</label><input id="ed-venc" className="field" name="due_date" type="date" defaultValue={e.due_date ?? ""} /></div>
+          {avulsa && supplierList && <div className="sm:col-span-2"><label className="label" htmlFor="ed-forn">Fornecedor</label><select id="ed-forn" className="field" name="party_id" defaultValue={e.supplier_id ?? ""}><option value="">Sem fornecedor</option>{(supplierList as { id: string; name: string }[]).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>}
+          <div className="sm:col-span-2"><label className="label" htmlFor="ed-obs">Observação</label><textarea id="ed-obs" className="field min-h-16" name="notes" defaultValue={e.notes ?? ""} maxLength={2000} /></div>
+          <button className="button sm:col-span-2">Salvar correção</button>
+        </form>
+        {avulsa && !hasValidPayment && <form action={cancelFinancialEntry} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">
+          <input type="hidden" name="id" value={e.id} />
+          <input className="field flex-1" name="reason" aria-label="Motivo do cancelamento" placeholder="Motivo do cancelamento (lançada errada, duplicada…)" required minLength={3} maxLength={500} />
+          <ConfirmButton formAction={cancelFinancialEntry} className="button-ghost text-red-700" message="Cancelar esta conta? Ela some dos totais e fica no histórico.">Cancelar conta</ConfirmButton>
+        </form>}
+      </details>
+    </section>}
 
     <section className="card p-5">
       <h2 className="mb-3 font-black">Pagamentos</h2>

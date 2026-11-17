@@ -5,12 +5,12 @@ import { listReceivingAccounts, saveReceivingAccount, type ReceivingAccount } fr
 
 const NEW = "__nova";
 
-export function ReceivingAccountSelect({ name = "receiving_account_id", value, onChange, className = "field w-full" }: {
-  name?: string; value?: string; onChange?: (id: string) => void; className?: string;
+export function ReceivingAccountSelect({ name = "receiving_account_id", value, defaultValue = "", onChange, className = "field w-full" }: {
+  name?: string; value?: string; defaultValue?: string; onChange?: (id: string) => void; className?: string;
 }) {
   const [accounts, setAccounts] = useState<ReceivingAccount[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [own, setOwn] = useState("");
+  const [own, setOwn] = useState(defaultValue);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ name: "", details: "" });
   const selected = value ?? own;

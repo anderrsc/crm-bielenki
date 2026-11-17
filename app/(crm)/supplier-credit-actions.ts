@@ -45,3 +45,24 @@ export async function addSupplierCredit(form: FormData) {
   if (error) redirect(`${q(b)}erro=${encodeURIComponent(message(error))}`);
   refresh(b); redirect(`${q(b)}ok=${encodeURIComponent("Crédito lançado")}`);
 }
+
+export async function updateSupplierCredit(form: FormData) {
+  const b = back(form);
+  const amount = parseBRNumber(String(form.get("amount") ?? ""));
+  const p = z.object({ id: z.uuid(), moved_at: date, account_id: z.uuid().or(z.literal("")).default(""), notes: z.string().trim().min(3).max(500) }).safeParse(Object.fromEntries(form));
+  if (!p.success || amount === null || amount === 0) redirect(`${q(b)}erro=${encodeURIComponent("Revise valor, data e motivo")}`);
+  const db = await createClient();
+  const { error } = await db.rpc("update_supplier_credit", { p_id: p.data.id, p_amount: amount, p_date: p.data.moved_at, p_account: p.data.account_id || null, p_notes: p.data.notes });
+  if (error) redirect(`${q(b)}erro=${encodeURIComponent(message(error))}`);
+  refresh(b); redirect(`${q(b)}ok=${encodeURIComponent("Crédito corrigido")}`);
+}
+
+export async function deleteSupplierCredit(form: FormData) {
+  const b = back(form);
+  const p = z.object({ id: z.uuid(), reason: z.string().trim().min(3).max(500) }).safeParse(Object.fromEntries(form));
+  if (!p.success) redirect(`${q(b)}erro=${encodeURIComponent("Informe o motivo da exclusão")}`);
+  const db = await createClient();
+  const { error } = await db.rpc("delete_supplier_credit", { p_id: p.data.id, p_reason: p.data.reason });
+  if (error) redirect(`${q(b)}erro=${encodeURIComponent(message(error))}`);
+  refresh(b); redirect(`${q(b)}ok=${encodeURIComponent("Crédito excluído")}`);
+}
