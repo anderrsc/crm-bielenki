@@ -83,3 +83,14 @@ test("compra manual: pagou a mais vira crédito, pagou menos fica devendo com ve
   expect(Number((await entryOf(c)).open_amount)).toBe(400);
   expect(await balance()).toBe(before);
 });
+
+test("compra manual ligada a um pedido grava o pedido e a previsão de entrega", async () => {
+  const client = (await row("insert into clients(company_id,name) values($1,'Cliente Obra') returning id", [company])).id;
+  const st = (await row("select id from sale_types where company_id=$1 limit 1", [company]))?.id ?? (await row("insert into sale_types(company_id,name) values($1,'Calhas') returning id", [company])).id;
+  const sale = (await row("insert into sales(company_id,sale_number,client_id,sale_type_id,total) values($1,'VEN-T-1',$2,$3,100) returning id", [company, client, st])).id;
+  const order = (await row("insert into orders(company_id,order_number,sale_id,client_id,sale_type_id) values($1,'PED-T-1',$2,$3,$4) returning id", [company, sale, client, st])).id;
+  const po = (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, order_id: order, expected_at: "2026-11-30", items: [{ category: "Cano", description: "", quantity: 2, unit_price: 50 }] })])).id;
+  expect(await row("select order_id, expected_at::text exp from purchase_orders where id=$1", [po])).toMatchObject({ order_id: order, exp: "2026-11-30" });
+  expect(await row("select order_id, client_id, description from purchase_order_items where purchase_order_id=$1", [po])).toMatchObject({ order_id: order, client_id: client, description: "Cano" });
+  await expect(row("select create_manual_purchase($1::jsonb)", [JSON.stringify({ supplier_id: supplier, order_id: "00000000-0000-4000-8000-000000000999", items: [{ category: "Cano", quantity: 1, unit_price: 1 }] })])).rejects.toThrow(/Pedido inválido/);
+});

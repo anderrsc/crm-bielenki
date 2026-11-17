@@ -43,10 +43,10 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
           <details key={s.id} className="card">
             <summary className="flex cursor-pointer list-none items-center justify-between p-4">
               <div>
-                <p className="font-bold">{s.name}</p>
+                <Link href={`/fornecedores/${s.id}`} className="font-bold hover:text-forest hover:underline">{s.name}</Link>
                 <p className="text-xs text-ink/50">{[s.city, s.state].filter(Boolean).join(" – ") || "Sem localização"} · {s.status === "ativo" ? "Ativo" : "Inativo"}</p>
               </div>
-              <span className="flex items-center gap-2 text-xs text-ink/40">{credit.get(s.id) ? <a href="/financeiro/pagar#creditos-fornecedores" className="rounded-lg bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">Crédito {money(credit.get(s.id))}</a> : null}{s.phone || s.email || ""}</span>
+              <span className="flex items-center gap-2 text-xs text-ink/40">{credit.get(s.id) ? <a href="/financeiro/pagar#creditos-fornecedores" className="rounded-lg bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">Crédito {money(credit.get(s.id))}</a> : null}{s.phone || s.email || ""}<Link href={`/fornecedores/${s.id}`} className="rounded-lg border border-sand px-2 py-1 font-bold text-ink hover:border-forest hover:text-forest">Abrir</Link></span>
             </summary>
             <form action={saveSupplier} className="grid gap-3 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="id" value={s.id} />

@@ -10,7 +10,7 @@ import { validIsoDate } from "@/lib/valid-date";
 const date = z.string().refine(validIsoDate);
 function back(form: FormData) {
   const b = String(form.get("_back") || "/financeiro/pagar");
-  return b.startsWith("/financeiro") && !b.startsWith("//") ? b : "/financeiro/pagar";
+  return /^\/(financeiro|fornecedores)(\/|\?|$)/.test(b) ? b : "/financeiro/pagar";
 }
 const q = (b: string) => (b.includes("?") ? `${b}&` : `${b}?`);
 function message(e: { code?: string; message?: string }) {
