@@ -209,7 +209,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
               const isOverdue = e.display_status === "vencido";
               return (
                 <tr key={e.id} className={`hover:bg-cream/50 transition ${isOverdue ? "bg-red-50/30" : ""}`}>
-                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><p className="truncate">{e.description}</p><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
+                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><Link href={`/financeiro/lancamento/${e.id}`} className="block truncate hover:text-forest hover:underline">{e.description}</Link><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
                   <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
                   <td data-label="Cliente / fornecedor" className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
                   <td data-label="Total" className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
@@ -218,8 +218,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                   <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
-                      {canClassify === true && e.display_status !== "cancelado" && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/rateios?conta=${e.id}`}>Ratear</Link>}
+                      <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold hover:border-forest hover:text-forest" href={`/financeiro/lancamento/${e.id}`}>Abrir</Link>
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog canOverpay={e.entry_type === "pagar" && !!e.supplier_id} supplierCredit={e.entry_type === "pagar" && e.supplier_id ? creditOf.get(e.supplier_id) ?? 0 : 0} entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
