@@ -97,6 +97,16 @@ describe('quotes → sales → orders',()=>{
     await db.query("select register_payment_with_adjustment($1, 10, current_date, 'pix', null, 0, 0, 1, current_date)",[e.id]);
     await expect(db.query('select revert_quote_approval($1)',[id])).rejects.toThrow(/pagamento/);
   });
+  test('approval can be reverted after the payment is reversed',async()=>{
+    const id=await quote();const sale=(await first('select approve_quote($1) id',[id])).id;
+    const e=await first('select id from financial_entries where sale_id=$1',[sale]);
+    const p=await first("select register_payment_with_adjustment($1, 10, current_date, 'pix', null, 0, 0, 1, current_date) id",[e.id]);
+    await db.query("select reverse_payment($1,'lancado errado')",[p.id]);
+    await db.query('select revert_quote_approval($1)',[id]);
+    expect((await first('select status from quotes where id=$1',[id])).status).toBe('enviado');
+    expect(Number((await first('select count(*) n from payments where id=$1',[p.id])).n)).toBe(0);
+    expect(Number((await first("select count(*) n from audit_logs where record_id=$1 and action='DELETE_REVERSED_ON_QUOTE_REVERT'",[p.id])).n)).toBe(1);
+  });
   test('client without quotes can be deleted; with quotes it is blocked',async()=>{
     const c=await first("insert into clients(company_id,name) values($1,'Duplicado teste') returning id",[company]);
     await db.query('select delete_client($1)',[c.id]);

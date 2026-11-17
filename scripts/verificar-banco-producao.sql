@@ -269,7 +269,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'reschedule_entry', 'p_entry_id uuid, p_new_due_date date, p_reason text', '7ce031f651cc521f5884245c56f0e74f'),
   ('public', 'reverse_payment', 'p_payment_id uuid, p_notes text', '717f0a4f6ecfabc0a701f9c68b5cca09'),
   ('public', 'revert_quote_approval', 'p_quote_id uuid', 'd971ed3935ff28b3f46d2ff163dbeacb'),
-  ('public', 'revert_quote_approval_unchecked', 'p_quote_id uuid', '63b16d11bc8aeaccce5f962984de2d59'),
+  ('public', 'revert_quote_approval_unchecked', 'p_quote_id uuid', '52acdd479d85ae4fcc9b9a20d82c8e42'),
   ('public', 'save_aluminum_cost_price', 'p_price numeric', '16d1636729c2a5eb5f377af8a25c5b96'),
   ('public', 'save_financial_recurrence', 'p_id uuid, p_data jsonb, p_reason text', 'a41d1848327542e2a1cf993d52583477'),
   ('public', 'save_gutter_quote_complete', 'p_payload jsonb, p_quote_id uuid', 'df4a08e8b4a89253ad14d9604b061b87'),
