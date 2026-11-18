@@ -32,7 +32,7 @@ export function QuotePdfButton({ quoteId, fileName }: { quoteId: string; fileNam
 
   return (
     <span className="relative inline-flex">
-      <button type="button" onClick={download} disabled={loading} className="button-ghost">
+      <button type="button" onClick={download} disabled={loading} className="button" title="PDF nítido, com texto selecionável, para enviar ao cliente">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
         {loading ? "Gerando PDF..." : "Baixar PDF"}
       </button>

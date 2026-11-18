@@ -330,10 +330,10 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               <ConfirmButton formAction={deleteQuote} className="button-ghost text-red-700">Excluir</ConfirmButton>
             </form>
           )}
-          <a className="button no-print" href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer">
-            <Printer className="h-4 w-4" /> Abrir para imprimir
-          </a>
           <QuotePdfButton quoteId={id} fileName={quoteFileName(String(client?.name ?? ""), String(quote.quote_number))} />
+          <a className="button-ghost no-print" href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer" title="Para imprimir em papel. Para enviar ao cliente use Baixar PDF (não use 'Microsoft Print to PDF': ele deixa a proposta borrada).">
+            <Printer className="h-4 w-4" /> Imprimir em papel
+          </a>
           {(quote.status === "rascunho" || quote.status === "pendente") && (
             <form action={markQuoteSent}>
               <input type="hidden" name="quote_id" value={id} />
