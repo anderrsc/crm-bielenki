@@ -81,10 +81,14 @@ test("funcionarios: editar dados, cargos e redefinir senha", async () => {
   const user = (await db.query("insert into auth.users(email, encrypted_password, raw_user_meta_data, raw_app_meta_data) values($1,'x',$2,$3) returning id", [email, { full_name: `Editar ${RUN}` }, { company_id: cid, role: "atendente" }])).rows[0];
   await db.query("update profiles set email=$1 where id=$2", [email, user.id]);
   await page.goto(`${BASE}/configuracoes/funcionarios`, { waitUntil: "networkidle0" });
-  const openRow = () => page.evaluate((n) => {
-    const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
-    d.open = true;
-  }, `Editar ${RUN}`);
+  // Depois de recarregar, a lista pode levar um instante para trazer a linha.
+  const openRow = async () => {
+    await page.waitForFunction((n) => [...document.querySelectorAll("details")].some((x) => x.innerText.includes(n)), { timeout: 15000 }, `Editar ${RUN}`);
+    await page.evaluate((n) => {
+      const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
+      d.open = true;
+    }, `Editar ${RUN}`);
+  };
   await openRow();
   await page.evaluate((n) => {
     const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
