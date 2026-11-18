@@ -10,54 +10,54 @@
 }
 .quote-sheet img { display:block; }
 .quote-bar { grid-template-columns:1.8fr .85fr .85fr 1.1fr 1fr; border:1px solid var(--paper-border); border-radius:2mm; min-height:12mm; background:var(--paper-soft); color:var(--paper-text); }
-.quote-bar-numero { padding:2mm 3mm; font-family:var(--font-display); font-size:10px; white-space:normal; overflow-wrap:anywhere; }
+.quote-bar-numero { padding:2mm 3mm; font-family:var(--font-display); font-size:11px; white-space:normal; overflow-wrap:anywhere; }
 .quote-bar-meta { padding:2mm 1mm; border-color:var(--paper-border); }
-.quote-bar-label { color:var(--paper-muted); font-size:7px; }
-.quote-bar-value { color:var(--paper-text); font-size:8px; max-height:none; -webkit-line-clamp:unset; }
-.quote-seller-button { font-size:8px; }
+.quote-bar-label { color:var(--paper-muted); font-size:9px; }
+.quote-bar-value { color:var(--paper-text); font-size:10px; max-height:none; -webkit-line-clamp:unset; }
+.quote-seller-button { font-size:10px; }
 .quote-seller-icon { color:var(--paper-muted); }
 .quote-client-box,.quote-with-pieces .quote-client-box { min-height:0; padding:4mm; margin-top:4mm; background:var(--paper-soft); }
 .quote-client-watermark { position:absolute; right:4mm; bottom:2mm; width:22mm; height:auto; opacity:.025; pointer-events:none; }
-.quote-client-title,.quote-with-pieces .quote-client-title { font-family:var(--font-display); font-size:9px; margin-bottom:3mm; }
+.quote-client-title,.quote-with-pieces .quote-client-title { font-family:var(--font-display); font-size:11px; margin-bottom:3mm; }
 .quote-client-title::before { display:none; }
-.quote-client-grid,.quote-with-pieces .quote-client-grid { position:relative; z-index:1; width:100%; grid-template-columns:18mm 1fr 23mm 1fr; column-gap:2mm; row-gap:2mm; font-size:8px; line-height:1.5; }
-.quote-client-obs,.quote-with-pieces .quote-client-obs { width:100%; margin-top:2mm; font-size:8px; }
-.quote-table,.quote-with-pieces .quote-table { table-layout:fixed; margin-top:4mm; font-size:8px; }
-.quote-sheet .quote-table thead th { background:var(--paper-soft); color:var(--paper-text); border-block:1px solid var(--paper-border); font-size:7px; padding:2mm 1mm; letter-spacing:.04em; }
+.quote-client-grid,.quote-with-pieces .quote-client-grid { position:relative; z-index:1; width:100%; grid-template-columns:18mm 1fr 23mm 1fr; column-gap:2mm; row-gap:2mm; font-size:10px; line-height:1.5; }
+.quote-client-obs,.quote-with-pieces .quote-client-obs { width:100%; margin-top:2mm; font-size:10px; }
+.quote-table,.quote-with-pieces .quote-table { table-layout:fixed; margin-top:4mm; font-size:10px; }
+.quote-sheet .quote-table thead th { background:var(--paper-soft); color:var(--paper-text); border-block:1px solid var(--paper-border); font-size:9px; padding:2mm 1mm; letter-spacing:.04em; }
 .quote-sheet .quote-table thead .quote-th-desc { text-align:left; padding-left:1.4mm; }
 .quote-table tbody td { height:auto; padding:3mm 1.4mm; border-width:0 0 1px; border-color:var(--paper-border); overflow-wrap:anywhere; }
-.quote-table tbody .quote-td-desc { text-align:left; font-size:8px; line-height:1.6; }
-.quote-table .quote-td-total,.quote-unit-value { font-variant-numeric:tabular-nums; font-size:7px; }
+.quote-table tbody .quote-td-desc { text-align:left; font-size:10px; line-height:1.6; }
+.quote-table .quote-td-total,.quote-unit-value { font-variant-numeric:tabular-nums; font-size:9px; }
 .quote-piece-link { display:grid; grid-template-columns:minmax(0,1fr) 14mm; align-items:center; justify-items:center; gap:.4mm .8mm; }
-.quote-piece-link > span { display:block; grid-column:1 / -1; font-size:6px; }
+.quote-piece-link > span { display:block; grid-column:1 / -1; font-size:7.5px; }
 .quote-piece-image { width:100%; height:14mm; object-fit:contain; }
 .quote-piece-qr { width:14mm; height:14mm; object-fit:contain; }
-.quote-piece-note { font-size:7px; line-height:1.5; margin:2mm 0 0; }
+.quote-piece-note { font-size:9px; line-height:1.5; margin:2mm 0 0; }
 .quote-bottom-grid,.quote-with-pieces .quote-bottom-grid { gap:4mm; margin-top:4mm; }
 .quote-obs-box { padding:3mm; min-height:0; background:var(--paper-soft); }
-.quote-obs-title { font-size:8px; margin-bottom:2mm; }
-.quote-obs-box ul { font-size:8px; line-height:1.6; }
-.quote-obs-box p { font-size:8px; }
+.quote-obs-title { font-size:10px; margin-bottom:2mm; }
+.quote-obs-box ul { font-size:10px; line-height:1.6; }
+.quote-obs-box p { font-size:10px; }
 .quote-fin-box { flex:1.1; }
-.quote-fin-row { font-size:8px; padding:2mm 3mm; }
-.quote-fin-total { background:var(--paper-soft); color:var(--paper-text); border:1px solid var(--paper-border); font-size:11px; padding:2.5mm 3mm; gap:2mm; white-space:nowrap; }
-.quote-fin-total span:last-child { color:var(--quote-primary); font-size:12px; font-variant-numeric:tabular-nums; }
+.quote-fin-row { font-size:10px; padding:2mm 3mm; }
+.quote-fin-total { background:var(--paper-soft); color:var(--paper-text); border:1px solid var(--paper-border); font-size:13px; padding:2.5mm 3mm; gap:2mm; white-space:nowrap; }
+.quote-fin-total span:last-child { color:var(--quote-primary); font-size:14px; font-variant-numeric:tabular-nums; }
 .quote-footer-grid,.quote-with-pieces .quote-footer-grid { margin-top:5mm; padding-top:4mm; gap:4mm; }
-.quote-pay-title { font-size:8px; }
+.quote-pay-title { font-size:10px; }
 .quote-pay-icons { gap:2mm; flex-wrap:wrap; }
-.quote-pay-item { border:1px solid var(--paper-border); border-radius:1mm; padding:1mm 2mm; margin:0; font-size:8px; gap:1mm; }
+.quote-pay-item { border:1px solid var(--paper-border); border-radius:1mm; padding:1mm 2mm; margin:0; font-size:10px; gap:1mm; }
 .quote-pay-item input { margin:0; }
-.quote-sign-block { padding:7mm 0 0; border:0; font-size:8px; }
+.quote-sign-block { padding:7mm 0 0; border:0; font-size:10px; }
 .quote-sign-line { width:60mm; }
-.quote-paper-credit { display:flex; justify-content:space-between; align-items:center; margin-top:5mm; padding-top:2mm; border-top:1px solid var(--paper-border); font-size:7px; color:var(--paper-muted); }
-.quote-paper-credit .author-signature { font-size:7px; color:var(--paper-muted); }
+.quote-paper-credit { display:flex; justify-content:space-between; align-items:center; margin-top:5mm; padding-top:2mm; border-top:1px solid var(--paper-border); font-size:9px; color:var(--paper-muted); }
+.quote-paper-credit .author-signature { font-size:9px; color:var(--paper-muted); }
 .quote-steps { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 24px; }
-.quote-steps a { padding:10px 16px; font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:var(--r-pill); background:var(--surface); }
+.quote-steps a { padding:10px 16px; font-size:14px; font-weight:600; border:1px solid var(--border); border-radius:var(--r-pill); background:var(--surface); }
 .quote-steps a:hover { color:var(--brand-text); border-color:var(--brand); }
 [id^="quote-"] { scroll-margin-top:100px; }
 .measure-sheet { --text-rgb:10 10 11; --text-muted:var(--paper-muted); --text:var(--paper-text); color:var(--paper-text); color-scheme:light; }
-.measure-credit { padding-top:2mm; text-align:right; color:var(--paper-muted); font-size:7px; }
-.measure-credit .author-signature { font-size:7px; color:var(--paper-muted); }
+.measure-credit { padding-top:2mm; text-align:right; color:var(--paper-muted); font-size:9px; }
+.measure-credit .author-signature { font-size:9px; color:var(--paper-muted); }
 @page quote {
  size:A4 portrait;
  margin:10mm 12mm;
@@ -79,8 +79,8 @@
 .quote-sheet .quote-header { display:grid; grid-template-columns:52mm 1fr 26mm; align-items:center; gap:6mm; padding:0 0 5mm; border-bottom:0; }
 .quote-sheet .quote-logo-col { display:flex; align-items:center; justify-content:flex-start; height:24mm; }
 .quote-sheet .quote-logo-img { width:52mm; height:auto; max-height:24mm; object-fit:contain; background:transparent; }
-.quote-sheet .quote-company-col { min-height:0; border:0; padding:0 4mm; border-left:1px solid var(--paper-border); border-right:1px solid var(--paper-border); text-align:center; font-size:8px; line-height:1.45; color:var(--paper-text); overflow-wrap:anywhere; }
-.quote-sheet .quote-company-name { display:block; font-family:var(--font-display); font-size:11px; font-weight:800; letter-spacing:.02em; margin:0 auto 1.5mm; padding:0; border:0; }
+.quote-sheet .quote-company-col { min-height:0; border:0; padding:0 4mm; border-left:1px solid var(--paper-border); border-right:1px solid var(--paper-border); text-align:center; font-size:10px; line-height:1.45; color:var(--paper-text); overflow-wrap:anywhere; }
+.quote-sheet .quote-company-name { display:block; font-family:var(--font-display); font-size:13px; font-weight:800; letter-spacing:.02em; margin:0 auto 1.5mm; padding:0; border:0; }
 .quote-company-lines { display:grid; gap:.6mm; }
 .quote-company-lines p { margin:0; }
 .quote-company-tax,.quote-company-contacts { font-variant-numeric:tabular-nums; }

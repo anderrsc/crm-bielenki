@@ -37,7 +37,7 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect(wm).not.toContain('opacity');
   const wmLogo=Buffer.from(wm.match(/href="data:image\/svg\+xml;base64,([^"]+)"/)?.[1]??'','base64').toString();
   expect(wmLogo).toContain('<svg');
-  expect(wmLogo).toContain('fill="#efefef"');
+  expect(wmLogo).toContain('fill="#f5f5f5"');
   expect(wmLogo).not.toContain('fill="#000000"');
   expect(html).toContain('Anderson Bielenki');
   expect(html).not.toContain('Anexos internos');
