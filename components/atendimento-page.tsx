@@ -6,11 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
-  approveLiaSuggestion, discardLiaSuggestion, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
-  type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
+  addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
+  type ClientPanel, type ConversationDetail, type ConversationStatus, type InboxEvent, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,11 @@ function quemEnviou(m: InboxMessage) {
   return m.senderName || "Equipe";
 }
 
-export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[]; initialError?: string }) {
+export const STATUS_LABEL: Record<ConversationStatus, string> = { aberta: "Aberta", aguardando_cliente: "Aguardando cliente", resolvida: "Resolvida" };
+export const SETORES: Array<[string, string]> = [["comercial", "Comercial"], ["pos_venda", "Pós-venda"], ["financeiro", "Financeiro"], ["producao", "Produção/Instalação"]];
+const setorNome = (v: string | null) => SETORES.find(([k]) => k === v)?.[1] ?? null;
+
+export function AtendimentoPage({ initial, initialError, initialOpen }: { initial: InboxItem[]; initialError?: string; initialOpen?: string }) {
   const [items, setItems] = useState(initial);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -68,7 +72,11 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
   const [verArquivadas, setVerArquivadas] = useState(false);
   // Conversas ja carregadas ficam guardadas: abrir de novo mostra na hora e atualiza por tras.
   const cache = useRef(new Map<string, ConversationDetail>());
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpen ?? null);
+  const [status, setStatus] = useState<"" | ConversationStatus>("");
+  const [setor, setSetor] = useState("");
+  const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
+  const [buscandoHistorico, startHistorico] = useTransition();
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
@@ -168,7 +176,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       if (p.eventType === "DELETE") { setItems((prev) => prev.filter((c) => c.id !== id)); return; }
       const current = itemsRef.current.find((c) => c.id === id);
       // Conversa nova, cliente ligado/trocado: busca a lista (com nomes) uma vez.
-      if (!current || current.clientId !== ((row.client_id as string | null) ?? null)) { listSoon(); return; }
+      if (!current || current.clientId !== ((row.client_id as string | null) ?? null) || current.assignedTo !== ((row.assigned_to as string | null) ?? null)) { listSoon(); if (selected.current === id) detailSoon(id); return; }
+      // Transferência de setor ou troca de status na conversa aberta: mostra no histórico.
+      if (selected.current === id && (current.status !== (row.status ?? "aberta") || current.department !== ((row.department as string | null) ?? null))) detailSoon(id);
       // Conversa aberta voltou a ter não lidas (mensagem nova ou corrida com o webhook):
       // recarrega a conversa para a leitura ser confirmada de novo com o estado atual.
       if (selected.current === id && Number(row.unread_count ?? 0) > 0) detailSoon(id);
@@ -185,6 +195,9 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
           unread: Number(row.unread_count ?? 0),
           aiPaused: !!row.ai_paused,
           archived: !!row.archived_at,
+          status: row.status === "aguardando_cliente" || row.status === "resolvida" ? row.status : "aberta",
+          department: (row.department as string | null | undefined) ?? null,
+          assignedTo: (row.assigned_to as string | null | undefined) ?? null,
         };
         return next.sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
       });
@@ -215,9 +228,11 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       if (filtro === "lidas" && c.unread > 0) return false;
       if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
       if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
+      if (status && c.status !== status) return false;
+      if (setor && c.department !== setor) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro, aiActive, verArquivadas]);
+  }, [items, busca, filtro, aiActive, verArquivadas, status, setor]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -263,7 +278,22 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
           <div className="wa-search flex items-center gap-3 rounded-lg px-3 py-2">
             <Search className="wa-muted h-4 w-4" />
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+            <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+          </div>
+          {busca.trim().length >= 3 && (
+            <button disabled={buscandoHistorico} onClick={() => startHistorico(async () => setHistorico((await searchInboxHistory(busca)).results))} className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>
+              {buscandoHistorico ? "Buscando nas mensagens…" : `Buscar "${busca.trim()}" no texto das mensagens`}
+            </button>
+          )}
+          <div className="flex gap-2">
+            <select value={status} onChange={(e) => setStatus(e.target.value as "" | ConversationStatus)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Status">
+              <option value="">Todos os status</option>
+              {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+            <select value={setor} onChange={(e) => setSetor(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Setor">
+              <option value="">Todos os setores</option>
+              {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
           </div>
           <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
             {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
@@ -273,6 +303,21 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
         <ul className="flex-1 overflow-y-auto">
+          {historico && (
+            <li className="wa-line border-b p-2">
+              <div className="flex items-center justify-between px-1"><p className="text-xs font-bold">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
+              {historico.length === 0 && <p className="wa-muted p-2 text-xs">Nada encontrado no histórico.</p>}
+              {historico.map(h => {
+                const conv = items.find(i => i.id === h.conversationId);
+                return (
+                  <button key={h.conversationId} onClick={() => abrir(h.conversationId)} className="wa-row block w-full rounded-lg px-2 py-1.5 text-left">
+                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span className="wa-muted text-[11px] font-normal">{hora(h.at)}</span></p>
+                    <p className="wa-muted truncate text-xs">{h.snippet}</p>
+                  </button>
+                );
+              })}
+            </li>
+          )}
           {verArquivadas ? (
             <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-bold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
           ) : arquivadas.length > 0 && (
@@ -296,7 +341,7 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
                     <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
                     {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
-                  {(!c.aiPaused && aiActive) || c.assignedName ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{!c.aiPaused && aiActive ? "Lia" : c.assignedName}</p> : null}
+                  {(!c.aiPaused && aiActive) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[!c.aiPaused && aiActive ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
                 </div>
               </button>
               <DropdownMenu.Root>
@@ -367,6 +412,10 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
   const [enviando, startEnvio] = useTransition();
   const [mudandoIa, startIa] = useTransition();
   const [sugerindo, startSugestao] = useTransition();
+  const [modoNota, setModoNota] = useState(false);
+  const [transferir, setTransferir] = useState(false);
+  const [mudandoStatus, startStatus] = useTransition();
+  const mudarStatus = (v: ConversationStatus) => startStatus(async () => { const r = await setConversationStatus(c.id, v); setErro(r.error ?? null); onChanged(); });
   const fim = useRef<HTMLDivElement>(null);
   const ultimo = messages.at(-1)?.id;
   const [pesquisando, setPesquisando] = useState(false);
@@ -407,7 +456,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
     const t = texto.trim();
     if (!t || enviando) return;
     startEnvio(async () => {
-      const r = await sendInboxMessage(c.id, t);
+      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t);
       if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
@@ -432,6 +481,11 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
         >
           <Bot className="h-4 w-4" /> <span className="hidden sm:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
         </button>
+        <select value={c.status} disabled={mudandoStatus} aria-label="Status da conversa" onChange={(e) => mudarStatus(e.target.value as ConversationStatus)}
+          className="wa-chip hidden rounded-full px-2 py-1.5 text-xs font-bold lg:block">
+          {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted rounded-full p-2" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
         <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
         <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
         <button
@@ -444,12 +498,14 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
         </button>
         <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-row wa-muted rounded-full p-2"><PanelRightOpen className="h-4 w-4" /></button>
       </header>
+      {transferir && <Transferencia conversation={c} onStatus={mudarStatus} onDone={(error) => { setErro(error); if (!error) setTransferir(false); onChanged(); }} />}
       {pesquisando && <div className="wa-head wa-line flex items-center gap-2 border-t px-4 py-2"><Search className="wa-muted h-4 w-4" /><input aria-label="Buscar mensagens nesta conversa" autoFocus value={buscaMensagem} onChange={e => setBuscaMensagem(e.target.value)} placeholder="Pesquisar nesta conversa" className="wa-input min-w-0 flex-1 rounded-lg px-3 py-2 text-sm outline-none" /><span role="status" className="wa-muted text-xs">{termo ? `${exibidas.length} encontradas` : ""}</span><button aria-label="Fechar busca de mensagens" onClick={() => { setPesquisando(false); setBuscaMensagem(""); }} className="wa-muted rounded-full p-2"><X className="h-4 w-4" /></button></div>}
 
       <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat flex-1 space-y-1.5 overflow-y-auto px-[5%] py-3">
         {temAntigas && <p className="wa-muted text-center text-xs">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
         {exibidas.length === 0 && <p className="wa-muted p-6 text-center text-sm">{termo ? "Nenhuma mensagem encontrada nas mensagens carregadas." : "Sem mensagens."}</p>}
         {exibidas.map((m, index) => {
+          const eventosAntes = termo ? [] : eventosEntre(detail.events ?? [], index === 0 ? (temAntigas ? m.at : "") : exibidas[index - 1].at, m.at);
           const nome = quemEnviou(m);
           const saida = m.direction === "outbound";
           const anterior = exibidas[index - 1];
@@ -457,6 +513,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
           const mesmoGrupo = !novoDia && anterior.direction === m.direction && anterior.senderName === m.senderName && anterior.author === m.author;
           return (
             <Fragment key={m.id}>
+            {eventosAntes.map(ev => <Evento key={`e-${ev.id}`} e={ev} />)}
             {novoDia && <div className="sticky top-1 z-10 flex justify-center py-3"><span className="wa-date rounded-lg px-3 py-1.5 text-xs shadow-sm">{inboxDayLabel(m.at)}</span></div>}
             {!termo && primeiraNaoLida.current === m.id && <div role="separator" aria-label="Mensagens não lidas" className="wa-unread-divider -mx-[5%] my-4 flex justify-center py-2"><span className="wa-date rounded-full px-4 py-1.5 text-xs uppercase tracking-wide shadow-sm">Mensagens não lidas</span></div>}
             <div className={cn("flex", saida ? "justify-end" : "justify-start", !mesmoGrupo && "pt-1.5")}>
@@ -473,6 +530,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
             </Fragment>
           );
         })}
+        {!termo && (detail.events ?? []).filter(e => e.at >= (exibidas.at(-1)?.at ?? "")).map(ev => <Evento key={`e-${ev.id}`} e={ev} />)}
         <div ref={fim} />
       </div>
 
@@ -480,7 +538,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
       <footer className="wa-head px-3 py-2">
         {officialWindow && !detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
         {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-bold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
-        {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
+        {modoNota ? <p className="mb-2 text-xs font-bold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
+          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         {detail.suggestion && (
           <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da Lia">
@@ -511,11 +570,15 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder="Mensagem"
+            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Mensagem"}
             title="Digite / para respostas prontas"
-            className="wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none"
+            className={cn("wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none", modoNota && "ring-1 ring-amber-500/60")}
           />
-          <button onClick={enviar} disabled={enviando || !texto.trim()} className="wa-send rounded-full p-3 disabled:opacity-50" aria-label="Enviar">
+          <button onClick={() => setModoNota(v => !v)} aria-pressed={modoNota} title={modoNota ? "Voltar a escrever para o cliente" : "Escrever nota interna (o cliente não vê)"}
+            className={cn("rounded-full p-3", modoNota ? "bg-amber-500 text-white" : "wa-row wa-muted")} aria-label="Nota interna">
+            <StickyNote className="h-5 w-5" />
+          </button>
+          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("rounded-full p-3 disabled:opacity-50", modoNota ? "bg-amber-600 text-white" : "wa-send")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
             <Send className="h-5 w-5" />
           </button>
         </div>
@@ -753,6 +816,60 @@ function FecharForm({ pending, onSubmit, onCancel }: { pending: boolean; onCance
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold">Cancelar</button>
         <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-bold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Notas e transferências que aconteceram entre duas mensagens (depois de `desde`, até `ate`). */
+function eventosEntre(eventos: InboxEvent[], desde: string, ate: string) {
+  return eventos.filter(e => (!desde || e.at > desde) && e.at <= ate);
+}
+
+function Evento({ e }: { e: InboxEvent }) {
+  const quem = e.byName ?? "Equipe";
+  if (e.kind === "nota") return (
+    <div className="mx-auto my-2 max-w-[90%] rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+      <p className="mb-0.5 flex items-center gap-1 text-xs font-bold text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
+      <p className="whitespace-pre-wrap break-words">{e.body}</p>
+      <p className="wa-muted mt-1 text-right text-[10px]">{inboxClock(e.at)}</p>
+    </div>
+  );
+  const texto = e.kind === "status"
+    ? `${quem} marcou como ${STATUS_LABEL[(e.status as ConversationStatus) ?? "aberta"] ?? e.status}`
+    : `${quem} transferiu${e.toName ? ` para ${e.toName}` : ""}${e.department ? ` (${setorNome(e.department)})` : ""}`;
+  return <div className="flex justify-center py-1.5"><span className="wa-date rounded-lg px-3 py-1 text-[11.5px] shadow-sm">{texto}{e.body ? `: ${e.body}` : ""} · {inboxClock(e.at)}</span></div>;
+}
+
+function Transferencia({ conversation: c, onStatus, onDone }: { conversation: InboxItem; onStatus: (s: ConversationStatus) => void; onDone: (error: string | null) => void }) {
+  const [equipe, setEquipe] = useState<Array<{ id: string; name: string }>>([]);
+  const [para, setPara] = useState("");
+  const [setor, setSetor] = useState(c.department ?? "");
+  const [obs, setObs] = useState("");
+  const [salvando, startSalvar] = useTransition();
+  useEffect(() => { let vivo = true; void listInboxTeam().then(r => { if (vivo) setEquipe(r); }); return () => { vivo = false; }; }, []);
+  return (
+    <div className="wa-head wa-line space-y-2 border-t px-4 py-3 text-sm">
+      <div className="flex flex-wrap gap-2">
+        <select value={para} onChange={e => setPara(e.target.value)} className="wa-input min-w-0 flex-1 rounded-lg px-2 py-2" aria-label="Transferir para">
+          <option value="">Pessoa (opcional)</option>
+          {equipe.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={setor} onChange={e => setSetor(e.target.value)} className="wa-input min-w-0 flex-1 rounded-lg px-2 py-2" aria-label="Setor">
+          <option value="">Setor (opcional)</option>
+          {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <input value={obs} onChange={e => setObs(e.target.value)} maxLength={1000} placeholder="Observação para quem recebe (opcional)" className="wa-input w-full rounded-lg px-3 py-2" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button disabled={salvando || (!para && !setor)} className="wa-send rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+          onClick={() => startSalvar(async () => { const r = await transferConversation(c.id, { toProfile: para || null, department: setor || null, note: obs }); onDone(r.error ?? null); })}>
+          {salvando ? "Transferindo…" : "Transferir"}
+        </button>
+        <span className="wa-muted text-xs">Com pessoa escolhida, a Lia para de responder e ela recebe um aviso.</span>
+        <select value={c.status} onChange={e => onStatus(e.target.value as ConversationStatus)} className="wa-input ml-auto rounded-lg px-2 py-1.5 text-xs lg:hidden" aria-label="Status da conversa">
+          {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
       </div>
     </div>
   );

@@ -17,6 +17,9 @@ vi.mock('@/app/(crm)/atendimento-actions', () => ({
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
   markInboxRead: actions.markInboxRead, syncInboxContacts: actions.syncInboxContacts, receiveFromInbox: vi.fn(),
   searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
+  addInboxNote: vi.fn(async () => ({ ok: true })), approveLiaSuggestion: vi.fn(), discardLiaSuggestion: vi.fn(),
+  listInboxTeam: vi.fn(async () => []), searchInboxHistory: vi.fn(async () => []),
+  setConversationStatus: vi.fn(async () => ({ ok: true })), transferConversation: vi.fn(async () => ({ ok: true })),
 }));
 const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => ({
@@ -36,9 +39,9 @@ function abrirTela(items: ReturnType<typeof item>[]) {
   return render(<AtendimentoPage initial={items} />);
 }
 
-const item = (id: string, name: string, archived = false) => ({ id, name, phone: '47999990000', clientId: null, clientName: null, preview: 'oi', lastAt: new Date().toISOString(), unread: archived ? 2 : 0, aiPaused: true, assignedName: null, archived });
+const item = (id: string, name: string, archived = false) => ({ id, name, phone: '47999990000', clientId: null, clientName: null, preview: 'oi', lastAt: new Date().toISOString(), unread: archived ? 2 : 0, aiPaused: true, assignedName: null, archived, status: 'aberta' as const, department: null, assignedTo: null });
 const detail = (id: string, name: string, n = 3, hasOlder = false) => ({
-  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true, suggestion: null,
+  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true, suggestion: null, events: [],
   readSnapshot: { count: 0, lastInbound: null, generation: null },
   messages: Array.from({ length: n }, (_, i) => ({ id: `${id}-m${i}`, direction: 'inbound', author: null, senderName: null, body: `mensagem ${i} de ${name}`, at: new Date(Date.UTC(2026, 10, 12, 10, i)).toISOString(), failed: false, error: null, deliveryStatus: 'lida' })),
 });
