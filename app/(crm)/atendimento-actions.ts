@@ -1,6 +1,7 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
 import { channelById, channelCredentials } from "@/lib/whatsapp/channels";
+import { waitingSince } from "@/lib/inbox-waiting";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
 import { formatRegistrationName } from "@/lib/brazilian-input";
@@ -25,6 +26,8 @@ export type InboxItem = {
   channelId?: string | null; channelName?: string | null;
   /** false = número sem Lia (só o principal tem IA por enquanto). */
   channelAi?: boolean;
+  /** Cliente falou por último e ainda espera resposta desde este horário. */
+  waitingSince?: string | null;
 };
 export type ConversationStatus = "aberta" | "aguardando_cliente" | "resolvida";
 /** Nota interna, transferência ou troca de status: só a equipe vê. */
@@ -83,6 +86,7 @@ function toItem(c: ConvRow): InboxItem {
     channelId: c.channel_id ?? null,
     channelName: c.wchan?.name ?? null,
     channelAi: c.wchan ? c.wchan.is_default : true,
+    waitingSince: waitingSince(c.last_inbound_at, c.last_message_at),
   };
 }
 

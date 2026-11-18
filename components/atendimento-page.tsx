@@ -14,6 +14,7 @@ import {
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
+import { waitingLabel, waitingSince } from "@/lib/inbox-waiting";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
 import { QuickReplies } from "@/components/quick-replies";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
@@ -68,7 +69,10 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   itemsRef.current = items;
   const [listError, setListError] = useState(initialError);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<"todas" | "naolidas" | "lidas" | "ana" | "equipe">("todas");
+  const [filtro, setFiltro] = useState<"todas" | "naolidas" | "lidas" | "semresposta" | "ana" | "equipe">("todas");
+  // Relógio da lista: atualiza o "esperando há…" a cada minuto.
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setAgora(Date.now()), 60_000); return () => clearInterval(t); }, []);
   const [verArquivadas, setVerArquivadas] = useState(false);
   // Conversas ja carregadas ficam guardadas: abrir de novo mostra na hora e atualiza por tras.
   const cache = useRef(new Map<string, ConversationDetail>());
@@ -193,6 +197,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
           ...prev[i],
           preview: String(row.last_message_preview ?? prev[i].preview ?? ""),
           lastAt: (row.last_message_at as string | null) ?? prev[i].lastAt,
+          waitingSince: "last_inbound_at" in row ? waitingSince(row.last_inbound_at as string | null, (row.last_message_at as string | null) ?? prev[i].lastAt) : prev[i].waitingSince,
           unread: Number(row.unread_count ?? 0),
           aiPaused: !!row.ai_paused,
           archived: !!row.archived_at,
@@ -221,12 +226,14 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   }, [companyId, refreshList, refreshDetail]);
 
   const totalNaoLidas = useMemo(() => items.filter((c) => !c.archived && c.unread > 0).length, [items]);
+  const totalSemResposta = useMemo(() => items.filter((c) => !c.archived && c.waitingSince && c.status !== "resolvida").length, [items]);
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return items.filter((c) => {
       if (c.archived !== verArquivadas) return false;
       if (filtro === "naolidas" && c.unread === 0) return false;
       if (filtro === "lidas" && c.unread > 0) return false;
+      if (filtro === "semresposta" && (!c.waitingSince || c.status === "resolvida")) return false;
       if (filtro === "ana" && (c.aiPaused || !aiActive || c.channelAi === false)) return false;
       if (filtro === "equipe" && !c.aiPaused && aiActive && c.channelAi !== false) return false;
       if (status && c.status !== status) return false;
@@ -306,7 +313,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
             )}
           </div>
           <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
-            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
+            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["semresposta", `Sem resposta${totalSemResposta ? ` ${totalSemResposta}` : ""}`], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
               <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip rounded-full px-3 py-1">{l}</button>
             ))}
           </div>
@@ -337,7 +344,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
               <span className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
             </button></li>
           )}
-          {visiveis.length === 0 && !listError && <li className="wa-muted p-8 text-center text-sm">{busca ? "Nenhuma conversa encontrada." : verArquivadas ? "Nenhuma conversa arquivada." : filtro === "naolidas" ? "Você está em dia. Nenhuma conversa não lida." : filtro === "lidas" ? "Nenhuma conversa lida neste filtro." : "Quando um cliente chamar no WhatsApp, a conversa aparece aqui."}</li>}
+          {visiveis.length === 0 && !listError && <li className="wa-muted p-8 text-center text-sm">{busca ? "Nenhuma conversa encontrada." : verArquivadas ? "Nenhuma conversa arquivada." : filtro === "naolidas" ? "Você está em dia. Nenhuma conversa não lida." : filtro === "lidas" ? "Nenhuma conversa lida neste filtro." : filtro === "semresposta" ? "Nenhum cliente esperando resposta." : "Quando um cliente chamar no WhatsApp, a conversa aparece aqui."}</li>}
           {visiveis.map((c) => (
             <li key={c.id} className="group relative">
               <button onClick={() => abrir(c.id)} aria-current={openId === c.id} className="wa-row flex w-full items-center gap-3 px-3 text-left">
@@ -349,6 +356,8 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
+                    {(() => { const espera = !c.archived && c.status !== "resolvida" && c.waitingSince ? waitingLabel(c.waitingSince, agora) : null;
+                      return espera ? <span title="Cliente esperando resposta" className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", /h|dia/.test(espera) ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600")}>{espera}</span> : null; })()}
                     {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
                   {(numeros.length > 1 && c.channelName) || (!c.aiPaused && aiActive && c.channelAi !== false) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
@@ -535,6 +544,15 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
                   {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && m.deliveryStatus !== "desconhecido" && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
+                {m.failed && saida && !MIDIA.test(m.body) && semAssinatura(m.body).trim() && (
+                  <button disabled={enviando} className="mt-1 text-[11px] font-bold text-red-500 underline disabled:opacity-50"
+                    onClick={() => startEnvio(async () => {
+                      // A original falhou de vez (não saiu): reenvia o mesmo texto como mensagem nova.
+                      const r = await sendInboxMessage(c.id, semAssinatura(m.body), { clientRef: crypto.randomUUID() });
+                      setErro(r.error ?? r.warning ?? null);
+                      onChanged();
+                    })}>Reenviar</button>
+                )}
                 {m.deliveryStatus === "desconhecido" && <p className="mt-1 flex items-start gap-1 text-[11px] text-amber-600"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Sem confirmação do WhatsApp: confira no celular antes de reenviar.</p>}
               </div>
             </div>
