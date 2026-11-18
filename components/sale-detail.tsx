@@ -5,6 +5,7 @@ import { loadSaleWorkspace, type SaleWorkspaceData, type SaleEntry } from "@/lib
 import { money, shortDate } from "@/lib/utils";
 import { StatusBadge } from "./status-badge";
 import { PaymentDialog } from "./payment-dialog";
+import { SaleCorrection } from "./sale-correction";
 import { ConfirmButton } from "./confirm-button";
 import { toggleChecklistItem } from "@/app/(crm)/actions";
 import { OrderOperationCard } from "./order-operation-card";
@@ -16,7 +17,7 @@ export async function SaleDetail({ id, error, received, notice }: { id: string; 
   const data = await loadSaleWorkspace(db, id);
   if (!data) return <MissingSale />;
   const operation = data.order ? await loadOrderOperation(db, data.order.id).catch(() => null) : null;
-  return <SaleWorkspace data={data} error={error} received={received} notice={notice} operation={operation} />;
+  return <><SaleWorkspace data={data} error={error} received={received} notice={notice} operation={operation} />{await SaleCorrection({ saleId: id })}</>;
 }
 
 export function SaleWorkspace({ data, error, received, notice, operation }: { data: SaleWorkspaceData; error?: string; received?: boolean; notice?: string; operation?: OrderOperationData | null }) {
@@ -37,8 +38,8 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
     {received && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Pagamento registrado. Os saldos da venda e do pedido foram atualizados.</p>}
     {warnings.map(warning => <p role="alert" key={warning} className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{warning} Atualize a página para tentar novamente.</p>)}
     <section id="topo-venda" className="card scroll-mt-28 p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-forest">Venda</p><h1 className="mt-2 text-3xl font-black">{sale.sale_number}</h1><p className="mt-2 font-medium">{sale.client?.name ?? "Cliente"}</p></div><StatusBadge value={sale.financial_status} /></div>
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">{[["Total da venda", sale.total], ["Recebido", sale.paid_amount], ["Em aberto", sale.open_amount]].map(([title, amount], index) => <div className={`rounded-xl bg-cream/70 p-4${index === 0 ? " col-span-2 sm:col-span-1" : ""}`} key={String(title)}><p className="text-xs text-ink/55">{title}</p><p className="mt-2 text-2xl font-black num">{money(Number(amount))}</p></div>)}</div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-forest">Venda</p><h1 className="mt-2 text-3xl font-black">{sale.sale_number}</h1><p className="mt-2 font-medium">{sale.client?.name ?? "Cliente"}</p></div>{access["financial_entries:select"] && <StatusBadge value={sale.financial_status} />}</div>
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">{[["Total da venda", sale.total], ["Recebido", sale.paid_amount], ["Em aberto", sale.open_amount]].filter((_, index) => index === 0 || access["financial_entries:select"]).map(([title, amount], index) => <div className={`rounded-xl bg-cream/70 p-4${index === 0 ? " col-span-2 sm:col-span-1" : ""}`} key={String(title)}><p className="text-xs text-ink/55">{title}</p><p className="mt-2 text-2xl font-black num">{money(Number(amount))}</p></div>)}</div>
       <nav aria-label="Ações da venda" className="mt-6 flex flex-wrap gap-3">
         {canPay && pendingEntries.length === 1 && payment(pendingEntries[0], true)}
         {canPay && pendingEntries.length > 1 && <a className="button" href="#contas-da-venda">Registrar pagamento</a>}

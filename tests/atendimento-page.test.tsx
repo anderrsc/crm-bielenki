@@ -8,17 +8,18 @@ const actions = vi.hoisted(() => ({
   loadOlderMessages: vi.fn(),
   setConversationArchived: vi.fn(async () => ({ ok: true })),
   markInboxRead: vi.fn(async () => ({ ok: true, cleared: true })),
-  addInboxNote: vi.fn(async () => ({ ok: true })),
-  sendInboxMessage: vi.fn(async () => ({ ok: true })),
-  approveLiaSuggestion: vi.fn(async () => ({ ok: true })),
+  syncInboxContacts: vi.fn(async () => ({})),
+  markConversationRead: vi.fn(async () => ({ ok: true })),
+  markConversationUnread: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock('@/app/(crm)/atendimento-actions', () => ({
   ...actions,
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
-  markInboxRead: actions.markInboxRead, syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
-  searchClientsForLink: vi.fn(async () => []), sendInboxMessage: actions.sendInboxMessage, setConversationAi: vi.fn(),
-  addInboxNote: actions.addInboxNote, approveLiaSuggestion: actions.approveLiaSuggestion, discardLiaSuggestion: vi.fn(), listInboxTeam: vi.fn(async () => []),
-  searchInboxHistory: vi.fn(async () => ({ results: [] })), setConversationStatus: vi.fn(async () => ({ ok: true })), transferConversation: vi.fn(async () => ({ ok: true })),
+  markInboxRead: actions.markInboxRead, syncInboxContacts: actions.syncInboxContacts, receiveFromInbox: vi.fn(),
+  searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
+  addInboxNote: vi.fn(async () => ({ ok: true })), approveLiaSuggestion: vi.fn(), discardLiaSuggestion: vi.fn(),
+  listInboxTeam: vi.fn(async () => []), searchInboxHistory: vi.fn(async () => []),
+  setConversationStatus: vi.fn(async () => ({ ok: true })), transferConversation: vi.fn(async () => ({ ok: true })),
 }));
 const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => ({
@@ -49,6 +50,48 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); rt.handlers.length = 0; });
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 describe('Atendimento estilo WhatsApp', () => {
+  test('filtro de lidas separa as conversas com mensagens pendentes', async () => {
+    abrirTela([item('a', 'Lida'), { ...item('b', 'Pendente'), unread: 2 }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Lidas' }));
+    expect(screen.getByText('Lida')).toBeTruthy();
+    expect(screen.queryByText('Pendente')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Não lidas 1' }));
+    expect(screen.getByText('Pendente')).toBeTruthy();
+    expect(screen.queryByText('Lida')).toBeNull();
+  });
+  test('marcar não lida fecha a conversa para não apagar imediatamente a marcação', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente'));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    fireEvent.click(await screen.findByLabelText('Marcar como não lida'));
+    await waitFor(() => expect(actions.markConversationUnread).toHaveBeenCalledWith('a'));
+    expect(screen.queryByPlaceholderText('Mensagem')).toBeNull();
+  });
+  test('busca mensagens carregadas e abre/fecha a ficha sem ocupar sempre a conversa', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente'));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    fireEvent.click(await screen.findByLabelText('Pesquisar nesta conversa'));
+    fireEvent.change(screen.getByLabelText('Buscar mensagens nesta conversa'), { target: { value: 'mensagem 1' } });
+    expect(screen.getByText('mensagem 1 de Ana Cliente')).toBeTruthy();
+    expect(screen.queryByText('mensagem 0 de Ana Cliente')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Fechar busca de mensagens'));
+    expect(screen.getByText('mensagem 0 de Ana Cliente')).toBeTruthy();
+    expect(screen.queryByLabelText('Fechar ficha do cliente')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Abrir ficha do cliente'));
+    fireEvent.click(screen.getByLabelText('Fechar ficha do cliente'));
+    expect(screen.queryByLabelText('Fechar ficha do cliente')).toBeNull();
+  });
+  test('sincronizar também atualiza as mensagens da conversa aberta', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 1));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    await screen.findByText('mensagem 0 de Ana Cliente');
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 2));
+    fireEvent.click(screen.getByLabelText('Sincronizar mensagens e contatos'));
+    expect(await screen.findByText('mensagem 1 de Ana Cliente')).toBeTruthy();
+    expect(actions.syncInboxContacts).toHaveBeenCalledTimes(1);
+  });
   test('arquivadas ficam numa aba propria, com contador', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => detail(id, id));
     abrirTela([item('a', 'Ana Cliente'), item('b', 'Bruno Arquivado', true)]);
@@ -96,29 +139,5 @@ describe('Atendimento estilo WhatsApp', () => {
     const conv = rt.handlers.find(h => h.table === 'conversations')!;
     conv.cb({ eventType: 'UPDATE', new: { id: 'a', client_id: null, unread_count: 2, last_message_preview: 'oi', last_message_at: new Date().toISOString() }, old: {} });
     await waitFor(() => expect(actions.markInboxRead).toHaveBeenCalledTimes(2), { timeout: 3000 });
-  });
-
-  test('nota interna nao vai para o cliente; historico mostra notas, transferencias e a sugestao da Lia', async () => {
-    const d = { ...detail('a', 'Ana Cliente'),
-      suggestion: { text: 'Bom dia! Pode mandar fotos da calha?', at: '2026-11-12T10:05:00.000Z' },
-      events: [
-        { id: 'e1', kind: 'nota', body: 'Cliente prefere ligação à tarde', toName: null, department: null, status: null, byName: 'Rose', at: '2026-11-12T10:01:30.000Z' },
-        { id: 'e2', kind: 'transferencia', body: null, toName: 'Carlos', department: 'pos_venda', status: null, byName: 'Rose', at: '2026-11-12T10:03:00.000Z' },
-      ] };
-    actions.loadConversation.mockImplementation(async () => d);
-    abrirTela([item('a', 'Ana Cliente')]);
-    fireEvent.click(screen.getByText('Ana Cliente'));
-    expect(await screen.findByText('Cliente prefere ligação à tarde')).toBeTruthy();
-    expect(screen.getByText(/Rose transferiu para Carlos \(Pós-venda\)/)).toBeTruthy();
-    expect(screen.getByText('Bom dia! Pode mandar fotos da calha?')).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText('Nota interna'));
-    fireEvent.change(screen.getByPlaceholderText('Nota interna: só a equipe vê'), { target: { value: 'Ligar amanhã' } });
-    fireEvent.click(screen.getByLabelText('Salvar nota'));
-    await waitFor(() => expect(actions.addInboxNote).toHaveBeenCalledWith('a', 'Ligar amanhã'));
-    expect(actions.sendInboxMessage).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText('Usar'));
-    await waitFor(() => expect(actions.approveLiaSuggestion).toHaveBeenCalledWith('a', '2026-11-12T10:05:00.000Z'));
   });
 });

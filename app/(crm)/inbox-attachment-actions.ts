@@ -1,4 +1,5 @@
 'use server';
+import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
@@ -72,7 +73,7 @@ export async function sendInboxAttachment(messageId:string){
   }
   const {error:pauseError}=await c.db.from('conversations').update({ai_paused:true,assigned_to:c.user.id,ai_generation_id:null}).eq('id',conv.id).eq('company_id',c.companyId);
   if(pauseError)throw new Error(pauseError.message);
-  const externalId=await sendWhatsAppMedia(credentials,digitsOnly(conv.phone||conv.external_id),{bytes,mime:m.media_type,name:m.file_name,caption:`*${c.name}:*`,kind:attachmentKind(m.media_type)});
+  const externalId=await sendWhatsAppMedia(credentials,whatsappTarget(conv.phone || conv.external_id),{bytes,mime:m.media_type,name:m.file_name,caption:`*${c.name}:*`,kind:attachmentKind(m.media_type)});
   const at=new Date().toISOString();
   const {error:saveError}=await c.admin.from('messages').update({delivery_status:'enviada',external_id:externalId,sent_at:at,error_message:null}).eq('id',m.id);
   if(saveError)throw new Error('Arquivo enviado, mas falhou o registro no CRM. Confira o WhatsApp antes de repetir.');

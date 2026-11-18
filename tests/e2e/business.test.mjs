@@ -158,6 +158,8 @@ test("compra avulsa e recebimento do material", async () => {
   await setByLabel(page, "Descrição do material", `Bobina aluminio ${RUN}`);
   await setByLabel(page, "Quantidade", 2);
   await setByLabel(page, "Valor unitário", 300);
+  // Ainda não pagou: fica tudo em aberto no contas a pagar.
+  await page.$$eval("button", (bs) => bs.find((b) => b.innerText.trim() === "Não pagou")?.click());
   await clickAndWait(page, "Cadastrar compra");
   await noProblem("compra avulsa");
   const poId = page.url().match(/compras\/([0-9a-f-]{36})/)?.[1];

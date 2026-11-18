@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { evolutionJidPhone, evolutionMessageText } from '@/lib/whatsapp/message-text';
-import { importHistoryPage } from '@/lib/whatsapp/evolution-history';
+import { importHistoryPage, syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 
 describe('texto das mensagens', () => {
   test('tipos comuns', () => {
@@ -54,6 +54,32 @@ describe('importa o histórico', () => {
     expect(t.messages.map(m => [m.author, m.sender_name])).toEqual([['equipe', 'Rose'], ['cliente', 'Carlos']]);
     expect(await importHistoryPage(db as never, 'c1', page)).toEqual({ inserted: 0, conversations: 0 });
     expect(t.messages).toHaveLength(2);
+  });
+  test('sincronização recente recupera mensagens ausentes sem duplicar nem mudar o atendimento existente', async () => {
+    const { t, db } = fakeDb();
+    const existing = rec('old', 1700000100, 'anterior');
+    await importHistoryPage(db as never, 'c1', [existing]);
+    Object.assign(t.conversations[0], { ai_paused: false, assigned_to: 'vendedor', unread_count: 3 });
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ messages: { records: [rec('new', 1700000200, 'nova'), existing], pages: 99 } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'test-key', 'crm')).toMatchObject({ inserted: 1 });
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'test-key', 'crm')).toMatchObject({ inserted: 0 });
+      expect(JSON.parse((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ where: {}, page: 1, offset: 400 });
+      expect(t.messages).toHaveLength(2);
+      expect(t.conversations[0]).toMatchObject({ ai_paused: false, assigned_to: 'vendedor', unread_count: 3, last_message_preview: 'nova' });
+    } finally { vi.unstubAllGlobals(); }
+  });
+  test('reimportar corrige data de mensagem enviada sem duplicar nem alterar conteúdo ou atribuição', async () => {
+    const { t, db } = fakeDb();
+    const page = [rec('sent', 1700000100, 'enviada', true), rec('received', 1700000200, 'resposta')];
+    await importHistoryPage(db as never, 'c1', page);
+    Object.assign(t.messages[0], { sent_at: '2026-11-16T10:00:00Z', body: 'conteúdo preservado', delivery_status: 'lida' });
+    Object.assign(t.conversations[0], { ai_paused: true, assigned_to: 'vendedor', unread_count: 2 });
+    expect(await importHistoryPage(db as never, 'c1', page)).toMatchObject({ inserted: 0, conversations: 1 });
+    expect(t.messages).toHaveLength(2);
+    expect(t.messages[0]).toMatchObject({ sent_at: new Date(1700000100000).toISOString(), body: 'conteúdo preservado', delivery_status: 'lida' });
+    expect(t.conversations[0]).toMatchObject({ last_message_preview: 'resposta', ai_paused: true, assigned_to: 'vendedor', unread_count: 2 });
   });
 });
 

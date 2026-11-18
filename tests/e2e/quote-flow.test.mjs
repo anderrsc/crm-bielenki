@@ -29,7 +29,7 @@ function pdfMediaBox(buffer) {
 }
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@localhost:5499/crm";
-const RUN = Date.now().toString(36);
+const RUN = Date.now().toString();
 const CLIENT = `Cliente Fluxo ${RUN}`;
 
 let browser, page, db;
@@ -75,7 +75,8 @@ test("cadastrar cliente", async () => {
   await page.goto(`${BASE}/clientes/novo`, { waitUntil: "networkidle0" });
   await page.type('input[name="name"]', CLIENT);
   await page.type('input[name="phone"]', "(47) 98888-7777");
-  await page.type('input[autocomplete="address-line1"]', "Rua das Calhas");
+  assert.equal(await page.$eval('input[name="phone"]', el => el.autocomplete), 'off');
+  await page.type('input[placeholder="Ex. Rua Vicente Bernardes"]', "Rua das Calhas");
   await page.type('input[placeholder="Ex. 120 ou S/N"]', "100");
   await page.type('input[name="city"]', "Jaraguá do Sul");
   assert.equal(await page.$eval('select[name="state"]', (el) => el.value), "SC", "UF deve vir SC por padrao");
@@ -83,6 +84,8 @@ test("cadastrar cliente", async () => {
   await noProblem("cadastrar cliente");
   assert.match(page.url(), /\/clientes\/[0-9a-f-]{36}$/);
   state.clientId = page.url().split("/").pop();
+  const savedClient=(await db.query('select name from clients where id=$1',[state.clientId])).rows[0];
+  assert.equal(savedClient?.name,CLIENT,'nome do cliente deve preservar palavras e espaços');
   assert.ok((await page.content()).includes(CLIENT));
   const { rows: leads } = await db.query("select l.client_id, s.name from leads l join pipeline_stages s on s.id = l.stage_id where l.client_id = $1", [state.clientId]);
   assert.equal(leads.length, 1, "cadastro deve lancar o cliente no pipeline");

@@ -42,7 +42,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
 
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-xl font-bold">Saldo das contas</h2>
+        <div><h2 className="text-xl font-bold">Saldo das contas</h2><Link href="/financeiro/extrato" className="text-sm font-bold text-forest underline">Extrato por conta (imprimir)</Link></div>
         <p className="text-right"><span className="block text-xs font-bold uppercase tracking-wider text-ink/45">Saldo hoje</span><span className={`text-2xl font-black ${tone(balance)}`}>{money(balance)}</span></p>
       </div>
       {!overview.accounts.length && <p className="text-sm text-ink/60">Nenhuma conta cadastrada. Cadastre as contas de recebimento na tela do Financeiro para acompanhar o saldo de cada uma.</p>}

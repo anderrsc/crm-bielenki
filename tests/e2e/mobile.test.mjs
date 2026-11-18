@@ -49,7 +49,7 @@ test('mobile: direct event links work and new commitments preserve their locatio
  await page.goto(`${BASE}/agenda?evento=${eventId}&origem=operational_events`,{waitUntil:'networkidle0'});await page.waitForSelector('[role="dialog"]');await page.click('button[aria-label="Fechar compromisso"]');
  await page.click('button[aria-label="Novo compromisso"]');await page.waitForSelector('input[name="address"]');const newTitle='Visita Mobile '+Date.now();await page.type('input[name="title"]',newTitle);await page.type('input[name="address"]',address);await page.type('input[name="phone"]','47998887766');
  await page.evaluate(()=>document.querySelector('input[name="title"]').form.requestSubmit());await settle(page);
- const {rows}=await db.query('select address,phone from operational_events where title=$1',[newTitle]);assert.equal(rows[0]?.address,address);assert.equal(rows[0]?.phone,'47998887766');
+ const {rows}=await db.query('select address,phone from operational_events where title=$1',[newTitle]);assert.equal(rows[0]?.address,address);assert.equal(rows[0]?.phone,'(47) 99888-7766');
 });
 test('mobile: quote cards open the quote directly and tables expose labeled record cards',async()=>{
  await page.goto(`${BASE}/clientes`,{waitUntil:'networkidle0'});assert.equal(await page.$eval('.mobile-record-table',e=>getComputedStyle(e).minWidth),'0px');assert.ok(await page.$('.mobile-record-table td[data-label]'));

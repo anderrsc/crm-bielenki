@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
 import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
-import { evolutionJidPhone, evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
 
 export const HISTORY_PAGE_SIZE = 400;
 const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
@@ -26,12 +26,28 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
 
 const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
+/** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
+export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string) {
+  const page = await fetchEvolutionMessages(base, key, instance, 1);
+  return importHistoryPage(db, companyId, page.messages?.records ?? []);
+}
+
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[]) {
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
   const rows: Row[] = [];
+  // Contas "@lid" sem numero: usa a ligacao lid -> telefone ja conhecida, senao fica com o lid.
+  const links = new Map<string, string>();
+  const lidPhones = new Map<string, string>();
+  const lids = [...new Set(records.map((r) => evolutionContact(r.key)?.lid).filter((v): v is string => !!v))];
+  for (let i = 0; i < lids.length; i += 200) {
+    const { data } = await db.from("whatsapp_lid_map").select("lid,phone").eq("company_id", companyId).in("lid", lids.slice(i, i + 200));
+    for (const m of data ?? []) lidPhones.set(m.lid as string, m.phone as string);
+  }
   for (const r of records) {
-    const phone = evolutionJidPhone(r.key);
+    const contact = evolutionContact(r.key);
+    if (contact?.lid && contact.phone) links.set(contact.lid, contact.phone);
+    const phone = contact?.phone ?? (contact?.lid ? lidPhones.get(contact.lid) ?? contact.lid : null);
     const id = typeof r.key?.id === "string" ? r.key.id : "";
     const { text } = evolutionMessageText(r.message);
     const ts = Number(r.messageTimestamp);
@@ -45,20 +61,35 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       contact: fromMe ? null : cleanContactName(r.pushName),
     });
   }
+  // Lid com numero descoberto nesta pagina: registra e junta a conversa que estava so com o lid.
+  for (const [lid, phone] of links) {
+    if (lidPhones.get(lid) !== phone) await db.rpc("link_whatsapp_lid", { p_company: companyId, p_lid: lid, p_phone: phone }).then(() => undefined, () => undefined);
+  }
   if (!rows.length) return { inserted: 0, conversations: 0 };
 
-  // Já importadas (ou que chegaram pelo webhook) ficam de fora.
+  // Já importadas não duplicam; corrige a data dos ecos antigos gravados ao reconectar.
   const known = new Set<string>();
+  const corrected = new Map<string, string>();
   const ids = rows.map((r) => r.external_id);
   for (let i = 0; i < ids.length; i += 200) {
-    const { data } = await db.from("messages").select("external_id").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200));
-    for (const m of data ?? []) known.add(m.external_id as string);
+    const { data, error } = await db.from("messages").select("id,external_id,conversation_id,direction,sent_at").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200));
+    if (error) throw new Error(`Histórico não consultado: ${error.message}`);
+    for (const m of data ?? []) {
+      known.add(m.external_id as string);
+      const original = rows.find((r) => r.external_id === m.external_id);
+      if (original?.direction === "outbound" && m.direction === "outbound" && m.sent_at && new Date(m.sent_at).getTime() !== new Date(original.sent_at).getTime()) {
+        const { error: correctionError } = await db.from("messages").update({ sent_at: original.sent_at })
+          .eq("company_id", companyId).eq("id", m.id).eq("sent_at", m.sent_at);
+        if (correctionError) throw new Error(`Data da mensagem não corrigida: ${correctionError.message}`);
+        corrected.set(original.phone, m.conversation_id as string);
+      }
+    }
   }
   const fresh = rows.filter((r) => !known.has(r.external_id));
-  if (!fresh.length) return { inserted: 0, conversations: 0 };
+  if (!fresh.length && !corrected.size) return { inserted: 0, conversations: 0 };
 
   // Uma conversa por telefone; as que já existiam no WhatsApp são da equipe (a Ana não entra).
-  const convByPhone = new Map<string, string>();
+  const convByPhone = new Map<string, string>(corrected);
   for (const phone of new Set(fresh.map((r) => r.phone))) {
     const contact = fresh.find((r) => r.phone === phone && r.contact)?.contact ?? null;
     const conv = await getOrCreateConversation(db, companyId, phone, contact, { aiPaused: true });

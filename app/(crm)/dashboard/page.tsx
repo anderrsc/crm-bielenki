@@ -47,7 +47,9 @@ const ALERTA_LABEL:Record<string,string>  = { critical:"CRÍTICO", high:"ALTO", 
 
 export default async function Dashboard({ searchParams }: { searchParams?: Promise<{ aba?: string }> }) {
   const sp   = searchParams ? await searchParams : {};
-  const aba  = sp.aba ?? "geral";
+  const financialDb = await getRequestClient();
+  const canViewFinancial = (await financialDb.rpc("has_table_access", {resource:"financial_entries",action:"select"})).data === true;
+  const aba = sp.aba === "financeiro" && !canViewFinancial ? "geral" : sp.aba ?? "geral";
   const [data, sources] = await Promise.all([loadDashboard(aba), loadLeadSources()]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d    = data as any;
@@ -62,7 +64,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
     (d?.overdue_payable    ?? 0) > 0 && { label:`${money(d.overdue_payable)} a pagar vencido(s)`,      href:"/financeiro/pagar",  color:"bg-orange-50 border-orange-200 text-orange-800", icon:AlertCircle },
     (d?.due_today          ?? 0) > 0 && { label:`${d.due_today} vencimento(s) hoje`,                   href:"/financeiro",        color:"bg-amber-50 border-amber-200 text-amber-800", icon:AlertTriangle },
     (d?.orcamentos_pendentes ?? d?.quotes_pending ?? 0) > 0 && { label:`${d?.orcamentos_pendentes ?? d?.quotes_pending} orçamento(s) pendente(s)`, href:"/orcamentos", color:"bg-blue-50 border-blue-200 text-blue-800", icon:FileText },
-  ].filter(Boolean) as { label:string; href:string; color:string; icon:typeof AlertCircle }[];
+  ].filter(item => item && (canViewFinancial || !item.href.startsWith("/financeiro"))) as { label:string; href:string; color:string; icon:typeof AlertCircle }[];
 
   const ABAS = [
     { key:"geral",      label:"Visão Geral" },
@@ -106,7 +108,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* Tabs */}
       <div className="mobile-dashboard-tabs mb-5 flex gap-2 overflow-x-auto pb-1">
-        {ABAS.map(a => (
+        {ABAS.filter(item => item.key !== "financeiro" || canViewFinancial).map(a => (
           <Link key={a.key} href={`/dashboard?aba=${a.key}`}
             className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition
               ${aba === a.key ? "bg-brand-strong text-white border-forest" : "bg-surface border-sand hover:bg-cream"}`}>
@@ -123,7 +125,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
             ["A receber",      money(receitas), WalletCards,      "text-blue-700 bg-blue-50"],
             ["A pagar",        money(despesas), CircleDollarSign, "text-orange-700 bg-orange-50"],
             ["Saldo previsto", money(saldo),    ArrowUpRight,     saldo >= 0 ? "text-violet-700 bg-violet-50" : "text-red-700 bg-red-50"],
-          ] as const).map(([label, value, Icon, color]) => (
+          ] as const).filter(([label]) => canViewFinancial || label === "Vendas do mês").map(([label, value, Icon, color]) => (
             <div className={"card p-5"+(label==="Vendas do mês"?" kpi-highlight":"")} key={label}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-ink/55">{label}</p>

@@ -6,7 +6,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -16,7 +16,7 @@ import { ThemeToggle } from "./theme-toggle";
 const groups=[
  {title:"Principal",items:[["Dashboard", "/dashboard",LayoutDashboard],["Pendências", "/pendencias",AlertCircle],["Atendimento", "/atendimento",MessageCircle],["Clientes", "/clientes",Users],["Pipeline", "/pipeline",BarChart3],["Orçamentos", "/orcamentos",FileText],["Vendas", "/vendas",HandCoins],["Pedidos", "/pedidos",ClipboardCheck]]},
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck],["Serviços", "/servicos",Wrench]]},
- {title:"Gestão",items:[["Produtos & Peças", "/tabela-calhas",Boxes],["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Financeiro", "/financeiro",CircleDollarSign],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Relatórios", "/relatorios",BarChart3]]},
+ {title:"Gestão",items:[["Produtos & Peças", "/tabela-calhas",Boxes],["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Financeiro", "/financeiro",CircleDollarSign],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Relatórios", "/relatorios",BarChart3]]},
  {title:"Equipe",items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield]]},
  {title:"Geral",items:[["Automações", "/automacoes",Bot],["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
 ] as const;
