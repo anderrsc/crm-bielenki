@@ -86,8 +86,10 @@ export function aiProviderKey(provider: AiProvider, cfg?: ProviderKeys | null): 
 
 async function anthropicChat(apiKey: string, model: string, messages: AiMessage[], json: boolean, maxTokens: number): Promise<string> {
   const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 60_000 });
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n")
-    + (json ? "\n\nResponda SOMENTE com um objeto JSON válido, sem texto antes ou depois e sem bloco de código." : "");
+  // Cada mensagem de sistema vira um bloco; a primeira (regras fixas) fica em cache.
+  const systemTexts = messages.filter((m) => m.role === "system" && m.content.trim()).map((m) => m.content);
+  if (json) systemTexts.push("Responda SOMENTE com um objeto JSON válido, sem texto antes ou depois e sem bloco de código.");
+  const system: Anthropic.Beta.BetaTextBlockParam[] = systemTexts.map((text, i) => (i === 0 ? { type: "text", text, cache_control: { type: "ephemeral" } } : { type: "text", text }));
   const turns: Anthropic.Beta.BetaMessageParam[] = [];
   for (const m of messages.filter((x) => x.role !== "system")) {
     const role = m.role === "assistant" ? "assistant" : "user";
@@ -101,8 +103,10 @@ async function anthropicChat(apiKey: string, model: string, messages: AiMessage[
       model,
       // Pensamento adaptativo consome parte do limite: folga para a resposta não ser cortada.
       max_tokens: Math.max(maxTokens * 4, 4000),
-      ...(system.trim() ? { system } : {}),
+      ...(system.length ? { system } : {}),
       messages: turns,
+      // Também guarda o histórico: na próxima mensagem da mesma conversa ele sai do cache.
+      cache_control: { type: "ephemeral" },
       output_config: { effort: model.includes("haiku") ? "low" : "medium" },
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",

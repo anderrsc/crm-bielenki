@@ -21,7 +21,8 @@ test("Lia no Claude: system vai no campo próprio, com fallback e sem temperatur
   const reply = await aiChat({ provider: "anthropic", apiKey: "sk-ant-test", messages: [{ role: "system", content: "Você é a Lia." }, { role: "assistant", content: "Oi" }, { role: "user", content: "Quero calha" }] });
   expect(reply).toBe("Olá! Como posso ajudar?");
   const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-  expect(body.system).toBe("Você é a Lia.");
+  expect(body.system[0]).toEqual({ type: "text", text: "Você é a Lia.", cache_control: { type: "ephemeral" } });
+  expect(body.cache_control).toEqual({ type: "ephemeral" });
   expect(body.messages[0].role).toBe("user");
   expect(body.fallbacks).toBe("default");
   expect(body).not.toHaveProperty("temperature");

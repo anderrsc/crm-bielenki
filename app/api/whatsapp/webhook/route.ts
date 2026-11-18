@@ -552,9 +552,11 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI). Se falhar (limite por minuto,
     // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
-    const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    // Regras fixas primeiro e dados da conversa depois: no Claude a parte fixa fica em cache
+    // (cobrada ~90% mais barato nas mensagens seguintes).
+    const systemFull = SYSTEM_PROMPT + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const rulesShort = [rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null), confirmedRules].filter(Boolean).join("\n\n");
-    const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    const systemShort = SYSTEM_PROMPT + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
       { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory },
@@ -573,7 +575,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
           temperature: Number(agentConfig.temperature ?? 0.3),
           json: true,
           maxTokens: 1500,
-          messages: [{ role: "system", content: attempt.system }, ...attempt.history],
+          messages: [{ role: "system", content: attempt.system }, { role: "system", content: contextMsg.trim() }, ...attempt.history],
         });
         JSON.parse(aiContent);
         aiFailure = null;
