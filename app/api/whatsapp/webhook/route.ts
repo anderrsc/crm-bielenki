@@ -4,7 +4,7 @@ import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, parseAiProvider } from "@/lib/ai/chat";
+import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, aiProviderKey, parseAiProvider } from "@/lib/ai/chat";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
@@ -428,7 +428,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     if (conversation?.client_id) return NextResponse.json({ status: "known_client" });
 
     const aiProvider = parseAiProvider(agentConfig?.ai_provider);
-    const companyAiKey = aiProvider === "groq" ? (agentConfig?.groq_api_key ?? agentConfig?.openai_api_key) : agentConfig?.openai_api_key;
+    const companyAiKey = aiProviderKey(aiProvider, agentConfig);
     if (!agentConfig?.active || !aiKeyAvailable(aiProvider, companyAiKey)) {
       console.log("Agente IA não configurado/ativo para empresa:", company.id);
       return NextResponse.json({ status: "agent_inactive" });
@@ -552,9 +552,11 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Chama a IA configurada (Ollama Cloud, Groq ou OpenAI). Se falhar (limite por minuto,
     // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
-    const systemFull = SYSTEM_PROMPT + contextMsg + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    // Regras fixas primeiro e dados da conversa depois: no Claude a parte fixa fica em cache
+    // (cobrada ~90% mais barato nas mensagens seguintes).
+    const systemFull = SYSTEM_PROMPT + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const rulesShort = [rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null), confirmedRules].filter(Boolean).join("\n\n");
-    const systemShort = SYSTEM_PROMPT + contextMsg + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    const systemShort = SYSTEM_PROMPT + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
       { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory },
@@ -573,7 +575,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
           temperature: Number(agentConfig.temperature ?? 0.3),
           json: true,
           maxTokens: 1500,
-          messages: [{ role: "system", content: attempt.system }, ...attempt.history],
+          messages: [{ role: "system", content: attempt.system }, { role: "system", content: contextMsg.trim() }, ...attempt.history],
         });
         JSON.parse(aiContent);
         aiFailure = null;

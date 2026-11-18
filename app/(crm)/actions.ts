@@ -17,7 +17,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import { safeExternalUrl } from "@/lib/safe-url";
-import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
+import { aiChat, aiErrorMessage, aiProviderKey, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
 import { AiRateLimitError, consumeAiQuota } from "@/lib/ai/rate-limit";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 import { todayISO } from "@/lib/utils";
@@ -762,6 +762,12 @@ export async function saveAiAgentConfig(formData: FormData) {
   const groqKey = String(formData.get("groq_api_key") || "").trim();
   if (groqKey && !groqKey.startsWith("***") && !groqKey.startsWith("enc:")) values.groq_api_key = encryptSecret(groqKey);
 
+  const anthropicKey = String(formData.get("anthropic_api_key") || "").trim();
+  if (anthropicKey && !anthropicKey.startsWith("***") && !anthropicKey.startsWith("enc:")) values.anthropic_api_key = encryptSecret(anthropicKey);
+
+  const geminiKey = String(formData.get("gemini_api_key") || "").trim();
+  if (geminiKey && !geminiKey.startsWith("***") && !geminiKey.startsWith("enc:")) values.gemini_api_key = encryptSecret(geminiKey);
+
   const apiKey = String(formData.get("openai_api_key") || "").trim();
   if (apiKey && !apiKey.startsWith("***") && !apiKey.startsWith("enc:")) values.openai_api_key = encryptSecret(apiKey);
 
@@ -810,18 +816,18 @@ export async function setAiAgentActive(formData: FormData) {
  * salvar). Chaves digitadas e ainda nao salvas sao usadas so neste teste;
  * sem elas vale a chave salva. Roda no servidor; a chave nao sai daqui.
  */
-export async function testAiAgent(input: { provider?: string; model?: string; groqKey?: string; openaiKey?: string } = {}): Promise<{ reply?: string; error?: string }> {
+export async function testAiAgent(input: { provider?: string; model?: string; groqKey?: string; openaiKey?: string; anthropicKey?: string } = {}): Promise<{ reply?: string; error?: string }> {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
   try { consumeAiQuota(user.id); } catch (e) { if (e instanceof AiRateLimitError) return { error: e.message }; throw e; }
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) return { error: "Empresa não encontrada." };
-  const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", profile.company_id).maybeSingle();
+  const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key,anthropic_api_key").eq("company_id", profile.company_id).maybeSingle();
   const provider = parseAiProvider(input.provider ?? config?.ai_provider);
   const typed = (value?: string) => { const v = value?.trim(); return v && !v.startsWith("***") && !v.startsWith("enc:") ? v : null; };
-  const stored = provider === "groq" ? (config?.groq_api_key ?? config?.openai_api_key) : config?.openai_api_key;
-  const apiKey = (provider === "groq" ? typed(input.groqKey) : typed(input.openaiKey)) ?? (stored ? decryptSecret(stored) : null);
+  const stored = aiProviderKey(provider, config);
+  const apiKey = (provider === "groq" ? typed(input.groqKey) : provider === "anthropic" ? typed(input.anthropicKey) : typed(input.openaiKey)) ?? (stored ? decryptSecret(stored) : null);
   const model = input.model?.trim() || (provider === parseAiProvider(config?.ai_provider) ? config?.openai_model : null);
   try {
     const reply = await aiChat({

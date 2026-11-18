@@ -1,5 +1,6 @@
 // Lê nota fiscal (PDF ou foto do DANFE) com IA e devolve os dados para pré-preencher
 // a Nova compra. Nada é salvo aqui: a pessoa confere e cadastra.
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 export const INVOICE_TYPES = ["Perfil", "Acessório", "Componentes para calhas", "Componentes para esquadrias", "Alumínio bobina", "Cano", "Material elétrico/eletrônico", "Outro"] as const;
@@ -65,6 +66,59 @@ Regras: o fornecedor é o EMITENTE da nota (não o destinatário). Use ponto com
 "tipo" deve ser exatamente um de: ${INVOICE_TYPES.join(", ")}. "vencimentos" vem das duplicatas/fatura (vazio se não houver).
 Se algo não estiver legível, use null. Não invente itens.`;
 
+function parseInvoiceJson(text: string): InvoiceData {
+  let parsed: unknown;
+  try { parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}"); } catch { throw new Error("A IA respondeu em formato inesperado. Tente outra foto."); }
+  return invoiceSchema.parse(parsed);
+}
+
+/** Claude Haiku 5.5: lê PDF e imagem direto; o mais barato por nota. */
+export async function readInvoiceWithClaude(file: { name: string; type: string; base64: string }, apiKey: string): Promise<InvoiceData> {
+  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 90_000 });
+  const media: Anthropic.ContentBlockParam = file.type === "application/pdf"
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: file.base64 } }
+    : { type: "image", source: { type: "base64", media_type: file.type as "image/jpeg" | "image/png" | "image/webp", data: file.base64 } };
+  try {
+    const response = await client.messages.create({
+      model: "claude-haiku-5-5",
+      max_tokens: 16000,
+      output_config: { effort: "low" },
+      messages: [{ role: "user", content: [media, { type: "text", text: PROMPT }] }],
+    });
+    if (response.stop_reason === "refusal") throw new Error("A IA não conseguiu ler esta nota.");
+    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+    return parseInvoiceJson(text.trim().replace(/^[^{]*/, "").replace(/[^}]*$/, ""));
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError) throw new Error("Chave da Anthropic inválida. Confira na Central de IA.");
+    if (error instanceof Anthropic.RateLimitError) throw new Error("Limite da Anthropic atingido. Tente de novo em alguns minutos.");
+    if (error instanceof Anthropic.APIError) throw new Error(`A IA não conseguiu ler a nota (${error.status ?? "erro"}).`);
+    throw error;
+  }
+}
+
+/** Google Gemini: lê PDF e imagem direto e é bem mais barato que a OpenAI. */
+export async function readInvoiceWithGemini(file: { name: string; type: string; base64: string }, apiKey: string): Promise<InvoiceData> {
+  const send = (model: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: PROMPT }, { inline_data: { mime_type: file.type, data: file.base64 } }] }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json", maxOutputTokens: 8000 },
+    }),
+  });
+  let response = await send("gemini-flash-lite-latest");
+  if (response.status === 404) response = await send("gemini-flash-latest");
+  if (!response.ok) {
+    const text = (await response.text()).slice(0, 300);
+    if (response.status === 400 && /API key/i.test(text) || response.status === 403) throw new Error("Chave do Gemini inválida. Confira na Central de IA.");
+    if (response.status === 429) throw new Error("Limite do Gemini atingido. Tente de novo em alguns minutos.");
+    throw new Error(`A IA não conseguiu ler a nota (${response.status}). ${text}`);
+  }
+  const data = await response.json();
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
+  return parseInvoiceJson(text);
+}
+
 export async function readInvoiceWithAi(file: { name: string; type: string; base64: string }, apiKey: string, model = "gpt-4o"): Promise<InvoiceData> {
   const content: unknown[] = [{ type: "text", text: PROMPT }];
   if (file.type === "application/pdf") content.push({ type: "file", file: { filename: file.name || "nota.pdf", file_data: `data:application/pdf;base64,${file.base64}` } });
@@ -81,7 +135,5 @@ export async function readInvoiceWithAi(file: { name: string; type: string; base
     throw new Error(`A IA não conseguiu ler a nota (${response.status}). ${text}`);
   }
   const data = await response.json();
-  let parsed: unknown;
-  try { parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}"); } catch { throw new Error("A IA respondeu em formato inesperado. Tente outra foto."); }
-  return invoiceSchema.parse(parsed);
+  return parseInvoiceJson(data.choices?.[0]?.message?.content ?? "{}");
 }

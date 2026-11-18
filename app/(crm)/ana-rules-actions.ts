@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { aiChat, aiErrorMessage, parseAiProvider } from "@/lib/ai/chat";
+import { aiChat, aiErrorMessage, aiProviderKey, parseAiProvider } from "@/lib/ai/chat";
 import { AiRateLimitError, consumeAiQuota } from "@/lib/ai/rate-limit";
 import { ANA_RULES_TEMPLATE, rulesWithoutLearned, withLearned } from "@/lib/ai/ana-rules";
 import { buildTranscripts, LEARN_CHUNKS } from "@/lib/ai/ana-learn";
@@ -17,7 +17,7 @@ async function context() {
   if (!user) throw new Error("Sessão expirada. Entre novamente.");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) throw new Error("Empresa não encontrada.");
-  const { data: cfg } = await db.from("ai_agent_config").select("system_prompt,ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", profile.company_id).maybeSingle();
+  const { data: cfg } = await db.from("ai_agent_config").select("system_prompt,ai_provider,openai_model,groq_api_key,openai_api_key,anthropic_api_key").eq("company_id", profile.company_id).maybeSingle();
   return { db, companyId: profile.company_id as string, cfg, userId: user.id };
 }
 
@@ -42,7 +42,7 @@ export async function saveAnaRules(rules: string): Promise<Result> {
 async function ask(cfg: Awaited<ReturnType<typeof context>>["cfg"], prompt: string, maxTokens: number, userId: string) {
   consumeAiQuota(userId);
   const provider = parseAiProvider(cfg?.ai_provider);
-  const stored = provider === "groq" ? (cfg?.groq_api_key ?? cfg?.openai_api_key) : cfg?.openai_api_key;
+  const stored = aiProviderKey(provider, cfg);
   return aiChat({ provider, model: cfg?.openai_model, apiKey: stored ? decryptSecret(stored) : null, temperature: 0.2, maxTokens, messages: [{ role: "user", content: prompt }] });
 }
 

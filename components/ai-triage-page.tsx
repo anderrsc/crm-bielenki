@@ -30,6 +30,8 @@ type AgentConfig = {
   agent_name: string;
   ai_provider: string | null;
   openai_api_key: string | null;
+  gemini_api_key?: string | null;
+  anthropic_api_key?: string | null;
   groq_api_key: string | null;
   openai_model: string;
   temperature: number;
@@ -335,18 +337,19 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
           {/* Seção: Provedor de IA */}
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Provedor de IA</p>
-            <div className="grid gap-3 sm:grid-cols-3 mb-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
               {[
                 { value: "ollama", label: "🦙 Ollama Cloud", badge: "MODELOS ABERTOS", desc: "GLM e outros modelos abertos · chave no servidor" },
                 { value: "groq", label: "🚀 Groq", badge: "GRÁTIS", desc: "GPT OSS 120B · plano gratuito · sem cartão" },
                 { value: "openai", label: "OpenAI", badge: "PAGO", desc: "GPT-4o · ~R$0,03 por triagem" },
+                { value: "anthropic", label: "Claude (Anthropic)", badge: "RECOMENDADO", desc: "Sonnet 5.5: atendimento mais natural e profissional" },
               ].map(opt => (
                 <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${aiProvider === opt.value ? "border-forest bg-brand-strong/5" : "border-transparent bg-gray-50 hover:border-forest/30"}`}>
                   <input type="radio" name="ai_provider" value={opt.value} checked={aiProvider === opt.value} onChange={() => setAiProvider(opt.value)} className="mt-0.5" />
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{opt.label}</span>
-                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "openai" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>{opt.badge}</span>
+                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "openai" ? "bg-red-100 text-red-700" : opt.value === "anthropic" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"}`}>{opt.badge}</span>
                     </div>
                     <p className="text-xs text-ink/50 mt-0.5">{opt.desc}</p>
                   </div>
@@ -388,6 +391,23 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
               </div>
             )}
 
+            {aiProvider === "anthropic" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Anthropic (Claude)</label>
+                  <input name="anthropic_api_key" type="password" defaultValue={config?.anthropic_api_key ?? ""} className="input w-full font-mono" placeholder="sk-ant-..." onFocus={() => setShowKeyWarning(true)} />
+                  <p className="mt-1 text-xs text-ink/50">Crie em console.anthropic.com → API Keys. A mesma chave também lê as notas fiscais na Nova compra (Claude Haiku 5.5, o mais barato).</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo da Lia</label>
+                  <select name="openai_model" defaultValue={config?.ai_provider === "anthropic" && config.openai_model?.startsWith("claude-") ? config.openai_model : "claude-sonnet-5-5"} className="input w-full">
+                    <option value="claude-sonnet-5-5">Claude Sonnet 5.5 — mais inteligente (recomendado)</option>
+                    <option value="claude-haiku-5-5">Claude Haiku 5.5 — mais barato e rápido</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             {aiProvider === "openai" && (
               <div className="space-y-3">
                 <div>
@@ -403,6 +423,12 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                 </div>
               </div>
             )}
+
+            <div className="mt-4 rounded-xl border border-sand p-3">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Google Gemini (leitura de notas fiscais)</label>
+              <input name="gemini_api_key" type="password" defaultValue={config?.gemini_api_key ?? ""} className="input w-full font-mono" placeholder="AIza..." onFocus={() => setShowKeyWarning(true)} />
+              <p className="mt-1 text-xs text-ink/50">Opcional e mais barata que a OpenAI para ler PDF/foto de nota na Nova compra. Gere grátis em aistudio.google.com → Get API key.</p>
+            </div>
             {showKeyWarning && <p className="text-xs text-amber-600 mt-1">⚠️ Chave salva de forma segura. Nunca a compartilhe.</p>}
             <div className="mt-4 rounded-xl border border-forest/10 bg-gray-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -410,7 +436,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                 <button type="button" disabled={testingAi} onClick={(event) => {
                   const form = new FormData(event.currentTarget.form ?? undefined);
                   const value = (name: string) => String(form.get(name) ?? "");
-                  startAiTest(async () => setAiTest(await testAiAgent({ provider: value("ai_provider"), model: value("openai_model"), groqKey: value("groq_api_key"), openaiKey: value("openai_api_key") })));
+                  startAiTest(async () => setAiTest(await testAiAgent({ provider: value("ai_provider"), model: value("openai_model"), groqKey: value("groq_api_key"), openaiKey: value("openai_api_key"), anthropicKey: value("anthropic_api_key") })));
                 }} className="rounded-xl border border-forest/20 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50">
                   {testingAi ? "Testando..." : "Testar IA"}
                 </button>
