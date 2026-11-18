@@ -70,6 +70,22 @@ describe('importa o histórico', () => {
       expect(t.conversations[0]).toMatchObject({ ai_paused: false, assigned_to: 'vendedor', unread_count: 3, last_message_preview: 'nova' });
     } finally { vi.unstubAllGlobals(); }
   });
+  test('depois de ficar fora do ar, recupera página por página até alcançar o que já tem', async () => {
+    const { t, db } = fakeDb();
+    const page1 = Array.from({ length: 400 }, (_, i) => rec(`p1-${i}`, 1700100000 - i, `m${i}`));
+    const page2 = [rec('p2-0', 1700000000, 'mais antiga')];
+    const fetcher = vi.fn(async (_u: string, init: RequestInit) => {
+      const n = JSON.parse(init.body as string).page;
+      return new Response(JSON.stringify({ messages: { records: n === 1 ? page1 : n === 2 ? page2 : [], pages: 3 } }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 401, pages: 2 });
+      expect(t.messages).toHaveLength(401);
+      // Em dia: lê só a primeira página.
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 0, pages: 1 });
+    } finally { vi.unstubAllGlobals(); }
+  });
   test('reimportar corrige data de mensagem enviada sem duplicar nem alterar conteúdo ou atribuição', async () => {
     const { t, db } = fakeDb();
     const page = [rec('sent', 1700000100, 'enviada', true), rec('received', 1700000200, 'resposta')];
@@ -121,4 +137,10 @@ describe('liga conversas ao cadastro', () => {
     expect(await autoLinkClients(db as never, 'c1')).toBe(1);
     expect(t.conversations.map(c => c.client_id)).toEqual(['cli', null]);
   });
+});
+
+test("erros do servidor do WhatsApp viram instrução clara", async () => {
+  const { evolutionErrorMessage } = await import("@/lib/whatsapp/evolution-history");
+  expect(evolutionErrorMessage(new Error("Evolution HTTP 401 ao ler o histórico."))).toMatch(/chave da Evolution/);
+  expect(evolutionErrorMessage(new Error("fetch failed"))).toMatch(/não respondeu/);
 });

@@ -27,9 +27,29 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
 const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
 /** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
-export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string, channelId?: string | null) {
-  const page = await fetchEvolutionMessages(base, key, instance, 1);
-  return importHistoryPage(db, companyId, page.messages?.records ?? [], channelId);
+export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string, channelId?: string | null, opts: { maxPages?: number } = {}) {
+  // Recupera da mais nova para a mais antiga até chegar no que o CRM já tem: depois de
+  // o servidor ficar fora do ar, nada fica para trás (e não lê o histórico inteiro à toa).
+  const maxPages = Math.max(1, Math.min(opts.maxPages ?? 1, 20));
+  let inserted = 0, conversations = 0, pages = 0;
+  for (let n = 1; n <= maxPages; n++) {
+    const page = await fetchEvolutionMessages(base, key, instance, n);
+    const records = page.messages?.records ?? [];
+    const r = await importHistoryPage(db, companyId, records, channelId);
+    inserted += r.inserted; conversations += r.conversations; pages = n;
+    const total = Number(page.messages?.pages ?? 1);
+    if (!r.inserted || records.length < HISTORY_PAGE_SIZE || n >= total) break;
+  }
+  return { inserted, conversations, pages };
+}
+
+/** Mensagem clara para os erros mais comuns do servidor do WhatsApp. */
+export function evolutionErrorMessage(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/HTTP 401|HTTP 403/.test(msg)) return "A chave da Evolution está errada. Cole de novo a chave (AUTHENTICATION_API_KEY) na Central de IA e salve.";
+  if (/HTTP 404/.test(msg)) return "O número não existe mais no servidor do WhatsApp. Conecte de novo lendo o QR.";
+  if (/fetch failed|ECONNREFUSED|timeout|aborted|ENOTFOUND/i.test(msg)) return "O servidor do WhatsApp não respondeu. Confira se o PC/servidor da Evolution está ligado e com internet.";
+  return msg;
 }
 
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */

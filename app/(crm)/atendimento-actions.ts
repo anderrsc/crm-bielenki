@@ -1,6 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
-import { channelById, channelCredentials } from "@/lib/whatsapp/channels";
+import { channelById, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { waitingSince } from "@/lib/inbox-waiting";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
 import { todayISO } from "@/lib/utils";
 import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
-import { syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
+import { evolutionErrorMessage, syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
 import { markWhatsAppRead, markWhatsAppUnread, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
@@ -91,17 +91,32 @@ function toItem(c: ConvRow): InboxItem {
 }
 
 const agendaSyncedAt = new Map<string, number>();
-/** Recupera a página recente sem disparar respostas da IA nem alterar a atribuição. */
+/** Recupera as mensagens recentes de cada número sem disparar a IA nem alterar a atribuição. */
 async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"], companyId: string) {
   const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const { data: cfg, error } = await admin.from("ai_agent_config")
-    .select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
+  const { data: cfg, error } = await admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle();
   if (error) throw new Error("Não foi possível consultar a conexão do WhatsApp.");
-  if (cfg?.wpp_provider !== "evolution") return 0;
-  const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
-  if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
-  const result = await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
-  return result.inserted;
+  const { data: chans } = await admin.from("whatsapp_channels").select("*").eq("company_id", companyId).eq("provider", "evolution").eq("active", true).is("deleted_at", null);
+  const channels = (chans ?? []) as WhatsappChannel[];
+  if (!channels.length) {
+    // Antes da tabela de números: conexão única da empresa.
+    if (cfg?.wpp_provider !== "evolution") return 0;
+    const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
+    if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
+    try { return (await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm", null, { maxPages: 3 })).inserted; }
+    catch (e) { throw new Error(evolutionErrorMessage(e)); }
+  }
+  let inserted = 0; const errors: string[] = [];
+  for (const ch of channels) {
+    const c = channelCredentials(cfg, ch);
+    if (!c.evolutionUrl || !c.evolutionKey || !c.evolutionInstance) { errors.push(`${ch.name}: configure a conexão na Central de IA.`); continue; }
+    try {
+      inserted += (await syncRecentEvolutionMessages(admin, companyId, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 3 })).inserted;
+      await admin.from("whatsapp_channels").update({ last_sync_at: new Date().toISOString() }).eq("id", ch.id);
+    } catch (e) { errors.push(`${ch.name}: ${evolutionErrorMessage(e)}`); }
+  }
+  if (errors.length && !inserted) throw new Error(errors.join(" "));
+  return inserted;
 }
 /** Nomes da agenda do celular, no máximo a cada 6 h (só quem pode ver a configuração da Evolution). */
 async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string, force = false) {
