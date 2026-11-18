@@ -27,13 +27,13 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
 const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
 /** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
-export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string) {
+export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string, channelId?: string | null) {
   const page = await fetchEvolutionMessages(base, key, instance, 1);
-  return importHistoryPage(db, companyId, page.messages?.records ?? []);
+  return importHistoryPage(db, companyId, page.messages?.records ?? [], channelId);
 }
 
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
-export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[]) {
+export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[], channelId?: string | null) {
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
   const rows: Row[] = [];
   // Contas "@lid" sem numero: usa a ligacao lid -> telefone ja conhecida, senao fica com o lid.
@@ -92,7 +92,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
   const convByPhone = new Map<string, string>(corrected);
   for (const phone of new Set(fresh.map((r) => r.phone))) {
     const contact = fresh.find((r) => r.phone === phone && r.contact)?.contact ?? null;
-    const conv = await getOrCreateConversation(db, companyId, phone, contact, { aiPaused: true });
+    const conv = await getOrCreateConversation(db, companyId, phone, contact, { aiPaused: true, channelId });
     convByPhone.set(phone, conv.id);
   }
 

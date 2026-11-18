@@ -1,5 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { channelById, channelCredentials } from "@/lib/whatsapp/channels";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
 import { formatRegistrationName } from "@/lib/brazilian-input";
@@ -20,6 +21,10 @@ export type InboxItem = {
   id: string; name: string; phone: string; clientId: string | null; clientName: string | null;
   preview: string; lastAt: string | null; unread: number; aiPaused: boolean; assignedName: string | null; archived: boolean;
   status: ConversationStatus; department: string | null; assignedTo: string | null;
+  /** Número de WhatsApp da conversa (calha, esquadrias…). */
+  channelId?: string | null; channelName?: string | null;
+  /** false = número sem Lia (só o principal tem IA por enquanto). */
+  channelAi?: boolean;
 };
 export type ConversationStatus = "aberta" | "aguardando_cliente" | "resolvida";
 /** Nota interna, transferência ou troca de status: só a equipe vê. */
@@ -54,8 +59,9 @@ type ConvRow = {
   ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null; archived_at?: string | null;
   status?: string | null; department?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
+  channel_id?: string | null; wchan?: { name: string; is_default: boolean } | null;
 };
-const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,clients(name),profiles:assigned_to(full_name)";
+const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,channel_id,clients(name),profiles:assigned_to(full_name),wchan:whatsapp_channels(name,is_default)";
 
 function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
@@ -74,6 +80,9 @@ function toItem(c: ConvRow): InboxItem {
     status: c.status === "aguardando_cliente" || c.status === "resolvida" ? c.status : "aberta",
     department: c.department ?? null,
     assignedTo: c.assigned_to,
+    channelId: c.channel_id ?? null,
+    channelName: c.wchan?.name ?? null,
+    channelAi: c.wchan ? c.wchan.is_default : true,
   };
 }
 
@@ -276,7 +285,7 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
     const clientRef = opts.clientRef && z.string().uuid().safeParse(opts.clientRef).success ? opts.clientRef : crypto.randomUUID();
     const { db, user, companyId, myName } = await context();
-    const { data: conv } = await db.from("conversations").select("id,phone,external_id").eq("id", conversationId).eq("company_id", companyId).single();
+    const { data: conv } = await db.from("conversations").select("id,phone,external_id,channel_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
     // Contato "@lid" (sem numero): a Evolution envia direto para o identificador.
     const to = whatsappTarget(conv.phone || conv.external_id);
@@ -309,7 +318,7 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     let failure: string | null = null;
     let unknown = false;
     try {
-      externalId = await sendWhatsAppText(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), to, signed);
+      externalId = await sendWhatsAppText(channelCredentials(cfg, await channelById(admin, conv.channel_id), { companyPhoneNumberId: company?.whatsapp_phone_number_id }), to, signed);
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
       // Tempo esgotado / conexão caiu: pode ter saído. Não presume falha.
@@ -460,7 +469,7 @@ export async function markInboxRead(id: string, messageIds: string[], snapshot?:
   try {
     if (!z.string().uuid().safeParse(id).success || messageIds.length > 200 || !messageIds.every(v => z.string().uuid().safeParse(v).success)) return { error: "Leitura inválida." };
     const { db, companyId } = await context();
-    const { data: conv } = await db.from("conversations").select("phone,external_id,unread_count").eq("id", id).eq("company_id", companyId).single();
+    const { data: conv } = await db.from("conversations").select("phone,external_id,unread_count,channel_id").eq("id", id).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
     const { data: seen, error: msgError } = messageIds.length
       ? await db.from("messages").select("id,external_id,delivery_status,sent_at").eq("company_id", companyId).eq("conversation_id", id).eq("direction", "inbound").in("id", messageIds)
@@ -485,7 +494,7 @@ export async function markInboxRead(id: string, messageIds: string[], snapshot?:
           admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
           admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
         ]);
-        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), whatsappTarget(conv.phone || conv.external_id), pending.map(m => m.external_id));
+        await markWhatsAppRead(channelCredentials(cfg, await channelById(admin, conv.channel_id), { companyPhoneNumberId: company?.whatsapp_phone_number_id }), whatsappTarget(conv.phone || conv.external_id), pending.map(m => m.external_id));
         const { error: receiptUpdate } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
         if (receiptUpdate) receiptError = receiptUpdate.message;
       } catch (error) {
@@ -514,7 +523,7 @@ export async function markConversationUnread(id: string) {
   try {
     if (!z.string().uuid().safeParse(id).success) return { error: "Conversa inválida." };
     const { db, companyId } = await context();
-    const { data: conv, error: readError } = await db.from("conversations").select("phone,external_id").eq("id", id).eq("company_id", companyId).single();
+    const { data: conv, error: readError } = await db.from("conversations").select("phone,external_id,channel_id").eq("id", id).eq("company_id", companyId).single();
     if (readError || !conv) return { error: "Conversa não encontrada." };
     // Não troca uma contagem real por 1 se outra mensagem chegar ao mesmo tempo.
     const { error } = await db.from("conversations").update({ unread_count: 1 }).eq("id", id).eq("company_id", companyId).eq("unread_count", 0);
@@ -524,7 +533,7 @@ export async function markConversationUnread(id: string) {
       const { data: cfg } = await admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle();
       const { data: last } = await db.from("messages").select("external_id").eq("conversation_id", id).eq("company_id", companyId)
         .not("external_id", "is", null).order("sent_at", { ascending: false }).limit(1).maybeSingle();
-      await markWhatsAppUnread(whatsappCredentials(cfg), whatsappTarget(conv.phone || conv.external_id), last?.external_id);
+      await markWhatsAppUnread(channelCredentials(cfg, await channelById(admin, conv.channel_id)), whatsappTarget(conv.phone || conv.external_id), last?.external_id);
       return { ok: true };
     } catch { return { ok: true, warning: "Conversa marcada como não lida no CRM. A marcação no WhatsApp está pendente." }; }
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
@@ -548,7 +557,7 @@ export async function approveLiaSuggestion(conversationId: string, expectedAt: s
   try {
     if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
     const { db, user, companyId, myName } = await context();
-    const { data: conv } = await db.from("conversations").select("id,phone,external_id,ai_suggestion,ai_suggestion_at")
+    const { data: conv } = await db.from("conversations").select("id,phone,external_id,channel_id,ai_suggestion,ai_suggestion_at")
       .eq("id", conversationId).eq("company_id", companyId).maybeSingle();
     if (!conv) return { error: "Conversa não encontrada." };
     const text = String(conv.ai_suggestion ?? "").trim();
@@ -570,7 +579,7 @@ export async function approveLiaSuggestion(conversationId: string, expectedAt: s
     let externalId: string | null = null;
     let failure: string | null = null;
     try {
-      externalId = await sendWhatsAppText(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), text);
+      externalId = await sendWhatsAppText(channelCredentials(cfg, await channelById(admin, conv.channel_id), { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), text);
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
     }

@@ -1,4 +1,5 @@
 import { OperationalPending } from "@/components/operational-pending";
+import { WhatsappChannels } from "@/components/whatsapp-channels";
 import { OperationalIndicators } from "@/components/operational-indicators";
 import dynamic from "next/dynamic";
 import { friendlyError } from "@/lib/friendly-error";
@@ -115,6 +116,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if ((path[0] === "configuracoes" && path[1] === "usuarios") || path[0] === "usuarios") return <EmployeesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} passwordFor={(search as { senha?: string }).senha} />;
   if (path[0] === "configuracoes" && path[1] === "cargos") return <RolesPage error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
   if (path[0] === "configuracoes") return <CompanySettings error={search.erro} saved={(search as { salvo?: string }).salvo === "1"} />;
+  if (path[0] === "atendimento" && path[1] === "canais") return <WhatsappChannels />;
   if (path[0] === "atendimento") {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <AtendimentoPage initial={[]} />;
     const inbox = await loadInbox();
