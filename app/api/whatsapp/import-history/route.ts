@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { friendlyError, GENERIC_ERROR } from "@/lib/friendly-error";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { fetchEvolutionMessages, importHistoryPage, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
+import { evolutionErrorMessage, fetchEvolutionMessages, importHistoryPage, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 
 export const maxDuration = 60;
 
@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
     const key = cfg?.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
     if (!cfg?.evolution_api_url || !key) return NextResponse.json({ error: "WhatsApp (Evolution) não conectado." }, { status: 400 });
 
-    const result = await fetchEvolutionMessages(cfg.evolution_api_url, key, cfg.evolution_instance || "crm", page);
+    let result: Awaited<ReturnType<typeof fetchEvolutionMessages>>;
+    try { result = await fetchEvolutionMessages(cfg.evolution_api_url, key, cfg.evolution_instance || "crm", page); }
+    catch (e) { return NextResponse.json({ error: evolutionErrorMessage(e) }, { status: 502 }); }
     const records = result.messages?.records ?? [];
     const pages = result.messages?.pages ?? 0;
     const { inserted, conversations } = await importHistoryPage(db, profile.company_id, records);

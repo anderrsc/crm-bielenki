@@ -37,7 +37,7 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     await db.from('whatsapp_channels').update({ status: state, updated_at: new Date().toISOString() }).eq('id', ch.id);
     if (state !== 'open') continue;
     try {
-      const r = await syncRecentEvolutionMessages(db, ch.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id);
+      const r = await syncRecentEvolutionMessages(db, ch.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 5 });
       const now = new Date().toISOString();
       await db.from('whatsapp_channels').update({ last_sync_at: now }).eq('id', ch.id);
       if (ch.is_default) await db.from('ai_agent_config').update({ inbox_reconciled_at: now }).eq('company_id', ch.company_id);
