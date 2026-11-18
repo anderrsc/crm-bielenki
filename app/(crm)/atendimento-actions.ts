@@ -183,7 +183,7 @@ type MessageRow = { id: string; direction: string; author: string | null; sender
 function toMessage(m: MessageRow): InboxMessage {
   return {
     id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
-    body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading", "processing"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
+    body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading", "processing", "enviando"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
   };
 }
 
@@ -269,11 +269,12 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */
-export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean } = {}): Promise<{ ok?: true; error?: string; warning?: string }> {
+export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean; clientRef?: string } = {}): Promise<{ ok?: true; error?: string; warning?: string }> {
   try {
     const body = text.trim();
     if (!body) return { error: "Mensagem vazia." };
     if (!z.string().uuid().safeParse(conversationId).success) return { error: "Conversa inválida." };
+    const clientRef = opts.clientRef && z.string().uuid().safeParse(opts.clientRef).success ? opts.clientRef : crypto.randomUUID();
     const { db, user, companyId, myName } = await context();
     const { data: conv } = await db.from("conversations").select("id,phone,external_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
@@ -291,22 +292,41 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     await db.from("conversations").update({ ai_suggestion: null, ai_suggestion_at: null }).eq("id", conversationId).not("ai_suggestion", "is", null);
     // Sem assinatura só para o que o cliente precisa copiar inteiro (ex.: Pix copia e cola).
     const signed = opts.unsigned ? body : `*${myName}:*\n${body}`;
+    // 1) Grava ANTES de enviar, com a chave do envio: duplo clique ou nova tentativa com a
+    //    mesma chave não manda a mensagem duas vezes.
+    const at = new Date().toISOString();
+    const { data: row, error: rowError } = await db.from("messages").insert({
+      company_id: companyId, conversation_id: conversationId, direction: "outbound", author: "equipe",
+      sender_name: myName, sent_by: user.id, body: signed, delivery_status: "enviando", client_ref: clientRef, sent_at: at,
+    }).select("id").single();
+    if (rowError?.code === "23505") {
+      const { data: prev } = await db.from("messages").select("delivery_status").eq("company_id", companyId).eq("client_ref", clientRef).maybeSingle();
+      return prev?.delivery_status === "falhou" ? { error: "Esta mensagem falhou antes. Escreva de novo para reenviar." } : { ok: true, warning: "Esta mensagem já foi enviada (ou está sendo enviada). Não reenvie." };
+    }
+    if (rowError || !row) return { error: `Mensagem não registrada, nada foi enviado: ${rowError?.message ?? ""}` };
+    // 2) Envia pelo WhatsApp.
     let externalId: string | null = null;
     let failure: string | null = null;
+    let unknown = false;
     try {
       externalId = await sendWhatsAppText(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), to, signed);
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
+      // Tempo esgotado / conexão caiu: pode ter saído. Não presume falha.
+      unknown = /timeout|aborted|fetch failed|ECONNRESET|socket|network/i.test(failure) || (error instanceof Error && /TimeoutError|AbortError/.test(error.name));
     }
-    try {
-      await recordOutbound(db, { companyId, conversationId, body: signed, author: "equipe", senderName: myName, sentBy: user.id, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure });
-    } catch (recordError) {
-      // Enviada mas nao registrada: nao pode parecer falha, senao a atendente reenvia.
-      if (!failure) return { ok: true, warning: "Mensagem enviada, mas não apareceu no histórico. Não reenvie." };
-      throw recordError;
-    }
+    // 3) Atualiza o registro com o resultado.
+    const status = failure ? (unknown ? "desconhecido" : "falhou") : "enviada";
+    const { error: updError } = await db.from("messages").update({
+      external_id: externalId, delivery_status: status,
+      error_message: failure ? (unknown ? `Sem confirmação do WhatsApp (${failure}). Confira no celular antes de reenviar.` : failure) : null,
+    }).eq("id", row.id).eq("company_id", companyId);
+    if (updError && !failure) return { ok: true, warning: "Mensagem enviada, mas o status não foi atualizado. Não reenvie." };
+    await db.from("conversations").update({ last_message_at: at, last_message_preview: signed.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").replace(/\s+/g, " ").trim().slice(0, 120), updated_at: new Date().toISOString() })
+      .eq("id", conversationId).eq("company_id", companyId).or(`last_message_at.is.null,last_message_at.lte.${at}`);
     // Quem responde assume a conversa: a Lia para de responder esse cliente.
     await db.from("conversations").update({ ai_paused: true, assigned_to: user.id }).eq("id", conversationId);
+    if (unknown) return { ok: true, warning: "O WhatsApp não confirmou o envio a tempo. Confira no celular antes de reenviar." };
     return failure ? { error: failure } : { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };

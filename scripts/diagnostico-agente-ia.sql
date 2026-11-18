@@ -53,4 +53,10 @@ from crm_admin.whatsapp_webhook_log where at > now() - interval '24 hours'
 group by event,status,http,from_me,jid_kind,message_types,key_fields
 union all
 select 'whatsapp', 'agora: ' || to_char(now() at time zone 'America/Sao_Paulo','DD/MM HH24:MI')
+union all
+select 'rotina', 'operacoes (saude/reconciliacao) ultima execucao: ' || coalesce(to_char(last_run_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') || coalesce(' | erro: ' || left(last_error, 80), '') from public.crm_operations_config
+union all
+select 'rotina', 'reconciliacao do WhatsApp: ' || coalesce(to_char(max(inbox_reconciled_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') from public.ai_agent_config
+union all
+select 'rotina', 'mensagens sem confirmacao (enviando/desconhecido) 7d: ' || count(*) from public.messages where delivery_status in ('enviando','desconhecido') and sent_at > now() - interval '7 days'
 order by 1, 2;

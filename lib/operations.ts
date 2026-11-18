@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
 import { evolutionState } from '@/lib/whatsapp/evolution';
+import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 
 export function operationsDb() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Servidor sem configuração.');
@@ -11,6 +12,7 @@ export function operationsDb() {
 
 export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { vapid_public: string; vapid_private: string }) {
   const deadline=Date.now()+42000;
+  let reconciled = 0;
   const { data: agents, error } = await db.from('ai_agent_config').select('*').eq('wpp_provider', 'evolution').not('evolution_api_url', 'is', null);
   if (error) throw error;
   for (const agent of agents ?? []) {
@@ -19,6 +21,15 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch(() => 'unreachable');
     const { error: healthError } = await db.rpc('record_whatsapp_health', { p_company_id: agent.company_id, p_state: state });
     if (healthError) throw healthError;
+    // Reconciliação automática das mensagens recentes, mesmo com ninguém no Atendimento.
+    // Só grava (como histórico): não dispara a Lia nem muda atribuição.
+    if (state === 'open' && Date.now() < deadline - 15000) {
+      try {
+        const r = await syncRecentEvolutionMessages(db, agent.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance);
+        await db.from('ai_agent_config').update({ inbox_reconciled_at: new Date().toISOString() }).eq('company_id', agent.company_id);
+        reconciled += r.inserted;
+      } catch (e) { console.error('Reconciliação WhatsApp:', agent.company_id, e instanceof Error ? e.message : e); }
+    }
   }
   const { data: reminders, error: reminderError } = await db.rpc('collect_quote_followups');
   if (reminderError) throw reminderError;
@@ -52,5 +63,5 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     await db.from('notifications').update({ push_claimed_at: null, push_processed_at: retry ? null : new Date().toISOString() }).eq('id', n.id);
   }
   await db.from('crm_operations_config').update({ last_run_at: new Date().toISOString(), last_error: null }).eq('id', true);
-  return { checked: agents?.length ?? 0, reminders, pushed };
+  return { checked: agents?.length ?? 0, reconciled, reminders, pushed };
 }

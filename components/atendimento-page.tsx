@@ -456,7 +456,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
     const t = texto.trim();
     if (!t || enviando) return;
     startEnvio(async () => {
-      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t);
+      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t, { clientRef: crypto.randomUUID() });
       if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
@@ -522,9 +522,10 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
-                  {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
+                  {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && m.deliveryStatus !== "desconhecido" && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
+                {m.deliveryStatus === "desconhecido" && <p className="mt-1 flex items-start gap-1 text-[11px] text-amber-600"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Sem confirmação do WhatsApp: confira no celular antes de reenviar.</p>}
               </div>
             </div>
             </Fragment>

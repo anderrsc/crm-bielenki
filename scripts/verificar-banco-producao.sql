@@ -6,7 +6,7 @@
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
-    ('ai_agent_config', 'active,agent_name,ai_provider,anthropic_api_key,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_agent_config', 'active,agent_name,ai_provider,anthropic_api_key,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_reconciled_at,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('ai_decisions', 'company_id,conversation_id,created_at,decisao,id,modo,motivo,phone'),
     ('ai_lia_rules', 'anterior_id,arquivada_em,ativada_em,ativada_por,company_id,created_at,created_by,exemplo,id,instrucao,pedido_original,quando,status,versao'),
     ('aluminum_cost_settings', 'company_id,price_per_kg,updated_at,updated_by'),
@@ -53,7 +53,7 @@ with expected_columns(table_name, column_name) as (
     ('measurement_items', 'color,company_id,environment,glass_type,height,id,measurement_id,notes,product,quantity,sort_order,width'),
     ('measurements', 'address,client_id,company_id,completed_at,created_at,created_by,id,installation_id,lead_id,measurement_number,notes,order_id,phone,production_order_id,quote_id,responsible_id,scheduled_at,seller_id,sketch_notes,status,updated_at'),
     ('message_templates', 'active,body,category,channel,company_id,created_at,event,id,name,subject,updated_at,usage_count'),
-    ('messages', 'attachment_quote_id,author,body,company_id,conversation_id,delivery_status,direction,error_message,external_id,file_name,id,media_type,media_url,sender_name,sent_at,sent_by'),
+    ('messages', 'attachment_quote_id,author,body,client_ref,company_id,conversation_id,delivery_status,direction,error_message,external_id,file_name,id,media_type,media_url,sender_name,sent_at,sent_by'),
     ('notifications', 'body,company_id,created_at,event_key,id,link,profile_id,push_claimed_at,push_processed_at,read_at,title'),
     ('operational_alerts', 'company_id,created_at,description,entity_id,entity_type,id,resolved,resolved_at,resolved_by,severity,title,type'),
     ('operational_events', 'address,client_id,client_name,color,company_id,created_at,created_by,ends_at,event_type,external_ref,id,installation_id,lead_id,notes,order_id,phone,purchase_order_id,quote_id,responsible_id,responsible_name,starts_at,status,title,updated_at'),
@@ -181,6 +181,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'cash_overview', 'p_days integer', '630f7e48acb1ddf4e42ef09220e1bb06'),
   ('public', 'central_triage_activity', 'p_company_id uuid, p_since timestamp with time zone', '550d376d6b435da3af0d67544feb1f24'),
   ('public', 'check_order_completion', '', '68aef9d070ff69becfa6ef5599065f0d'),
+  ('public', 'claim_ai_reply', 'p_conversation uuid, p_company uuid, p_generation uuid', '3f92cc898346e831b59592cac4c5f13b'),
   ('public', 'client_doc_key', 'raw text', 'fe0118dc116e193f40e5035e2bc66a9d'),
   ('public', 'client_name_key', 'raw text', '5d310dc7454727cef8f810dbaea41a36'),
   ('public', 'client_phone_key', 'raw text', '7729db4f14895881bca9d8f60ccdd08c'),
