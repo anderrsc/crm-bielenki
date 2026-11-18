@@ -1,6 +1,7 @@
 // Importa uma página do histórico da Evolution para o Atendimento.
 // Chamada em sequência pela Central de IA (página 1, 2, 3…) até acabar.
 import { NextRequest, NextResponse } from "next/server";
+import { friendlyError, GENERIC_ERROR } from "@/lib/friendly-error";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { fetchEvolutionMessages, importHistoryPage, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
@@ -30,6 +31,6 @@ export async function POST(req: NextRequest) {
     const named = done ? await syncAgendaNames(db, profile.company_id, cfg.evolution_api_url, key, cfg.evolution_instance || "crm").catch(() => 0) : 0;
     return NextResponse.json({ page, pages, total: result.messages?.total ?? 0, inserted, conversations, named, done });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json({ error: friendlyError(error instanceof Error ? error.message : String(error)) ?? GENERIC_ERROR }, { status: 500 });
   }
 }

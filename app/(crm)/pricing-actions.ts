@@ -2,6 +2,7 @@
 
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
+import { friendlyError, GENERIC_ERROR } from "@/lib/friendly-error";
 import { revalidatePath } from "next/cache";
 import type { PriceRow } from "@/components/pricing-spreadsheet";
 
@@ -49,14 +50,14 @@ export async function bulkSavePrices(
     if (error) {
       if (error.code === "23505" || error.message.includes("duplicate key"))
         return { error: "Já existe um preço para esse produto com a mesma espessura, corte e cor." };
-      return { error: error.message };
+      return { error: friendlyError(error.message) ?? GENERIC_ERROR };
     }
   }
 
   // Exclusões só depois das alterações gravarem: se a alteração falhar, nada é apagado.
   if (deleteIds.length) {
     const { error } = await db.from("gutter_prices").delete().in("id", deleteIds);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   }
 
   revalidatePath("/configuracoes/tabela-calhas");
@@ -68,7 +69,7 @@ export async function deletePriceRow(id: string): Promise<{ error?: string } | v
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
   const db = await createClient();
   const { error } = await db.from("gutter_prices").delete().eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes/tabela-calhas");
 }
 
@@ -91,7 +92,7 @@ export async function getAllPrices(): Promise<PriceRow[]> {
     .order("category")
     .order("product")
     .order("thickness").order("id").range(start, start + 499);
-    if (error) throw new Error(`Não foi possível carregar os preços: ${error.message}`);
+    if (error) { console.error("Preços:", error.message); throw new Error("Não foi possível carregar os preços. Tente novamente."); }
     data.push(...(page ?? []));
     if (!page || page.length < 500) break;
   }

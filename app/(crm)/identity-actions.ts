@@ -2,6 +2,7 @@
 
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
+import { friendlyError, GENERIC_ERROR } from "@/lib/friendly-error";
 import { revalidatePath } from "next/cache";
 
 export async function uploadLogo(formData: FormData): Promise<{ url?: string; error?: string }> {
@@ -48,7 +49,7 @@ export async function removeLogo(): Promise<{ error?: string }> {
   if (!profile?.company_id) return { error: "Empresa não encontrada" };
 
   const { error } = await db.from("companies").update({ logo_url: null }).eq("id", profile.company_id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes");
   return {};
 }
@@ -73,7 +74,7 @@ export async function saveLogoSettings(settings: {
     logo_margin_bottom: settings.marginBottom,
   }).eq("id", profile.company_id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes");
   return {};
 }
@@ -85,7 +86,7 @@ export async function saveTemplateConfig(
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
   const db = await createClient();
   const { error } = await db.from("document_templates").update({ config }).eq("id", templateId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes/templates");
   return {};
 }
@@ -98,7 +99,7 @@ export async function setTemplateDefault(templateId: string, type: string): Prom
 
   const { error } = await db.rpc("set_default_document_template", { p_template_id: templateId, p_type: type });
 
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes/templates");
   return {};
 }
@@ -118,7 +119,7 @@ export async function duplicateTemplate(templateId: string): Promise<{ error?: s
     config: tpl.config,
   }).select("id").single();
 
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes/templates");
   return { id: newTpl.id };
 }
@@ -176,7 +177,7 @@ export async function restoreTemplateDefaults(templateId: string): Promise<{ err
   const { error } = await db.from("document_templates").update({
     config: defaultTemplateConfig(String(tpl?.type || "")),
   }).eq("id", templateId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) ?? GENERIC_ERROR };
   revalidatePath("/configuracoes/templates");
   return {};
 }
