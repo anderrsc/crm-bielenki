@@ -762,6 +762,9 @@ export async function saveAiAgentConfig(formData: FormData) {
   const groqKey = String(formData.get("groq_api_key") || "").trim();
   if (groqKey && !groqKey.startsWith("***") && !groqKey.startsWith("enc:")) values.groq_api_key = encryptSecret(groqKey);
 
+  const geminiKey = String(formData.get("gemini_api_key") || "").trim();
+  if (geminiKey && !geminiKey.startsWith("***") && !geminiKey.startsWith("enc:")) values.gemini_api_key = encryptSecret(geminiKey);
+
   const apiKey = String(formData.get("openai_api_key") || "").trim();
   if (apiKey && !apiKey.startsWith("***") && !apiKey.startsWith("enc:")) values.openai_api_key = encryptSecret(apiKey);
 

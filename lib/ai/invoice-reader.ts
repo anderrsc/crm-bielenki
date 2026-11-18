@@ -65,6 +65,35 @@ Regras: o fornecedor é o EMITENTE da nota (não o destinatário). Use ponto com
 "tipo" deve ser exatamente um de: ${INVOICE_TYPES.join(", ")}. "vencimentos" vem das duplicatas/fatura (vazio se não houver).
 Se algo não estiver legível, use null. Não invente itens.`;
 
+function parseInvoiceJson(text: string): InvoiceData {
+  let parsed: unknown;
+  try { parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}"); } catch { throw new Error("A IA respondeu em formato inesperado. Tente outra foto."); }
+  return invoiceSchema.parse(parsed);
+}
+
+/** Google Gemini: lê PDF e imagem direto e é bem mais barato que a OpenAI. */
+export async function readInvoiceWithGemini(file: { name: string; type: string; base64: string }, apiKey: string): Promise<InvoiceData> {
+  const send = (model: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: PROMPT }, { inline_data: { mime_type: file.type, data: file.base64 } }] }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json", maxOutputTokens: 8000 },
+    }),
+  });
+  let response = await send("gemini-flash-lite-latest");
+  if (response.status === 404) response = await send("gemini-flash-latest");
+  if (!response.ok) {
+    const text = (await response.text()).slice(0, 300);
+    if (response.status === 400 && /API key/i.test(text) || response.status === 403) throw new Error("Chave do Gemini inválida. Confira na Central de IA.");
+    if (response.status === 429) throw new Error("Limite do Gemini atingido. Tente de novo em alguns minutos.");
+    throw new Error(`A IA não conseguiu ler a nota (${response.status}). ${text}`);
+  }
+  const data = await response.json();
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
+  return parseInvoiceJson(text);
+}
+
 export async function readInvoiceWithAi(file: { name: string; type: string; base64: string }, apiKey: string, model = "gpt-4o"): Promise<InvoiceData> {
   const content: unknown[] = [{ type: "text", text: PROMPT }];
   if (file.type === "application/pdf") content.push({ type: "file", file: { filename: file.name || "nota.pdf", file_data: `data:application/pdf;base64,${file.base64}` } });
@@ -81,7 +110,5 @@ export async function readInvoiceWithAi(file: { name: string; type: string; base
     throw new Error(`A IA não conseguiu ler a nota (${response.status}). ${text}`);
   }
   const data = await response.json();
-  let parsed: unknown;
-  try { parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}"); } catch { throw new Error("A IA respondeu em formato inesperado. Tente outra foto."); }
-  return invoiceSchema.parse(parsed);
+  return parseInvoiceJson(data.choices?.[0]?.message?.content ?? "{}");
 }

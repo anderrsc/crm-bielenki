@@ -30,6 +30,7 @@ type AgentConfig = {
   agent_name: string;
   ai_provider: string | null;
   openai_api_key: string | null;
+  gemini_api_key?: string | null;
   groq_api_key: string | null;
   openai_model: string;
   temperature: number;
@@ -403,6 +404,12 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                 </div>
               </div>
             )}
+
+            <div className="mt-4 rounded-xl border border-sand p-3">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Google Gemini (leitura de notas fiscais)</label>
+              <input name="gemini_api_key" type="password" defaultValue={config?.gemini_api_key ?? ""} className="input w-full font-mono" placeholder="AIza..." onFocus={() => setShowKeyWarning(true)} />
+              <p className="mt-1 text-xs text-ink/50">Opcional e mais barata que a OpenAI para ler PDF/foto de nota na Nova compra. Gere grátis em aistudio.google.com → Get API key.</p>
+            </div>
             {showKeyWarning && <p className="text-xs text-amber-600 mt-1">⚠️ Chave salva de forma segura. Nunca a compartilhe.</p>}
             <div className="mt-4 rounded-xl border border-forest/10 bg-gray-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

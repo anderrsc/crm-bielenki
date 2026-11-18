@@ -110,7 +110,3 @@
 .quote-sheet .quote-qr-box--empty { opacity:1; border-color:#d9d9d9; }
 .quote-sheet .quote-bar-meta { border-left-color:var(--paper-border); }
 
-/* Na impressao e no PDF a folha sai sem marca d'agua: impressoras virtuais do
-   Windows ("Microsoft Print to PDF") rasterizam o fundo em baixa resolucao e a
-   proposta fica com cara de borrada. Na tela a marca continua. */
-@media print { .quote-sheet .quote-watermark { display:none !important; } }
