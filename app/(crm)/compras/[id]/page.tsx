@@ -7,7 +7,7 @@ import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PurchaseEditForm } from "@/components/purchase-edit-form";
-import { cancelPurchase } from "@/app/(crm)/purchase-edit-actions";
+import { cancelPurchase, registerPurchaseReturn } from "@/app/(crm)/purchase-edit-actions";
 import { undoStockReceipt } from "@/app/(crm)/undo-actions";
 
 type Po = { id: string; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
@@ -21,15 +21,19 @@ export default async function PurchasePage({ params, searchParams }: { params: P
   const { data } = await db.from("purchase_orders").select("id,order_number,status,total,paid_amount,open_amount,ordered_at,expected_at,received_at,notes,supplier_id,order_id,supplier:suppliers(name),order:orders(id,order_number,client:clients(name))").eq("id", id).maybeSingle();
   if (!data) notFound();
   const po = data as unknown as Po;
-  const [items, entry, canEdit, suppliers, orders, moves] = await Promise.all([
+  const [items, entry, canEdit, suppliers, orders, moves, returns, locations] = await Promise.all([
     db.from("purchase_order_items").select("id,description,category,unit,purchased_quantity,received_quantity,pending_quantity,unit_price,total").eq("purchase_order_id", id).order("id"),
     db.from("financial_entries").select("id,open_amount,paid_amount,due_date,status").eq("purchase_order_id", id).maybeSingle(),
     db.rpc("has_table_access", { resource: "purchase_orders", action: "update" }),
     db.from("suppliers").select("id,name").is("deleted_at", null).order("name"),
     db.from("orders").select("id,order_number,client:clients(name)").not("operational_status", "in", "(finalizado,cancelado)").order("created_at", { ascending: false }).limit(300),
-    db.from("stock_movements").select("id,quantity,movement_type,created_at,notes,reverses_movement_id,purchase_order_item_id,location:stock_locations(name),item:purchase_order_items!inner(purchase_order_id,description,unit)").eq("item.purchase_order_id", id).order("created_at", { ascending: false }),
+    db.from("stock_movements").select("id,quantity,movement_type,created_at,notes,reverses_movement_id,purchase_order_item_id,location_id,location:stock_locations(name),item:purchase_order_items!inner(purchase_order_id,description,unit)").eq("item.purchase_order_id", id).order("created_at", { ascending: false }),
+    db.from("purchase_returns").select("id,quantity,amount,debt_reduction,credit_amount,reason,created_at,item:purchase_order_items(description,unit)").eq("purchase_order_id", id).order("created_at", { ascending: false }),
+    db.from("stock_locations").select("id,name").eq("active", true).order("name"),
   ]);
-  type Mov = { id: string; quantity: number; movement_type: string; created_at: string; notes: string | null; reverses_movement_id: string | null; location: { name: string } | null; item: { description: string; unit: string } | null };
+  type Ret = { id: string; quantity: number; amount: number; debt_reduction: number; credit_amount: number; reason: string; created_at: string; item: { description: string; unit: string } | null };
+  const retList = (returns.data ?? []) as unknown as Ret[];
+  type Mov = { id: string; location_id: string; quantity: number; movement_type: string; created_at: string; notes: string | null; reverses_movement_id: string | null; location: { name: string } | null; item: { description: string; unit: string } | null };
   const movList = (moves.data ?? []) as unknown as Mov[];
   const undone = new Set(movList.map((m) => m.reverses_movement_id).filter(Boolean));
   const list = (items.data ?? []) as Item[];
@@ -77,6 +81,24 @@ export default async function PurchasePage({ params, searchParams }: { params: P
             <ConfirmButton formAction={undoStockReceipt} className="button-ghost text-red-700" message="Desfazer esta entrada? O material sai do estoque e volta a ficar pendente.">Desfazer</ConfirmButton>
           </form></details>}
       </li>)}</ul>
+    </section>}
+    {(retList.length > 0 || (canEdit.data === true && !cancelled)) && <section className="card p-5">
+      <h2 className="mb-1 font-black">Devoluções</h2>
+      <p className="mb-3 text-sm text-ink/60">Devolveu material ou o fornecedor vai mandar menos? O valor é abatido do que você deve; se já estava pago, vira crédito com o fornecedor.</p>
+      {retList.length > 0 && <ul className="mb-3 divide-y divide-sand text-sm">{retList.map((r) => <li key={r.id} className="flex flex-wrap justify-between gap-2 py-2">
+        <span>{shortDate(r.created_at)} · {Number(r.quantity)} {r.item?.unit} de {r.item?.description} · <span className="text-ink/55">{r.reason}</span></span>
+        <span className="font-bold">{money(r.amount)}{Number(r.credit_amount) > 0 ? <span className="ml-2 text-xs text-emerald-700">({money(r.credit_amount)} virou crédito)</span> : null}</span></li>)}</ul>}
+      {canEdit.data === true && !cancelled && list.some((i) => Number(i.purchased_quantity) > 0) && <details><summary className="cursor-pointer text-sm font-bold text-forest">Registrar devolução</summary>
+        <form action={registerPurchaseReturn} className="mt-3 grid gap-3 sm:grid-cols-2">
+          <input type="hidden" name="po_id" value={po.id} />
+          <div className="sm:col-span-2"><label className="label" htmlFor="dv-item">Item</label><select id="dv-item" className="field" name="item_id" required>{list.filter((i) => Number(i.purchased_quantity) > 0).map((i) => <option key={i.id} value={i.id}>{i.description} — {Number(i.purchased_quantity)} {i.unit} a {money(i.unit_price)}{Number(i.received_quantity) > 0 ? ` (chegou ${Number(i.received_quantity)})` : ""}</option>)}</select></div>
+          <div><label className="label" htmlFor="dv-qtd">Quantidade devolvida</label><input id="dv-qtd" className="field" name="quantity" type="number" min="0.001" step="0.001" required /></div>
+          <div><label className="label" htmlFor="dv-valor">Valor a abater (vazio = quantidade × valor unitário)</label><input id="dv-valor" className="field" name="amount" type="number" min="0" step="0.01" /></div>
+          {received && <div className="sm:col-span-2"><label className="label" htmlFor="dv-local">Sai de qual local do estoque (se o material já chegou)</label><select id="dv-local" className="field" name="location_id" defaultValue={movList.find((m) => m.movement_type === "entrada")?.location_id ?? ""}><option value="">—</option>{((locations.data ?? []) as { id: string; name: string }[]).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>}
+          <div className="sm:col-span-2"><label className="label" htmlFor="dv-motivo">Motivo</label><input id="dv-motivo" className="field" name="reason" required minLength={3} maxLength={500} placeholder="Ex.: perfil com defeito, veio a mais, pedido reduzido" /></div>
+          <button className="button sm:col-span-2">Registrar devolução</button>
+        </form>
+      </details>}
     </section>}
     {canEdit.data === true && !cancelled && <section className="card p-5">
       <details><summary className="cursor-pointer font-black">Corrigir esta compra</summary>

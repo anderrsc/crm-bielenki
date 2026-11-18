@@ -194,3 +194,24 @@ test("desfazer entrada no estoque e voltar etapa da produção", async () => {
   expect((await row("select production_step_back($1,'corte refeito') s", [prod])).s).toBe(2);
   expect(Number((await row("select current_step from production_orders where id=$1", [prod])).current_step)).toBe(2);
 });
+
+test("devolução: abate do que deve; já pago vira crédito; material sai do estoque", async () => {
+  const loc = (await row("insert into stock_locations(company_id,name) values($1,'Galpão') returning id", [company])).id;
+  // Não paga: devolução abate a dívida.
+  const po = (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, items: [{ category: "Perfil", description: "Perfil dev", quantity: 10, unit_price: 20 }] })])).id;
+  const it = (await row("select id, material_id from purchase_order_items where purchase_order_id=$1", [po]));
+  await row("select receive_purchase_item($1,10,$2)", [it.id, loc]);
+  const startCredit = await balance();
+  await row("select register_purchase_return($1,3,null,$2,'peça com defeito')", [it.id, loc]);
+  expect(Number((await row("select total from purchase_orders where id=$1", [po])).total)).toBe(140);
+  expect(Number((await row("select open_amount from financial_entries where purchase_order_id=$1", [po])).open_amount)).toBe(140);
+  expect(Number((await row("select balance from v_stock_balance where id=$1 and location='Galpão'", [it.material_id])).balance)).toBe(7);
+  expect(await balance()).toBe(startCredit);
+  // Paga: devolução vira crédito.
+  const po2 = (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, paid_amount: 100, items: [{ category: "Cano", description: "Cano dev", quantity: 5, unit_price: 20 }] })])).id;
+  const it2 = (await row("select id from purchase_order_items where purchase_order_id=$1", [po2])).id;
+  await row("select register_purchase_return($1,2,null,null,'veio a mais')", [it2]);
+  expect(await balance()).toBe(startCredit + 40);
+  expect(await row("select total_amount, paid_amount, status from financial_entries where purchase_order_id=$1", [po2])).toMatchObject({ total_amount: "100.00", paid_amount: "100.00", status: "pago" });
+  await expect(row("select register_purchase_return($1,50,null,null,'demais')", [it2])).rejects.toThrow(/Quantidade inválida/);
+});
