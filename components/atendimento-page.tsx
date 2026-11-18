@@ -74,6 +74,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   const cache = useRef(new Map<string, ConversationDetail>());
   const [openId, setOpenId] = useState<string | null>(initialOpen ?? null);
   const [status, setStatus] = useState<"" | ConversationStatus>("");
+  const [numero, setNumero] = useState("");
   const [setor, setSetor] = useState("");
   const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
   const [buscandoHistorico, startHistorico] = useTransition();
@@ -226,13 +227,16 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
       if (c.archived !== verArquivadas) return false;
       if (filtro === "naolidas" && c.unread === 0) return false;
       if (filtro === "lidas" && c.unread > 0) return false;
-      if (filtro === "ana" && (c.aiPaused || !aiActive)) return false;
-      if (filtro === "equipe" && !c.aiPaused && aiActive) return false;
+      if (filtro === "ana" && (c.aiPaused || !aiActive || c.channelAi === false)) return false;
+      if (filtro === "equipe" && !c.aiPaused && aiActive && c.channelAi !== false) return false;
       if (status && c.status !== status) return false;
       if (setor && c.department !== setor) return false;
+      if (numero && c.channelId !== numero) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro, aiActive, verArquivadas, status, setor]);
+  }, [items, busca, filtro, aiActive, verArquivadas, status, setor, numero]);
+  // Números de WhatsApp presentes na lista (só mostra o filtro quando há mais de um).
+  const numeros = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, c.channelName ?? "WhatsApp"])).entries()], [items]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -274,7 +278,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
             try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
             finally { setSyncing(false); }
           }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
-          <p className="wa-muted text-[11px]">{connection}</p>
+          <p className="wa-muted flex items-center justify-between text-[11px]"><span>{connection}</span><Link href="/atendimento/canais" className="font-bold underline">Números de WhatsApp</Link></p>
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
           <div className="wa-search flex items-center gap-3 rounded-lg px-3 py-2">
             <Search className="wa-muted h-4 w-4" />
@@ -294,6 +298,12 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
               <option value="">Todos os setores</option>
               {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
+            {numeros.length > 1 && (
+              <select value={numero} onChange={(e) => setNumero(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Número">
+                <option value="">Todos os números</option>
+                {numeros.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
             {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
@@ -341,7 +351,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
                     <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
                     {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
-                  {(!c.aiPaused && aiActive) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[!c.aiPaused && aiActive ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
+                  {(numeros.length > 1 && c.channelName) || (!c.aiPaused && aiActive && c.channelAi !== false) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
                 </div>
               </button>
               <DropdownMenu.Root>

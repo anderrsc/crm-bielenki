@@ -1,3 +1,4 @@
+import { channelByProviderId, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
@@ -227,24 +228,38 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Detecta formato: Evolution API ou Meta
     const isEvolution = !!(payload?.data?.key || payload?.event);
     let fromMe = false;
+    // Número da empresa (canal) que recebeu o evento: cada número tem sua conversa e responde por si.
+    let channel: WhatsappChannel | null = null;
     // Evolution: confere o segredo antes de qualquer outra coisa (o da Vercel ou o gerado pelo CRM).
     if (isEvolution) {
       const headerSecret = req.headers.get("x-webhook-secret") ?? req.headers.get("apikey") ?? "";
+      if (payload?.instance) channel = await channelByProviderId(getSupabase(), "evolution", String(payload.instance)).catch(() => null);
       let companySecret: string | null = null;
       if (!sameSecret(headerSecret, process.env.EVOLUTION_WEBHOOK_SECRET ?? "") && payload?.instance) {
-        try {
-          const { data } = await getSupabase().from("ai_agent_config").select("evolution_webhook_secret").eq("evolution_instance", String(payload.instance)).maybeSingle();
+        if (channel?.webhook_secret) companySecret = channel.webhook_secret;
+        else try {
+          const { data } = channel
+            ? await getSupabase().from("ai_agent_config").select("evolution_webhook_secret").eq("company_id", channel.company_id).maybeSingle()
+            : await getSupabase().from("ai_agent_config").select("evolution_webhook_secret").eq("evolution_instance", String(payload.instance)).maybeSingle();
           companySecret = data?.evolution_webhook_secret ?? null;
         } catch { companySecret = null; }
       }
       if (!validEvolutionSecret(headerSecret, companySecret)) {
         return NextResponse.json({ error: "Invalid Evolution webhook secret" }, { status: 401 });
       }
+      if (channel && channel.active === false) return NextResponse.json({ status: "channel_inactive" });
+      if (channel) await getSupabase().from("whatsapp_channels").update({ last_event_at: new Date().toISOString() }).eq("id", channel.id).then(() => undefined, () => undefined);
     }
+    // Empresa dona da instância da Evolution (canal novo ou conexão antiga).
+    const instanceCompany = async (): Promise<{ company_id: string } | null> => {
+      if (channel) return { company_id: channel.company_id };
+      const { data } = await getSupabase().from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance ?? "")).maybeSingle();
+      return data ?? null;
+    };
 
     if (isEvolution && ["messages.update", "MESSAGES_UPDATE"].includes(payload.event)) {
       const db = getSupabase();
-      const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
+      const cfg = await instanceCompany();
       if (cfg) for (const event of (Array.isArray(payload.data) ? payload.data : [payload.data])) {
         const id = String(event?.keyId ?? event?.key?.id ?? "");
         const status = event?.status ?? event?.update?.status;
@@ -257,11 +272,11 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Sync batches and contact changes must never enter the AI workflow.
     if (isEvolution && (Array.isArray(payload.data) || /^(contacts\.(upsert|update)|CONTACTS_(UPSERT|UPDATE))$/.test(payload.event))) {
       const db = getSupabase();
-      const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
+      const cfg = await instanceCompany();
       if (!cfg) return NextResponse.json({ status: "company_not_found" });
       const records = Array.isArray(payload.data) ? payload.data : [payload.data];
       if (/contacts/i.test(payload.event)) await applyAgendaNames(db, cfg.company_id, agendaNameMap(records));
-      else if (["messages.upsert", "MESSAGES_UPSERT"].includes(payload.event)) await importHistoryPage(db, cfg.company_id, records);
+      else if (["messages.upsert", "MESSAGES_UPSERT"].includes(payload.event)) await importHistoryPage(db, cfg.company_id, records, channel?.id);
       return NextResponse.json({ status: "sync_only" });
     }
 
@@ -287,7 +302,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       let phone = contact?.id ?? null;
       if (contact?.lid) {
         const db = getSupabase();
-        const { data: cfgLid } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance ?? "")).maybeSingle();
+        const cfgLid = await instanceCompany();
         if (cfgLid?.company_id) {
           if (contact.phone) await db.rpc("link_whatsapp_lid", { p_company: cfgLid.company_id, p_lid: contact.lid, p_phone: contact.phone }).then(() => undefined, () => undefined);
           else {
@@ -370,7 +385,11 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
     let company: { id: string; name: string; trade_name: string; whatsapp_phone_number_id: string } | null = null;
-    if (isEvolution) {
+    if (!isEvolution && phoneNumberId) channel = await channelByProviderId(supabase, "meta", phoneNumberId).catch(() => null);
+    if (channel) {
+      const { data: byChannel } = await supabase.from("companies").select("id, name, trade_name, whatsapp_phone_number_id").eq("id", channel.company_id).maybeSingle();
+      company = byChannel;
+    } else if (isEvolution) {
       const { data: configByInstance } = await supabase
         .from("ai_agent_config")
         .select("company:companies(id,name,trade_name,whatsapp_phone_number_id)")
@@ -408,7 +427,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
     if (fromMe) {
-      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at);
+      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at, channel?.id ?? null);
       return NextResponse.json({ status: "own_message" });
     }
 
@@ -416,7 +435,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Toda mensagem entra no Atendimento, com ou sem a Ana.
     let conversation: InboxConversation | null = null;
     try {
-      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live });
+      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: channel?.id ?? null });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
     } catch (error) {
       throw error;
@@ -426,6 +445,9 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
     // A Ana só atende contato novo: quem já é cliente fala com a equipe.
     if (conversation?.client_id) return NextResponse.json({ status: "known_client" });
+    // Números novos (calha/esquadrias de cada usuária) começam sem IA: a Lia só atende o
+    // número principal até ser ligada por número (nunca liga sozinha).
+    if (channel && !channel.is_default) return NextResponse.json({ status: "channel_without_ai" });
 
     const aiProvider = parseAiProvider(agentConfig?.ai_provider);
     const companyAiKey = aiProviderKey(aiProvider, agentConfig);
@@ -450,7 +472,8 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Responde pelo mesmo canal que trouxe a mensagem (antes uma config "evolution"
     // padrao fazia as respostas de quem usa a API da Meta nunca sairem).
     const wppProvider = isEvolution ? "evolution" : "meta";
-    const credentials = whatsappCredentials(agentConfig, { provider: wppProvider, phoneNumberId });
+    // Resposta sai pelo número que recebeu a mensagem.
+    const credentials = channel ? channelCredentials(agentConfig, channel) : whatsappCredentials(agentConfig, { provider: wppProvider, phoneNumberId });
     const canReply = async () => {
       if (!conversation?.generation) return false;
       const [config, current] = await Promise.all([
@@ -744,7 +767,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
  * ou a Lia enviaram são ignorados; o resto entra como "equipe" (nome pela
  * assinatura *Rose:*) e a Lia para de responder esse cliente.
  */
-async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string, sentAt: string) {
+async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string, sentAt: string, channelId: string | null = null) {
   try {
     const known = async () => {
       if (!externalId) return false;
@@ -755,7 +778,7 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
     // O CRM grava a mensagem logo depois que a Evolution confirma o envio: espera um pouco.
     await new Promise((r) => setTimeout(r, 3000));
     if (await known()) return;
-    const conversation = await getOrCreateConversation(supabase, companyId, phone);
+    const conversation = await getOrCreateConversation(supabase, companyId, phone, null, { channelId });
     // Envio do CRM que ficou sem confirmação (timeout): o eco do WhatsApp confirma que saiu.
     const recent = new Date(Date.now() - 15 * 60_000).toISOString();
     const { data: pendingSend } = await supabase.from("messages").select("id")

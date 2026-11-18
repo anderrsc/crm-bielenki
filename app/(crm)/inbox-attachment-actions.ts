@@ -1,4 +1,5 @@
 'use server';
+import { channelById, channelCredentials } from '@/lib/whatsapp/channels';
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -55,7 +56,7 @@ export async function sendInboxAttachment(messageId:string){
   const {data:m,error}=await c.admin.from('messages').update({delivery_status:'processing'}).eq('id',messageId).eq('company_id',c.companyId).eq('sent_by',c.user.id).eq('delivery_status','uploading').select('*').maybeSingle();
   if(error||!m)throw new Error('Arquivo já está sendo enviado. Confira a conversa.');
   claimed=true;
-  const {data:conv}=await c.db.from('conversations').select('id,phone,external_id,client_id,last_inbound_at').eq('id',m.conversation_id).eq('company_id',c.companyId).single();
+  const {data:conv}=await c.db.from('conversations').select('id,phone,external_id,client_id,last_inbound_at,channel_id').eq('id',m.conversation_id).eq('company_id',c.companyId).single();
   if(!conv||m.media_url!==`${c.companyId}/${conv.id}/${m.id}`)throw new Error('Conversa ou arquivo inválido.');
   const [{data:cfg},{data:company},{data:file,error:fileError}]=await Promise.all([
    c.admin.from('ai_agent_config').select('*').eq('company_id',c.companyId).maybeSingle(),
@@ -66,7 +67,7 @@ export async function sendInboxAttachment(messageId:string){
   validateAttachment(m.file_name,m.media_type,file.size);
   const bytes=Buffer.from(await file.arrayBuffer());
   if(!matchesAttachment(bytes,m.media_type))throw new Error('O conteúdo não corresponde ao tipo do arquivo.');
-  const credentials=whatsappCredentials(cfg,{companyPhoneNumberId:company?.whatsapp_phone_number_id});
+  const credentials=channelCredentials(cfg,await channelById(c.admin,conv.channel_id),{companyPhoneNumberId:company?.whatsapp_phone_number_id});
   if(credentials.provider==='meta'){
    if(!conv.last_inbound_at||Date.now()-new Date(conv.last_inbound_at).getTime()>=24*3600_000)throw new Error('Passaram 24h da última mensagem do cliente. O WhatsApp oficial exige modelo aprovado.');
    if(attachmentKind(m.media_type)==='image'&&file.size>5*1024*1024)throw new Error('No WhatsApp oficial, a foto deve ter até 5 MB.');

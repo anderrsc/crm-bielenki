@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanContactName, digitsOnly, phoneKey, samePhone } from "@/lib/whatsapp/phone";
 
 export type MessageAuthor = "cliente" | "ana" | "equipe" | "automacao";
-export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null; generation?: string };
+export type InboxConversation = { id: string; client_id: string | null; ai_paused: boolean; unread_count: number; contact_name?: string | null; generation?: string; channel_id?: string | null };
 
 const preview = (body: string) => body.replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
@@ -50,12 +50,21 @@ export async function autoLinkClients(db: SupabaseClient, companyId: string): Pr
   return links.length;
 }
 
-export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean; retried?: boolean } = {}): Promise<InboxConversation> {
-  const { data: found } = await db.from("conversations")
-    .select("id,client_id,ai_paused,unread_count,contact_name")
-    .eq("company_id", companyId).eq("channel", "whatsapp").eq("external_id", phone)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+export async function getOrCreateConversation(db: SupabaseClient, companyId: string, phone: string, contactName?: string | null, opts: { aiPaused?: boolean; retried?: boolean; channelId?: string | null } = {}): Promise<InboxConversation> {
+  // Conversa = empresa + número da empresa (canal) + contato. Sem canal informado,
+  // vale o canal padrão (o banco preenche); conversas antigas sem canal são adotadas.
+  let q = db.from("conversations")
+    .select("id,client_id,ai_paused,unread_count,contact_name,channel_id")
+    .eq("company_id", companyId).eq("channel", "whatsapp").eq("external_id", phone);
+  if (opts.channelId) q = q.or(`channel_id.eq.${opts.channelId},channel_id.is.null`);
+  const { data: rows } = await q.order("created_at", { ascending: false }).limit(5);
+  const list = (rows ?? []) as Array<{ id: string; client_id: string | null; ai_paused: boolean | null; unread_count: number | null; contact_name: string | null; channel_id: string | null }>;
+  const found = opts.channelId ? (list.find((r) => r.channel_id === opts.channelId) ?? list.find((r) => !r.channel_id)) : list[0];
   if (found) {
+    if (opts.channelId && !found.channel_id) {
+      await db.from("conversations").update({ channel_id: opts.channelId }).eq("id", found.id).is("channel_id", null);
+      found.channel_id = opts.channelId;
+    }
     if (!found.client_id) {
       const client = await findClientByPhone(db, companyId, phone);
       if (client) {
@@ -63,25 +72,26 @@ export async function getOrCreateConversation(db: SupabaseClient, companyId: str
         found.client_id = client.id;
       }
     }
-    return { id: found.id, client_id: found.client_id, ai_paused: !!found.ai_paused, unread_count: found.unread_count ?? 0, contact_name: cleanContactName(found.contact_name) };
+    return { id: found.id, client_id: found.client_id, ai_paused: !!found.ai_paused, unread_count: found.unread_count ?? 0, contact_name: cleanContactName(found.contact_name), channel_id: found.channel_id };
   }
   const client = await findClientByPhone(db, companyId, phone);
   const { data: created, error } = await db.from("conversations").insert({
     company_id: companyId, channel: "whatsapp", external_id: phone, phone,
     contact_name: cleanContactName(contactName), client_id: client?.id ?? null, status: "aberta",
+    ...(opts.channelId ? { channel_id: opts.channelId } : {}),
     ...(opts.aiPaused ? { ai_paused: true } : {}),
-  }).select("id,client_id,ai_paused,unread_count,contact_name").single();
+  }).select("id,client_id,ai_paused,unread_count,contact_name,channel_id").single();
   // Outra mensagem do mesmo contato criou a conversa ao mesmo tempo: usa a dela.
   if (error?.code === "23505" && !opts.retried) return getOrCreateConversation(db, companyId, phone, contactName, { ...opts, retried: true });
   if (error || !created) throw new Error(`Conversa não criada: ${error?.message}`);
-  return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0, contact_name: cleanContactName(created.contact_name) };
+  return { id: created.id, client_id: created.client_id, ai_paused: !!created.ai_paused, unread_count: 0, contact_name: cleanContactName(created.contact_name), channel_id: created.channel_id ?? null };
 }
 
 /** Mensagem do cliente. Devolve null se já tinha sido gravada (reenvio do provedor). */
 export async function recordInbound(db: SupabaseClient, p: {
-  companyId: string; phone: string; contactName?: string | null; body: string; externalId?: string | null; at?: string; historical?: boolean;
+  companyId: string; phone: string; contactName?: string | null; body: string; externalId?: string | null; at?: string; historical?: boolean; channelId?: string | null;
 }): Promise<InboxConversation | null> {
-  const conversation = await getOrCreateConversation(db, p.companyId, p.phone, p.contactName);
+  const conversation = await getOrCreateConversation(db, p.companyId, p.phone, p.contactName, { channelId: p.channelId });
   const at = p.at ?? new Date().toISOString();
   const { error } = await db.from("messages").insert({
     company_id: p.companyId, conversation_id: conversation.id, direction: "inbound", author: "cliente",

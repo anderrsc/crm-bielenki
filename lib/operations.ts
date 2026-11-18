@@ -4,6 +4,7 @@ import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
 import { evolutionState } from '@/lib/whatsapp/evolution';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
+import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
 
 export function operationsDb() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Servidor sem configuração.');
@@ -21,15 +22,27 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch(() => 'unreachable');
     const { error: healthError } = await db.rpc('record_whatsapp_health', { p_company_id: agent.company_id, p_state: state });
     if (healthError) throw healthError;
-    // Reconciliação automática das mensagens recentes, mesmo com ninguém no Atendimento.
-    // Só grava (como histórico): não dispara a Lia nem muda atribuição.
-    if (state === 'open' && Date.now() < deadline - 15000) {
-      try {
-        const r = await syncRecentEvolutionMessages(db, agent.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance);
-        await db.from('ai_agent_config').update({ inbox_reconciled_at: new Date().toISOString() }).eq('company_id', agent.company_id);
-        reconciled += r.inserted;
-      } catch (e) { console.error('Reconciliação WhatsApp:', agent.company_id, e instanceof Error ? e.message : e); }
-    }
+  }
+  // Reconciliação automática das mensagens recentes de cada número (canal), mesmo com
+  // ninguém no Atendimento. Só grava como histórico: não dispara a Lia nem muda atribuição.
+  const { data: channels } = await db.from('whatsapp_channels').select('id,company_id,name,provider,instance,phone_number_id,phone_display,api_url,api_key,meta_token,webhook_secret,is_default,active')
+    .eq('provider', 'evolution').eq('active', true).is('deleted_at', null);
+  const byCompany = new Map((agents ?? []).map((a) => [a.company_id as string, a]));
+  for (const ch of (channels ?? []) as WhatsappChannel[]) {
+    if (Date.now() > deadline - 15000) break;
+    const agent = byCompany.get(ch.company_id) ?? (await db.from('ai_agent_config').select('*').eq('company_id', ch.company_id).maybeSingle()).data;
+    const c = channelCredentials(agent, ch);
+    if (!c.evolutionUrl || !c.evolutionKey || !c.evolutionInstance) continue;
+    const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch(() => 'unreachable');
+    await db.from('whatsapp_channels').update({ status: state, updated_at: new Date().toISOString() }).eq('id', ch.id);
+    if (state !== 'open') continue;
+    try {
+      const r = await syncRecentEvolutionMessages(db, ch.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id);
+      const now = new Date().toISOString();
+      await db.from('whatsapp_channels').update({ last_sync_at: now }).eq('id', ch.id);
+      if (ch.is_default) await db.from('ai_agent_config').update({ inbox_reconciled_at: now }).eq('company_id', ch.company_id);
+      reconciled += r.inserted;
+    } catch (e) { console.error('Reconciliação WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
   }
   const { data: reminders, error: reminderError } = await db.rpc('collect_quote_followups');
   if (reminderError) throw reminderError;

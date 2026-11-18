@@ -332,3 +332,12 @@ Write-Host "PRONTO. Em 1 a 2 minutos o CRM recebe o endereco sozinho. Volte na C
     .replaceAll("__INSTANCE__", p.instance);
   return fill(ps).replace("__COMPOSE__", () => fill(compose)); // função: "$$" do compose não pode virar "$"
 }
+
+/** Número que leu o QR (dono da instância), quando a Evolution informa. */
+export async function evolutionOwnerPhone(base: string, apiKey: string, instance: string): Promise<string | null> {
+  const list = await call<Array<{ name?: string; ownerJid?: string; owner?: string; instance?: { instanceName?: string; owner?: string } }>>(base, apiKey, `/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`).catch(() => []);
+  const hit = Array.isArray(list) ? list.find((i) => (i.name ?? i.instance?.instanceName) === instance) ?? list[0] : null;
+  const jid = String(hit?.ownerJid ?? hit?.owner ?? hit?.instance?.owner ?? "");
+  const digits = jid.split("@")[0].replace(/\D/g, "");
+  return digits.length >= 10 ? digits : null;
+}
