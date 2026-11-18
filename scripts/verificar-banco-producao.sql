@@ -6,7 +6,7 @@
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
-    ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_agent_config', 'active,agent_name,ai_provider,anthropic_api_key,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('ai_decisions', 'company_id,conversation_id,created_at,decisao,id,modo,motivo,phone'),
     ('ai_lia_rules', 'anterior_id,arquivada_em,ativada_em,ativada_por,company_id,created_at,created_by,exemplo,id,instrucao,pedido_original,quando,status,versao'),
     ('aluminum_cost_settings', 'company_id,price_per_kg,updated_at,updated_by'),

@@ -144,7 +144,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
       // Chaves gravadas sem criptografia (versoes antigas) sao criptografadas
       // na primeira vez que um gestor abre a pagina.
       if (configRes.data && companyId) {
-        const plain = Object.fromEntries((["groq_api_key", "openai_api_key", "gemini_api_key", "evolution_api_key", "whatsapp_token"] as const)
+        const plain = Object.fromEntries((["groq_api_key", "openai_api_key", "anthropic_api_key", "gemini_api_key", "evolution_api_key", "whatsapp_token"] as const)
           .filter((k) => typeof configRes.data[k] === "string" && configRes.data[k] && !configRes.data[k].startsWith("enc:"))
           .map((k) => [k, encryptSecret(configRes.data[k])]));
         if (Object.keys(plain).length) await db.from("ai_agent_config").update(plain).eq("company_id", companyId);
@@ -157,6 +157,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
         groq_api_key: maskSecret(configRes.data.groq_api_key ?? ""),
         openai_api_key: maskSecret(configRes.data.openai_api_key ?? ""),
         gemini_api_key: maskSecret(configRes.data.gemini_api_key ?? ""),
+        anthropic_api_key: maskSecret(configRes.data.anthropic_api_key ?? ""),
         evolution_api_key: maskSecret(configRes.data.evolution_api_key ?? ""),
         whatsapp_token: maskSecret(configRes.data.whatsapp_token ?? ""),
       } : null;

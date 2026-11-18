@@ -3,19 +3,23 @@
 // - ollama: Ollama Cloud (https://ollama.com), chave em OLLAMA_API_KEY.
 // - groq / openai: APIs compativeis com OpenAI, chave salva (criptografada)
 //   nas configuracoes do agente de cada empresa.
+// - anthropic: Claude (SDK oficial), chave salva criptografada como as demais.
+import Anthropic from "@anthropic-ai/sdk";
 import { Ollama } from "ollama";
 
-export type AiProvider = "ollama" | "groq" | "openai";
+export type AiProvider = "ollama" | "groq" | "openai" | "anthropic";
 export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export const AI_PROVIDERS: AiProvider[] = ["ollama", "groq", "openai"];
+export const AI_PROVIDERS: AiProvider[] = ["ollama", "groq", "openai", "anthropic"];
 export const DEFAULT_AI_MODEL: Record<AiProvider, string> = {
   ollama: "glm-5.3-flash",
   groq: "openai/gpt-oss-120b",
   openai: "gpt-4o",
+  anthropic: "claude-sonnet-5-5",
 };
+export const ANTHROPIC_MODELS = ["claude-sonnet-5-5", "claude-haiku-5-5"] as const;
 
-const OPENAI_COMPATIBLE_URL: Record<Exclude<AiProvider, "ollama">, string> = {
+const OPENAI_COMPATIBLE_URL: Record<Exclude<AiProvider, "ollama" | "anthropic">, string> = {
   groq: "https://api.groq.com/openai/v1/chat/completions",
   openai: "https://api.openai.com/v1/chat/completions",
 };
@@ -38,7 +42,7 @@ export function parseAiProvider(value: unknown): AiProvider {
 /** Mensagem curta em portugues para mostrar na tela (sem detalhes da chave). */
 export function aiErrorMessage(error: unknown) {
   if (!(error instanceof AiError)) return "Falha ao chamar a IA.";
-  const name = { ollama: "Ollama", groq: "Groq", openai: "OpenAI" }[error.provider];
+  const name = { ollama: "Ollama", groq: "Groq", openai: "OpenAI", anthropic: "Claude" }[error.provider];
   switch (error.status) {
     case 401: case 403: return `${name}: chave de API inválida ou ausente.`;
     case 402: return `${name}: sem créditos de uso. Adicione créditos na conta.`;
@@ -56,6 +60,8 @@ export function aiErrorMessage(error: unknown) {
 export function modelForProvider(provider: AiProvider, model?: string | null) {
   const name = (model ?? "").trim();
   if (!name) return DEFAULT_AI_MODEL[provider];
+  if (provider === "anthropic") return name.startsWith("claude-") ? name : DEFAULT_AI_MODEL.anthropic;
+  if (name.startsWith("claude-")) return DEFAULT_AI_MODEL[provider];
   const looksOpenAi = /^(gpt-|o\d|chatgpt)/i.test(name);
   if (provider === "openai") return name.includes("/") ? DEFAULT_AI_MODEL.openai : name;
   if (looksOpenAi) return DEFAULT_AI_MODEL[provider];
@@ -66,6 +72,49 @@ export function modelForProvider(provider: AiProvider, model?: string | null) {
 /** Ha chave disponivel para o provedor? (Ollama usa a variavel de ambiente do servidor.) */
 export function aiKeyAvailable(provider: AiProvider, companyKey?: string | null) {
   return provider === "ollama" ? Boolean(process.env.OLLAMA_API_KEY) : Boolean(companyKey);
+}
+
+type ProviderKeys = { groq_api_key?: string | null; openai_api_key?: string | null; anthropic_api_key?: string | null };
+/** Chave (ainda criptografada) do provedor escolhido. Groq aceita a chave da OpenAI como reserva. */
+export function aiProviderKey(provider: AiProvider, cfg?: ProviderKeys | null): string | null {
+  if (!cfg) return null;
+  if (provider === "groq") return cfg.groq_api_key ?? cfg.openai_api_key ?? null;
+  if (provider === "anthropic") return cfg.anthropic_api_key ?? null;
+  if (provider === "openai") return cfg.openai_api_key ?? null;
+  return null;
+}
+
+async function anthropicChat(apiKey: string, model: string, messages: AiMessage[], json: boolean, maxTokens: number): Promise<string> {
+  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 60_000 });
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n")
+    + (json ? "\n\nResponda SOMENTE com um objeto JSON válido, sem texto antes ou depois e sem bloco de código." : "");
+  const turns: Anthropic.Beta.BetaMessageParam[] = [];
+  for (const m of messages.filter((x) => x.role !== "system")) {
+    const role = m.role === "assistant" ? "assistant" : "user";
+    const last = turns[turns.length - 1];
+    if (last && last.role === role && typeof last.content === "string") last.content += `\n\n${m.content}`;
+    else turns.push({ role, content: m.content });
+  }
+  if (!turns.length || turns[0].role !== "user") turns.unshift({ role: "user", content: "(início da conversa)" });
+  try {
+    const response = await client.beta.messages.create({
+      model,
+      // Pensamento adaptativo consome parte do limite: folga para a resposta não ser cortada.
+      max_tokens: Math.max(maxTokens * 4, 4000),
+      ...(system.trim() ? { system } : {}),
+      messages: turns,
+      output_config: { effort: model.includes("haiku") ? "low" : "medium" },
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+    });
+    if (response.stop_reason === "refusal") throw new AiError("A IA recusou responder esta mensagem.", null, "anthropic");
+    const text = response.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("").trim();
+    return json ? text.replace(/^```(?:json)?\s*|\s*```$/g, "") : text;
+  } catch (error) {
+    if (error instanceof AiError) throw error;
+    if (error instanceof Anthropic.APIError) throw new AiError(error.message.slice(0, 500), error.status ?? null, "anthropic");
+    throw new AiError(error instanceof Error ? error.message : String(error), null, "anthropic");
+  }
 }
 
 export async function aiChat(request: {
@@ -106,6 +155,7 @@ export async function aiChat(request: {
   }
 
   if (!request.apiKey) throw new AiError("Chave de API não configurada.", null, provider);
+  if (provider === "anthropic") return anthropicChat(request.apiKey, model, messages, json, maxTokens);
   const send = (modelName: string) => fetch(OPENAI_COMPATIBLE_URL[provider], {
     method: "POST",
     headers: { Authorization: `Bearer ${request.apiKey}`, "Content-Type": "application/json" },

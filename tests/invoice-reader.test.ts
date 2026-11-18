@@ -48,3 +48,18 @@ test("Gemini recebe o arquivo inline e cai no modelo alternativo se o primeiro n
   const body = JSON.parse(fetchMock.mock.calls[0][1].body);
   expect(body.contents[0].parts[1].inline_data).toEqual({ mime_type: "application/pdf", data: "AAA" });
 });
+
+test("Claude Haiku lê PDF como documento e devolve os itens", async () => {
+  const { readInvoiceWithClaude } = await import("@/lib/ai/invoice-reader");
+  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({
+    id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5", stop_reason: "end_turn", stop_sequence: null,
+    usage: { input_tokens: 10, output_tokens: 10 },
+    content: [{ type: "text", text: 'Aqui está: {"fornecedor":{"nome":"Z","cnpj":"1"},"itens":[{"descricao":"Bobina","quantidade":1,"valor_unitario":900,"valor_total":900,"tipo":"Alumínio bobina"}],"vencimentos":[]}' }],
+  }), { status: 200, headers: { "content-type": "application/json" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const r = await readInvoiceWithClaude({ name: "n.pdf", type: "application/pdf", base64: "AAA" }, "sk-ant-test");
+  expect(r.itens[0].tipo).toBe("Alumínio bobina");
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(body.model).toBe("claude-haiku-5-5");
+  expect(body.messages[0].content[0].type).toBe("document");
+});

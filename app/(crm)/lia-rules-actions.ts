@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
-import { aiChat, parseAiProvider } from "@/lib/ai/chat";
+import { aiChat, aiProviderKey, parseAiProvider } from "@/lib/ai/chat";
 import { consumeAiQuota } from "@/lib/ai/rate-limit";
 import { friendlyError } from "@/lib/friendly-error";
 import { draftFromCorrection, INTERPRET_PROMPT, parseDraft, similarRules, type LiaRule, type RuleDraft } from "@/lib/ai/lia-learned-rules";
@@ -44,13 +44,13 @@ export async function interpretCorrection(pedido: string, exemplo?: string | nul
     const { db, companyId, userId } = await context();
     consumeAiQuota(userId);
     const [{ data: cfg }, { data: ativas }] = await Promise.all([
-      db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", companyId).maybeSingle(),
+      db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key,anthropic_api_key").eq("company_id", companyId).maybeSingle(),
       db.from("ai_lia_rules").select(COLS).eq("company_id", companyId).eq("status", "ativa").limit(200),
     ]);
     let draft: RuleDraft | null = null;
     try {
       const provider = parseAiProvider(cfg?.ai_provider);
-      const stored = provider === "groq" ? (cfg?.groq_api_key ?? cfg?.openai_api_key) : cfg?.openai_api_key;
+      const stored = aiProviderKey(provider, cfg);
       const raw = await aiChat({ provider, model: cfg?.openai_model, apiKey: stored ? decryptSecret(stored) : null, temperature: 0, json: true, maxTokens: 300,
         messages: [{ role: "user", content: INTERPRET_PROMPT(p, ex) }] });
       draft = parseDraft(raw);

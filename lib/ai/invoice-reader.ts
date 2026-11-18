@@ -1,5 +1,6 @@
 // Lê nota fiscal (PDF ou foto do DANFE) com IA e devolve os dados para pré-preencher
 // a Nova compra. Nada é salvo aqui: a pessoa confere e cadastra.
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 export const INVOICE_TYPES = ["Perfil", "Acessório", "Componentes para calhas", "Componentes para esquadrias", "Alumínio bobina", "Cano", "Material elétrico/eletrônico", "Outro"] as const;
@@ -69,6 +70,30 @@ function parseInvoiceJson(text: string): InvoiceData {
   let parsed: unknown;
   try { parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "") || "{}"); } catch { throw new Error("A IA respondeu em formato inesperado. Tente outra foto."); }
   return invoiceSchema.parse(parsed);
+}
+
+/** Claude Haiku 5.5: lê PDF e imagem direto; o mais barato por nota. */
+export async function readInvoiceWithClaude(file: { name: string; type: string; base64: string }, apiKey: string): Promise<InvoiceData> {
+  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 90_000 });
+  const media: Anthropic.ContentBlockParam = file.type === "application/pdf"
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: file.base64 } }
+    : { type: "image", source: { type: "base64", media_type: file.type as "image/jpeg" | "image/png" | "image/webp", data: file.base64 } };
+  try {
+    const response = await client.messages.create({
+      model: "claude-haiku-5-5",
+      max_tokens: 16000,
+      output_config: { effort: "low" },
+      messages: [{ role: "user", content: [media, { type: "text", text: PROMPT }] }],
+    });
+    if (response.stop_reason === "refusal") throw new Error("A IA não conseguiu ler esta nota.");
+    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+    return parseInvoiceJson(text.trim().replace(/^[^{]*/, "").replace(/[^}]*$/, ""));
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError) throw new Error("Chave da Anthropic inválida. Confira na Central de IA.");
+    if (error instanceof Anthropic.RateLimitError) throw new Error("Limite da Anthropic atingido. Tente de novo em alguns minutos.");
+    if (error instanceof Anthropic.APIError) throw new Error(`A IA não conseguiu ler a nota (${error.status ?? "erro"}).`);
+    throw error;
+  }
 }
 
 /** Google Gemini: lê PDF e imagem direto e é bem mais barato que a OpenAI. */

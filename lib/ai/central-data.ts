@@ -1,7 +1,7 @@
 // Dados reais da Central de IA: so le o banco e as variaveis do servidor.
 // Nunca devolve chaves ou tokens, apenas se existem.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseAiProvider, type AiProvider } from "@/lib/ai/chat";
+import { aiProviderKey, parseAiProvider, type AiProvider } from "@/lib/ai/chat";
 
 export const AI_FALLBACK_MARK = "alguém da nossa equipe vai te responder";
 /** Marca no histórico da triagem quando a IA falhou (o cliente não recebe nada automático). */
@@ -25,7 +25,7 @@ const has = (v: unknown) => typeof v === "string" && v.trim().length > 0;
 export async function loadCentralData(db: SupabaseClient, companyId: string): Promise<CentralData> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
   const [configRes, companyRes, sessionsRes, leadsRes, outboundRes, workflowRes] = await Promise.all([
-    db.from("ai_agent_config").select("active,agent_name,ai_provider,wpp_provider,groq_api_key,openai_api_key,whatsapp_number_id,whatsapp_token,evolution_api_url,evolution_instance,evolution_api_key,evolution_webhook_secret").eq("company_id", companyId).maybeSingle(),
+    db.from("ai_agent_config").select("active,agent_name,ai_provider,wpp_provider,groq_api_key,openai_api_key,anthropic_api_key,whatsapp_number_id,whatsapp_token,evolution_api_url,evolution_instance,evolution_api_key,evolution_webhook_secret").eq("company_id", companyId).maybeSingle(),
     db.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
     db.rpc("central_triage_activity", { p_company_id: companyId, p_since: since }),
     db.from("leads").select("id,name,score,priority,created_at").eq("company_id", companyId).eq("source", "WhatsApp").gte("created_at", since).order("created_at", { ascending: false }).limit(100),
@@ -39,7 +39,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const cfg = (configRes.data ?? {}) as Record<string, unknown>;
   const provider = parseAiProvider(cfg.ai_provider);
   const env = process.env;
-  const aiKey = provider === "ollama" ? has(env.OLLAMA_API_KEY) : provider === "groq" ? has(cfg.groq_api_key) || has(cfg.openai_api_key) : has(cfg.openai_api_key);
+  const aiKey = provider === "ollama" ? has(env.OLLAMA_API_KEY) : has(aiProviderKey(provider, cfg as never));
   const metaNumber = has(companyRes.data?.whatsapp_phone_number_id) || has(cfg.whatsapp_number_id);
   const metaToken = has(cfg.whatsapp_token) || has(env.WHATSAPP_ACCESS_TOKEN);
   const evolution = has(cfg.evolution_api_url) && has(cfg.evolution_instance) && has(cfg.evolution_api_key)
@@ -50,7 +50,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const wppProvider: "meta" | "evolution" = cfg.wpp_provider === "meta" || cfg.wpp_provider === "evolution"
     ? cfg.wpp_provider
     : !evolution && (metaNumber || metaToken) ? "meta" : "evolution";
-  const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI" }[provider];
+  const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI", anthropic: "Claude" }[provider];
 
   const checks: CentralCheck[] = [
     { label: "Agente ativo", ok: cfg.active === true, detail: cfg.active === true ? "Ligado" : "Desligado: a Lia não responde ninguém" },
