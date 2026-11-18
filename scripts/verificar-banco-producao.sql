@@ -6,7 +6,8 @@
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
-    ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,groq_api_key,id,inbox_synced_at,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_agent_config', 'active,agent_name,ai_provider,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,groq_api_key,id,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_decisions', 'company_id,conversation_id,created_at,decisao,id,modo,motivo,phone'),
     ('ai_lia_rules', 'anterior_id,arquivada_em,ativada_em,ativada_por,company_id,created_at,created_by,exemplo,id,instrucao,pedido_original,quando,status,versao'),
     ('aluminum_cost_settings', 'company_id,price_per_kg,updated_at,updated_by'),
     ('aluminum_price_matrix', 'company_id,cut_mm,id,price_per_meter,thickness,updated_at'),
@@ -23,7 +24,7 @@ with expected_columns(table_name, column_name) as (
     ('clients', 'address,city,client_type_id,company_id,created_at,email,id,lead_source,lead_source_id,name,neighborhood,notes,phone,postal_code,state,status,tax_id,updated_at,whatsapp'),
     ('commissions', 'amount,company_id,due_date,id,paid_at,percentage,profile_id,sale_id,status'),
     ('companies', 'accent_color,address,city,created_at,default_validity_days,email,id,logo_align,logo_margin_bottom,logo_margin_top,logo_max_height,logo_url,logo_width,name,neighborhood,payment_methods_available,phone,primary_color,qr_code_label,qr_code_url,quote_footer,quote_observations_default,secondary_color,state,tax_id,trade_name,updated_at,website,whatsapp,whatsapp_phone_number_id'),
-    ('conversations', 'ai_generation_id,ai_paused,archived_at,assigned_to,channel,client_id,company_id,contact_name,created_at,external_id,id,last_inbound_at,last_message_at,last_message_preview,phone,status,unread_count,updated_at'),
+    ('conversations', 'ai_generation_id,ai_paused,ai_suggestion,ai_suggestion_at,archived_at,assigned_to,channel,client_id,company_id,contact_name,created_at,external_id,id,last_inbound_at,last_message_at,last_message_preview,phone,status,unread_count,updated_at'),
     ('crm_operations_config', 'cron_secret,id,last_error,last_run_at,vapid_private,vapid_public'),
     ('discount_rules', 'active,company_id,created_at,customer_type,id,notes,percentage,updated_at'),
     ('document_templates', 'company_id,config,created_at,id,is_default,name,status,type,updated_at'),
@@ -134,6 +135,7 @@ with expected_columns(table_name, column_name) as (
   ('crm_private', 'financial_export_context', 'p_action text', '7dfd187c329fd0afca153395097477c5'),
   ('crm_private', 'import_bank_statement', 'p_account uuid, p_filename text, p_hash text, p_format text, p_rows jsonb, p_source_key text, p_hint text', 'dc495a244828a56ace183f775a5ce695'),
   ('crm_private', 'invalidate_bank_payment_match', '', 'd183af6ab4da9f13bbfaa35d2bcdf849'),
+  ('crm_private', 'lia_mode_audit', '', '5d76556f9fab29a6222c99db8092add1'),
   ('crm_private', 'lia_rule_guard', '', 'f56c7a68dc5ee29edcd161a2524534e0'),
   ('crm_private', 'materialize_financial_recurrence', 'p_id uuid, p_month date, p_reason text', 'cd71547ec540d56623e85765f76c81d0'),
   ('crm_private', 'notify_team', 'cid uuid, event text, title_text text, body_text text, target text, owner_id uuid', '432d907287bcdfafbde0b9d9d3b483f7'),
@@ -319,6 +321,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'validate_user_role_company', '', '08cc6393854c1d7fec98f55fd070e685'),
   ('public', 'viewable_resources', 'p_resources text[]', 'e561b8f8bb0b69be3b44b6d09c015cf8')
 ), expected_triggers(table_name, trigger_name) as (values
+  ('ai_agent_config', 'ai_agent_config_lia_mode_audit'),
   ('aluminum_price_matrix', 'trg_aluminum_matrix_updated'),
   ('bank_statement_rows', 'bank_rows_audit'),
   ('clients', 'clients_block_duplicate'),

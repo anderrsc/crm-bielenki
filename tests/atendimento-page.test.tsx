@@ -38,7 +38,7 @@ function abrirTela(items: ReturnType<typeof item>[]) {
 
 const item = (id: string, name: string, archived = false) => ({ id, name, phone: '47999990000', clientId: null, clientName: null, preview: 'oi', lastAt: new Date().toISOString(), unread: archived ? 2 : 0, aiPaused: true, assignedName: null, archived });
 const detail = (id: string, name: string, n = 3, hasOlder = false) => ({
-  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true,
+  conversation: item(id, name), hasOlder, panel: null, triage: null, windowOpen: true, suggestion: null,
   readSnapshot: { count: 0, lastInbound: null, generation: null },
   messages: Array.from({ length: n }, (_, i) => ({ id: `${id}-m${i}`, direction: 'inbound', author: null, senderName: null, body: `mensagem ${i} de ${name}`, at: new Date(Date.UTC(2026, 10, 12, 10, i)).toISOString(), failed: false, error: null, deliveryStatus: 'lida' })),
 });

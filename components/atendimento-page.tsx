@@ -9,7 +9,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Archive, ArchiveRestore, ArrowLeft, Bot, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
-  markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
+  approveLiaSuggestion, discardLiaSuggestion, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
   type ClientPanel, type ConversationDetail, type InboxItem, type InboxMessage,
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
@@ -172,6 +172,8 @@ export function AtendimentoPage({ initial, initialError }: { initial: InboxItem[
       // Conversa aberta voltou a ter não lidas (mensagem nova ou corrida com o webhook):
       // recarrega a conversa para a leitura ser confirmada de novo com o estado atual.
       if (selected.current === id && Number(row.unread_count ?? 0) > 0) detailSoon(id);
+      // A Lia deixou (ou trocou) uma sugestão na conversa aberta.
+      else if (selected.current === id && row.ai_suggestion) detailSoon(id);
       setItems((prev) => {
         const i = prev.findIndex((c) => c.id === id);
         if (i < 0) return prev;
@@ -364,6 +366,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
   const [mudandoIa, startIa] = useTransition();
+  const [sugerindo, startSugestao] = useTransition();
   const fim = useRef<HTMLDivElement>(null);
   const ultimo = messages.at(-1)?.id;
   const [pesquisando, setPesquisando] = useState(false);
@@ -479,6 +482,23 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
         {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-bold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
         {aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
+        {detail.suggestion && (
+          <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da Lia">
+            <p className="mb-1 flex items-center gap-1 text-xs font-black text-blue-400"><Bot className="h-3.5 w-3.5" /> Sugestão da Lia · aguarda aprovação</p>
+            <p className="whitespace-pre-wrap break-words text-sm">{detail.suggestion.text}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button disabled={sugerindo} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                onClick={() => startSugestao(async () => { const r = await approveLiaSuggestion(c.id, detail.suggestion!.at); setErro(r.error ?? r.warning ?? null); onChanged(); })}>
+                {sugerindo ? "Enviando…" : "Usar"}
+              </button>
+              <button disabled={sugerindo} className="rounded-lg bg-surface px-3 py-1.5 text-xs font-bold"
+                title="Você edita e envia; a conversa passa para você"
+                onClick={() => startSugestao(async () => { setTexto(detail.suggestion!.text); await discardLiaSuggestion(c.id); onChanged(); })}>Editar</button>
+              <button disabled={sugerindo} className="rounded-lg px-3 py-1.5 text-xs font-bold text-ink/60"
+                onClick={() => startSugestao(async () => { const r = await discardLiaSuggestion(c.id); setErro(r.error ?? null); onChanged(); })}>Descartar</button>
+            </div>
+          </div>
+        )}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
         <div className="flex items-end gap-2">
           <QuickReplies
