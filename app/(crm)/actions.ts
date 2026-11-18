@@ -760,22 +760,22 @@ export async function saveAiAgentConfig(formData: FormData) {
   } as Record<string, unknown>;
 
   const groqKey = String(formData.get("groq_api_key") || "").trim();
-  if (groqKey && !groqKey.startsWith("***") && !groqKey.startsWith("enc:")) values.groq_api_key = encryptSecret(groqKey);
+  if (isNewSecret(groqKey)) values.groq_api_key = encryptSecret(groqKey);
 
   const anthropicKey = String(formData.get("anthropic_api_key") || "").trim();
-  if (anthropicKey && !anthropicKey.startsWith("***") && !anthropicKey.startsWith("enc:")) values.anthropic_api_key = encryptSecret(anthropicKey);
+  if (isNewSecret(anthropicKey)) values.anthropic_api_key = encryptSecret(anthropicKey);
 
   const geminiKey = String(formData.get("gemini_api_key") || "").trim();
-  if (geminiKey && !geminiKey.startsWith("***") && !geminiKey.startsWith("enc:")) values.gemini_api_key = encryptSecret(geminiKey);
+  if (isNewSecret(geminiKey)) values.gemini_api_key = encryptSecret(geminiKey);
 
   const apiKey = String(formData.get("openai_api_key") || "").trim();
-  if (apiKey && !apiKey.startsWith("***") && !apiKey.startsWith("enc:")) values.openai_api_key = encryptSecret(apiKey);
+  if (isNewSecret(apiKey)) values.openai_api_key = encryptSecret(apiKey);
 
   const numberId = String(formData.get("whatsapp_number_id") || "").trim();
   if (numberId) values.whatsapp_number_id = numberId;
 
   const token = String(formData.get("whatsapp_token") || "").trim();
-  if (token && !token.startsWith("***") && !token.startsWith("enc:")) values.whatsapp_token = encryptSecret(token);
+  if (isNewSecret(token)) values.whatsapp_token = encryptSecret(token);
 
   const evoUrl = String(formData.get("evolution_api_url") || "").trim();
   if (evoUrl) {
@@ -785,7 +785,7 @@ export async function saveAiAgentConfig(formData: FormData) {
   }
 
   const evoKey = String(formData.get("evolution_api_key") || "").trim();
-  if (evoKey && !evoKey.startsWith("***") && !evoKey.startsWith("enc:")) values.evolution_api_key = encryptSecret(evoKey);
+  if (isNewSecret(evoKey)) values.evolution_api_key = encryptSecret(evoKey);
 
   const evoInstance = String(formData.get("evolution_instance") || "").trim();
   if (evoInstance) values.evolution_instance = evoInstance;
@@ -816,6 +816,12 @@ export async function setAiAgentActive(formData: FormData) {
  * salvar). Chaves digitadas e ainda nao salvas sao usadas so neste teste;
  * sem elas vale a chave salva. Roda no servidor; a chave nao sai daqui.
  */
+/** Campo de chave alterado de verdade? O valor mascarado ("abcd***wxyz") ou criptografado
+ *  que volta do formulário não pode substituir a chave salva. */
+function isNewSecret(value: string) {
+  return Boolean(value) && !value.includes("***") && !value.startsWith("enc:");
+}
+
 export async function testAiAgent(input: { provider?: string; model?: string; groqKey?: string; openaiKey?: string; anthropicKey?: string } = {}): Promise<{ reply?: string; error?: string }> {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
@@ -825,7 +831,7 @@ export async function testAiAgent(input: { provider?: string; model?: string; gr
   if (!profile?.company_id) return { error: "Empresa não encontrada." };
   const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key,anthropic_api_key").eq("company_id", profile.company_id).maybeSingle();
   const provider = parseAiProvider(input.provider ?? config?.ai_provider);
-  const typed = (value?: string) => { const v = value?.trim(); return v && !v.startsWith("***") && !v.startsWith("enc:") ? v : null; };
+  const typed = (value?: string) => { const v = value?.trim(); return v && isNewSecret(v) ? v : null; };
   const stored = aiProviderKey(provider, config);
   const apiKey = (provider === "groq" ? typed(input.groqKey) : provider === "anthropic" ? typed(input.anthropicKey) : typed(input.openaiKey)) ?? (stored ? decryptSecret(stored) : null);
   const model = input.model?.trim() || (provider === parseAiProvider(config?.ai_provider) ? config?.openai_model : null);

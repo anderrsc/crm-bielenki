@@ -8,7 +8,7 @@ vi.mock('next/server',()=>({after:vi.fn()}));
 vi.mock('next/headers',()=>({headers:async()=>({get:()=>null})}));
 vi.mock('@/lib/generate-quote-pdf',()=>({generateQuotePdfBuffer:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:state.rpc,from:state.from,auth:{getUser:async()=>({data:{user:{id:'00000000-0000-4000-8000-000000000001'}},error:null})}});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
-import { registerPayment, rescheduleEntry, saveGutterQuote, createManualSale, createManualPurchase, createWindowQuote, createClientRecord, toggleChecklistItem } from '@/app/(crm)/actions';
+import { saveAiAgentConfig, registerPayment, rescheduleEntry, saveGutterQuote, createManualSale, createManualPurchase, createWindowQuote, createClientRecord, toggleChecklistItem } from '@/app/(crm)/actions';
 import { createAgendaEvent, updateAgendaEventStatus } from '@/app/(crm)/agenda-actions';
 
 function form(values:Record<string,string>){const data=new FormData();for(const [k,v]of Object.entries(values)) data.set(k,v);return data;}
@@ -19,7 +19,7 @@ beforeEach(()=>{
   state.from.mockImplementation(()=>{
     const q:any={then:(resolve:any)=>Promise.resolve(state.result).then(resolve),single:async()=>state.result};
     for(const method of ['select','eq','neq','order','limit'])q[method]=()=>q;
-    q.insert=(values:any)=>{state.insert(values);return q};q.update=(values:any)=>{state.update(values);return q};return q;
+    q.insert=(values:any)=>{state.insert(values);return q};q.upsert=(values:any)=>{state.insert(values);return q};q.update=(values:any)=>{state.update(values);return q};return q;
   });
 });
 afterEach(()=>{vi.clearAllMocks();vi.unstubAllEnvs();});
@@ -70,4 +70,11 @@ test('retorno inválido de venda é rejeitado', async () => {
 test('conferência salva no checklist e volta à seção da venda', async () => {
   await expect(toggleChecklistItem(form({ id:'00000000-0000-4000-8000-000000000010', order_id:'00000000-0000-4000-8000-000000000020', status:'pendente', _back:saleReturn }))).rejects.toThrow(`REDIRECT:${saleReturn}#conferencia-medidas`);
   expect(state.update).toHaveBeenCalledWith(expect.objectContaining({status:'concluido'}));
+});
+
+test('saving AI settings never overwrites stored keys with the masked value',async()=>{
+  await saveAiAgentConfig(form({ai_provider:'anthropic',evolution_api_key:'abcd***wxyz',anthropic_api_key:'sk-a***9xyz',groq_api_key:'',whatsapp_token:'EAAB***1234'})).catch(()=>{});
+  const saved=state.insert.mock.calls.map(c=>c[0]).find((v:any)=>v&&'agent_name' in v) as Record<string,unknown>|undefined;
+  expect(saved).toBeTruthy();
+  for(const k of ['evolution_api_key','anthropic_api_key','groq_api_key','whatsapp_token'])expect(saved).not.toHaveProperty(k);
 });
