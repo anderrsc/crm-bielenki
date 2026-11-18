@@ -13,8 +13,16 @@ const RULES: Array<[RegExp, string]> = [
   [/fetch failed|ECONNRESET|ETIMEDOUT|network/i, "Falha de conexão. Tente novamente."],
 ];
 
+// Mensagem técnica sem tradução (estrutura do banco, SQL, PostgREST): não mostra ao usuário.
+const TECNICA = /relation "|column "|function [\w.]+\(|syntax error|schema cache|PGRST\d|\bSQLSTATE\b|operator does not exist|could not find|stack|at [\w.]+ \(|TypeError|ReferenceError|Unexpected token|ECONNREFUSED/i;
+export const GENERIC_ERROR = "Não foi possível concluir. Tente novamente ou avise o suporte.";
+
 export function friendlyError(msg?: string | null): string | undefined {
   if (!msg) return msg ?? undefined;
   for (const [re, text] of RULES) if (re.test(msg)) return text;
+  if (TECNICA.test(msg)) {
+    console.error("Erro técnico ocultado do usuário:", msg.slice(0, 500));
+    return GENERIC_ERROR;
+  }
   return msg;
 }

@@ -18,6 +18,7 @@ import { z } from "zod";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { aiChat, aiErrorMessage, DEFAULT_AI_MODEL, parseAiProvider } from "@/lib/ai/chat";
+import { AiRateLimitError, consumeAiQuota } from "@/lib/ai/rate-limit";
 import { ensureQuotePdfCached, requestContextFromHeaders } from "@/lib/quote-pdf-cache";
 import { todayISO } from "@/lib/utils";
 import { parseBRNumber } from "@/lib/br-number";
@@ -813,6 +814,7 @@ export async function testAiAgent(input: { provider?: string; model?: string; gr
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
+  try { consumeAiQuota(user.id); } catch (e) { if (e instanceof AiRateLimitError) return { error: e.message }; throw e; }
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) return { error: "Empresa não encontrada." };
   const { data: config } = await db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", profile.company_id).maybeSingle();
