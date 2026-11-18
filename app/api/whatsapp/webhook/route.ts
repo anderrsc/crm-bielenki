@@ -13,6 +13,7 @@ import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConve
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
 import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
+import { liaDecision, parseLiaHours, parseLiaMode, startOfBrasiliaDay } from "@/lib/ai/lia-mode";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -460,12 +461,20 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
         && !current.data?.ai_paused && !current.data?.client_id
         && current.data?.ai_generation_id === conversation.generation;
     };
+    const liaMode = parseLiaMode(agentConfig.lia_mode);
+    // Registro de cada decisão da Lia (Central de IA). Nunca derruba o atendimento.
+    const logDecision = async (decisao: "respondeu" | "sugeriu" | "encaminhou" | "ignorou" | "falhou", motivo: string) => {
+      const { error } = await supabase.from("ai_decisions").insert({ company_id: company.id, conversation_id: conversation?.id ?? null, phone: from, decisao, motivo: motivo.slice(0, 300), modo: liaMode });
+      if (error) console.error("Lia: falha ao registrar decisão:", error.message);
+    };
+    let sendFailure: string | null = null;
     const reply = async (text: string) => {
       if (!await canReply()) return false;
       let externalId: string | null = null;
       let failure: string | null = null;
       try { externalId = await sendWhatsAppText(credentials, from, text); }
       catch (error) { failure = error instanceof Error ? error.message : String(error); console.error("Falha ao enviar WhatsApp:", failure); }
+      sendFailure = failure;
       if (conversation) {
         await recordOutbound(supabase, { companyId: company.id, conversationId: conversation.id, body: text, author: "ana", senderName: agentName, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure })
           .catch((error) => console.error("Atendimento: falha ao gravar resposta:", error instanceof Error ? error.message : error));
@@ -582,6 +591,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
         messages: [...updatedMessages, { role: "system", content: `${AI_FAILURE_TAG} ${aiFailure instanceof AiError ? aiErrorMessage(aiFailure) : "resposta inválida da IA"}`, timestamp: new Date().toISOString() }],
         updated_at: new Date().toISOString(),
       }).eq("id", session.id);
+      await logDecision("falhou", aiFailure instanceof AiError ? aiErrorMessage(aiFailure) : "Resposta inválida da IA");
       return NextResponse.json({ status: "ai_failed_team_notified" });
     }
 
@@ -630,7 +640,17 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     const isConcluida = aiResult.triagem_concluida;
     const novoStatus = isPosVenda ? "pos_venda" : isConcluida ? "concluida" : "em_andamento";
 
-    if (!await canReply()) return NextResponse.json({ status: "reply_cancelled" });
+    if (!await canReply()) {
+      await logDecision("ignorou", "Equipe assumiu a conversa ou a Lia foi pausada enquanto gerava a resposta");
+      return NextResponse.json({ status: "reply_cancelled" });
+    }
+    const { count: repliesToday } = await supabase.from("ai_decisions").select("id", { count: "exact", head: true })
+      .eq("company_id", company.id).eq("decisao", "respondeu").gte("created_at", startOfBrasiliaDay(new Date()));
+    const decision = liaDecision({
+      mode: liaMode, hours: parseLiaHours(agentConfig.lia_hours), now: new Date(), repliesToday: repliesToday ?? 0,
+      dailyLimit: Number(agentConfig.lia_daily_limit) > 0 ? Number(agentConfig.lia_daily_limit) : 200,
+      posVenda: isPosVenda, prioridade: aiResult.prioridade ?? null,
+    });
 
     // Atualiza sessão
     const updateData: Record<string, unknown> = {
@@ -669,9 +689,25 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     const { error: triageError } = await supabase.from("triage_sessions").update(updateData).eq("id", session.id);
     if (triageError) throw new Error(`Falha ao salvar triagem e rascunho: ${triageError.message}`);
+    if (decision.acao !== "responder" && conversation) {
+      // A resposta fica como sugestão no Atendimento; nada vai para o cliente sem aprovação.
+      const { error: suggestionError } = await supabase.from("conversations")
+        .update({ ai_suggestion: resposta, ai_suggestion_at: new Date().toISOString() })
+        .eq("id", conversation.id).eq("ai_generation_id", conversation.generation);
+      if (suggestionError) throw new Error(`Falha ao salvar sugestão da Lia: ${suggestionError.message}`);
+      await logDecision(decision.acao === "sugerir" ? "sugeriu" : "encaminhou", decision.motivo);
+      if (isConcluida && !isPosVenda) await createOrUpdateLead(company.id, session.id, from, novosDados, aiResult);
+      if (isConcluida || isPosVenda) await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
+      return NextResponse.json({ status: decision.acao === "sugerir" ? "suggested" : "forwarded" });
+    }
     // Envia resposta pelo mesmo canal (Evolution API ou Meta)
     const sentReply = await reply(resposta);
-    if (!sentReply) return NextResponse.json({ status: "reply_cancelled_or_failed" });
+    if (!sentReply) {
+      await logDecision(sendFailure ? "falhou" : "ignorou", sendFailure ? `Falha no envio: ${sendFailure}` : "Equipe assumiu a conversa antes do envio");
+      return NextResponse.json({ status: "reply_cancelled_or_failed" });
+    }
+    await logDecision("respondeu", decision.motivo);
+    if (conversation) await supabase.from("conversations").update({ ai_suggestion: null, ai_suggestion_at: null }).eq("id", conversation.id).not("ai_suggestion", "is", null);
     await supabase.from("triage_sessions").update({ messages: finalMessages }).eq("id", session.id);
     // Se triagem concluída e é lead comercial, cria/atualiza lead no CRM
     if (isConcluida && !isPosVenda) {

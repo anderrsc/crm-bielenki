@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { aiChat, parseAiProvider } from "@/lib/ai/chat";
+import { consumeAiQuota } from "@/lib/ai/rate-limit";
 import { friendlyError } from "@/lib/friendly-error";
 import { draftFromCorrection, INTERPRET_PROMPT, parseDraft, similarRules, type LiaRule, type RuleDraft } from "@/lib/ai/lia-learned-rules";
 
@@ -20,7 +21,7 @@ async function context() {
   if (!user) throw new Error("Sessão expirada. Entre novamente.");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) throw new Error("Empresa não encontrada.");
-  return { db, companyId: profile.company_id as string };
+  return { db, companyId: profile.company_id as string, userId: user.id };
 }
 
 export async function listLiaRules(): Promise<Result<{ rules: LiaRuleRow[] }>> {
@@ -40,7 +41,8 @@ export async function interpretCorrection(pedido: string, exemplo?: string | nul
   try {
     const p = Pedido.parse(pedido);
     const ex = typeof exemplo === "string" && exemplo.trim() ? exemplo.trim().slice(0, 2000) : null;
-    const { db, companyId } = await context();
+    const { db, companyId, userId } = await context();
+    consumeAiQuota(userId);
     const [{ data: cfg }, { data: ativas }] = await Promise.all([
       db.from("ai_agent_config").select("ai_provider,openai_model,groq_api_key,openai_api_key").eq("company_id", companyId).maybeSingle(),
       db.from("ai_lia_rules").select(COLS).eq("company_id", companyId).eq("status", "ativa").limit(200),
