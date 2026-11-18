@@ -35,3 +35,17 @@ export async function cancelPurchase(form: FormData) {
   if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   refresh(back); redirect(`${q(back)}ok=${encodeURIComponent("Compra cancelada")}`);
 }
+
+export async function registerPurchaseReturn(form: FormData) {
+  const raw = Object.fromEntries(form);
+  const back = `/compras/${z.uuid().safeParse(raw.po_id).success ? raw.po_id : ""}`;
+  const qty = Number(String(raw.quantity ?? "").replace(",", "."));
+  const amount = raw.amount === "" || raw.amount === undefined ? null : Number(String(raw.amount).replace(",", "."));
+  const p = z.object({ item_id: z.uuid(), location_id: z.uuid().or(z.literal("")).default(""), reason: z.string().trim().min(3).max(500) }).safeParse(raw);
+  if (!p.success || !(qty > 0) || (amount !== null && !(amount >= 0))) redirect(`${q(back)}erro=${encodeURIComponent("Revise item, quantidade, valor e motivo da devolução")}`);
+  const db = await createClient();
+  const { error } = await db.rpc("register_purchase_return", { p_item_id: p.data.item_id, p_quantity: qty, p_amount: amount, p_location: p.data.location_id || null, p_reason: p.data.reason });
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
+  refresh(back); revalidatePath("/estoque");
+  redirect(`${q(back)}ok=${encodeURIComponent("Devolução registrada")}`);
+}
