@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { createManualPurchase } from "@/app/(crm)/actions";
 import { money } from "@/lib/utils";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
+import { InvoiceUpload } from "@/components/invoice-upload";
 import { useMemo, useState } from "react";
 
 type Supplier = { id: string; name: string; credit?: number };
@@ -35,6 +36,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
   const [expected, setExpected] = useState("");
   const [destino, setDestino] = useState<"estoque" | "pedido">("estoque");
   const [orderId, setOrderId] = useState("");
+  const [invoiceNote, setInvoiceNote] = useState("");
   const rememberDraft = useErrorDraft("draft:compra-manual-v3", { items, supplierId, mode, paid, paidAt, method, due, notes, expected, destino, orderId }, (d) => {
     setItems(d.items); setSupplierId(d.supplierId); setMode(d.mode); setPaid(d.paid); setPaidAt(d.paidAt); setMethod(d.method); setDue(d.due); setNotes(d.notes); setExpected(d.expected); setDestino(d.destino); setOrderId(d.orderId);
   });
@@ -55,6 +57,19 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
     <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
     <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-black">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
     {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    <InvoiceUpload onRead={(r) => {
+      setItems(r.items);
+      if (r.supplierId) { setSupplierId(r.supplierId); setUseCredit(false); }
+      if (r.dueDate && r.dueDate > todayISO()) { setMode("nao"); setDue(r.dueDate); }
+      const parcelas = r.installments.filter((x) => x.data).map((x) => `${x.data!.split("-").reverse().join("/")}${x.valor ? ` ${money(x.valor)}` : ""}`).join(", ");
+      setNotes((n) => [n, r.number ? `NF ${r.number}` : "", parcelas ? `Parcelas: ${parcelas}` : ""].filter(Boolean).join(" · "));
+      const sum = Math.round(r.items.reduce((t, x) => t + x.quantity * x.unit_price, 0) * 100) / 100;
+      const msgs = [`Nota lida: ${r.items.length} item(ns). Confira antes de cadastrar.`];
+      if (!r.supplierId) msgs.push(`Fornecedor ${r.supplierName ?? ""} ${r.supplierCnpj ?? ""} não encontrado no cadastro: escolha ou cadastre em Fornecedores.`);
+      if (r.total && Math.abs(r.total - sum) > 0.05) msgs.push(`Atenção: total da nota ${money(r.total)} e soma dos itens ${money(sum)} não batem (frete/impostos/desconto?).`);
+      setInvoiceNote(msgs.join(" "));
+    }} />
+    {invoiceNote && <p className="mb-5 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-900">{invoiceNote}</p>}
     <form onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <input type="hidden" name="payload" value={payload} />
       <div className="space-y-4">
