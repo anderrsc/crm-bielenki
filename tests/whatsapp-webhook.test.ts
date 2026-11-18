@@ -23,7 +23,7 @@ function query(table: string) {
   };
   const api: Record<string, unknown> = {
     select: (cols?: string) => { if (cols?.includes('company:companies')) joinCompany = true; return api; },
-    order: () => api, limit: () => api, or: () => api, gte: () => api, not: () => api, in: () => api,
+    order: () => api, limit: () => api, or: () => api, gte: () => api, not: () => api, in: () => api, is: (k: string, v: unknown) => { filters.push([k, v]); return api; },
     eq: (k: string, v: unknown) => { filters.push([k, v]); return api; },
     insert: (data: Row) => { pending = { kind: 'insert', data }; return api; },
     upsert: (data: Row) => { pending = { kind: 'upsert', data }; return api; },
@@ -38,6 +38,12 @@ function query(table: string) {
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: string) => query(t), rpc: async (name: string, p: Record<string, unknown>) => {
  if (name === 'link_whatsapp_lid') { (tables.whatsapp_lid_map ??= []).push({ company_id: p.p_company, lid: p.p_lid, phone: p.p_phone }); return { error: null }; }
+ if (name === 'claim_ai_reply') {
+  const cfg = (tables.ai_agent_config ?? []).find((c: any) => c.company_id === p.p_company);
+  const c = (tables.conversations ?? []).find((c: any) => c.id === p.p_conversation && c.company_id === p.p_company);
+  if (!cfg?.active || !c || !p.p_generation || c.ai_generation_id !== p.p_generation || c.ai_paused || c.client_id) return { data: false, error: null };
+  c.ai_generation_id = null; return { data: true, error: null };
+ }
  if (name !== 'inbox_receive') return { error: null };
  const c = tables.conversations.find(c => c.id === p.p_id && c.company_id === p.p_company)!;
  Object.assign(c, { unread_count: Number(c.unread_count ?? 0) + (p.p_historical ? 0 : 1), ai_generation_id: p.p_generation, last_message_at: p.p_at, last_inbound_at: p.p_at, last_message_preview: p.p_preview });

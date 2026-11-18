@@ -470,6 +470,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     let sendFailure: string | null = null;
     const reply = async (text: string) => {
       if (!await canReply()) return false;
+      // Reserva atômica: só um processo envia por mensagem do cliente, e nada sai se a
+      // equipe assumiu, a Lia foi pausada ou chegou mensagem nova nesse meio-tempo.
+      const { data: claimed, error: claimError } = await supabase.rpc("claim_ai_reply", { p_conversation: conversation?.id, p_company: company.id, p_generation: conversation?.generation });
+      if (claimError || claimed !== true) return false;
       let externalId: string | null = null;
       let failure: string | null = null;
       try { externalId = await sendWhatsAppText(credentials, from, text); }
@@ -752,6 +756,15 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
     await new Promise((r) => setTimeout(r, 3000));
     if (await known()) return;
     const conversation = await getOrCreateConversation(supabase, companyId, phone);
+    // Envio do CRM que ficou sem confirmação (timeout): o eco do WhatsApp confirma que saiu.
+    const recent = new Date(Date.now() - 15 * 60_000).toISOString();
+    const { data: pendingSend } = await supabase.from("messages").select("id")
+      .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).is("external_id", null)
+      .in("delivery_status", ["enviando", "desconhecido"]).gte("sent_at", recent).order("sent_at", { ascending: false }).limit(1);
+    if (pendingSend?.length) {
+      await supabase.from("messages").update({ external_id: externalId || null, delivery_status: "enviada", error_message: null }).eq("id", pendingSend[0].id);
+      return;
+    }
     const since = new Date(Date.now() - 2 * 60_000).toISOString();
     const { data: same } = await supabase.from("messages").select("id")
       .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).gte("sent_at", since).limit(1);
