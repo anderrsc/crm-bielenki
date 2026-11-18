@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { advanceProductionStep } from "@/app/(crm)/actions";
+import { productionStepBack } from "@/app/(crm)/undo-actions";
+import { ConfirmButton } from "@/components/confirm-button";
 import { SubmitButton } from "@/components/submit-button";
 import { shortDate, todayISO } from "@/lib/utils";
 import { OP_STAGE_LABEL } from "@/components/order-operation-card";
@@ -268,6 +270,16 @@ export async function ProductionFlowPage({
               </button>
             </form>
           </div>
+        )}
+        {order.current_step > 1 && order.status !== "cancelado" && (
+          <details className="card p-5">
+            <summary className="cursor-pointer text-sm font-bold text-ink/70">Concluiu etapa por engano? Voltar para a etapa {order.current_step - 1}: {steps[order.current_step - 2]}</summary>
+            <form action={productionStepBack} className="mt-3 flex flex-wrap items-end gap-2">
+              <input type="hidden" name="id" value={id} />
+              <input className="field flex-1" name="reason" aria-label="Motivo para voltar a etapa" placeholder="Motivo (ex.: corte precisa ser refeito)" required minLength={3} maxLength={500} />
+              <ConfirmButton formAction={productionStepBack} className="button-ghost border border-sand" message={`Voltar a produção para a etapa ${order.current_step - 1}?`}>Voltar etapa</ConfirmButton>
+            </form>
+          </details>
         )}
         {isFinished && (
           <div className="card border-emerald-200 bg-emerald-50 p-6 text-center">

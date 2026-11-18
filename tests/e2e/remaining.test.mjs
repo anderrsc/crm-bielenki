@@ -65,11 +65,11 @@ test("fornecedor: excluir", async () => {
   const s = (await db.query("insert into suppliers(company_id,name) values($1,$2) returning id", [cid, name])).rows[0];
   await page.goto(`${BASE}/fornecedores`, { waitUntil: "networkidle0" });
   // Edicao em linha: o nome esta no value do input, nao no texto.
-  await page.evaluate((n) => {
-    const form = [...document.querySelectorAll("form")].find((f) => f.querySelector("input[name=name]")?.value === n);
+  await page.evaluate((id) => {
+    const form = [...document.querySelectorAll("form")].find((f) => f.querySelector("input[name=id]")?.value === id);
     const details = form.closest("details"); if (details) details.open = true;
     [...form.querySelectorAll("button")].find((b) => /excluir/i.test(b.innerText)).click();
-  }, name);
+  }, s.id);
   await settle();
   await noProblem("excluir fornecedor");
   const row = (await db.query("select deleted_at, status from suppliers where id=$1", [s.id])).rows[0];
@@ -93,7 +93,7 @@ test("funcionarios: editar dados, cargos e redefinir senha", async () => {
   }, `Editar ${RUN}`);
   await settle();
   await noProblem("salvar dados do funcionario");
-  assert.equal((await db.query("select phone from profiles where id=$1", [user.id])).rows[0].phone, "47912345678");
+  assert.equal((await db.query("select phone from profiles where id=$1", [user.id])).rows[0].phone, "(47) 91234-5678");
 
   await page.goto(`${BASE}/configuracoes/funcionarios`, { waitUntil: "networkidle0" });
   await openRow();

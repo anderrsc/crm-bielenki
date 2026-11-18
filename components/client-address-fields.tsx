@@ -103,7 +103,7 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
       <div className="grid gap-4 sm:grid-cols-6">
         <label className="sm:col-span-2">
           <span className="label">CEP</span>
-          <input className="field" name="postal_code" autoComplete="postal-code" inputMode="numeric" placeholder="00000-000"
+          <input className="field" name="postal_code" autoComplete="off" inputMode="numeric" placeholder="00000-000"
             maxLength={9} value={value.postal_code} onChange={event => {
               const cep = digits(event.target.value);
               change("postal_code", mask(cep));
@@ -112,19 +112,19 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
         </label>
         <label className="sm:col-span-3">
           <span className="label">Cidade</span>
-          <input className="field" name="city" autoComplete="address-level2" list="client-address-cities" value={value.city} onChange={event => change("city", event.target.value)} />
+          <input className="field" name="city" autoComplete="off" list="client-address-cities" value={value.city} onChange={event => change("city", event.target.value)} />
           <datalist id="client-address-cities">{nearbyCities.map(city => <option key={city} value={city} />)}</datalist>
         </label>
         <label>
           <span className="label">UF</span>
-          <select className="field" name="state" autoComplete="address-level1" value={value.state} onChange={event => change("state", event.target.value)}>
+          <select className="field" name="state" autoComplete="off" value={value.state} onChange={event => change("state", event.target.value)}>
             <option value="">—</option>
             {states.map(state => <option key={state}>{state}</option>)}
           </select>
         </label>
         <label className="sm:col-span-4">
           <span className="label">Rua / Logradouro</span>
-          <input className="field" autoComplete="address-line1" placeholder="Ex. Rua Vicente Bernardes"
+          <input className="field" autoComplete="off" placeholder="Ex. Rua Vicente Bernardes"
             value={value.address} onChange={event => change("address", event.target.value)} />
         </label>
         <label className="sm:col-span-2">
@@ -133,7 +133,7 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
         </label>
         <label className="sm:col-span-4">
           <span className="label">Complemento</span>
-          <input className="field" autoComplete="address-line2" placeholder="Ex. Sala 2" value={value.complement} onChange={event => change("complement", event.target.value)} />
+          <input className="field" autoComplete="off" placeholder="Ex. Sala 2" value={value.complement} onChange={event => change("complement", event.target.value)} />
         </label>
         <label className="sm:col-span-2">
           <span className="label">Bairro</span>

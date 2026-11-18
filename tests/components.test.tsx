@@ -8,6 +8,7 @@ import { ModuleTable } from '@/components/module-table';
 import { modules } from '@/lib/modules';
 import { AgendaPage } from '@/components/agenda-page';
 
+vi.mock('@/app/(crm)/receiving-accounts-actions',()=>({listReceivingAccounts:vi.fn().mockResolvedValue({ok:true,accounts:[]}),saveReceivingAccount:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({replace:vi.fn()}),usePathname:()=>'/clientes'}));
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),getAgenda:vi.fn().mockResolvedValue([]),updateAgenda:vi.fn(),createAgenda:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>{const createClient=async()=>({rpc:mocks.rpc});return {createClient,getRequestClient:createClient,getAuthUser:async(db?:any)=>{const c=db??await createClient();return c.auth?(await c.auth.getUser()).data.user:null;}};});
@@ -49,16 +50,16 @@ test.each([0,-1])('sale with quantity %i cannot be submitted',quantity=>{fillSal
 test('sale blocks payment greater than total',()=>{fillSale();fireEvent.change(screen.getByLabelText('Valor já recebido'),{target:{value:'101'}});expect((screen.getByRole('button',{name:'Cadastrar venda'}) as HTMLButtonElement).disabled).toBe(true);});
 test('sale adds and removes items',()=>{fillSale();fireEvent.click(screen.getByRole('button',{name:'Adicionar item'}));expect(screen.getAllByLabelText('Produto / serviço')).toHaveLength(2);const remove=document.querySelectorAll('button.text-red-600');fireEvent.click(remove[1]);expect(screen.getAllByLabelText('Produto / serviço')).toHaveLength(1);});
 
-function fillPurchase() {
-  render(<ManualPurchaseForm suppliers={options} materials={[{id:'material',name:'Chapa',unit:'m'}]}/>);
+function fillPurchase(){
+  render(<ManualPurchaseForm suppliers={[...options.map(o=>({...o,credit:0}))]}/>);
   fireEvent.change(screen.getByLabelText('Fornecedor'),{target:{value:'one'}});
-  fireEvent.change(screen.getByLabelText('Material existente'),{target:{value:'material'}});
   fireEvent.change(screen.getByLabelText('Valor unitário'),{target:{value:'10'}});
 }
-test('material selection fills description and unit',()=>{fillPurchase();expect((screen.getByLabelText('Descrição do material') as HTMLInputElement).value).toBe('Chapa');expect((screen.getByLabelText('Unidade') as HTMLInputElement).value).toBe('m');});
-test('purchase can submit with optional observations blank',()=>{fillPurchase();expect((screen.getByRole('button',{name:'Cadastrar compra'}) as HTMLButtonElement).disabled).toBe(false);expect((document.querySelector('form') as HTMLFormElement).checkValidity()).toBe(true);});
-test('purchase cannot submit negative payment',()=>{fillPurchase();fireEvent.change(screen.getByLabelText('Valor já pago'),{target:{value:'-1'}});expect((screen.getByRole('button',{name:'Cadastrar compra'}) as HTMLButtonElement).disabled).toBe(true);});
-test('purchase cannot submit an empty row',()=>{fillPurchase();fireEvent.click(screen.getByRole('button',{name:'Adicionar item'}));expect((screen.getByRole('button',{name:'Cadastrar compra'}) as HTMLButtonElement).disabled).toBe(true);});
+const submit=()=>screen.getByRole('button',{name:'Cadastrar compra'}) as HTMLButtonElement;
+test('purchase shows paid, credit and debt result',()=>{fillPurchase();expect(screen.getByText('Compra quitada')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Não pagou'}));expect(screen.getByText(/Fica devendo R\$\s*10,00/)).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Outro valor'}));fireEvent.change(screen.getByLabelText('Valor já pago'),{target:{value:'15'}});expect(screen.getByText(/Fica R\$\s*5,00 de crédito/)).toBeTruthy();});
+test('purchase can submit with optional observations blank',()=>{fillPurchase();expect(submit().disabled).toBe(false);expect((document.querySelector('form') as HTMLFormElement).checkValidity()).toBe(true);});
+test('purchase cannot submit negative payment',()=>{fillPurchase();fireEvent.click(screen.getByRole('button',{name:'Outro valor'}));fireEvent.change(screen.getByLabelText('Valor já pago'),{target:{value:'-1'}});expect(submit().disabled).toBe(true);});
+test('purchase of type Outro requires typing what it is',()=>{fillPurchase();fireEvent.click(screen.getByRole('button',{name:'Outro'}));expect(submit().disabled).toBe(true);fireEvent.change(screen.getByLabelText('Descrição do material'),{target:{value:'Lixa'}});expect(submit().disabled).toBe(false);});
 
 test('agenda month navigation does not skip February from January 31',()=>{vi.useFakeTimers();vi.setSystemTime(new Date(2026,0,31,12));render(<AgendaPage initialEvents={[]}/>);fireEvent.click(screen.getByRole('button',{name:'Próximo período'}));expect(screen.getByText('Fevereiro 2026')).toBeTruthy();vi.useRealTimers();});
 test('agenda switches month, week and day views',()=>{render(<AgendaPage initialEvents={[]}/>);fireEvent.click(screen.getByRole('button',{name:'Dia'}));expect(screen.getByText('0 eventos')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Semana'}));expect(screen.queryByText('0 eventos')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Mês'}));expect(screen.getByRole('button',{name:'Hoje'})).toBeTruthy();});

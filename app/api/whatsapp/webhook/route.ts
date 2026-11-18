@@ -1,4 +1,4 @@
-import { updateDelivery } from "@/lib/whatsapp/delivery";
+import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
@@ -8,7 +8,7 @@ import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, parseAiProvider } from
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
-import { evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
@@ -193,7 +193,29 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   let payload: any;
   try { payload = JSON.parse(body); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
-  return handleWebhook(req, body, payload, false);
+  const res = await handleWebhook(req, body, payload, false);
+  await logWebhook(payload, res).catch(() => undefined);
+  return res;
+}
+
+// Registro tecnico do resultado (sem texto, nome ou telefone) para diagnosticar mensagens que nao entram.
+async function logWebhook(payload: any, res: NextResponse) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const isEvolution = !!(payload?.data?.key || payload?.event);
+  const data = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+  const metaMsg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const key = (isEvolution ? data?.key : null) ?? {};
+  const jid = String(key.remoteJid ?? "");
+  const status = await res.clone().json().then((b: any) => String(b?.status ?? b?.error ?? "")).catch(() => "");
+  await getSupabase().rpc("log_whatsapp_webhook", { p: {
+    provider: isEvolution ? "evolution" : "meta",
+    event: isEvolution ? String(payload?.event ?? "") + (Array.isArray(payload?.data) ? `[${payload.data.length}]` : "") : metaMsg ? "message" : "status",
+    status: status.slice(0, 60), http: res.status,
+    from_me: isEvolution ? !!key.fromMe : false,
+    jid_kind: jid ? jid.replace(/^[^@]*/, "") : metaMsg ? "meta" : "",
+    message_types: isEvolution && data?.message && typeof data.message === "object" ? Object.keys(data.message).join(",") : metaMsg ? String(metaMsg.type ?? "") : "",
+    key_fields: Object.keys(key).filter((k) => key[k] !== null && key[k] !== undefined && key[k] !== "").join(","),
+  } });
 }
 
 async function handleWebhook(req: NextRequest, body: string, payload: any, trusted: boolean): Promise<NextResponse> {
@@ -224,8 +246,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       const db = getSupabase();
       const { data: cfg } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance)).maybeSingle();
       if (cfg) for (const event of (Array.isArray(payload.data) ? payload.data : [payload.data])) {
-        if (event?.fromMe === false || event?.key?.fromMe === false) continue;
-        await updateDelivery(db, cfg.company_id, String(event?.keyId ?? event?.key?.id ?? ""), event?.status ?? event?.update?.status);
+        const id = String(event?.keyId ?? event?.key?.id ?? "");
+        const status = event?.status ?? event?.update?.status;
+        if (event?.fromMe === false || event?.key?.fromMe === false) await updateIncomingRead(db, cfg.company_id, id, status);
+        else await updateDelivery(db, cfg.company_id, id, status);
       }
       return NextResponse.json({ status: "receipts_updated" });
     }
@@ -258,7 +282,20 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       const jid = String(data?.key?.remoteJid ?? "");
       // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
       if (/@g\.us$|@broadcast$|^status@|@newsletter$/.test(jid)) return NextResponse.json({ status: "ignored_group" });
-      const phone = evolutionPhone(data?.key);
+      // Contas novas do WhatsApp chegam como "@lid", as vezes sem o numero: antes eram descartadas.
+      const contact = evolutionContact(data?.key);
+      let phone = contact?.id ?? null;
+      if (contact?.lid) {
+        const db = getSupabase();
+        const { data: cfgLid } = await db.from("ai_agent_config").select("company_id").eq("evolution_instance", String(payload.instance ?? "")).maybeSingle();
+        if (cfgLid?.company_id) {
+          if (contact.phone) await db.rpc("link_whatsapp_lid", { p_company: cfgLid.company_id, p_lid: contact.lid, p_phone: contact.phone }).then(() => undefined, () => undefined);
+          else {
+            const { data: known } = await db.from("whatsapp_lid_map").select("phone").eq("company_id", cfgLid.company_id).eq("lid", contact.lid).maybeSingle();
+            if (known?.phone) phone = known.phone;
+          }
+        }
+      }
       if (!phone) return NextResponse.json({ status: fromMe ? "own_message" : "no_phone" });
       from = phone;
       phoneNumberId = payload.instance ?? process.env.EVOLUTION_INSTANCE ?? "";
@@ -371,7 +408,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
     if (fromMe) {
-      await recordOwnMessage(supabase, company.id, from, clientText, eventId);
+      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at);
       return NextResponse.json({ status: "own_message" });
     }
 
@@ -701,7 +738,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
  * ou a Lia enviaram são ignorados; o resto entra como "equipe" (nome pela
  * assinatura *Rose:*) e a Lia para de responder esse cliente.
  */
-async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string) {
+async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, companyId: string, phone: string, body: string, externalId: string, sentAt: string) {
   try {
     const known = async () => {
       if (!externalId) return false;
@@ -718,7 +755,7 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
       .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).gte("sent_at", since).limit(1);
     if (same?.length) return;
     const name = body.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)";
-    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null });
+    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null, sentAt });
     await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
   } catch (error) {
     console.error("Atendimento: falha ao gravar mensagem da equipe:", error instanceof Error ? error.message : error);

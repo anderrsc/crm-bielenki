@@ -17,6 +17,8 @@ export const samePhone = (a: string | null | undefined, b: string | null | undef
 
 /** Formata 5547999990000 como (47) 99999-0000 para o cadastro. */
 export function formatBrPhone(value: string): string {
+  // Contato novo do WhatsApp sem numero informado (identificador "@lid").
+  if (/@lid$/.test(value ?? "")) return "Número não informado pelo WhatsApp";
   let d = digitsOnly(value);
   if (d.length >= 12 && d.startsWith("55")) d = d.slice(2);
   if (d.length === 10 && /[6-9]/.test(d[2])) d = d.slice(0, 2) + "9" + d.slice(2);
@@ -38,4 +40,10 @@ export function brCity(value: string | null | undefined): string {
   const city = (value ?? "").trim();
   const key = city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
   return /^(jaragua( do sul)?( ?-? ?sc)?|jaragua sul|jgs)$/.test(key) ? "Jaraguá do Sul" : city;
+}
+
+/** Destino de envio: o numero (so digitos) ou o identificador "NNN@lid" de contas sem numero. */
+export function whatsappTarget(value: string | null | undefined): string {
+  const v = String(value ?? "");
+  return /^\d{5,25}@lid$/.test(v) ? v : digitsOnly(v);
 }

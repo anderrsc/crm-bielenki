@@ -6,7 +6,7 @@ import { CalendarClock, X } from "lucide-react";
 import { rescheduleEntry } from "@/app/(crm)/actions";
 import { todayISO } from "@/lib/utils";
 
-export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string; currentDueDate: string | null }) {
+export function RescheduleDialog({ entryId, currentDueDate, backHref, label }: { entryId: string; currentDueDate: string | null; backHref?: string; label?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -16,7 +16,7 @@ export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string;
         className="flex items-center gap-1 rounded-lg border border-sand bg-surface px-2 py-1 text-xs font-semibold text-ink/60 hover:border-forest hover:text-forest transition"
         title="Renegociar vencimento"
       >
-        <CalendarClock className="h-3.5 w-3.5" />
+        <CalendarClock className="h-3.5 w-3.5" />{label}
       </button>
       {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -31,6 +31,7 @@ export function RescheduleDialog({ entryId, currentDueDate }: { entryId: string;
             </div>
             <form action={rescheduleEntry} onSubmit={() => setOpen(false)} className="space-y-4">
               <input type="hidden" name="entry_id" value={entryId} />
+              {backHref && <input type="hidden" name="_back" value={backHref} />}
               <div>
                 <label className="label">Nova data de vencimento *</label>
                 <input

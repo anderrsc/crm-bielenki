@@ -3,6 +3,7 @@ import { notifyInstalled } from "@/lib/whatsapp/notify-installed";
 import { validIsoDate } from "@/lib/valid-date";
 import { friendlyError } from "@/lib/friendly-error";
 import { correctClientPhone } from "@/lib/client-phone";
+import { normalizeRegistrationForm } from "@/lib/brazilian-input";
 import { saveDraftQuoteAttachments } from "@/lib/quote-attachments";
 import { safeBack, q } from "@/lib/back-url";
 
@@ -55,6 +56,7 @@ const clientAddressFields = {
 };
 
 export async function createClientRecord(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient();
   const parsed = z.object({ name: text, phone: z.string().transform(correctClientPhone).optional(), email: z.string().email().or(z.literal("")).optional(), tax_id: z.string().optional(), ...clientAddressFields, notes: z.string().optional(), lead_source_id:z.string().uuid().or(z.literal("")).optional() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/clientes/novo?erro=Revise os campos de nome, e-mail e CEP, se informado");
@@ -91,6 +93,7 @@ const pipelineLaunchSchema = z.object({
 });
 
 export async function updateClientRecord(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();
   const id=String(formData.get("id")||"");
   const parsed=z.object({name:text,phone:z.string().transform(correctClientPhone).optional(),email:z.string().email().or(z.literal("")).optional(),tax_id:z.string().optional(),...clientAddressFields,notes:z.string().optional(),lead_source_id:z.string().uuid().or(z.literal("")).optional()}).safeParse(Object.fromEntries(formData));
@@ -133,7 +136,9 @@ export async function registerPayment(formData: FormData) {
   const parsed = z.object({ entryId:z.string().uuid(), amount:z.number().finite().positive(), interest:z.number().finite().nonnegative(),discount:z.number().finite().nonnegative(),installments:z.number().int().min(1).max(60),paidAt:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),firstDueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({entryId,amount,interest,discount,installments,paidAt,firstDueDate});
   if(!parsed.success) redirect(`${q(back)}erro=Revise+os+dados+do+pagamento`);
   const accountId = String(formData.get("receiving_account_id") || "");
-  const { data: paymentId, error } = await db.rpc("register_payment_with_adjustment", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate });
+  // Conta a pagar de fornecedor aceita valor maior: o que passar vira crédito com o fornecedor.
+  const validAccount = accountId && z.string().uuid().safeParse(accountId).success ? accountId : null;
+  const { data: paymentId, error } = await db.rpc("register_payment_with_supplier_credit", { p_entry_id: entryId, p_amount: amount, p_paid_at: paidAt, p_method: String(formData.get("payment_method") || "pix"), p_notes: String(formData.get("notes") ?? ""),p_interest:interest,p_discount:discount,p_installments:installments,p_first_due_date:firstDueDate,p_account:validAccount });
   if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
   if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
@@ -156,11 +161,14 @@ export async function rescheduleEntry(formData: FormData) {
   const newDue    = String(formData.get("new_due_date") || "");
   const reason    = String(formData.get("reason") || "");
   const parsed = z.object({ entryId: z.string().uuid(), newDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse({ entryId, newDue });
-  if (!parsed.success) redirect("/financeiro?erro=Data+de+vencimento+inválida");
+  const requested = safeBack(formData.get("_back"), "/financeiro");
+  const back = requested.startsWith("/financeiro") ? requested : "/financeiro";
+  if (!parsed.success) redirect(`${q(back)}erro=Data+de+vencimento+inválida`);
   const { error } = await db.rpc("reschedule_entry", { p_entry_id: entryId, p_new_due_date: newDue, p_reason: reason });
-  if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/financeiro");
-  redirect("/financeiro?ok=Vencimento+renegociado");
+  revalidatePath(back.split("?")[0]);
+  redirect(`${q(back)}ok=Vencimento+renegociado`);
 }
 
 export async function toggleChecklistItem(formData: FormData) {
@@ -234,7 +242,7 @@ export async function saveGutterQuote(formData: FormData) {
   revalidatePath("/orcamentos"); redirect(`/orcamentos/${data}`);
 }
 
-export async function reversePayment(formData:FormData){const db=await createClient();const id=String(formData.get("payment_id")||"");if(!z.string().uuid().safeParse(id).success)redirect("/financeiro?erro=Pagamento inválido");const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);revalidatePath("/financeiro");redirect("/financeiro?ok=Pagamento+estornado");}
+export async function reversePayment(formData:FormData){const db=await createClient();const requested=safeBack(formData.get("_back"),"/financeiro");const back=requested.startsWith("/financeiro")?requested:"/financeiro";const id=String(formData.get("payment_id")||"");if(!z.string().uuid().safeParse(id).success)redirect(`${q(back)}erro=Pagamento inválido`);const {error}=await db.rpc("reverse_payment",{p_payment_id:id,p_notes:String(formData.get("notes")||"Estorno manual")});if(error)redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);refreshPaymentViews(back);redirect(`${q(back)}ok=Pagamento+estornado`);}
 
 export async function updateGutterQuote(formData: FormData) {
   const db=await createClient();const quoteId=String(formData.get("quote_id")||"");let payload:unknown;
@@ -261,6 +269,7 @@ export async function duplicateQuote(formData:FormData){const db=await createCli
 export async function deleteQuote(formData:FormData){const db=await createClient();const id=String(formData.get("quote_id")||"");const {error}=await db.rpc("delete_draft_quote",{p_quote_id:id});if(error)redirect(`/orcamentos/${id}?erro=${encodeURIComponent(error.message)}`);revalidatePath("/orcamentos");redirect("/orcamentos");}
 
 export async function updateCompanyIdentity(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login");
@@ -360,6 +369,7 @@ export async function queueTestMessage(formData: FormData) {
 }
 
 export async function createLead(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient(); const {data:{user}}=await db.auth.getUser(); if(!user) redirect("/login");
   const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single(); if(!profile?.company_id) redirect("/pipeline?erro=Empresa não encontrada");
   let stageId=String(formData.get("stage_id")||""); if(!stageId){const {data:stage}=await db.from("pipeline_stages").select("id").eq("company_id",profile.company_id).order("sort_order").limit(1).single();stageId=stage?.id??"";}
@@ -419,16 +429,19 @@ export async function deleteGutterPrice(formData:FormData) {
 }
 
 export async function createManualSale(formData:FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/vendas/nova?erro=Dados da venda inválidos");}
   const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}`);
 }
 
 export async function createManualPurchase(formData:FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/compras/nova?erro=Dados da compra inválidos");}
   const {data,error}=await db.rpc("create_manual_purchase",{p_payload:payload});if(error)redirect(`/compras/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/compras");revalidatePath("/financeiro");redirect(`/compras/${data}`);
 }
 
 export async function createWindowQuote(formData:FormData){
+  normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
   const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
@@ -440,6 +453,7 @@ export async function createWindowQuote(formData:FormData){
 }
 
 export async function saveLeadSource(formData:FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect("/configuracoes/origens-lead?erro=Empresa não encontrada");
   const id=String(formData.get("id")||"");const name=String(formData.get("name")||"").trim();const channel=String(formData.get("channel")||"outros");const sortOrder=Number(formData.get("sort_order")||0);if(!name)redirect("/configuracoes/origens-lead?erro=Informe o nome da origem");
   const values={company_id:profile.company_id,name,channel,sort_order:sortOrder,active:formData.get("active")==="on",updated_at:new Date().toISOString()};const result=id?await db.from("lead_sources").update(values).eq("id",id):await db.from("lead_sources").insert(values);if(result.error)redirect(`/configuracoes/origens-lead?erro=${encodeURIComponent(result.error.message)}`);revalidatePath("/configuracoes/origens-lead");revalidatePath("/clientes/novo");revalidatePath("/pipeline");redirect("/configuracoes/origens-lead?salvo=1");
@@ -447,6 +461,7 @@ export async function saveLeadSource(formData:FormData) {
 
 
 export async function saveSupplier(formData:FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
   const back=safeBack(formData.get("_back"), "/configuracoes/fornecedores");
   const {data:profile}=await db.from("profiles").select("company_id").eq("id",user.id).single();if(!profile?.company_id)redirect(`${q(back)}erro=Empresa+não+encontrada`);
@@ -465,6 +480,7 @@ export async function deleteSupplier(formData:FormData) {
 function pgErr(msg:string):string { return friendlyError(msg) ?? msg; }
 
 export async function inviteUser(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect("/login");
@@ -527,6 +543,7 @@ export async function inviteUser(formData: FormData) {
 }
 
 export async function saveEmployee(formData:FormData) {
+  normalizeRegistrationForm(formData);
   const db=await createClient();const {data:allowed}=await db.rpc("has_role",{roles:["administrador","gerente"]});if(!allowed)redirect("/configuracoes/funcionarios?erro=Sem permissão");const id=String(formData.get("id")||"");if(!id)redirect("/configuracoes/funcionarios?erro=ID inválido");
   if(!process.env.SUPABASE_SERVICE_ROLE_KEY)redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("SUPABASE_SERVICE_ROLE_KEY não configurada no servidor")}`);
   if(!(await actorIsAdmin(db))&&(await targetIsAdmin(id)))redirect(`/configuracoes/funcionarios?erro=${encodeURIComponent("Somente administrador pode alterar outro administrador")}`);
@@ -821,6 +838,7 @@ export async function testAiAgent(input: { provider?: string; model?: string; gr
 // ── Central de Preços ─────────────────────────────────────────────────────────
 
 export async function savePaint(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
   const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pintura");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
@@ -840,6 +858,7 @@ export async function deletePaint(formData: FormData) {
 }
 
 export async function saveSpecialPart(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
   const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=pecas-especiais");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
@@ -859,6 +878,7 @@ export async function deleteSpecialPart(formData: FormData) {
 }
 
 export async function savePricingService(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
   const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=servicos");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);
@@ -878,6 +898,7 @@ export async function deletePricingService(formData: FormData) {
 }
 
 export async function saveCommercialTable(formData: FormData) {
+  normalizeRegistrationForm(formData);
   const db = await createClient(); const { data: { user } } = await db.auth.getUser(); if (!user) redirect("/login");
   const back = safeBack(formData.get("_back"), "/configuracoes/tabela-calhas?aba=tabelas-comerciais");
   const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single(); if (!profile?.company_id) redirect(back);

@@ -1,6 +1,8 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
+import { formatRegistrationName } from "@/lib/brazilian-input";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -9,10 +11,10 @@ import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
 import { todayISO } from "@/lib/utils";
 import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
-import { syncAgendaNames } from "@/lib/whatsapp/evolution-history";
+import { syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
-import { markWhatsAppRead, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { markWhatsAppRead, markWhatsAppUnread, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 
 export type InboxItem = {
   id: string; name: string; phone: string; clientId: string | null; clientName: string | null;
@@ -22,7 +24,7 @@ export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
   body: string; at: string; failed: boolean; error: string | null; pending?: boolean; deliveryStatus?: string | null;
 };
-export type ClientPanel = {
+export type ClientPanel = { canViewFinancial?: boolean;
   client: { id: string; name: string; phone: string | null; email: string | null; city: string | null; address: string | null; notes: string | null; created_at: string };
   resumo: { feitos: number; enviados: number; fechados: number; valorFechado: number; recebido: number; aReceber: number; vencido: number };
   orcamentos: Array<{ id: string; numero: string; status: string; total: number; data: string; fechado: boolean }>;
@@ -68,6 +70,18 @@ function toItem(c: ConvRow): InboxItem {
 }
 
 const agendaSyncedAt = new Map<string, number>();
+/** Recupera a página recente sem disparar respostas da IA nem alterar a atribuição. */
+async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"], companyId: string) {
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const { data: cfg, error } = await admin.from("ai_agent_config")
+    .select("evolution_api_url,evolution_api_key,evolution_instance,wpp_provider").eq("company_id", companyId).maybeSingle();
+  if (error) throw new Error("Não foi possível consultar a conexão do WhatsApp.");
+  if (cfg?.wpp_provider !== "evolution") return 0;
+  const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
+  if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
+  const result = await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm");
+  return result.inserted;
+}
 /** Nomes da agenda do celular, no máximo a cada 6 h (só quem pode ver a configuração da Evolution). */
 async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"], companyId: string, force = false) {
   if (!force && Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 5 * 60_000) return 0;
@@ -80,7 +94,7 @@ async function refreshAgendaNames(db: Awaited<ReturnType<typeof context>>["db"],
   return result;
 }
 
-export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string; companyId?: string; aiActive?: boolean }> {
+export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string; companyId?: string; aiActive?: boolean; provider?: "meta" | "evolution" }> {
   try {
     const { db, companyId } = await context();
     // Liga conversas a clientes e atualiza os nomes da agenda DEPOIS de responder:
@@ -92,7 +106,8 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
       const { data: claimed, error } = await admin.from("ai_agent_config").update({ inbox_synced_at: new Date().toISOString() })
         .eq("company_id", companyId).or(`inbox_synced_at.is.null,inbox_synced_at.lt.${since}`).select("company_id");
       if (error ? Date.now() - (agendaSyncedAt.get(companyId) ?? 0) < 10 * 60_000 : !claimed?.length) return;
-      await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId, true).catch(() => 0)]);
+      await Promise.all([autoLinkClients(db, companyId).catch(() => 0), refreshAgendaNames(db, companyId, true).catch(() => 0),
+        refreshInboxMessages(db, companyId).catch(() => 0)]);
       agendaSyncedAt.set(companyId, Date.now());
     });
     const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
@@ -100,8 +115,9 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
       .order("last_message_at", { ascending: false }).limit(300);
     if (error) return { items: [], error: /column|does not exist/i.test(error.message) ? "Falta aplicar a atualização do banco do Atendimento (migração 20261108000000)." : error.message };
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { data: cfg } = await admin.from("ai_agent_config").select("active").eq("company_id", companyId).maybeSingle();
-    return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem), companyId, aiActive: cfg?.active === true };
+    const { data: cfg } = await admin.from("ai_agent_config").select("active,wpp_provider,evolution_api_url,evolution_instance").eq("company_id", companyId).maybeSingle();
+    const provider = cfg?.wpp_provider === "evolution" || (!cfg?.wpp_provider && cfg?.evolution_api_url && cfg?.evolution_instance) ? "evolution" : "meta";
+    return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem), companyId, aiActive: cfg?.active === true, provider };
   } catch (error) {
     return { items: [], error: error instanceof Error ? error.message : String(error) };
   }
@@ -188,10 +204,12 @@ async function loadTriage(db: Awaited<ReturnType<typeof createClient>>, companyI
 }
 
 async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, companyId: string, clientId: string): Promise<ClientPanel | null> {
+  const { data: financialAccess } = await db.rpc("has_table_access", { resource: "financial_entries", action: "select" });
+  const canViewFinancial = financialAccess === true;
   const [clientRes, quotesRes, entriesRes, leadRes] = await Promise.all([
     db.from("clients").select("id,name,phone,whatsapp,email,city,neighborhood,address,notes,created_at").eq("id", clientId).eq("company_id", companyId).maybeSingle(),
     db.from("quotes").select("id,quote_number,status,total,created_at,approved_at,sale_id").eq("client_id", clientId).eq("company_id", companyId).order("created_at", { ascending: false }).limit(30),
-    db.from("financial_entries").select("id,description,total_amount,paid_amount,open_amount,due_date,status").eq("client_id", clientId).eq("company_id", companyId).eq("entry_type", "receber").neq("status", "cancelado").order("due_date", { ascending: true }).limit(50),
+    canViewFinancial ? db.from("financial_entries").select("id,description,total_amount,paid_amount,open_amount,due_date,status").eq("client_id", clientId).eq("company_id", companyId).eq("entry_type", "receber").neq("status", "cancelado").order("due_date", { ascending: true }).limit(50) : Promise.resolve({ data: [] }),
     db.from("leads").select("estimated_value,next_action,next_action_date,status,pipeline_stages(name)").eq("client_id", clientId).eq("company_id", companyId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const c = clientRes.data;
@@ -211,6 +229,7 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
   }));
   const lead = leadRes.data as unknown as { estimated_value: number | null; next_action: string | null; next_action_date: string | null; pipeline_stages?: { name: string } | null } | null;
   return {
+    canViewFinancial,
     client: { id: c.id, name: c.name, phone: c.phone || c.whatsapp, email: c.email, city: c.city, address: [c.address, c.neighborhood].filter(Boolean).join(", ") || null, notes: c.notes, created_at: c.created_at },
     resumo: {
       feitos: quotes.length,
@@ -237,7 +256,8 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     const { db, user, companyId, myName } = await context();
     const { data: conv } = await db.from("conversations").select("id,phone,external_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
-    const to = digitsOnly(conv.phone || conv.external_id);
+    // Contato "@lid" (sem numero): a Evolution envia direto para o identificador.
+    const to = whatsappTarget(conv.phone || conv.external_id);
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor." };
     // A config do WhatsApp tem segredos: lida com a chave de serviço, só desta empresa.
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -294,7 +314,7 @@ export async function setConversationAi(conversationId: string, aiOn: boolean): 
 export async function createClientFromConversation(conversationId: string, name: string): Promise<{ ok?: true; error?: string }> {
   try {
     const { db, companyId } = await context();
-    const cleanName = name.trim();
+    const cleanName = formatRegistrationName(name);
     if (cleanName.length < 2) return { error: "Informe o nome do cliente." };
     const { data: conv } = await db.from("conversations").select("id,phone,external_id,client_id").eq("id", conversationId).eq("company_id", companyId).single();
     if (!conv) return { error: "Conversa não encontrada." };
@@ -395,7 +415,7 @@ export async function closeQuoteFromInbox(quoteId: string, dueDate?: string): Pr
 // Leitura interna (contador do CRM) e confirmação de leitura no WhatsApp são coisas separadas:
 // a interna é gravada primeiro e não depende do WhatsApp responder.
 // O contador só zera se nenhuma mensagem do cliente chegou depois da última que a pessoa viu na tela.
-export async function markInboxRead(id: string, messageIds: string[], _snapshot?: { count: number; lastInbound: string | null; generation: string | null }) {
+export async function markInboxRead(id: string, messageIds: string[], snapshot?: { count: number; lastInbound: string | null; generation: string | null }) {
   try {
     if (!z.string().uuid().safeParse(id).success || messageIds.length > 200 || !messageIds.every(v => z.string().uuid().safeParse(v).success)) return { error: "Leitura inválida." };
     const { db, companyId } = await context();
@@ -410,6 +430,7 @@ export async function markInboxRead(id: string, messageIds: string[], _snapshot?
     if (!cleared) {
       let update = db.from("conversations").update({ unread_count: 0 }).eq("id", id).eq("company_id", companyId).gt("unread_count", 0);
       update = lastSeen ? update.lte("last_inbound_at", lastSeen) : update.is("last_inbound_at", null);
+      if (snapshot) update = snapshot.generation ? update.eq("ai_generation_id", snapshot.generation) : update.is("ai_generation_id", null);
       const { data, error } = await update.select("id");
       if (error) return { error: error.message };
       cleared = !!data?.length;
@@ -423,7 +444,7 @@ export async function markInboxRead(id: string, messageIds: string[], _snapshot?
           admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle(),
           admin.from("companies").select("whatsapp_phone_number_id").eq("id", companyId).maybeSingle(),
         ]);
-        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), digitsOnly(conv.phone || conv.external_id), pending.map(m => m.external_id));
+        await markWhatsAppRead(whatsappCredentials(cfg, { companyPhoneNumberId: company?.whatsapp_phone_number_id }), whatsappTarget(conv.phone || conv.external_id), pending.map(m => m.external_id));
         const { error: receiptUpdate } = await db.from("messages").update({ delivery_status: "lida" }).eq("company_id", companyId).eq("conversation_id", id).in("id", pending.map(m => m.id));
         if (receiptUpdate) receiptError = receiptUpdate.message;
       } catch (error) {
@@ -435,12 +456,46 @@ export async function markInboxRead(id: string, messageIds: string[], _snapshot?
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 
+export async function markConversationRead(id: string) {
+  try {
+    if (!z.string().uuid().safeParse(id).success) return { error: "Conversa inválida." };
+    const { db, companyId } = await context();
+    const { data: conv, error } = await db.from("conversations").select("unread_count,last_inbound_at,ai_generation_id").eq("id", id).eq("company_id", companyId).single();
+    if (error || !conv) return { error: "Conversa não encontrada." };
+    const { data: messages, error: messagesError } = await db.from("messages").select("id").eq("conversation_id", id).eq("company_id", companyId)
+      .eq("direction", "inbound").order("sent_at", { ascending: false }).limit(200);
+    if (messagesError) return { error: messagesError.message };
+    return markInboxRead(id, (messages ?? []).map(m => m.id), { count: conv.unread_count, lastInbound: conv.last_inbound_at, generation: conv.ai_generation_id });
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}
+
+export async function markConversationUnread(id: string) {
+  try {
+    if (!z.string().uuid().safeParse(id).success) return { error: "Conversa inválida." };
+    const { db, companyId } = await context();
+    const { data: conv, error: readError } = await db.from("conversations").select("phone,external_id").eq("id", id).eq("company_id", companyId).single();
+    if (readError || !conv) return { error: "Conversa não encontrada." };
+    // Não troca uma contagem real por 1 se outra mensagem chegar ao mesmo tempo.
+    const { error } = await db.from("conversations").update({ unread_count: 1 }).eq("id", id).eq("company_id", companyId).eq("unread_count", 0);
+    if (error) return { error: error.message };
+    try {
+      const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { data: cfg } = await admin.from("ai_agent_config").select("*").eq("company_id", companyId).maybeSingle();
+      const { data: last } = await db.from("messages").select("external_id").eq("conversation_id", id).eq("company_id", companyId)
+        .not("external_id", "is", null).order("sent_at", { ascending: false }).limit(1).maybeSingle();
+      await markWhatsAppUnread(whatsappCredentials(cfg), whatsappTarget(conv.phone || conv.external_id), last?.external_id);
+      return { ok: true };
+    } catch { return { ok: true, warning: "Conversa marcada como não lida no CRM. A marcação no WhatsApp está pendente." }; }
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}
+
 export async function syncInboxContacts() {
   try {
     const { db, companyId } = await context();
+    const inserted = await refreshInboxMessages(db, companyId);
     const count = await refreshAgendaNames(db, companyId, true);
     await autoLinkClients(db, companyId);
-    return { ok: true, count };
+    return { ok: true, count, inserted };
   } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 

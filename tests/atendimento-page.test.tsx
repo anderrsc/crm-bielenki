@@ -8,11 +8,14 @@ const actions = vi.hoisted(() => ({
   loadOlderMessages: vi.fn(),
   setConversationArchived: vi.fn(async () => ({ ok: true })),
   markInboxRead: vi.fn(async () => ({ ok: true, cleared: true })),
+  syncInboxContacts: vi.fn(async () => ({})),
+  markConversationRead: vi.fn(async () => ({ ok: true })),
+  markConversationUnread: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock('@/app/(crm)/atendimento-actions', () => ({
   ...actions,
   closeQuoteFromInbox: vi.fn(), createClientFromConversation: vi.fn(), linkConversationClient: vi.fn(),
-  markInboxRead: actions.markInboxRead, syncInboxContacts: vi.fn(async () => ({})), receiveFromInbox: vi.fn(),
+  markInboxRead: actions.markInboxRead, syncInboxContacts: actions.syncInboxContacts, receiveFromInbox: vi.fn(),
   searchClientsForLink: vi.fn(async () => []), sendInboxMessage: vi.fn(), setConversationAi: vi.fn(),
 }));
 const rt = vi.hoisted(() => ({ handlers: [] as { table: string; cb: (p: unknown) => void }[] }));
@@ -44,6 +47,48 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); rt.handlers.length = 0; });
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 describe('Atendimento estilo WhatsApp', () => {
+  test('filtro de lidas separa as conversas com mensagens pendentes', async () => {
+    abrirTela([item('a', 'Lida'), { ...item('b', 'Pendente'), unread: 2 }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Lidas' }));
+    expect(screen.getByText('Lida')).toBeTruthy();
+    expect(screen.queryByText('Pendente')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Não lidas 1' }));
+    expect(screen.getByText('Pendente')).toBeTruthy();
+    expect(screen.queryByText('Lida')).toBeNull();
+  });
+  test('marcar não lida fecha a conversa para não apagar imediatamente a marcação', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente'));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    fireEvent.click(await screen.findByLabelText('Marcar como não lida'));
+    await waitFor(() => expect(actions.markConversationUnread).toHaveBeenCalledWith('a'));
+    expect(screen.queryByPlaceholderText('Mensagem')).toBeNull();
+  });
+  test('busca mensagens carregadas e abre/fecha a ficha sem ocupar sempre a conversa', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente'));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    fireEvent.click(await screen.findByLabelText('Pesquisar nesta conversa'));
+    fireEvent.change(screen.getByLabelText('Buscar mensagens nesta conversa'), { target: { value: 'mensagem 1' } });
+    expect(screen.getByText('mensagem 1 de Ana Cliente')).toBeTruthy();
+    expect(screen.queryByText('mensagem 0 de Ana Cliente')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Fechar busca de mensagens'));
+    expect(screen.getByText('mensagem 0 de Ana Cliente')).toBeTruthy();
+    expect(screen.queryByLabelText('Fechar ficha do cliente')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Abrir ficha do cliente'));
+    fireEvent.click(screen.getByLabelText('Fechar ficha do cliente'));
+    expect(screen.queryByLabelText('Fechar ficha do cliente')).toBeNull();
+  });
+  test('sincronizar também atualiza as mensagens da conversa aberta', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 1));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    await screen.findByText('mensagem 0 de Ana Cliente');
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 2));
+    fireEvent.click(screen.getByLabelText('Sincronizar mensagens e contatos'));
+    expect(await screen.findByText('mensagem 1 de Ana Cliente')).toBeTruthy();
+    expect(actions.syncInboxContacts).toHaveBeenCalledTimes(1);
+  });
   test('arquivadas ficam numa aba propria, com contador', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => detail(id, id));
     abrirTela([item('a', 'Ana Cliente'), item('b', 'Bruno Arquivado', true)]);

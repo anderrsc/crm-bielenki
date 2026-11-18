@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
 import { QuoteAttachments } from "./quote-attachments";
+import { QuoteAluminumCost } from "./aluminum-cost-summary";
 import { QuoteTeamFields } from "./quote-team-fields";
 import { brCity, formatBrPhone } from "@/lib/whatsapp/phone";
 import type { InternalAttachment } from "@/lib/quote-attachments";
@@ -353,6 +354,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
       </div>}
 
       {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {!printOnly && isGutter && quote.status !== "aprovado" && <QuoteAluminumCost quoteId={id} />}
 
       {!printOnly && <QuoteTeamFields quoteId={id} people={team} measurerId={quote.measurer_id ?? null} measurerName={quote.measurer_name ?? null} outsideMeasurers={outsideMeasurers} attendantId={quote.attendant_id ?? null} />}
       {!printOnly && <QuoteAttachments quoteId={id} attachments={attachments} canManage={canManageAttachments} />}

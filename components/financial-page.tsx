@@ -1,4 +1,6 @@
-﻿import { getRequestClient } from "@/lib/supabase/server";
+import { PaymentReversals } from "@/components/payment-reversals";
+import { SupplierCredits } from "@/components/supplier-credits";
+import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +22,7 @@ type Entry = {
   due_date: string | null;
   display_status: string;
   client_name: string | null;
+  supplier_id: string | null;
   supplier_name: string | null;
   category_name: string | null;
   cost_center_name: string | null;
@@ -76,6 +79,9 @@ export async function FinancialPage({ filter, error, received, created, notice, 
     db.rpc("has_table_access", { resource: "financial_recurrences", action: "select" }),
     db.rpc("has_table_access", { resource: "financial_exports", action: "select" }),
   ]);
+  const creditSuppliers = [...new Set((data ?? []).map((e: { supplier_id?: string | null }) => e.supplier_id).filter(Boolean))] as string[];
+  const { data: credits } = creditSuppliers.length ? await db.from("v_supplier_credit_balance").select("supplier_id,balance").in("supplier_id", creditSuppliers) : { data: [] };
+  const creditOf = new Map(((credits ?? []) as { supplier_id: string; balance: number }[]).map(c => [c.supplier_id, Number(c.balance)]));
   const entries = (data ?? []) as Entry[];
   const hasNext = entries.length === PAGE_SIZE;
   const t = !totalsError && totalsData ? totalsData as {
@@ -167,6 +173,8 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         <p className="mt-3 text-xs text-ink/60">A variação prevista depende da liquidação das contas. O saldo bancário inicial e os custos não registrados não estão incluídos.</p>
       </details>}
 
+      {filter === "pagar" && await SupplierCredits({ canManage: canClassify === true })}
+
       {(page > 1 || hasNext) && (
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-ink/50">Página {page}</span>
@@ -201,7 +209,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
               const isOverdue = e.display_status === "vencido";
               return (
                 <tr key={e.id} className={`hover:bg-cream/50 transition ${isOverdue ? "bg-red-50/30" : ""}`}>
-                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><p className="truncate">{e.description}</p><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
+                  <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><Link href={`/financeiro/lancamento/${e.id}`} className="block truncate hover:text-forest hover:underline">{e.description}</Link><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
                   <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
                   <td data-label="Cliente / fornecedor" className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
                   <td data-label="Total" className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
@@ -210,9 +218,8 @@ export async function FinancialPage({ filter, error, received, created, notice, 
                   <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      {canClassify === true && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/classificacoes?lancamento=${e.id}`}>Classificar</Link>}
-                      {canClassify === true && e.display_status !== "cancelado" && <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold" href={`/financeiro/rateios?conta=${e.id}`}>Ratear</Link>}
-                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
+                      <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold hover:border-forest hover:text-forest" href={`/financeiro/lancamento/${e.id}`}>Abrir</Link>
+                      {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog canOverpay={e.entry_type === "pagar" && !!e.supplier_id} supplierCredit={e.entry_type === "pagar" && e.supplier_id ? creditOf.get(e.supplier_id) ?? 0 : 0} entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>
                   </td>
@@ -222,6 +229,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
           </tbody>
         </table>
       </div>
+      {await PaymentReversals({ entryIds: entries.filter(e => Number(e.paid_amount) > 0).map(e => e.id) })}
     </div>
   );
 }
