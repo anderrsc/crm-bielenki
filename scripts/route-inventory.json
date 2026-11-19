@@ -27,6 +27,7 @@
     "/servicos",
     "/financeiro",
     "/financeiro/caixa",
+    "/fiscal",
     "/financeiro/conciliacao",
     "/financeiro/extrato",
     "/financeiro/recorrencias",

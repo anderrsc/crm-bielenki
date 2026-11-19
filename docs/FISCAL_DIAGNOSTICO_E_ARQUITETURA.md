@@ -214,12 +214,35 @@ O motor precisa de **~500 MB de memória**, então o mínimo seguro é uma máqu
 
 Fontes da cotação: docs.fly.io/about/pricing, docs.railway.com/pricing/plans, render.com/pricing e locaweb.com.br/servidor-vps. Também foram usados comparativos de terceiros (buildmvpfast.com, budgetforge.dev, whtop.com).
 
-## 11. Escopo atual (19/11/2026): só a calculadora
+## 11. Escopo atual (19/11/2026)
 
-Por decisão do dono, **emissão de notas e integração com o financeiro estão pausadas**. O trabalho continua só na **calculadora** (simulação de IBS/CBS/IS com o motor oficial), sem gravar nada no financeiro nem emitir documento.
+- **Pausado:** só a **emissão de notas** (montar, assinar, transmitir, DANFE/DANFSe).
+- **Segue:** a **calculadora** e a **integração com o financeiro** (tributos simulados por orçamento, pedido e período, separados de valores pagos; exportação para o contador). Nada é lançado sozinho no financeiro.
 
-Onde roda o motor:
-1. **Instalação online oficial (piloto da Receita).** Sem custo, mas ainda **não verificada**: daqui o endereço nem resolve. A verificação é o workflow manual **"Verificar motor fiscal"** (`scripts/fiscal/verificar-motor.sh`). Ele consulta `/versao` e calcula o exemplo oficial, comparando com o resultado publicado.
-2. **Motor próprio (Fly.io, ~US$ 7–11/mês).** Usado se o piloto não responder, tiver limites ou não for adequado.
+### Motor: instalação online oficial verificada
+O workflow **"Verificar motor fiscal"** rodou em 19/11/2026 contra `https://piloto-cbs.tributos.gov.br/servico/calculadora-consumo/api`:
+- `/versao`: app **1.7.2**, base **V0073** de 09/11/2026 ("Nova tabela de Classificações Tributárias, IT 2025.002 v.1.71"), ambiente `apr`. É mais nova que o código aberto (1.6.1 / V0059).
+- O exemplo oficial deu **igual ao publicado**, em 0,8 a 2 s por chamada.
 
-O ERP terá a URL do motor configurável (`FISCAL_MOTOR_URL`), então trocar de um para o outro não exige mudar código.
+**Decisão técnica:** usar a instalação online oficial (custo zero), com a URL configurável (`FISCAL_MOTOR_URL`). Se ela ficar indisponível, a calculadora mostra "indisponível" e nunca calcula por conta própria. O motor próprio (Fly.io) continua como plano B.
+
+### Alíquotas (o que a base oficial tem hoje)
+- **2026** (consultado no motor 1.6.1): CBS **0,9%**, IBS UF **0,1%**, IBS municipal **0%**. São as alíquotas do ano de teste, devolvidas pela própria base.
+- **2027:** a base oficial **não tem alíquota de referência**: as consultas de União, UF e município respondem "Alíquota não encontrada". O motor exige `aliquotasNominais` informadas, e o resultado sai como `CALCULO_SIMULADO`.
+  - **A calculadora não inventa alíquota.** Para simular 2027, o financeiro informa as alíquotas e a fonte delas (ex.: "estimativa do contador"). Isso fica gravado em cada cálculo, até a base oficial trazer as alíquotas.
+
+## 12. Implementado: calculadora (19/11/2026)
+
+| Parte | Onde | O que faz |
+|---|---|---|
+| Adaptador do motor | `lib/fiscal/motor.ts` | Contrato da entrada e da resposta validado com zod. Timeout de 10 s, 1 nova tentativa só em falha de rede/5xx, circuit breaker (3 falhas → 1 min). Lê a versão do motor e da base. Nunca calcula por conta própria |
+| Montagem da operação | `lib/fiscal/calculadora.ts` | Itens do orçamento → itens do motor, só os **aprovados**; os outros viram pendência. Desconto/frete rateados pelo valor (fecha no centavo). Em 2027+, exige alíquota informada com fonte |
+| Banco | `20261119170000_fiscal_calculadora.sql` | `fiscal_settings` (desligada por padrão), `fiscal_classifications` (aprovação por financeiro/gerente/admin, código mudou → volta a rascunho, auditoria) e `fiscal_calculations` + itens (histórico imutável e idempotente). Permissão `fiscal`: financeiro completo, vendedor só simula, demais sem acesso. RLS por empresa |
+| Tela | `/fiscal` (menu Financeiro → Tributos) | Abas Calculadora, Classificações, Histórico (por mês, últimas, CSV para o contador) e Configuração (ligar, regime, UF/IBGE, alíquotas informadas, testar motor). Botão **Simular tributos** no orçamento, que não aparece na impressão |
+
+**Testes:** adaptador (10, com respostas reais do motor oficial gravadas), montagem/CSV (5), banco (3), isolamento entre empresas (já cobre as tabelas novas). Teste na tela, com o sistema completo e o motor oficial local:
+- configurar, classificar e aprovar;
+- simular o ORC de R$ 1.500 → CBS R$ 13,50 e IBS R$ 1,50 (2026);
+- conferir o histórico e o CSV;
+- 2027 sem alíquota → aviso, sem cálculo;
+- 2027 com alíquota informada → "simulado".

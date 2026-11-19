@@ -4,7 +4,7 @@ const resources: Record<string, string> = {
   estoque: "materials", producao: "production_orders", instalacoes: "installations", servicos: "service_orders",
   financeiro: "financial_entries", relatorios: "sales", auditoria: "audit_logs",
   agenda: "operational_events", medicoes: "measurements", "tabela-calhas": "gutter_prices",
-  funcionarios: "profiles", usuarios: "profiles", atendimento: "conversations",
+  funcionarios: "profiles", usuarios: "profiles", atendimento: "conversations", fiscal: "fiscal",
 };
 
 export const moduleResources = [...new Set([...Object.values(resources), "bank_reconciliation", "financial_recurrences", "financial_exports"])];
