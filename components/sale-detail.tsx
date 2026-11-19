@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Timeline } from "./timeline";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, Ruler } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
 import { loadSaleWorkspace, type SaleWorkspaceData, type SaleEntry } from "@/lib/sales/workspace";
@@ -53,7 +54,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice.slice(0, 200)}</p>}
     {operation && <OrderOperationCard op={operation.op} people={operation.people} canUpdate={operation.canUpdate} isManager={operation.isManager} back={back} />}
     {operation && operation.history.length > 0 && <details className="card p-5"><summary className="cursor-pointer text-sm font-bold">Histórico das etapas ({operation.history.length})</summary>
-      <ul className="mt-3 space-y-2 text-sm">{operation.history.map((h, i) => <li key={i}><strong>{h.action}</strong>{h.detail ? `: ${h.detail}` : ""}<span className="text-ink/55"> · {h.who ?? "Usuário"} · {new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(h.at))}</span></li>)}</ul>
+      <Timeline events={operation.history} />
     </details>}
     {order && <section className="card p-5 sm:p-7"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-ink/55">Pedido vinculado</p><h2 className="mt-1 text-xl font-black">{order.order_number}</h2></div><StatusBadge value={order.operational_status} /></div>
       {order.next_action && <p className="mt-4 text-sm"><b>Próxima ação:</b> {order.next_action}</p>}

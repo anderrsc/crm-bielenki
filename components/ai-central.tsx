@@ -46,7 +46,13 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2"><Bot className="h-6 w-6 text-forest" /><h1 className="text-2xl font-black">Central de IA</h1></div>
+          <div className="flex items-center gap-2"><Bot className="h-6 w-6 text-forest" /><h1 className="text-2xl font-black">Central de IA</h1>
+            {/* Estado verdadeiro, vindo da configuração e das checagens (sem animação contínua). */}
+            <span role="status" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold",
+              !ready ? "bg-amber-500/15 text-amber-600" : data.active ? "bg-green-500/15 text-green-600" : "bg-cream text-ink/60")}>
+              <span aria-hidden className={cn("h-2 w-2 rounded-full", !ready ? "bg-amber-500" : data.active ? "bg-green-500" : "bg-ink/40")} />
+              {!ready ? `Falta configurar (${pending.length})` : data.active ? `${data.agentName} pronta` : `${data.agentName} pausada`}
+            </span></div>
           <p className="mt-1 text-sm text-ink/55">{data.agentName} · triagem pelo WhatsApp ({data.wppProvider === "meta" ? "Meta" : "Evolution"}) · últimos 30 dias</p>
         </div>
         <form action={setAiAgentActive}>
