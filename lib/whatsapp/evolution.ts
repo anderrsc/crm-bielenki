@@ -341,3 +341,13 @@ export async function evolutionOwnerPhone(base: string, apiKey: string, instance
   const digits = jid.split("@")[0].replace(/\D/g, "");
   return digits.length >= 10 ? digits : null;
 }
+
+/** Baixa o arquivo (áudio, foto, PDF) de uma mensagem recebida, já em base64. */
+export async function evolutionMediaBase64(base: string, apiKey: string, instance: string, messageId: string): Promise<{ base64: string; mimetype: string | null }> {
+  const data = await call<{ base64?: string; mimetype?: string; media?: string }>(base, apiKey, `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`, {
+    method: "POST", body: { message: { key: { id: messageId } }, convertToMp4: false },
+  });
+  const raw = data?.base64 ?? data?.media ?? "";
+  if (!raw) throw new EvolutionError("A Evolution não devolveu o arquivo da mensagem.");
+  return { base64: raw.replace(/^data:[^;]+;base64,/, ""), mimetype: data?.mimetype ?? null };
+}

@@ -60,3 +60,29 @@ export async function saveLiaSettings(input: { mode: LiaMode; hours: LiaHours; d
     return { error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+export type LiaFollowups = { enabled: boolean; dailyLimit: number; sentToday: number; canEdit: boolean };
+
+export async function loadLiaFollowups(): Promise<LiaFollowups | { error: string }> {
+  try {
+    const { db, companyId } = await context();
+    const { data: cfg, error } = await db.from("ai_agent_config").select("lia_followups_enabled,lia_followups_daily_limit").eq("company_id", companyId).maybeSingle();
+    if (error) return { error: "O acompanhamento automático ainda não foi ativado no banco." };
+    const day = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())}T00:00:00-03:00`).toISOString();
+    const { count } = await db.from("lia_automation_executions").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("kind", "followup").eq("status", "enviada").gte("created_at", day);
+    return { enabled: cfg?.lia_followups_enabled === true, dailyLimit: Number(cfg?.lia_followups_daily_limit ?? 15), sentToday: count ?? 0, canEdit: !!cfg };
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}
+
+export async function saveLiaFollowups(input: { enabled: boolean; dailyLimit: number }): Promise<{ ok?: true; error?: string }> {
+  try {
+    const p = z.object({ enabled: z.boolean(), dailyLimit: z.number().int().min(1).max(100) }).safeParse(input);
+    if (!p.success) return { error: "Limite por dia de 1 a 100." };
+    const { db, companyId } = await context();
+    const { data, error } = await db.from("ai_agent_config").update({ lia_followups_enabled: p.data.enabled, lia_followups_daily_limit: p.data.dailyLimit, updated_at: new Date().toISOString() }).eq("company_id", companyId).select("id");
+    if (error) return { error: "Não foi possível salvar." };
+    if (!data?.length) return { error: "Só administrador ou gerente pode mudar o acompanhamento." };
+    revalidatePath("/central-ia");
+    return { ok: true };
+  } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+}

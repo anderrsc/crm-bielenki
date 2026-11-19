@@ -14,6 +14,10 @@ import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConve
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
 import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
+import { liaFactsPrompt } from "@/lib/ai/lia-knowledge";
+import { wantsNoMessages } from "@/lib/ai/lia-rules";
+import { transcribeAudio, type Transcription } from "@/lib/ai/transcribe";
+import { evolutionMediaBase64 } from "@/lib/whatsapp/evolution";
 import { liaDecision, parseLiaHours, parseLiaMode, startOfBrasiliaDay } from "@/lib/ai/lia-mode";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
@@ -59,9 +63,9 @@ COMO ESCREVER (o cliente não pode sentir que fala com um robô nem que está pr
 - Não repita o que o cliente disse de volta ("Você está em Jaraguá do Sul", "Você gostaria de...").
 - Nunca mostre a lista de serviços nem dê exemplos entre parênteses ("calha, rufo, esquadria ou outro"); pergunte aberto: "Me conta o que você precisa?". Nunca dê opções numeradas, nunca peça "responda sim ou não".
 - Uma pergunta por mensagem. Só junte duas quando forem do mesmo assunto (ex.: largura e espessura).
-- Se o cliente mandou foto, áudio ou documento ("[foto]", "[áudio]", "[documento]"), agradeça; não peça foto de novo. Você não consegue ouvir áudio: diga que a equipe vai ouvir e siga pelo texto.
+- Se o cliente mandou foto, áudio ou documento ("[foto]", "[áudio]", "[documento]"), agradeça; não peça foto de novo. Áudio transcrito chega como "[áudio] texto falado": responda ao conteúdo normalmente, sem dizer que ouviu um áudio a menos que faça sentido. Se chegar só "[áudio]" (sem texto), a transcrição falhou: diga com simpatia que não conseguiu ouvir o áudio, peça para escrever e avise que a equipe também poderá ouvir. Nunca finja ter entendido um áudio.
 - Peça foto de forma leve: "se puder, me manda uma foto do local que ajuda bastante".
-- Se perguntarem prazo ou forma de pagamento, responda com estas condições, de forma animada e sem prometer data exata: prazo de até 20 dias corridos para execução; 50% de entrada no Pix ou em dinheiro e o restante em até 6x sem juros no cartão de crédito. Preço continua sendo só no orçamento.
+- Se perguntarem prazo, forma de pagamento, garantia, endereço ou horário, responda com os FATOS OFICIAIS DA EMPRESA (no fim destas instruções), de forma animada e sem prometer data exata. Preço continua sendo só no orçamento.
 - Se aparecer "conserto", "reparo", "ajuste", "garantia", "vazamento" ou "manutenção" → tipo_atendimento: "pos_venda" e diga que alguém da equipe já vai chamar.
 
 EXEMPLO (o jeito certo):
@@ -440,6 +444,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     } catch (error) {
       throw error;
     }
+    // Cliente pediu para parar (ou desistiu): nenhuma automação escreve para ele depois disso.
+    if (timing.live && conversation && wantsNoMessages(clientText)) {
+      await supabase.from("conversations").update({ ai_opt_out: true }).eq("id", conversation.id).eq("company_id", company.id).then(() => undefined, () => undefined);
+    }
     if (!timing.live || !eventId) return NextResponse.json({ status: "history_only" });
     // Alguém da equipe assumiu a conversa: a Ana fica quieta.
     if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
@@ -508,6 +516,27 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       }
       return !failure;
     };
+
+    // Áudio: a Lia só "ouve" se a transcrição funcionar. Se falhar, segue com "[áudio]" puro e a
+    // instrução do prompt manda pedir que escrevam (nunca finge ter entendido).
+    if (isEvolution && mediaInfo === "audio" && eventId) {
+      let result: Transcription = { ok: false, reason: "sem_chave" };
+      try {
+        const geminiKey = agentConfig.gemini_api_key ? decryptSecret(agentConfig.gemini_api_key) : "";
+        if (geminiKey && credentials.evolutionUrl && credentials.evolutionKey && credentials.evolutionInstance) {
+          const media = await evolutionMediaBase64(credentials.evolutionUrl, credentials.evolutionKey, credentials.evolutionInstance, eventId);
+          result = await transcribeAudio(media, geminiKey);
+        }
+      } catch { result = { ok: false, reason: "falha" }; }
+      if (result.ok) {
+        clientText = `[áudio] ${result.text}`;
+        // A equipe também passa a ver o que foi dito no áudio.
+        await supabase.from("messages").update({ body: clientText }).eq("company_id", company.id).eq("external_id", eventId).eq("direction", "inbound")
+          .then(() => undefined, () => undefined);
+      } else {
+        await logDecision("falhou", `Áudio não transcrito (${result.reason}). ${result.reason === "sem_chave" ? "Cadastre a chave do Gemini na Central de IA." : ""}`.trim());
+      }
+    }
 
     // Primeiro contato: cria a sessao e segue para a IA, que ja responde ao que o
     // cliente escreveu (antes a primeira mensagem era descartada).
@@ -581,9 +610,9 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // resposta cortada), tenta de novo mais enxuta com o modelo menor, que tem cota separada.
     // Regras fixas primeiro e dados da conversa depois: no Claude a parte fixa fica em cache
     // (cobrada ~90% mais barato nas mensagens seguintes).
-    const systemFull = SYSTEM_PROMPT + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    const systemFull = SYSTEM_PROMPT + (companyRules ? `\n\n${companyRules}` : "") + `\n\n${liaFactsPrompt()}` + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const rulesShort = [rulesForPrompt(typeof agentConfig?.system_prompt === "string" ? rulesWithoutLearned(agentConfig.system_prompt) : null), confirmedRules].filter(Boolean).join("\n\n");
-    const systemShort = SYSTEM_PROMPT + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${CUSTOMER_IDENTITY_RULE}`;
+    const systemShort = SYSTEM_PROMPT + (rulesShort ? `\n\n${rulesShort}` : "") + `\n\n${liaFactsPrompt()}` + `\n\n${CUSTOMER_IDENTITY_RULE}`;
     const attempts = [
       { model: agentConfig.openai_model as string | null, system: systemFull, history: conversationHistory },
       { model: aiProvider === "groq" ? "openai/gpt-oss-20b" : (agentConfig.openai_model as string | null), system: systemShort, history: conversationHistory },

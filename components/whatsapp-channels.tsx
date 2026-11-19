@@ -120,6 +120,7 @@ function Canal({ c, team, pending, run, onQr }: {
       <p className="text-xs text-ink/60">
         {c.phone ? `${c.phone} · ` : ""}{c.isDefault || c.shared ? "Toda a equipe vê" : `De ${c.mine ? "você" : c.ownerName ?? "—"}`} · última mensagem {quando(c.lastEventAt)} · sincronizado {quando(c.lastSyncAt)}
       </p>
+      <Saude c={c} />
       {!c.isDefault && !c.shared && (
         <div className="space-y-1 text-sm">
           <p className="text-xs font-bold text-ink/60">Quem mais pode ver as conversas deste número</p>
@@ -151,6 +152,27 @@ function Canal({ c, team, pending, run, onQr }: {
         </div>
       )}
       {c.isDefault && <p className="text-xs text-ink/50">O número principal é gerenciado na Central de IA.</p>}
+    </div>
+  );
+}
+
+/** Painel de saúde do número: servidor, última mensagem recebida, envios com problema e clientes esperando. */
+function Saude({ c }: { c: ChannelRow }) {
+  const idade = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000)) : null);
+  const sync = idade(c.lastSyncAt);
+  const aberto = c.status === "open" || c.status === "migrado";
+  // A rotina confere o servidor a cada poucos minutos: sem conferência recente = sem resposta.
+  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
+  const ultima = idade(c.lastInboundAt);
+  const tempo = ultima === null ? "nenhuma nos últimos 7 dias" : ultima < 60 ? `há ${ultima} min` : ultima < 1440 ? `há ${Math.floor(ultima / 60)} h` : `há ${Math.floor(ultima / 1440)} dia(s)`;
+  const item = "rounded-lg bg-cream px-2.5 py-1.5";
+  return (
+    <div className="grid gap-2 text-xs sm:grid-cols-2" aria-label={`Saúde de ${c.name}`}>
+      <p className={cn(item, "flex items-center gap-1.5 font-bold", servidor.ok ? "text-green-600" : "text-red-500")}>{servidor.ok ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}{servidor.t}</p>
+      <p className={item}>Última mensagem recebida: <b>{tempo}</b></p>
+      <p className={cn(item, c.failed24h > 0 && "text-red-500")}>Mensagens que falharam (24 h): <b>{c.failed24h}</b></p>
+      <p className={cn(item, c.unconfirmed24h > 0 && "text-amber-600")}>Sem confirmação do WhatsApp (24 h): <b>{c.unconfirmed24h}</b></p>
+      <p className={cn(item, "sm:col-span-2", c.waitingOver2h > 0 && "text-amber-600")}>Clientes esperando resposta há mais de 2 h: <b>{c.waitingOver2h}</b></p>
     </div>
   );
 }

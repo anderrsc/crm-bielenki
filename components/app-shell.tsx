@@ -2,6 +2,10 @@
 import { LiveSearchForm } from "./live-search-form";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { Toaster } from "./ui-feedback/toast";
+import { QuickCreateMenu } from "./quick-create-menu";
+import { Breadcrumbs } from "./breadcrumbs";
+import { SavedViews, SAVED_VIEW_PAGES } from "./saved-views";
+import { UnsavedGuard } from "./unsaved-guard";
 import { ConfirmHost } from "./ui-feedback/confirm";
 
 import { useMobile } from "@/lib/use-mobile";
@@ -9,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -49,20 +53,35 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   ...(canSee("/atendimento")?[{label:"Números de WhatsApp",href:"/atendimento/canais",icon:MessageCircle,group:"Ir para",keywords:"canais qr conectar whatsapp"}]:[]),
   ...groups.flatMap(g=>g.items.filter(([,href])=>canSee(href)).map(([label,href,Icon])=>({label,href,icon:Icon,group:"Ir para",keywords:g.title}))),
  ];
+ // Favoritos e recentes (por navegador): atalhos para as telas mais usadas.
+ const flat=groups.flatMap(g=>g.items.map(([label,href,Icon])=>({label,href,Icon}))).filter(i=>canSee(i.href));
+ const current=[...flat].sort((a,b)=>b.href.length-a.href.length).find(i=>pathname===i.href||pathname.startsWith(i.href+"/"));
+ const [favs,setFavs]=useState<string[]>([]),[recent,setRecent]=useState<string[]>([]);
+ useEffect(()=>{try{setFavs(JSON.parse(localStorage.getItem("marquinhos-favs")||"[]"));setRecent(JSON.parse(localStorage.getItem("marquinhos-recent")||"[]"))}catch{}},[]);
+ const currentHref=current?.href;
+ useEffect(()=>{if(!currentHref)return;setRecent(old=>{const next=[currentHref,...old.filter(h=>h!==currentHref)].slice(0,5);try{localStorage.setItem("marquinhos-recent",JSON.stringify(next))}catch{}return next})},[currentHref]);
+ const toggleFav=(href:string)=>setFavs(old=>{const next=old.includes(href)?old.filter(h=>h!==href):[...old,href].slice(0,8);try{localStorage.setItem("marquinhos-favs",JSON.stringify(next))}catch{}return next});
+ const byHref=(list:string[])=>list.map(h=>flat.find(i=>i.href===h)).filter((i):i is (typeof flat)[number]=>!!i);
+ const favItems=byHref(favs),recentItems=byHref(recent.filter(h=>!favs.includes(h))).slice(0,4);
+ const shortcutLink=(i:(typeof flat)[number])=><Link href={i.href} key={i.href} title={i.label} aria-current={pathname===i.href?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(pathname===i.href?" is-active":"")}><i.Icon size={18}/>{!compact&&i.label}</Link>;
+ const shortcuts=(favItems.length>0||recentItems.length>0)&&<>
+  {favItems.length>0&&<div className="sidebar-section">{!compact&&<p>Favoritos</p>}{favItems.map(shortcutLink)}</div>}
+  {recentItems.length>0&&!compact&&<div className="sidebar-section"><p>Recentes</p>{recentItems.map(shortcutLink)}</div>}
+ </>;
  return <div className="app-shell-root">
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
    <div className="sidebar-brand"><Link href="/dashboard" aria-label="Marquinhos Calhas e Esquadrias — início"><BrandLogo compact={compact}/></Link><button className="sidebar-close" aria-label="Fechar navegação" onClick={()=>setOpen(false)}><X size={18}/></button></div>
-   <nav className="sidebar-nav" aria-label="Navegação principal">{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;return <div className="sidebar-section" key={group.title}>{!compact&&<p>{group.title}</p>}{items.map(([label,href,Icon])=>{const active=pathname===href||(href!=="/dashboard"&&pathname.startsWith(href+"/"));return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}</nav>
+   <nav className="sidebar-nav" aria-label="Navegação principal">{shortcuts}{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;return <div className="sidebar-section" key={group.title}>{!compact&&<p>{group.title}</p>}{items.map(([label,href,Icon])=>{const active=pathname===href||(href!=="/dashboard"&&pathname.startsWith(href+"/"));return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}</nav>
    <div className="sidebar-footer"><LogoutButton collapsed={compact}/>{!compact&&<div className="sidebar-credit"><AuthorSignature/></div>}</div>
    <button className="sidebar-collapse" aria-label={collapsed?"Expandir menu":"Recolher menu"} onClick={toggleSidebar}>{collapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button>
   </aside>
   <div className="app-workspace">
    <header className="app-topbar"><button className="mobile-menu-button" aria-label="Abrir menu" aria-expanded={open} onClick={()=>setOpen(true)}><Menu size={21}/></button>
     <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd role="button" tabIndex={0} title="Comandos rápidos (Ctrl K)" style={{cursor:"pointer"}} onClick={()=>dispatchEvent(new Event("open-command-palette"))} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();dispatchEvent(new Event("open-command-palette"))}}}>Ctrl K</kbd></LiveSearchForm>
-    <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
+    <div className="topbar-actions">{current&&<button type="button" onClick={()=>toggleFav(current.href)} aria-pressed={favs.includes(current.href)} title={favs.includes(current.href)?"Tirar dos favoritos":"Fixar nos favoritos"} aria-label={favs.includes(current.href)?`Tirar ${current.label} dos favoritos`:`Fixar ${current.label} nos favoritos`} className="rounded-lg p-2 text-ink/50 hover:bg-cream hover:text-ink"><Star size={18} fill={favs.includes(current.href)?"currentColor":"none"}/></button>}<QuickCreateMenu items={CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href}))}/><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
-   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
+   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content"><Breadcrumbs pathname={pathname} sectionLabel={href=>flat.find(i=>i.href===href)?.label}/>{SAVED_VIEW_PAGES.includes(pathname)&&<Suspense fallback={null}><SavedViews/></Suspense>}{children}</main><UnsavedGuard/><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
    <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>

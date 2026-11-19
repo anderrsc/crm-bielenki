@@ -24,6 +24,7 @@ export type InboxItem = {
   status: ConversationStatus; department: string | null; assignedTo: string | null;
   /** Número de WhatsApp da conversa (calha, esquadrias…). */
   channelId?: string | null; channelName?: string | null;
+  labels?: Array<{ id: string; name: string; color: string }>;
   /** false = número sem Lia (só o principal tem IA por enquanto). */
   channelAi?: boolean;
   /** Cliente falou por último e ainda espera resposta desde este horário. */
@@ -63,8 +64,11 @@ type ConvRow = {
   status?: string | null; department?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
   channel_id?: string | null; wchan?: { name: string; is_default: boolean } | null;
+  labels?: Array<{ label: { id: string; name: string; color: string } | null }> | null;
 };
 const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,channel_id,clients(name),profiles:assigned_to(full_name),wchan:whatsapp_channels(name,is_default)";
+// Etiquetas vêm junto; se o banco ainda não tem a tabela, a lista abre sem elas (nunca fica em branco).
+const LABEL_COLUMNS = ",labels:conversation_label_links(label:conversation_labels(id,name,color))";
 
 function toItem(c: ConvRow): InboxItem {
   const phone = c.phone || c.external_id || "";
@@ -85,6 +89,7 @@ function toItem(c: ConvRow): InboxItem {
     assignedTo: c.assigned_to,
     channelId: c.channel_id ?? null,
     channelName: c.wchan?.name ?? null,
+    labels: (c.labels ?? []).map((l) => l.label).filter((l): l is { id: string; name: string; color: string } => !!l),
     channelAi: c.wchan ? c.wchan.is_default : true,
     waitingSince: waitingSince(c.last_inbound_at, c.last_message_at),
   };
@@ -146,9 +151,12 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
         refreshInboxMessages(db, companyId).catch(() => 0)]);
       agendaSyncedAt.set(companyId, Date.now());
     });
-    const { data, error } = await db.from("conversations").select(CONV_COLUMNS)
+    const listQuery = (columns: string) => db.from("conversations").select(columns)
       .eq("company_id", companyId).eq("channel", "whatsapp").not("last_message_at", "is", null)
       .order("last_message_at", { ascending: false }).limit(300);
+    let { data, error } = await listQuery(CONV_COLUMNS + LABEL_COLUMNS);
+    // Banco sem a tabela de etiquetas ainda: a lista abre normalmente, sem elas.
+    if (error && /conversation_label|relationship|schema cache/i.test(error.message)) ({ data, error } = await listQuery(CONV_COLUMNS));
     if (error) return { items: [], error: /column|does not exist/i.test(error.message) ? "Falta aplicar a atualização do banco do Atendimento (migração 20261108000000)." : error.message };
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: cfg } = await admin.from("ai_agent_config").select("active,wpp_provider,evolution_api_url,evolution_instance").eq("company_id", companyId).maybeSingle();

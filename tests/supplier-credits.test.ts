@@ -70,7 +70,7 @@ test("adiantamento exige conta, ajuste não deixa saldo negativo", async () => {
 });
 
 test("compra manual: pagou a mais vira crédito, pagou menos fica devendo com vencimento", async () => {
-  const buy = async (payload: object) => (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, items: [{ category: "Perfil", description: "Perfil", quantity: 1, unit_price: 500 }], ...payload })])).id;
+  const buy = async (payload: object) => (await row("select create_manual_purchase($1::jsonb) id", [JSON.stringify({ supplier_id: supplier, allow_duplicate: true, items: [{ category: "Perfil", description: "Perfil", quantity: 1, unit_price: 500 }], ...payload })])).id;
   const entryOf = async (po: string) => row("select open_amount, due_date::text due from financial_entries where purchase_order_id=$1", [po]);
   const before = await balance();
   const a = await buy({ paid_amount: 600, paid_at: "2026-11-08", payment_method: "Pix", receiving_account_id: banco });

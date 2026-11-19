@@ -1,5 +1,6 @@
 // Tela da compra: itens, pagamento, entrega, pedido, receber material, corrigir e cancelar.
 import Link from "next/link";
+import { CheckAll } from "@/components/check-all";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
@@ -7,13 +8,13 @@ import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PurchaseEditForm } from "@/components/purchase-edit-form";
-import { cancelPurchase, registerPurchaseReturn } from "@/app/(crm)/purchase-edit-actions";
-import { undoStockReceipt } from "@/app/(crm)/undo-actions";
+import { cancelPurchase, receivePurchaseAll, registerPurchaseReturn } from "@/app/(crm)/purchase-edit-actions";
+import { undoStockReceipt, undoStockReceipts } from "@/app/(crm)/undo-actions";
 
 type Po = { id: string; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
 type Item = { id: string; description: string; category: string | null; unit: string; purchased_quantity: number; received_quantity: number; pending_quantity: number; unit_price: number; total: number };
 
-export default async function PurchasePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; ok?: string }> }) {
+export default async function PurchasePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; ok?: string; aviso?: string }> }) {
   const { id } = await params;
   const search = await searchParams;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -47,6 +48,7 @@ export default async function PurchasePage({ params, searchParams }: { params: P
   return <div className="mx-auto max-w-4xl space-y-5">
     <Link href="/compras" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Compras</Link>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{search.erro.slice(0, 200)}</p>}
+    {search.aviso && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm font-medium text-amber-900">{search.aviso.slice(0, 120)}</p>}
     {search.ok && <p className="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{search.ok.slice(0, 80)}</p>}
     <section className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,16 +73,31 @@ export default async function PurchasePage({ params, searchParams }: { params: P
         {list.map((i) => <tr key={i.id} className="border-t border-sand"><td className="py-2">{i.description}</td><td>{i.category ?? "—"}</td><td className="text-right">{Number(i.purchased_quantity)} {i.unit}</td><td className="text-right">{Number(i.received_quantity)}</td><td className="text-right">{money(i.unit_price)}</td><td className="text-right font-bold">{money(i.total)}</td></tr>)}
       </tbody></table></div>
     </section>
+    {pending && !cancelled && canEdit.data === true && <section className="card p-5">
+      <h2 className="mb-1 font-black">Receber material desta compra</h2>
+      <p className="mb-3 text-sm text-ink/60">Chegou a nota inteira? Deixe tudo marcado e confirme. Se chegou só uma parte, desmarque o que não veio. Receber material não registra pagamento.</p>
+      <form action={receivePurchaseAll} className="space-y-3">
+        <input type="hidden" name="po_id" value={po.id} />
+        <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase text-ink/45">Itens pendentes</span><CheckAll name="item_ids" label="Marcar / desmarcar todos" /></div>
+        <ul className="divide-y divide-sand text-sm">{list.filter((i) => Number(i.pending_quantity) > 0).map((i) => <li key={i.id}><label className="flex items-center gap-3 py-2"><input type="checkbox" name="item_ids" value={i.id} defaultChecked /><span className="flex-1">{i.description}</span><span className="text-ink/60">{Number(i.pending_quantity)} {i.unit}</span></label></li>)}</ul>
+        <div className="flex flex-wrap items-end gap-2"><div className="min-w-48 flex-1"><label className="label" htmlFor="rc-local">Entra em qual local do estoque</label>
+          <select id="rc-local" name="location_id" className="field" required defaultValue={movList.find((m) => m.movement_type === "entrada")?.location_id ?? ""}><option value="" disabled>Escolha…</option>{((locations.data ?? []) as { id: string; name: string }[]).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+          <ConfirmButton formAction={receivePurchaseAll} className="button" message="Receber os itens marcados? As quantidades pendentes entram no estoque.">Receber selecionados</ConfirmButton></div>
+      </form>
+    </section>}
     {movList.some((m) => m.movement_type === "entrada") && <section className="card p-5"><h2 className="mb-3 font-black">Entradas no estoque</h2>
-      <ul className="divide-y divide-sand text-sm">{movList.filter((m) => m.movement_type === "entrada").map((m) => <li key={m.id} className="py-2">
-        <div className="flex flex-wrap justify-between gap-2"><span>{shortDate(m.created_at)} · {m.item?.description} · {Number(m.quantity)} {m.item?.unit} · {m.location?.name ?? "—"}</span>{undone.has(m.id) && <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Desfeita</span>}</div>
-        {!undone.has(m.id) && canEdit.data === true && <details className="mt-1"><summary className="cursor-pointer text-xs font-bold text-forest">Desfazer esta entrada</summary>
-          <form action={undoStockReceipt} className="mt-2 flex flex-wrap items-end gap-2">
-            <input type="hidden" name="movement_id" value={m.id} /><input type="hidden" name="_back" value={`/compras/${po.id}`} />
-            <input className="field flex-1" name="reason" aria-label="Motivo para desfazer" placeholder="Motivo (ex.: recebido no item errado)" required minLength={3} maxLength={500} />
-            <ConfirmButton formAction={undoStockReceipt} className="button-ghost text-red-700" message="Desfazer esta entrada? O material sai do estoque e volta a ficar pendente.">Desfazer</ConfirmButton>
-          </form></details>}
-      </li>)}</ul>
+      <form action={undoStockReceipts}>
+        <input type="hidden" name="_back" value={`/compras/${po.id}`} />
+        {canEdit.data === true && !cancelled && <div className="mb-1 flex justify-end"><CheckAll name="movement_ids" label="Marcar / desmarcar todas" /></div>}
+        <ul className="divide-y divide-sand text-sm">{movList.filter((m) => m.movement_type === "entrada").map((m) => <li key={m.id} className="flex items-center gap-3 py-2">
+          {canEdit.data === true && !cancelled ? <input type="checkbox" name="movement_ids" value={m.id} disabled={undone.has(m.id)} aria-label={`Selecionar ${m.item?.description}`} /> : null}
+          <span className="flex-1">{shortDate(m.created_at)} · {m.item?.description} · {Number(m.quantity)} {m.item?.unit} · {m.location?.name ?? "—"}</span>
+          {undone.has(m.id) && <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Desfeita</span>}
+        </li>)}</ul>
+        {canEdit.data === true && !cancelled && <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-sand pt-3">
+          <input className="field min-w-48 flex-1" name="reason" aria-label="Motivo para desfazer" placeholder="Motivo (ex.: duplicada, item errado)" required minLength={3} maxLength={500} />
+          <ConfirmButton formAction={undoStockReceipts} className="button-ghost text-red-700" message="Desfazer as entradas marcadas? O material sai do estoque e volta a ficar pendente.">Desfazer marcadas</ConfirmButton></div>}
+      </form>
     </section>}
     {(retList.length > 0 || (canEdit.data === true && !cancelled)) && <section className="card p-5">
       <h2 className="mb-1 font-black">Devoluções</h2>
@@ -104,10 +121,12 @@ export default async function PurchasePage({ params, searchParams }: { params: P
       <details><summary className="cursor-pointer font-black">Corrigir esta compra</summary>
         <PurchaseEditForm id={po.id} supplierId={po.supplier_id} suppliers={(suppliers.data ?? []) as { id: string; name: string }[]} expectedAt={po.expected_at ?? ""} notes={po.notes ?? ""} orderId={po.order_id ?? ""} orders={orderOptions} locked={received}
           items={list.map((i) => ({ id: i.id, description: i.description, category: i.category ?? "Outro", quantity: Number(i.purchased_quantity), unit_price: Number(i.unit_price) }))} />
-        {!received && Number(fe?.paid_amount ?? 0) === 0 && <form action={cancelPurchase} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">
+        {Number(fe?.paid_amount ?? 0) > 0 && <p className="mt-4 border-t border-sand pt-4 text-sm text-ink/60">Esta compra já tem pagamento. Para cancelar, estorne o pagamento na conta (Financeiro) e volte aqui.</p>}
+        {Number(fe?.paid_amount ?? 0) === 0 && retList.length > 0 && <p className="mt-4 border-t border-sand pt-4 text-sm text-ink/60">Esta compra tem devolução registrada, então não dá para cancelar por inteiro. Ajuste pelas devoluções acima.</p>}
+        {Number(fe?.paid_amount ?? 0) === 0 && retList.length === 0 && <form action={cancelPurchase} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">
           <input type="hidden" name="id" value={po.id} />
           <input className="field flex-1" name="reason" aria-label="Motivo do cancelamento" placeholder="Motivo do cancelamento (lançada errada, duplicada…)" required minLength={3} maxLength={500} />
-          <ConfirmButton formAction={cancelPurchase} className="button-ghost text-red-700" message="Cancelar esta compra? A conta a pagar também é cancelada.">Cancelar compra</ConfirmButton>
+          <ConfirmButton formAction={cancelPurchase} className="button-ghost text-red-700" message="Cancelar esta compra? O material recebido sai do estoque, a conta a pagar é cancelada e a compra fica só como Cancelada no histórico.">Cancelar compra</ConfirmButton>
         </form>}
       </details>
     </section>}
