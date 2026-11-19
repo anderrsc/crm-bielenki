@@ -122,7 +122,8 @@ export default async function PurchasePage({ params, searchParams }: { params: P
         <PurchaseEditForm id={po.id} supplierId={po.supplier_id} suppliers={(suppliers.data ?? []) as { id: string; name: string }[]} expectedAt={po.expected_at ?? ""} notes={po.notes ?? ""} orderId={po.order_id ?? ""} orders={orderOptions} locked={received}
           items={list.map((i) => ({ id: i.id, description: i.description, category: i.category ?? "Outro", quantity: Number(i.purchased_quantity), unit_price: Number(i.unit_price) }))} />
         {Number(fe?.paid_amount ?? 0) > 0 && <p className="mt-4 border-t border-sand pt-4 text-sm text-ink/60">Esta compra já tem pagamento. Para cancelar, estorne o pagamento na conta (Financeiro) e volte aqui.</p>}
-        {Number(fe?.paid_amount ?? 0) === 0 && <form action={cancelPurchase} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">
+        {Number(fe?.paid_amount ?? 0) === 0 && retList.length > 0 && <p className="mt-4 border-t border-sand pt-4 text-sm text-ink/60">Esta compra tem devolução registrada, então não dá para cancelar por inteiro. Ajuste pelas devoluções acima.</p>}
+        {Number(fe?.paid_amount ?? 0) === 0 && retList.length === 0 && <form action={cancelPurchase} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">
           <input type="hidden" name="id" value={po.id} />
           <input className="field flex-1" name="reason" aria-label="Motivo do cancelamento" placeholder="Motivo do cancelamento (lançada errada, duplicada…)" required minLength={3} maxLength={500} />
           <ConfirmButton formAction={cancelPurchase} className="button-ghost text-red-700" message="Cancelar esta compra? O material recebido sai do estoque, a conta a pagar é cancelada e a compra fica só como Cancelada no histórico.">Cancelar compra</ConfirmButton>

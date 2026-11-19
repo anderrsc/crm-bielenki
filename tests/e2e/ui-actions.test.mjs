@@ -178,7 +178,8 @@ test("materia-prima: novo corte na matriz de aluminio", async () => {
 test("materia-prima: nova linha na planilha de precos", async () => {
   await page.goto(`${BASE}/tabela-calhas?aba=materia-prima`, { waitUntil: "networkidle0" });
   const before = (await db.query("select count(*)::int n from gutter_prices")).rows[0].n;
-  await clickText("Novo");
+  // Só na área da página: a barra superior também tem um botão "+ Novo" (atalhos de criação).
+  await clickText("Novo", "main");
   await new Promise((r) => setTimeout(r, 300));
   // "Novo" abre a celula de produto da linha nova ja em edicao.
   await page.waitForFunction(() => document.activeElement?.tagName === "INPUT");
