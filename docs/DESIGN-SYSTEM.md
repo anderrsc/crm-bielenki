@@ -28,3 +28,10 @@ Base: tokens em `app/brand-tokens.css`, componentes em `app/marquinhos.css` e `c
 ## Não fazer
 - Não animar números financeiros nem simular sucesso antes do backend.
 - Não adicionar outra biblioteca de animação (a `framer-motion` foi removida por não ter uso).
+
+## Navegação e produtividade (guia "Atlas UX/UI", 19/11/2026)
+- **Ctrl/⌘ + K**: ir para qualquer tela, criar (orçamento, cliente, venda, compra) ou buscar no sistema; só lista o que o usuário pode ver.
+- **+ Novo** na barra superior: mesmos atalhos de criação, respeitando permissão.
+- **Favoritos e Recentes** na barra lateral (estrela ao lado do tema fixa/solta a tela atual; guardados no navegador de cada pessoa).
+- **O que fazer agora** no início da Visão Geral: clientes esperando resposta, pendências de pedidos fechados e orçamentos sem retorno; cada item com contagem e link direto, filtrado pelo acesso de quem está logado.
+- Status de conversa, entrega e compra sempre com texto junto da cor.

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { PriorityQueue } from "@/components/priority-queue";
 import { DashboardOverview } from "@/components/dashboard-overview";
 import { QuickClientDialog } from "@/components/quick-client-dialog";
 import Link from "next/link";
@@ -105,6 +107,8 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
           ))}
         </div>
       )}
+
+      {aba === "geral" && <Suspense fallback={<div className="ui-skeleton mb-6 h-24" aria-hidden />}><PriorityQueue /></Suspense>}
 
       {/* Tabs */}
       <div className="mobile-dashboard-tabs mb-5 flex gap-2 overflow-x-auto pb-1">
