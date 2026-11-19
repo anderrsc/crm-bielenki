@@ -11,7 +11,8 @@ on conflict (role, resource) do nothing;
 
 -- Configuração por empresa. Desligada por padrão.
 create table if not exists public.fiscal_settings (
-  company_id uuid primary key references public.companies(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null unique references public.companies(id) on delete cascade,
   enabled boolean not null default false,
   regime text not null default 'simples' check (regime in ('simples', 'hibrido', 'regular')),
   uf text check (uf is null or uf ~ '^[A-Z]{2}$'),
@@ -81,7 +82,6 @@ create or replace function public.fiscal_audit()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare v jsonb := to_jsonb(coalesce(new, old));
 begin
-  -- fiscal_settings não tem id: o registro é a própria empresa.
   insert into public.audit_logs(company_id, profile_id, table_name, record_id, action, old_data, new_data)
   values ((v->>'company_id')::uuid, auth.uid(), tg_table_name, coalesce((v->>'id')::uuid, (v->>'company_id')::uuid),
     tg_op, case when tg_op in ('UPDATE', 'DELETE') then to_jsonb(old) end, case when tg_op in ('INSERT', 'UPDATE') then to_jsonb(new) end);

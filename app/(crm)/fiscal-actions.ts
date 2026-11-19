@@ -124,7 +124,7 @@ export async function salvarConfiguracaoFiscal(input: unknown): Promise<{ ok: tr
   const db = await createClient();
   const { data: me } = await selectOwnProfile<{ company_id: string | null }>(db, "company_id");
   if (!me?.company_id) return { ok: false, error: "Sessão expirada." };
-  const { error } = await db.from("fiscal_settings").upsert({ company_id: me.company_id, ...p.data, updated_at: new Date().toISOString() });
+  const { error } = await db.from("fiscal_settings").upsert({ company_id: me.company_id, ...p.data, updated_at: new Date().toISOString() }, { onConflict: "company_id" });
   if (error) return { ok: false, error: /row-level|permission/i.test(error.message) ? "Sem permissão para mudar a configuração fiscal." : error.message };
   refresh();
   return { ok: true };
