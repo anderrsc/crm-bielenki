@@ -18,6 +18,7 @@ import { GutterPiecePreview } from "@/components/gutter-piece-preview";
 import { SubmitButton } from "@/components/submit-button";
 import { uniqueProductNames, normalizeProductName, isBeiralProduct, isTwoFloors, withFloors, withoutFloors } from "@/lib/gutter-catalog";
 import { gutterCategoryForProduct, PRODUCT_RENAMES } from "@/lib/gutters";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type GutterQuoteItem = {
@@ -636,7 +637,7 @@ function FabricatedItemCard({
         </div>
         <div className="flex gap-1">
           <button type="button" title="Duplicar" className="button-ghost p-1.5" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /></button>
-          <button type="button" title="Excluir" disabled={!canRemove} className="button-ghost p-1.5 text-red-600 disabled:opacity-30" onClick={() => { if (window.confirm("Remover este item do orçamento?")) onRemove(); }}><Trash2 className="h-3.5 w-3.5" /></button>
+          <button type="button" title="Excluir" disabled={!canRemove} className="button-ghost p-1.5 text-red-600 disabled:opacity-30" onClick={() => { void confirmAction({ message: "Remover este item do orçamento?", confirmLabel: "Remover" }).then((ok) => { if (ok) onRemove(); }); }}><Trash2 className="h-3.5 w-3.5" /></button>
         </div>
       </div>
 
@@ -697,7 +698,7 @@ function OtherItemCard({
           onChange={v => onChange(index, "item_type", v)}
           className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
         />
-        <button type="button" className="button-ghost p-1.5 text-red-600" onClick={() => { if (window.confirm("Remover este item do orçamento?")) onRemove(); }}><Trash2 className="h-3.5 w-3.5" /></button>
+        <button type="button" className="button-ghost p-1.5 text-red-600" onClick={() => { void confirmAction({ message: "Remover este item do orçamento?", confirmLabel: "Remover" }).then((ok) => { if (ok) onRemove(); }); }}><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">

@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { useFormStatus } from "react-dom";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 export function ConfirmButton({
   formAction,
@@ -28,7 +29,12 @@ export function ConfirmButton({
       className={className}
       title={title}
       onClick={(e) => {
-        if (!window.confirm(message)) e.preventDefault();
+        // Pergunta no diálogo do sistema; se confirmar, envia o mesmo formulário por este botão.
+        e.preventDefault();
+        const button = ref.current;
+        void confirmAction({ title: title ?? "Confirmar exclusão", message, confirmLabel: "Sim, continuar" }).then((ok) => {
+          if (ok && button?.form) button.form.requestSubmit(button);
+        });
       }}
     >
       {children}

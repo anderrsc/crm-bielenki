@@ -1,5 +1,8 @@
 "use client";
 import { LiveSearchForm } from "./live-search-form";
+import { CommandPalette, type PaletteItem } from "./command-palette";
+import { Toaster } from "./ui-feedback/toast";
+import { ConfirmHost } from "./ui-feedback/confirm";
 
 import { useMobile } from "@/lib/use-mobile";
 import { NotificationCenter } from "@/components/notification-center";
@@ -21,10 +24,18 @@ const groups=[
  {title:"Geral",items:[["Automações", "/automacoes",Bot],["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
 ] as const;
 // Painel do Jarvis (fila de tarefas de IA na VPS). Projeto separado: anderrsc/JARVIS-AI-CRM-Bielenki.
+// Atalhos de criação da paleta Ctrl+K (cada um só aparece para quem vê o módulo).
+const CREATE=[
+ {label:"Novo orçamento de calhas",href:"/orcamentos/calhas",base:"/orcamentos",icon:FileText,keywords:"orcamento calha rufo"},
+ {label:"Novo orçamento de esquadrias",href:"/orcamentos/esquadrias",base:"/orcamentos",icon:FileText,keywords:"orcamento janela porta aluminio"},
+ {label:"Novo cliente",href:"/clientes/novo",base:"/clientes",icon:Users,keywords:"cadastro cliente"},
+ {label:"Nova venda",href:"/vendas/nova",base:"/vendas",icon:HandCoins,keywords:"venda manual"},
+ {label:"Nova compra",href:"/compras/nova",base:"/compras",icon:HandCoins,keywords:"compra fornecedor nota material"},
+] as const;
 const JARVIS_URL="https://jarvis-ai-crm-bielenki.vercel.app";
 export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[];viewable?:string[]}){
  const pathname=usePathname(),[open,setOpen]=useState(false),[collapsed,setCollapsed]=useState(false),searchRef=useRef<HTMLInputElement>(null);
- useEffect(()=>{try{setCollapsed(localStorage.getItem("marquinhos-sidebar")==="collapsed")}catch{}const shortcut=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();searchRef.current?.focus()}if(e.key==="Escape")setOpen(false)};addEventListener("keydown",shortcut);return()=>removeEventListener("keydown",shortcut)},[]);
+ useEffect(()=>{try{setCollapsed(localStorage.getItem("marquinhos-sidebar")==="collapsed")}catch{}const shortcut=(e:KeyboardEvent)=>{if(e.key==="Escape")setOpen(false)};addEventListener("keydown",shortcut);return()=>removeEventListener("keydown",shortcut)},[]);
  const toggleSidebar=()=>{setCollapsed(!collapsed);try{localStorage.setItem("marquinhos-sidebar",collapsed?"expanded":"collapsed")}catch{}};
  const mobile=useMobile(),compact=collapsed&&!mobile;
  useEffect(()=>{if(!open||!mobile)return;const previous=document.body.style.overflow;document.body.style.overflow="hidden";return()=>{document.body.style.overflow=previous}},[open,mobile]);
@@ -33,6 +44,11 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   const access = moduleAccess(href);
   return (!access.management || management) && (!access.resource || viewable.includes(access.resource));
  };
+ const paletteItems:PaletteItem[]=[
+  ...CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href,icon:c.icon,group:"Criar",keywords:c.keywords})),
+  ...(canSee("/atendimento")?[{label:"Números de WhatsApp",href:"/atendimento/canais",icon:MessageCircle,group:"Ir para",keywords:"canais qr conectar whatsapp"}]:[]),
+  ...groups.flatMap(g=>g.items.filter(([,href])=>canSee(href)).map(([label,href,Icon])=>({label,href,icon:Icon,group:"Ir para",keywords:g.title}))),
+ ];
  return <div className="app-shell-root">
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
@@ -43,10 +59,10 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   </aside>
   <div className="app-workspace">
    <header className="app-topbar"><button className="mobile-menu-button" aria-label="Abrir menu" aria-expanded={open} onClick={()=>setOpen(true)}><Menu size={21}/></button>
-    <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></LiveSearchForm>
+    <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd role="button" tabIndex={0} title="Comandos rápidos (Ctrl K)" style={{cursor:"pointer"}} onClick={()=>dispatchEvent(new Event("open-command-palette"))} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();dispatchEvent(new Event("open-command-palette"))}}}>Ctrl K</kbd></LiveSearchForm>
     <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
-   <Suspense fallback={null}><NavProgress/></Suspense><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
+   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
    <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>
