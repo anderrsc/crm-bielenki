@@ -1,5 +1,5 @@
 "use client";
-import { useState,useTransition } from "react";
+import { useEffect,useRef,useState,useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download,FileText,LockKeyhole,Paperclip,Trash2 } from "lucide-react";
 import type { InternalAttachment } from "@/lib/quote-attachments";
@@ -7,9 +7,11 @@ import { uploadQuoteAttachments,downloadQuoteAttachment,removeQuoteAttachment } 
 import { confirmAction } from "@/components/ui-feedback/confirm";
 
 const ACCEPT='.jpg,.jpeg,.png,.webp,.heic,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.zip';
-export function DraftQuoteAttachments(){
- const [names,setNames]=useState<string[]>([]);
- return <section id="quote-attachments" className="card p-5"><h2 className="flex items-center gap-2 text-sm font-bold"><Paperclip size={17}/>Anexos internos</h2><p className="mt-2 text-xs text-ink/60">Fotos, PDFs e arquivos das medidas reais. Exclusivos da equipe — não aparecem no orçamento do cliente.</p><label className="mt-4 block"><span className="label">Anexar arquivos (até 10 MB no total)</span><input className="field mt-2 w-full p-3 text-xs" type="file" name="quote_attachments" multiple accept={ACCEPT} onChange={event=>{const files=Array.from(event.target.files||[]);event.target.setCustomValidity(files.reduce((n,f)=>n+f.size,0)>10*1024*1024?'Os anexos devem totalizar até 10 MB.':'');setNames(files.map(f=>f.name));event.target.reportValidity();}}/></label>{names.length>0&&<ul className="mt-3 space-y-1 text-xs text-ink/60">{names.map(name=><li key={name}>{name}</li>)}</ul>}<p className="mt-3 flex items-center gap-1 text-[10px] text-ink/50"><LockKeyhole size={12}/>Os arquivos ficam vinculados ao salvar o orçamento.</p></section>;
+/** `files`: arquivos que a tela já escolheu (ex.: o PDF da proposta do WVetro), anexados ao salvar. */
+export function DraftQuoteAttachments({files}:{files?:File[]}={}){
+ const [names,setNames]=useState<string[]>([]);const input=useRef<HTMLInputElement>(null);
+ useEffect(()=>{if(!files?.length||!input.current||typeof DataTransfer==="undefined")return;const dt=new DataTransfer();for(const f of files)dt.items.add(f);input.current.files=dt.files;setNames(files.map(f=>f.name));},[files]);
+ return <section id="quote-attachments" className="card p-5"><h2 className="flex items-center gap-2 text-sm font-bold"><Paperclip size={17}/>Anexos internos</h2><p className="mt-2 text-xs text-ink/60">Fotos, PDFs e arquivos das medidas reais. Exclusivos da equipe — não aparecem no orçamento do cliente.</p><label className="mt-4 block"><span className="label">Anexar arquivos (até 10 MB no total)</span><input ref={input} className="field mt-2 w-full p-3 text-xs" type="file" name="quote_attachments" multiple accept={ACCEPT} onChange={event=>{const files=Array.from(event.target.files||[]);event.target.setCustomValidity(files.reduce((n,f)=>n+f.size,0)>10*1024*1024?'Os anexos devem totalizar até 10 MB.':'');setNames(files.map(f=>f.name));event.target.reportValidity();}}/></label>{names.length>0&&<ul className="mt-3 space-y-1 text-xs text-ink/60">{names.map(name=><li key={name}>{name}</li>)}</ul>}<p className="mt-3 flex items-center gap-1 text-[10px] text-ink/50"><LockKeyhole size={12}/>Os arquivos ficam vinculados ao salvar o orçamento.</p></section>;
 }
 export function QuoteAttachments({quoteId,attachments,canManage}:{quoteId:string;attachments:InternalAttachment[];canManage:boolean}){
  const [message,setMessage]=useState(''),[pending,startTransition]=useTransition(),router=useRouter();
