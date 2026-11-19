@@ -78,24 +78,26 @@ test("fornecedor: excluir", async () => {
 
 test("funcionarios: editar dados, cargos e redefinir senha", async () => {
   const email = `edit.${RUN}@teste.local`;
-  const user = (await db.query("insert into auth.users(email, encrypted_password, raw_user_meta_data, raw_app_meta_data) values($1,'x',$2,$3) returning id", [email, { full_name: `Editar ${RUN}` }, { company_id: cid, role: "atendente" }])).rows[0];
+  // Já no formato que o cadastro grava (maiúscula inicial): salvar não muda o nome e a linha continua achável.
+  const NAME = `Editar ${RUN.charAt(0).toUpperCase()}${RUN.slice(1)}`;
+  const user = (await db.query("insert into auth.users(email, encrypted_password, raw_user_meta_data, raw_app_meta_data) values($1,'x',$2,$3) returning id", [email, { full_name: NAME }, { company_id: cid, role: "atendente" }])).rows[0];
   await db.query("update profiles set email=$1 where id=$2", [email, user.id]);
   await page.goto(`${BASE}/configuracoes/funcionarios`, { waitUntil: "networkidle0" });
   // Depois de recarregar, a lista pode levar um instante para trazer a linha.
   const openRow = async () => {
-    await page.waitForFunction((n) => [...document.querySelectorAll("details")].some((x) => x.innerText.includes(n)), { timeout: 15000 }, `Editar ${RUN}`)
-      .catch(async (e) => { throw new Error(`linha do funcionario nao apareceu em ${page.url()}: ${(await page.evaluate(() => document.body.innerText)).slice(0, 300).replace(/\s+/g, " ")} (${e.message})`); });
+    await page.waitForFunction((n) => [...document.querySelectorAll("details")].some((x) => x.innerText.includes(n)), { timeout: 15000 }, NAME)
+      .catch(async (e) => { throw new Error(`linha do funcionario nao apareceu em ${page.url()}: ${(await page.evaluate(() => (document.querySelector("main") ?? document.body).innerText)).slice(0, 600).replace(/\s+/g, " ")} (${e.message})`); });
     await page.evaluate((n) => {
       const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
       d.open = true;
-    }, `Editar ${RUN}`);
+    }, NAME);
   };
   await openRow();
   await page.evaluate((n) => {
     const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
     const phone = d.querySelector("input[name=phone]"); phone.value = "47912345678";
     [...d.querySelectorAll("button")].find((b) => b.innerText.includes("Salvar dados")).click();
-  }, `Editar ${RUN}`);
+  }, NAME);
   await settle();
   await noProblem("salvar dados do funcionario");
   assert.equal((await db.query("select phone from profiles where id=$1", [user.id])).rows[0].phone, "(47) 91234-5678");
@@ -108,7 +110,7 @@ test("funcionarios: editar dados, cargos e redefinir senha", async () => {
     const fin = [...form.querySelectorAll("input[name=roles]")].find((i) => i.value === "financeiro");
     fin.checked = true;
     [...form.querySelectorAll("button")].find((b) => b.innerText.includes("Salvar cargos")).click();
-  }, `Editar ${RUN}`);
+  }, NAME);
   await settle();
   await noProblem("salvar cargos");
   const roles = (await db.query("select array_agg(role::text) r from user_roles where profile_id=$1", [user.id])).rows[0].r;
@@ -119,7 +121,7 @@ test("funcionarios: editar dados, cargos e redefinir senha", async () => {
   await page.evaluate((n) => {
     const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
     [...d.querySelectorAll("button")].find((b) => /Redefinir senha|Enviar e-mail de redefini/.test(b.innerText)).click();
-  }, `Editar ${RUN}`);
+  }, NAME);
   await settle();
   await noProblem("redefinir senha");
 });

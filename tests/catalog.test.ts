@@ -6,14 +6,20 @@ import { PRODUCTS_BY_CATEGORY } from "@/lib/gutters";
 import { quotePieceMedia } from "@/lib/quote-piece-media";
 
 test("all documented profiles have original drawings and distinct model links", async () => {
-  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(21);
+  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(23);
   const links = new Set<string>();
   for (const piece of MARQUINHOS_CATALOG.pieces) {
     expect(existsSync(`public${catalogImagePath(piece)}`)).toBe(true);
     expect(catalogPieceForProduct(piece.name)?.id).toBe(piece.id);
     links.add(catalogModelUrl(piece));
   }
-  expect(links.size).toBe(21);
+  expect(links.size).toBe(23);
+  // Peças que entraram no site 3D em 10/11/2026: nome do orçamento → desenho e QR.
+  expect(catalogPieceForProduct("Rufo Sobre Calha")?.id).toBe("sobrecalha");
+  expect(catalogPieceForProduct("Sobrecalha")?.id).toBe("sobrecalha");
+  expect(catalogPieceForProduct("Rufo colarinho")?.id).toBe("rufo-colarinho");
+  expect(catalogPieceForProduct("Rufo de colarinho")?.id).toBe("rufo-colarinho");
+  expect(PRODUCTS_BY_CATEGORY.Rufos).toContain("Rufo colarinho");
   expect(catalogPieceForProduct("Silicone incolor neutro")?.id).toBe("tubo-silicone");
   expect(catalogPieceForProduct("PU MS40")).toBeUndefined();
   expect(catalogPieceForProduct("Tubo Vedante PU MS40")).toBeUndefined();
@@ -30,6 +36,8 @@ test("all documented profiles have original drawings and distinct model links", 
   expect(media?.qr.startsWith("data:image/png;base64,")).toBe(true);
   expect(media?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#cumeeira");
   expect(await quotePieceMedia("Peça exclusiva", true)).toBeNull();
+  expect((await quotePieceMedia("Rufo Sobre Calha", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#sobrecalha");
+  expect((await quotePieceMedia("Rufo colarinho", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#rufo-colarinho");
 });
 
 test("catalog import updates reference prices, preserves extras and other tenants, and can be repeated", async () => {
