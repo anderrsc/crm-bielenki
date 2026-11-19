@@ -1,0 +1,22 @@
+name: Verificar motor fiscal
+# Manual: confere se um motor da Calculadora de Tributos responde e calcula o exemplo oficial
+# igual ao publicado. Não envia dados de clientes.
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "URL base da API do motor (sem barra no fim)"
+        required: true
+        default: "https://piloto-cbs.tributos.gov.br/servico/calculadora-consumo/api"
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir motor
+        env:
+          BASE: ${{ inputs.base }}
+        run: bash scripts/fiscal/verificar-motor.sh "$BASE"

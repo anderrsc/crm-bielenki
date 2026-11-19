@@ -213,3 +213,13 @@ O motor precisa de **~500 MB de memória**, então o mínimo seguro é uma máqu
 | VPS no Brasil (ex.: Locaweb 2 GB) | ~R$ 39,90/mês por um agregador (a própria página mostra promoção de R$ 21,90 e **renovação de R$ 124,72**) | Brasil | **Alta**: sistema, Docker, HTTPS e atualizações por nossa conta | O preço de renovação é o que vale |
 
 Fontes da cotação: docs.fly.io/about/pricing, docs.railway.com/pricing/plans, render.com/pricing e locaweb.com.br/servidor-vps. Também foram usados comparativos de terceiros (buildmvpfast.com, budgetforge.dev, whtop.com).
+
+## 11. Escopo atual (19/11/2026): só a calculadora
+
+Por decisão do dono, **emissão de notas e integração com o financeiro estão pausadas**. O trabalho continua só na **calculadora** (simulação de IBS/CBS/IS com o motor oficial), sem gravar nada no financeiro nem emitir documento.
+
+Onde roda o motor:
+1. **Instalação online oficial (piloto da Receita).** Sem custo, mas ainda **não verificada**: daqui o endereço nem resolve. A verificação é o workflow manual **"Verificar motor fiscal"** (`scripts/fiscal/verificar-motor.sh`). Ele consulta `/versao` e calcula o exemplo oficial, comparando com o resultado publicado.
+2. **Motor próprio (Fly.io, ~US$ 7–11/mês).** Usado se o piloto não responder, tiver limites ou não for adequado.
+
+O ERP terá a URL do motor configurável (`FISCAL_MOTOR_URL`), então trocar de um para o outro não exige mudar código.
