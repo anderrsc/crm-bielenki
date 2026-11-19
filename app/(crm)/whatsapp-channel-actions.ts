@@ -191,3 +191,24 @@ export async function disconnectWhatsappChannel(id: string): Promise<Result> {
     return { ok: true };
   } catch (e) { return fail(e); }
 }
+
+export type ChannelMessage = { id: string; direction: "inbound" | "outbound"; author: string | null; body: string; at: string; status: string | null; contact: string; conversationId: string };
+
+/** Últimas mensagens de um número (para conferir se está recebendo e enviando). Respeita o acesso de quem vê. */
+export async function channelRecentMessages(id: string): Promise<Result<{ messages: ChannelMessage[] }>> {
+  try {
+    if (!z.uuid().safeParse(id).success) return { error: "Número inválido." };
+    const ctx = await context();
+    const { data, error } = await ctx.db.from("messages")
+      .select("id,direction,author,body,sent_at,delivery_status,conversation_id,conversation:conversations!inner(channel_id,contact_name,phone)")
+      .eq("company_id", ctx.companyId).eq("conversation.channel_id", id)
+      .order("sent_at", { ascending: false }).limit(12);
+    if (error) return { error: error.message };
+    type Row = { id: string; direction: string; author: string | null; body: string | null; sent_at: string; delivery_status: string | null; conversation_id: string; conversation: { contact_name: string | null; phone: string | null } | Array<{ contact_name: string | null; phone: string | null }> | null };
+    const messages = ((data ?? []) as unknown as Row[]).map((m) => {
+      const c = Array.isArray(m.conversation) ? m.conversation[0] : m.conversation;
+      return { id: m.id, direction: m.direction === "outbound" ? "outbound" as const : "inbound" as const, author: m.author, body: (m.body ?? "").replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").slice(0, 140), at: m.sent_at, status: m.delivery_status, contact: c?.contact_name || c?.phone || "Contato", conversationId: m.conversation_id };
+    });
+    return { ok: true, messages };
+  } catch (e) { return fail(e); }
+}

@@ -8,7 +8,6 @@ import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then(module => module.WhatsappConnect), { loading: () => <p role="status">Carregando conexão…</p> });
 const LiaFollowupSettings = dynamic(() => import("@/components/lia-followup-settings").then(module => module.LiaFollowupSettings), { loading: () => <p role="status">Carregando acompanhamento…</p> });
 const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da Lia…</p> });
 const LiaLearnedRules = dynamic(() => import("@/components/lia-learned-rules").then(module => module.LiaLearnedRules), { loading: () => <p role="status">Carregando regras ensinadas…</p> });
@@ -35,7 +34,6 @@ function Stat({ label, value, alert }: { label: string; value: number; alert?: b
 export function AiCentral({ data, error }: { data: CentralData | null; error?: string }) {
   const [test, setTest] = useState<{ reply?: string; error?: string } | null>(null);
   const [testing, startTest] = useTransition();
-  const [connectionOpen, setConnectionOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
 
   if (!data) return <div className="card p-6 text-sm">Não foi possível carregar a Central de IA{error ? `: ${error}` : "."}</div>;
@@ -88,10 +86,11 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       <LiaModeSettings />
       <LiaFollowupSettings />
 
-      <details className="card p-4" onToggle={event => setConnectionOpen(event.currentTarget.open)}>
-        <summary className="cursor-pointer font-bold">Conexão do WhatsApp</summary>
-        {connectionOpen && <div className="mt-4"><WhatsappConnect /></div>}
-      </details>
+      {/* Números e conexão do WhatsApp ficam num lugar só: menu lateral → WhatsApp. */}
+      <div className="card flex flex-wrap items-center justify-between gap-2 p-4">
+        <div><p className="font-bold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
+        <Link href="/atendimento/canais" className="button-ghost">Abrir WhatsApp →</Link>
+      </div>
       <LiaLearnedRules />
       <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
         <summary className="cursor-pointer font-bold">Regras de atendimento</summary>

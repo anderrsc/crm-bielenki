@@ -4,11 +4,16 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, Plus, Smartphone, XCircle } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowDownLeft, ArrowUpRight, MessagesSquare } from "lucide-react";
 import {
+  channelRecentMessages, type ChannelMessage,
   addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, renameWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
   type ChannelRow,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
+
+const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then((m) => m.WhatsappConnect), { loading: () => <p role="status" className="text-sm text-ink/55">Carregando conexão…</p> });
 import { confirmAction } from "@/components/ui-feedback/confirm";
 
 const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Conectado" };
@@ -63,6 +68,14 @@ export function WhatsappChannels() {
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-sm text-red-500">{erro}</p>}
       {msg && <p className="rounded-lg bg-green-500/10 p-2 text-sm text-green-600">{msg}</p>}
+
+      {channels?.some((c) => c.isDefault && c.canManage) && (
+        <details className="card p-4" open={channels.some((c) => c.isDefault && !(c.active && (c.status === "open" || c.status === "migrado")))}>
+          <summary className="cursor-pointer font-bold">Conexão do número principal (servidor da empresa)</summary>
+          <p className="mt-1 text-xs text-ink/55">Servidor do WhatsApp (Evolution), chave e QR do número principal. Os outros números usam este mesmo servidor.</p>
+          <div className="mt-3"><WhatsappConnect /></div>
+        </details>
+      )}
 
       <div className="card space-y-2 p-4">
         <p className="font-bold">Adicionar meu número</p>
@@ -121,6 +134,7 @@ function Canal({ c, team, pending, run, onQr }: {
         {c.phone ? `${c.phone} · ` : ""}{c.isDefault || c.shared ? "Toda a equipe vê" : `De ${c.mine ? "você" : c.ownerName ?? "—"}`} · última mensagem {quando(c.lastEventAt)} · sincronizado {quando(c.lastSyncAt)}
       </p>
       <Saude c={c} />
+      <Mensagens c={c} />
       {!c.isDefault && !c.shared && (
         <div className="space-y-1 text-sm">
           <p className="text-xs font-bold text-ink/60">Quem mais pode ver as conversas deste número</p>
@@ -173,6 +187,48 @@ function Saude({ c }: { c: ChannelRow }) {
       <p className={cn(item, c.failed24h > 0 && "text-red-500")}>Mensagens que falharam (24 h): <b>{c.failed24h}</b></p>
       <p className={cn(item, c.unconfirmed24h > 0 && "text-amber-600")}>Sem confirmação do WhatsApp (24 h): <b>{c.unconfirmed24h}</b></p>
       <p className={cn(item, "sm:col-span-2", c.waitingOver2h > 0 && "text-amber-600")}>Clientes esperando resposta há mais de 2 h: <b>{c.waitingOver2h}</b></p>
+    </div>
+  );
+}
+
+/** Conferir as últimas mensagens do número e abrir as conversas dele no Atendimento. */
+function Mensagens({ c }: { c: ChannelRow }) {
+  const [msgs, setMsgs] = useState<ChannelMessage[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [pending, start] = useTransition();
+  const carregar = () => start(async () => {
+    const r = await channelRecentMessages(c.id);
+    if ("messages" in r) { setMsgs(r.messages); setErro(null); } else setErro(r.error);
+  });
+  const hora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const STATUS: Record<string, string> = { lida: "lida", entregue: "entregue", enviada: "enviada", enviando: "enviando", falhou: "falhou", desconhecido: "sem confirmação" };
+  return (
+    <div className="text-sm">
+      <div className="flex flex-wrap gap-2 text-xs font-bold">
+        <button type="button" disabled={pending} onClick={() => { const v = !aberto; setAberto(v); if (v) carregar(); }} className="inline-flex items-center gap-1 rounded-lg bg-cream px-3 py-1.5">
+          <MessagesSquare className="h-3.5 w-3.5" />{aberto ? "Fechar mensagens" : "Conferir últimas mensagens"}
+        </button>
+        <Link href={`/atendimento?numero=${c.id}`} className="inline-flex items-center gap-1 rounded-lg bg-cream px-3 py-1.5">Ver conversas deste número →</Link>
+        {aberto && <button type="button" disabled={pending} onClick={carregar} className="rounded-lg px-2 py-1.5 text-forest underline">{pending ? "Atualizando…" : "Atualizar"}</button>}
+      </div>
+      {aberto && (
+        <div className="mt-2 rounded-xl border border-sand">
+          {erro && <p className="p-3 text-xs text-red-500">{erro}</p>}
+          {!msgs && !erro && <p className="p-3 text-xs text-ink/55">Carregando…</p>}
+          {msgs?.length === 0 && <p className="p-3 text-xs text-ink/55">Nenhuma mensagem neste número ainda.</p>}
+          <ul className="divide-y divide-sand">
+            {msgs?.map((m) => (
+              <li key={m.id}>
+                <Link href={`/atendimento?c=${m.conversationId}`} className="flex items-start gap-2 px-3 py-2 hover:bg-cream">
+                  {m.direction === "inbound" ? <ArrowDownLeft className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" aria-label="Recebida" /> : <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" aria-label="Enviada" />}
+                  <span className="min-w-0 flex-1"><b className="text-xs">{m.contact}</b> <span className="text-xs text-ink/50">· {hora(m.at)}{m.direction === "outbound" && m.status ? ` · ${STATUS[m.status] ?? m.status}` : ""}</span><span className={cn("block truncate text-xs", m.status === "falhou" ? "text-red-500" : "text-ink/70")}>{m.body || "—"}</span></span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

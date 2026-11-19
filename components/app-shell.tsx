@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -21,7 +21,7 @@ import { LogoutButton } from "./logout-button";
 import { AuthorSignature,BrandLogo } from "./brand-logo";
 // Menu por área. Grupos "recolhíveis" começam fechados (exceto quando a tela atual está neles).
 const groups=[
- {title:"Principal",items:[["Dashboard", "/dashboard",LayoutDashboard],["Pendências", "/pendencias",AlertCircle],["Atendimento", "/atendimento",MessageCircle],["Clientes", "/clientes",Users],["Pipeline", "/pipeline",BarChart3],["Orçamentos", "/orcamentos",FileText],["Vendas", "/vendas",HandCoins],["Pedidos", "/pedidos",ClipboardCheck]]},
+ {title:"Principal",items:[["Dashboard", "/dashboard",LayoutDashboard],["Pendências", "/pendencias",AlertCircle],["Atendimento", "/atendimento",MessageCircle],["WhatsApp", "/atendimento/canais",Smartphone],["Clientes", "/clientes",Users],["Pipeline", "/pipeline",BarChart3],["Orçamentos", "/orcamentos",FileText],["Vendas", "/vendas",HandCoins],["Pedidos", "/pedidos",ClipboardCheck]]},
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck],["Serviços", "/servicos",Wrench]]},
  {title:"Compras e estoque",items:[["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Produtos & Peças", "/tabela-calhas",Boxes]]},
  {title:"Financeiro",collapsible:true,items:[["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Relatórios", "/relatorios",BarChart3]]},
@@ -51,7 +51,6 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
  };
  const paletteItems:PaletteItem[]=[
   ...CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href,icon:c.icon,group:"Criar",keywords:c.keywords})),
-  ...(canSee("/atendimento")?[{label:"Números de WhatsApp",href:"/atendimento/canais",icon:MessageCircle,group:"Ir para",keywords:"canais qr conectar whatsapp"}]:[]),
   ...groups.flatMap(g=>g.items.filter(([,href])=>canSee(href)).map(([label,href,Icon])=>({label,href,icon:Icon,group:"Ir para",keywords:g.title}))),
  ];
  // Favoritos e recentes (por navegador): atalhos para as telas mais usadas.

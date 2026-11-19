@@ -121,7 +121,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <AtendimentoPage initial={[]} />;
     const inbox = await loadInbox();
     const open = (search as { c?: string }).c;
-    return <AtendimentoPage initial={inbox.items} initialError={inbox.error} initialOpen={open && /^[0-9a-f-]{36}$/i.test(open) ? open : undefined} />;
+    return <AtendimentoPage initial={inbox.items} initialError={inbox.error} initialOpen={open && /^[0-9a-f-]{36}$/i.test(open) ? open : undefined} initialNumero={(search as { numero?: string }).numero} />;
   }
   if (path[0] === "central-ia") {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <AiCentral data={null} />;

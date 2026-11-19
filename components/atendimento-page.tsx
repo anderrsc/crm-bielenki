@@ -64,7 +64,7 @@ export const STATUS_LABEL: Record<ConversationStatus, string> = { aberta: "Abert
 export const SETORES: Array<[string, string]> = [["comercial", "Comercial"], ["pos_venda", "Pós-venda"], ["financeiro", "Financeiro"], ["producao", "Produção/Instalação"]];
 const setorNome = (v: string | null) => SETORES.find(([k]) => k === v)?.[1] ?? null;
 
-export function AtendimentoPage({ initial, initialError, initialOpen }: { initial: InboxItem[]; initialError?: string; initialOpen?: string }) {
+export function AtendimentoPage({ initial, initialError, initialOpen, initialNumero }: { initial: InboxItem[]; initialError?: string; initialOpen?: string; initialNumero?: string }) {
   const [items, setItems] = useState(initial);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -79,7 +79,8 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   const cache = useRef(new Map<string, ConversationDetail>());
   const [openId, setOpenId] = useState<string | null>(initialOpen ?? null);
   const [status, setStatus] = useState<"" | ConversationStatus>("");
-  const [numero, setNumero] = useState("");
+  // Vindo de "Ver conversas" na tela de números: já abre filtrado naquele número.
+  const [numero, setNumero] = useState(initialNumero && /^[0-9a-f-]{36}$/i.test(initialNumero) ? initialNumero : "");
   const [etiqueta, setEtiqueta] = useState("");
   const [setor, setSetor] = useState("");
   const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
@@ -316,7 +317,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
                 {etiquetas.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             )}
-            {numeros.length > 1 && (
+            {(numeros.length > 1 || numero) && (
               <select value={numero} onChange={(e) => setNumero(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Número">
                 <option value="">Todos os números</option>
                 {numeros.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
