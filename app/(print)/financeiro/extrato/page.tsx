@@ -6,6 +6,8 @@ import { money, shortDate, todayISO } from "@/lib/utils";
 import { PrintButton } from "@/components/print-button";
 import { AuthorSignature } from "@/components/brand-logo";
 import { formaLabel, parseStatement, statementPeriod } from "@/lib/account-statement";
+import { AccountPixCharges } from "@/components/account-pix-charges";
+import type { PixChargeRow } from "@/app/(crm)/pix-charge-actions";
 
 export const metadata: Metadata = { title: { absolute: "Extrato por conta – Marquinhos Calhas e Esquadrias" } };
 
@@ -28,7 +30,13 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   const company = (profile.data?.company ?? {}) as Company;
   const contas = accounts ?? [];
   const contaId = contas.some(c => c.id === search.conta) ? search.conta! : contas[0]?.id;
-  const result = contaId ? await db.rpc("account_statement", { p_account: contaId, p_from: from, p_to: to }) : null;
+  const [result, waiting] = contaId ? await Promise.all([
+    db.rpc("account_statement", { p_account: contaId, p_from: from, p_to: to }),
+    // Cobranças Pix enviadas para esta conta e ainda não confirmadas (não são saldo).
+    db.from("pix_charges").select("id,account_name,receiving_account_id,description,amount,status,created_at,paid_at,client:clients(name)").eq("receiving_account_id", contaId).eq("status", "aguardando").order("created_at", { ascending: false }).limit(100),
+  ]) : [null, null];
+  const pendentes = ((waiting?.data ?? []) as unknown as PixChargeRow[]).map((c) => ({ ...c, amount: Number(c.amount) }));
+  const totalPendente = pendentes.reduce((s, c) => s + c.amount, 0);
   const st = result && !result.error ? parseStatement(result.data) : null;
   const erro = result?.error ? (result.error.code === "P0001" ? result.error.message : "Não foi possível gerar o extrato. Tente novamente.") : null;
   const nomeEmpresa = (company.trade_name || company.name || "Marquinhos Calhas e Esquadrias").toUpperCase();
@@ -53,6 +61,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
     {!contas.length && <p className="mx-auto mt-8 max-w-[210mm] rounded-xl bg-white p-6 text-[#111]">Nenhuma conta cadastrada. Cadastre as contas de pagamento no Financeiro.</p>}
     {erro && <p role="alert" className="mx-auto mt-8 max-w-[210mm] rounded-xl bg-red-50 p-6 text-red-800">{erro}</p>}
 
+    {st && <AccountPixCharges charges={pendentes} />}
     {st && <div className="overflow-x-auto print:overflow-visible"><article className="quote-sheet print-sheet statement-sheet mx-auto mt-6 bg-white shadow-lg print:mt-0 print:shadow-none" aria-label="Extrato da conta">
       <header className="flex items-center gap-6 border-b-2 border-[#d71920] pb-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -103,6 +112,17 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
           <tr className="border-t-2 border-[#111] font-black"><td className="p-1.5" colSpan={3}>Saldo final em {shortDate(st.ate)}</td><td /><td className="p-1.5 text-right tabular-nums">{money(st.saldo_final)}</td></tr>
         </tfoot>
       </table>
+      {pendentes.length > 0 && <section className="mt-4 break-inside-avoid text-[8px] text-[#111]">
+        <p className="mb-1 text-[7px] font-bold uppercase tracking-wider text-[#666]">Cobranças Pix enviadas aguardando pagamento · não entram no saldo</p>
+        <table className="w-full border-collapse"><tbody>
+          {pendentes.map((c) => <tr key={c.id} className="border-b border-[#e4e4e7]">
+            <td className="w-[16mm] p-1.5">{shortDate(c.created_at)}</td>
+            <td className="p-1.5"><span className="font-semibold">{c.description}</span>{c.client?.name && <span className="block text-[#666]">{c.client.name}</span>}</td>
+            <td className="w-[24mm] p-1.5 text-right font-bold tabular-nums text-amber-700">{money(c.amount)}</td>
+          </tr>)}
+          <tr className="font-black"><td className="p-1.5" colSpan={2}>Total aguardando</td><td className="p-1.5 text-right tabular-nums">{money(totalPendente)}</td></tr>
+        </tbody></table>
+      </section>}
       {st.conta.saldo_inicial_data && st.conta.saldo_inicial_data > st.de && <p className="mt-3 text-[7px] text-[#666]">O saldo desta conta é contado a partir de {shortDate(st.conta.saldo_inicial_data)}; baixas anteriores a essa data não entram no extrato.</p>}
       <div className="quote-paper-credit"><span>Emitido em {new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span><AuthorSignature /></div>
     </article></div>}
