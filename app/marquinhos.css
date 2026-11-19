@@ -190,3 +190,81 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
   .animate-spin { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
   .button:active:not(:disabled), .button-ghost:active:not(:disabled) { transform: none; }
 }
+
+/* ==== Refino visual v2 (guia Atlas UX/UI): mais sóbrio, denso e legível ==== */
+/* Superfícies: cartões com borda mais suave e um leve realce superior; sem "pulo" ao passar o mouse. */
+.card { border-radius: 14px; border-color: color-mix(in srgb, var(--border) 85%, transparent); }
+[data-theme="light"] .card { box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .04); }
+.card:has(> a):hover { transform: none; border-color: var(--text-muted); }
+[data-theme="light"] { --bg: #F6F6F7; }
+
+/* Botões: sem brilho; primário sólido, secundário limpo. Altura confortável no computador, 44px no toque. */
+.button { box-shadow: inset 0 1px 0 rgb(255 255 255 / .14); font-weight: 600; letter-spacing: -.005em; }
+.button:hover { box-shadow: inset 0 1px 0 rgb(255 255 255 / .14); }
+.button-ghost { font-weight: 600; }
+@media (hover: hover) and (pointer: fine) { .button, .button-ghost, .field { min-height: 40px; } }
+
+/* Barra superior e lateral mais baixas: mais espaço para o trabalho. */
+.app-topbar { height: 64px; background: color-mix(in srgb, var(--surface) 96%, var(--bg)); }
+.topbar-search > svg { top: 11px; }
+.topbar-search kbd { top: 10px; }
+.theme-toggle, .topbar-icon { width: 38px; height: 38px; }
+.user-avatar { width: 34px; height: 34px; }
+.sidebar-brand { height: 88px; padding: 16px 20px; }
+.is-collapsed .sidebar-brand { padding: 14px; }
+.sidebar-nav { padding: 14px 12px; }
+.sidebar-section { margin-bottom: 16px; }
+.sidebar-section > p { margin: 0 10px 6px; font-size: 10px; opacity: .8; }
+.sidebar-link { min-height: 36px; padding: 8px 10px; font-size: 12.5px; margin-bottom: 1px; border-radius: 8px; }
+.sidebar-link.is-active { background: var(--surface-2); color: var(--text); }
+.sidebar-link.is-active svg { color: var(--brand-text); }
+.sidebar-link.is-active::before { left: -12px; height: 18px; }
+.app-content { padding-top: 26px; min-height: calc(100dvh - 109px); }
+
+/* Títulos de página consistentes. */
+.app-content h1 { letter-spacing: -.03em; }
+.app-content :is(h1.text-3xl, h1.text-4xl) { font-size: 30px; line-height: 1.15; }
+
+/* Destaques sem degradê nem brilho (o guia pede cor sólida e informação acima de efeito). */
+.kpi-highlight { background: var(--brand-strong); box-shadow: none; }
+.dashboard-bar.is-current { background: var(--brand-strong); }
+
+/* Abas da Visão Geral como controle segmentado. */
+.mobile-dashboard-tabs { gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); width: fit-content; max-width: 100%; }
+.mobile-dashboard-tabs > a { border-color: transparent !important; border-radius: 9px !important; padding: 7px 14px !important; }
+
+/* Tabelas: cabeçalho discreto e fixo, linhas com respiro e números alinhados. */
+.app-content table thead { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.app-content table th { font-size: 10.5px; color: var(--text-muted); }
+.app-content table td { vertical-align: middle; }
+.app-content .overflow-x-auto > table thead th { position: sticky; top: 0; z-index: 1; background: inherit; }
+
+/* Status: pílula com contorno sutil, legível nos dois temas. */
+.status-badge { padding: 4px 9px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent); }
+
+/* Campos: realce de foco único e limpo. */
+.field { transition: border-color var(--dur-press) var(--ease-out), box-shadow var(--dur-press) var(--ease-out); }
+.field:hover { border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border)); }
+
+/* Indicador de carregamento continua girando mesmo com "reduzir movimento" (comunica estado). */
+@media (prefers-reduced-motion: reduce) { .animate-spin { animation: spin 1.6s linear infinite !important; } }
+
+@media (max-width: 1023px) { .app-topbar { height: 60px; } .app-content { padding-top: 20px; } }
+
+/* ==== Tema claro (único): ajustes finos ==== */
+.sidebar-brand { padding: 18px 22px 14px; }
+.sidebar-brand .brand-logo-pair { max-width: 196px; }
+/* Assinatura já aparece no rodapé da página: a barra lateral fica mais livre para o menu. */
+@media (min-width: 1024px) { .sidebar-credit { display: none; } .sidebar-footer { padding: 8px 12px; } .sidebar-collapse { padding: 8px; } }
+/* Links de texto: sublinhado fino e afastado, menos peso visual. */
+.app-content a.underline { text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.app-content a.underline:hover { text-decoration-color: currentColor; }
+/* Fundo levemente acinzentado e bordas suaves: cartões brancos se destacam sem sombra pesada. */
+:root, [data-theme="light"] { --border: #E6E6E9; }
+.app-topbar { box-shadow: 0 1px 0 rgb(16 24 40 / .02); }
+/* Subtítulos: a fonte de display com espaçamento negativo só fica bem nos títulos grandes. */
+h2, h3 { letter-spacing: -.012em; }
+/* Cabeçalho de grupo recolhível no menu lateral. */
+.sidebar-group-toggle { width: calc(100% - 20px); margin: 0 10px 6px; display: flex; align-items: center; justify-content: space-between; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; opacity: .8; }
+.sidebar-group-toggle:hover { color: var(--text); opacity: 1; }
+.sidebar-group-toggle svg { transition: transform var(--dur-press) var(--ease-out); }

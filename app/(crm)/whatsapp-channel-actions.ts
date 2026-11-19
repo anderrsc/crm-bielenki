@@ -58,9 +58,21 @@ async function ownChannel(ctx: Awaited<ReturnType<typeof context>>, id: string) 
   return { ch, canManage };
 }
 
-export async function listWhatsappChannels(): Promise<Result<{ channels: ChannelRow[]; team: Array<{ id: string; name: string }> }>> {
+export async function listWhatsappChannels(): Promise<Result<{ channels: ChannelRow[]; team: Array<{ id: string; name: string }>; manager: boolean }>> {
   try {
     const ctx = await context();
+    // Empresa com WhatsApp conectado mas sem o "número principal" na lista (ex.: conectou depois da
+    // atualização): cria o principal a partir da conexão existente, sem mexer em conversas.
+    const { data: hasDefault } = await ctx.admin.from("whatsapp_channels").select("id").eq("company_id", ctx.companyId).eq("is_default", true).is("deleted_at", null).maybeSingle();
+    if (!hasDefault) {
+      const { data: cfg } = await ctx.admin.from("ai_agent_config").select("evolution_instance,evolution_api_url,wpp_provider,whatsapp_number_id").eq("company_id", ctx.companyId).maybeSingle();
+      const evolution = cfg?.wpp_provider === "evolution" || !!cfg?.evolution_api_url;
+      if (cfg && (evolution || cfg.whatsapp_number_id)) {
+        await ctx.admin.from("whatsapp_channels").insert({ company_id: ctx.companyId, name: "WhatsApp principal", provider: evolution ? "evolution" : "meta",
+          instance: evolution ? (cfg.evolution_instance || "crm") : null, phone_number_id: evolution ? null : cfg.whatsapp_number_id, is_default: true, shared: true, owner_id: null, status: "migrado" })
+          .then(() => undefined, () => undefined);
+      }
+    }
     const [{ data: visible }, { data: chans }, { data: members }, { data: team }] = await Promise.all([
       ctx.db.rpc("my_whatsapp_channels"),
       ctx.admin.from("whatsapp_channels").select("id,name,provider,instance,phone_display,phone_number_id,is_default,shared,active,status,last_event_at,last_sync_at,owner_id").eq("company_id", ctx.companyId).is("deleted_at", null).order("is_default", { ascending: false }).order("created_at"),
@@ -97,7 +109,7 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
       lastInboundAt: health.get(c.id)?.last ?? null, failed24h: health.get(c.id)?.failed ?? 0, unconfirmed24h: health.get(c.id)?.unconfirmed ?? 0, waitingOver2h: health.get(c.id)?.waiting ?? 0,
       members: ((members ?? []) as Array<{ channel_id: string; profile_id: string }>).filter((m) => m.channel_id === c.id).map((m) => ({ id: m.profile_id, name: names.get(m.profile_id) ?? "Usuário" })),
     }));
-    return { ok: true, channels, team: [...names].map(([id, name]) => ({ id, name })) };
+    return { ok: true, channels, team: [...names].map(([id, name]) => ({ id, name })), manager: ctx.manager };
   } catch (e) { return fail(e); }
 }
 
@@ -189,5 +201,26 @@ export async function disconnectWhatsappChannel(id: string): Promise<Result> {
     await ctx.admin.from("audit_logs").insert({ company_id: ctx.companyId, profile_id: ctx.userId, table_name: "whatsapp_channels", record_id: ch.id, action: "DISCONNECT", new_data: { name: ch.name } });
     revalidatePath("/atendimento/canais");
     return { ok: true };
+  } catch (e) { return fail(e); }
+}
+
+export type ChannelMessage = { id: string; direction: "inbound" | "outbound"; author: string | null; body: string; at: string; status: string | null; contact: string; conversationId: string };
+
+/** Últimas mensagens de um número (para conferir se está recebendo e enviando). Respeita o acesso de quem vê. */
+export async function channelRecentMessages(id: string): Promise<Result<{ messages: ChannelMessage[] }>> {
+  try {
+    if (!z.uuid().safeParse(id).success) return { error: "Número inválido." };
+    const ctx = await context();
+    const { data, error } = await ctx.db.from("messages")
+      .select("id,direction,author,body,sent_at,delivery_status,conversation_id,conversation:conversations!inner(channel_id,contact_name,phone)")
+      .eq("company_id", ctx.companyId).eq("conversation.channel_id", id)
+      .order("sent_at", { ascending: false }).limit(12);
+    if (error) return { error: error.message };
+    type Row = { id: string; direction: string; author: string | null; body: string | null; sent_at: string; delivery_status: string | null; conversation_id: string; conversation: { contact_name: string | null; phone: string | null } | Array<{ contact_name: string | null; phone: string | null }> | null };
+    const messages = ((data ?? []) as unknown as Row[]).map((m) => {
+      const c = Array.isArray(m.conversation) ? m.conversation[0] : m.conversation;
+      return { id: m.id, direction: m.direction === "outbound" ? "outbound" as const : "inbound" as const, author: m.author, body: (m.body ?? "").replace(/^\*[^*\n]{1,40}:\*\s*\n?/, "").slice(0, 140), at: m.sent_at, status: m.delivery_status, contact: c?.contact_name || c?.phone || "Contato", conversationId: m.conversation_id };
+    });
+    return { ok: true, messages };
   } catch (e) { return fail(e); }
 }

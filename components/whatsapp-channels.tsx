@@ -3,20 +3,26 @@
 // e autoriza quem mais pode ver as conversas dele. Cadastros continuam centralizados.
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Plus, Smartphone, XCircle } from "lucide-react";
+import { CheckCircle, Plus, Smartphone, XCircle } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowDownLeft, ArrowUpRight, MessagesSquare } from "lucide-react";
 import {
+  channelRecentMessages, type ChannelMessage,
   addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, renameWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
   type ChannelRow,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
+
+const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then((m) => m.WhatsappConnect), { loading: () => <p role="status" className="text-sm text-ink/55">Carregando conexão…</p> });
 import { confirmAction } from "@/components/ui-feedback/confirm";
 
-const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Conectado" };
+const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Aguardando conferência", unreachable: "Servidor sem resposta" };
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
 export function WhatsappChannels() {
   const [channels, setChannels] = useState<ChannelRow[] | null>(null);
   const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
+  const [manager, setManager] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -26,7 +32,7 @@ export function WhatsappChannels() {
 
   const carregar = useCallback(async () => {
     const r = await listWhatsappChannels();
-    if ("channels" in r) { setChannels(r.channels); setTeam(r.team); } else setErro(r.error);
+    if ("channels" in r) { setChannels(r.channels); setTeam(r.team); setManager(r.manager); } else setErro(r.error);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -54,15 +60,22 @@ export function WhatsappChannels() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <Link href="/atendimento" className="inline-flex items-center gap-1 text-sm font-bold text-ink/60"><ArrowLeft className="h-4 w-4" /> Atendimento</Link>
+    <div className="max-w-4xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-5 w-5" /> Números de WhatsApp</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-black"><Smartphone className="h-6 w-6" /> WhatsApp</h1>
         <p className="text-sm text-ink/60">Cada usuária conecta o próprio número lendo o QR no celular. As conversas de cada número ficam com quem conectou, com quem ela autorizar e com a gerência. Clientes, orçamentos e vendas continuam centralizados para todos.</p>
       </div>
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-sm text-red-500">{erro}</p>}
       {msg && <p className="rounded-lg bg-green-500/10 p-2 text-sm text-green-600">{msg}</p>}
+
+      {manager && (
+        <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && c.status === "open")}>
+          <summary className="cursor-pointer font-bold">Conexão do número principal (servidor da empresa)</summary>
+          <p className="mt-1 text-xs text-ink/55">Servidor do WhatsApp (Evolution), chave e QR do número principal. Os outros números usam este mesmo servidor.</p>
+          <div className="mt-3"><WhatsappConnect /></div>
+        </details>
+      )}
 
       <div className="card space-y-2 p-4">
         <p className="font-bold">Adicionar meu número</p>
@@ -97,7 +110,8 @@ function Canal({ c, team, pending, run, onQr }: {
   c: ChannelRow; team: Array<{ id: string; name: string }>; pending: boolean;
   run: (fn: () => Promise<{ error?: string } | object>, ok?: string) => void; onQr: () => void;
 }) {
-  const conectado = c.active && (c.status === "open" || c.status === "migrado");
+  // Só "conectado" depois que a rotina conferiu de verdade (status "open"); nunca por suposição.
+  const conectado = c.active && c.status === "open";
   const [editando, setEditando] = useState(false);
   const [nome, setNome] = useState(c.name);
   const [quem, setQuem] = useState("");
@@ -121,6 +135,7 @@ function Canal({ c, team, pending, run, onQr }: {
         {c.phone ? `${c.phone} · ` : ""}{c.isDefault || c.shared ? "Toda a equipe vê" : `De ${c.mine ? "você" : c.ownerName ?? "—"}`} · última mensagem {quando(c.lastEventAt)} · sincronizado {quando(c.lastSyncAt)}
       </p>
       <Saude c={c} />
+      <Mensagens c={c} />
       {!c.isDefault && !c.shared && (
         <div className="space-y-1 text-sm">
           <p className="text-xs font-bold text-ink/60">Quem mais pode ver as conversas deste número</p>
@@ -151,7 +166,7 @@ function Canal({ c, team, pending, run, onQr }: {
             onClick={() => { void confirmAction({ title: "Desconectar número", message: `Desconectar "${c.name}"? O histórico continua no CRM.`, confirmLabel: "Desconectar" }).then((ok) => { if (ok) run(() => disconnectWhatsappChannel(c.id), "Número desconectado."); }); }}>Desconectar</button>}
         </div>
       )}
-      {c.isDefault && <p className="text-xs text-ink/50">O número principal é gerenciado na Central de IA.</p>}
+      {c.isDefault && <p className="text-xs text-ink/50">O número principal é conectado na seção "Conexão do número principal", no topo desta tela.</p>}
     </div>
   );
 }
@@ -160,9 +175,9 @@ function Canal({ c, team, pending, run, onQr }: {
 function Saude({ c }: { c: ChannelRow }) {
   const idade = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000)) : null);
   const sync = idade(c.lastSyncAt);
-  const aberto = c.status === "open" || c.status === "migrado";
+  const aberto = c.status === "open";
   // A rotina confere o servidor a cada poucos minutos: sem conferência recente = sem resposta.
-  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
+  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !c.lastSyncAt ? { ok: false, t: "Ainda não conferido pela rotina (aguarde alguns minutos)" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
   const ultima = idade(c.lastInboundAt);
   const tempo = ultima === null ? "nenhuma nos últimos 7 dias" : ultima < 60 ? `há ${ultima} min` : ultima < 1440 ? `há ${Math.floor(ultima / 60)} h` : `há ${Math.floor(ultima / 1440)} dia(s)`;
   const item = "rounded-lg bg-cream px-2.5 py-1.5";
@@ -173,6 +188,48 @@ function Saude({ c }: { c: ChannelRow }) {
       <p className={cn(item, c.failed24h > 0 && "text-red-500")}>Mensagens que falharam (24 h): <b>{c.failed24h}</b></p>
       <p className={cn(item, c.unconfirmed24h > 0 && "text-amber-600")}>Sem confirmação do WhatsApp (24 h): <b>{c.unconfirmed24h}</b></p>
       <p className={cn(item, "sm:col-span-2", c.waitingOver2h > 0 && "text-amber-600")}>Clientes esperando resposta há mais de 2 h: <b>{c.waitingOver2h}</b></p>
+    </div>
+  );
+}
+
+/** Conferir as últimas mensagens do número e abrir as conversas dele no Atendimento. */
+function Mensagens({ c }: { c: ChannelRow }) {
+  const [msgs, setMsgs] = useState<ChannelMessage[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [pending, start] = useTransition();
+  const carregar = () => start(async () => {
+    const r = await channelRecentMessages(c.id);
+    if ("messages" in r) { setMsgs(r.messages); setErro(null); } else setErro(r.error);
+  });
+  const hora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const STATUS: Record<string, string> = { lida: "lida", entregue: "entregue", enviada: "enviada", enviando: "enviando", falhou: "falhou", desconhecido: "sem confirmação" };
+  return (
+    <div className="text-sm">
+      <div className="flex flex-wrap gap-2 text-xs font-bold">
+        <button type="button" disabled={pending} onClick={() => { const v = !aberto; setAberto(v); if (v) carregar(); }} className="inline-flex items-center gap-1 rounded-lg bg-cream px-3 py-1.5">
+          <MessagesSquare className="h-3.5 w-3.5" />{aberto ? "Fechar mensagens" : "Conferir últimas mensagens"}
+        </button>
+        <Link href={`/atendimento?numero=${c.id}`} className="inline-flex items-center gap-1 rounded-lg bg-cream px-3 py-1.5">Ver conversas deste número →</Link>
+        {aberto && <button type="button" disabled={pending} onClick={carregar} className="rounded-lg px-2 py-1.5 text-forest underline">{pending ? "Atualizando…" : "Atualizar"}</button>}
+      </div>
+      {aberto && (
+        <div className="mt-2 rounded-xl border border-sand">
+          {erro && <p className="p-3 text-xs text-red-500">{erro}</p>}
+          {!msgs && !erro && <p className="p-3 text-xs text-ink/55">Carregando…</p>}
+          {msgs?.length === 0 && <p className="p-3 text-xs text-ink/55">Nenhuma mensagem neste número ainda.</p>}
+          <ul className="divide-y divide-sand">
+            {msgs?.map((m) => (
+              <li key={m.id}>
+                <Link href={`/atendimento?c=${m.conversationId}`} className="flex items-start gap-2 px-3 py-2 hover:bg-cream">
+                  {m.direction === "inbound" ? <ArrowDownLeft className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" aria-label="Recebida" /> : <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" aria-label="Enviada" />}
+                  <span className="min-w-0 flex-1"><b className="text-xs">{m.contact}</b> <span className="text-xs text-ink/50">· {hora(m.at)}{m.direction === "outbound" && m.status ? ` · ${STATUS[m.status] ?? m.status}` : ""}</span><span className={cn("block truncate text-xs", m.status === "falhou" ? "text-red-500" : "text-ink/70")}>{m.body || "—"}</span></span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
