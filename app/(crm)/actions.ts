@@ -444,9 +444,12 @@ export async function createManualPurchase(formData:FormData) {
 export async function createWindowQuote(formData:FormData){
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
-  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
+  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),hide_unit_prices:z.boolean().optional(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
-  const {data,error}=await db.rpc("create_window_quote",{p_payload:parsed.data});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
+  const {hide_unit_prices:hideUnitPrices,...windowPayload}=parsed.data;
+  const {data,error}=await db.rpc("create_window_quote",{p_payload:windowPayload});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);
+  // Proposta importada do WVetro com o total repartido: a impressão mostra só itens e total.
+  if(data&&hideUnitPrices)await db.from("quotes").update({hide_unit_prices:true}).eq("id",String(data));
   if(data){const attachments=await saveDraftQuoteAttachments(String(data),formData);if(attachments.error)redirect(`/orcamentos/${data}?erro=${encodeURIComponent('Orçamento salvo. '+attachments.error)}`);}
   if(data)await setSellerToCurrentUser(db,String(data));
   if(data)await schedulePdfPregeneration(db,String(data));
