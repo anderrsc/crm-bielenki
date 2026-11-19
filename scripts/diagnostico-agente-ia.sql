@@ -52,6 +52,16 @@ select 'webhook', coalesce(event,'?') || ' | ' || coalesce(status,'?') || ' | ht
 from crm_admin.whatsapp_webhook_log where at > now() - interval '24 hours'
 group by event,status,http,from_me,jid_kind,message_types,key_fields
 union all
+-- Estado de cada numero (canal): conexao, ultima sincronizacao e ultima mensagem recebida.
+select 'canal', w.name || case when w.is_default then ' (principal)' else '' end || ' | estado ' || coalesce(w.status,'?')
+  || ' | ultimo evento ' || coalesce(to_char(w.last_event_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-')
+  || ' | ultima sincronizacao ' || coalesce(to_char(w.last_sync_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-')
+  || ' | ultima recebida ' || coalesce((select to_char(max(m.sent_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI') from public.messages m join public.conversations c on c.id=m.conversation_id where c.channel_id=w.id and m.direction='inbound'),'-')
+  || ' | recebidas 2h ' || (select count(*) from public.messages m join public.conversations c on c.id=m.conversation_id where c.channel_id=w.id and m.direction='inbound' and m.sent_at > now() - interval '2 hours')
+from public.whatsapp_channels w where w.deleted_at is null and w.active
+union all
+select 'saude', 'estado ' || coalesce(state,'?') || ' | falhas seguidas ' || failed_checks || ' | conferido ' || coalesce(to_char(checked_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-') from public.whatsapp_health
+union all
 select 'whatsapp', 'agora: ' || to_char(now() at time zone 'America/Sao_Paulo','DD/MM HH24:MI')
 union all
 select 'rotina', 'operacoes (saude/reconciliacao) ultima execucao: ' || coalesce(to_char(last_run_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') || coalesce(' | erro: ' || left(last_error, 80), '') from public.crm_operations_config
