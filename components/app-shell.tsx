@@ -13,18 +13,20 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
 import { LogoutButton } from "./logout-button";
 import { AuthorSignature,BrandLogo } from "./brand-logo";
+// Menu por área. Grupos "recolhíveis" começam fechados (exceto quando a tela atual está neles).
 const groups=[
  {title:"Principal",items:[["Dashboard", "/dashboard",LayoutDashboard],["Pendências", "/pendencias",AlertCircle],["Atendimento", "/atendimento",MessageCircle],["Clientes", "/clientes",Users],["Pipeline", "/pipeline",BarChart3],["Orçamentos", "/orcamentos",FileText],["Vendas", "/vendas",HandCoins],["Pedidos", "/pedidos",ClipboardCheck]]},
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck],["Serviços", "/servicos",Wrench]]},
- {title:"Gestão",items:[["Produtos & Peças", "/tabela-calhas",Boxes],["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Financeiro", "/financeiro",CircleDollarSign],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Relatórios", "/relatorios",BarChart3]]},
- {title:"Equipe",items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield]]},
- {title:"Geral",items:[["Automações", "/automacoes",Bot],["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Auditoria", "/auditoria",Shield],["Configurações", "/configuracoes",Settings],["Guia visual", "/design-system",Boxes]]},
+ {title:"Compras e estoque",items:[["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Produtos & Peças", "/tabela-calhas",Boxes]]},
+ {title:"Financeiro",collapsible:true,items:[["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Relatórios", "/relatorios",BarChart3]]},
+ {title:"Inteligência artificial",collapsible:true,items:[["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Automações", "/automacoes",Bot]]},
+ {title:"Equipe e sistema",collapsible:true,items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Auditoria", "/auditoria",Shield],["Guia visual", "/design-system",Boxes]]},
 ] as const;
 // Painel do Jarvis (fila de tarefas de IA na VPS). Projeto separado: anderrsc/JARVIS-AI-CRM-Bielenki.
 // Atalhos de criação da paleta Ctrl+K (cada um só aparece para quem vê o módulo).
@@ -59,6 +61,9 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
  useEffect(()=>{try{setFavs(JSON.parse(localStorage.getItem("marquinhos-favs")||"[]"));setRecent(JSON.parse(localStorage.getItem("marquinhos-recent")||"[]"))}catch{}},[]);
  const currentHref=current?.href;
  useEffect(()=>{if(!currentHref)return;setRecent(old=>{const next=[currentHref,...old.filter(h=>h!==currentHref)].slice(0,5);try{localStorage.setItem("marquinhos-recent",JSON.stringify(next))}catch{}return next})},[currentHref]);
+ const [openGroups,setOpenGroups]=useState<string[]>([]);
+ useEffect(()=>{try{setOpenGroups(JSON.parse(localStorage.getItem("marquinhos-open-groups")||"[]"))}catch{}},[]);
+ const toggleGroup=(title:string)=>setOpenGroups(old=>{const next=old.includes(title)?old.filter(t=>t!==title):[...old,title];try{localStorage.setItem("marquinhos-open-groups",JSON.stringify(next))}catch{}return next});
  const toggleFav=(href:string)=>setFavs(old=>{const next=old.includes(href)?old.filter(h=>h!==href):[...old,href].slice(0,8);try{localStorage.setItem("marquinhos-favs",JSON.stringify(next))}catch{}return next});
  const byHref=(list:string[])=>list.map(h=>flat.find(i=>i.href===h)).filter((i):i is (typeof flat)[number]=>!!i);
  const favItems=byHref(favs),recentItems=byHref(recent.filter(h=>!favs.includes(h)&&h!==currentHref)).slice(0,3);
@@ -70,7 +75,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
    <div className="sidebar-brand"><Link href="/dashboard" aria-label="Marquinhos Calhas e Esquadrias — início"><BrandLogo compact={compact}/></Link><button className="sidebar-close" aria-label="Fechar navegação" onClick={()=>setOpen(false)}><X size={18}/></button></div>
-   <nav className="sidebar-nav" aria-label="Navegação principal">{shortcuts}{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;return <div className="sidebar-section" key={group.title}>{!compact&&<p>{group.title}</p>}{items.map(([label,href,Icon])=>{const active=pathname===href||(href!=="/dashboard"&&pathname.startsWith(href+"/"));return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}{recentBlock}</nav>
+   <nav className="sidebar-nav" aria-label="Navegação principal">{shortcuts}{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;const hasActive=items.some(([,href])=>href===current?.href);const closed="collapsible" in group&&!compact&&!hasActive&&!openGroups.includes(group.title);return <div className="sidebar-section" key={group.title}>{!compact&&("collapsible" in group?<button type="button" className="sidebar-group-toggle" aria-expanded={!closed} onClick={()=>toggleGroup(group.title)}>{group.title}<ChevronDown size={13} className={closed?"-rotate-90":""}/></button>:<p>{group.title}</p>)}{!closed&&items.map(([label,href,Icon])=>{const active=current?.href===href;return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}{recentBlock}</nav>
    <div className="sidebar-footer"><LogoutButton collapsed={compact}/>{!compact&&<div className="sidebar-credit"><AuthorSignature/></div>}</div>
    <button className="sidebar-collapse" aria-label={collapsed?"Expandir menu":"Recolher menu"} onClick={toggleSidebar}>{collapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button>
   </aside>
