@@ -58,9 +58,21 @@ async function ownChannel(ctx: Awaited<ReturnType<typeof context>>, id: string) 
   return { ch, canManage };
 }
 
-export async function listWhatsappChannels(): Promise<Result<{ channels: ChannelRow[]; team: Array<{ id: string; name: string }> }>> {
+export async function listWhatsappChannels(): Promise<Result<{ channels: ChannelRow[]; team: Array<{ id: string; name: string }>; manager: boolean }>> {
   try {
     const ctx = await context();
+    // Empresa com WhatsApp conectado mas sem o "número principal" na lista (ex.: conectou depois da
+    // atualização): cria o principal a partir da conexão existente, sem mexer em conversas.
+    const { data: hasDefault } = await ctx.admin.from("whatsapp_channels").select("id").eq("company_id", ctx.companyId).eq("is_default", true).is("deleted_at", null).maybeSingle();
+    if (!hasDefault) {
+      const { data: cfg } = await ctx.admin.from("ai_agent_config").select("evolution_instance,evolution_api_url,wpp_provider,whatsapp_number_id").eq("company_id", ctx.companyId).maybeSingle();
+      const evolution = cfg?.wpp_provider === "evolution" || !!cfg?.evolution_api_url;
+      if (cfg && (evolution || cfg.whatsapp_number_id)) {
+        await ctx.admin.from("whatsapp_channels").insert({ company_id: ctx.companyId, name: "WhatsApp principal", provider: evolution ? "evolution" : "meta",
+          instance: evolution ? (cfg.evolution_instance || "crm") : null, phone_number_id: evolution ? null : cfg.whatsapp_number_id, is_default: true, shared: true, owner_id: null, status: "migrado" })
+          .then(() => undefined, () => undefined);
+      }
+    }
     const [{ data: visible }, { data: chans }, { data: members }, { data: team }] = await Promise.all([
       ctx.db.rpc("my_whatsapp_channels"),
       ctx.admin.from("whatsapp_channels").select("id,name,provider,instance,phone_display,phone_number_id,is_default,shared,active,status,last_event_at,last_sync_at,owner_id").eq("company_id", ctx.companyId).is("deleted_at", null).order("is_default", { ascending: false }).order("created_at"),
@@ -97,7 +109,7 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
       lastInboundAt: health.get(c.id)?.last ?? null, failed24h: health.get(c.id)?.failed ?? 0, unconfirmed24h: health.get(c.id)?.unconfirmed ?? 0, waitingOver2h: health.get(c.id)?.waiting ?? 0,
       members: ((members ?? []) as Array<{ channel_id: string; profile_id: string }>).filter((m) => m.channel_id === c.id).map((m) => ({ id: m.profile_id, name: names.get(m.profile_id) ?? "Usuário" })),
     }));
-    return { ok: true, channels, team: [...names].map(([id, name]) => ({ id, name })) };
+    return { ok: true, channels, team: [...names].map(([id, name]) => ({ id, name })), manager: ctx.manager };
   } catch (e) { return fail(e); }
 }
 

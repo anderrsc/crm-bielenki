@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 const WORDS: Record<string, string> = {
-  novo: "Novo", nova: "Nova", calhas: "Calhas", esquadrias: "Esquadrias", canais: "Números de WhatsApp", receber: "A receber", pagar: "A pagar",
+  novo: "Novo", nova: "Nova", calhas: "Calhas", esquadrias: "Esquadrias", canais: "WhatsApp", receber: "A receber", pagar: "A pagar",
   conciliacao: "Conciliação", extrato: "Extrato", recorrencias: "Recorrências", relatorios: "Relatórios", configuracoes: "Configurações",
   funcionarios: "Funcionários", cargos: "Cargos", medicoes: "Medições", "materiais-do-pedido": "Materiais do pedido", "ficha-visita": "Ficha de visita",
 };

@@ -3,7 +3,7 @@
 // e autoriza quem mais pode ver as conversas dele. Cadastros continuam centralizados.
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Plus, Smartphone, XCircle } from "lucide-react";
+import { CheckCircle, Plus, Smartphone, XCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { ArrowDownLeft, ArrowUpRight, MessagesSquare } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-B
 export function WhatsappChannels() {
   const [channels, setChannels] = useState<ChannelRow[] | null>(null);
   const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
+  const [manager, setManager] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -31,7 +32,7 @@ export function WhatsappChannels() {
 
   const carregar = useCallback(async () => {
     const r = await listWhatsappChannels();
-    if ("channels" in r) { setChannels(r.channels); setTeam(r.team); } else setErro(r.error);
+    if ("channels" in r) { setChannels(r.channels); setTeam(r.team); setManager(r.manager); } else setErro(r.error);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -59,18 +60,17 @@ export function WhatsappChannels() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <Link href="/atendimento" className="inline-flex items-center gap-1 text-sm font-bold text-ink/60"><ArrowLeft className="h-4 w-4" /> Atendimento</Link>
+    <div className="max-w-4xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-5 w-5" /> Números de WhatsApp</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-black"><Smartphone className="h-6 w-6" /> WhatsApp</h1>
         <p className="text-sm text-ink/60">Cada usuária conecta o próprio número lendo o QR no celular. As conversas de cada número ficam com quem conectou, com quem ela autorizar e com a gerência. Clientes, orçamentos e vendas continuam centralizados para todos.</p>
       </div>
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-sm text-red-500">{erro}</p>}
       {msg && <p className="rounded-lg bg-green-500/10 p-2 text-sm text-green-600">{msg}</p>}
 
-      {channels?.some((c) => c.isDefault && c.canManage) && (
-        <details className="card p-4" open={channels.some((c) => c.isDefault && !(c.active && (c.status === "open" || c.status === "migrado")))}>
+      {manager && (
+        <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && (c.status === "open" || c.status === "migrado"))}>
           <summary className="cursor-pointer font-bold">Conexão do número principal (servidor da empresa)</summary>
           <p className="mt-1 text-xs text-ink/55">Servidor do WhatsApp (Evolution), chave e QR do número principal. Os outros números usam este mesmo servidor.</p>
           <div className="mt-3"><WhatsappConnect /></div>
