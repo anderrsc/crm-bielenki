@@ -19,7 +19,10 @@ test("all documented profiles have original drawings and distinct model links", 
   expect(catalogPieceForProduct("Sobrecalha")?.id).toBe("sobrecalha");
   expect(catalogPieceForProduct("Rufo colarinho")?.id).toBe("rufo-colarinho");
   expect(catalogPieceForProduct("Rufo de colarinho")?.id).toBe("rufo-colarinho");
-  expect(PRODUCTS_BY_CATEGORY.Rufos).toContain("Rufo colarinho");
+  // Rufo para Chaminé é o mesmo rufo colarinho (confirmado em 19/11/2026): nome antigo e nome do 3D levam ao mesmo desenho.
+  expect(catalogPieceForProduct("Rufo para Chaminé")?.id).toBe("rufo-colarinho");
+  expect(catalogPieceForProduct("Rufo de Chaminé")?.id).toBe("rufo-colarinho");
+  expect(PRODUCTS_BY_CATEGORY.Rufos).toEqual(expect.arrayContaining(["Rufo colarinho", "Rufo para Chaminé", "Sobrecalha", "Rufo Sobre Calha"]));
   expect(catalogPieceForProduct("Silicone incolor neutro")?.id).toBe("tubo-silicone");
   expect(catalogPieceForProduct("PU MS40")).toBeUndefined();
   expect(catalogPieceForProduct("Tubo Vedante PU MS40")).toBeUndefined();
