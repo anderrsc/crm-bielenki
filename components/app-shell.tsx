@@ -62,7 +62,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
  useEffect(()=>{if(!currentHref)return;setRecent(old=>{const next=[currentHref,...old.filter(h=>h!==currentHref)].slice(0,5);try{localStorage.setItem("marquinhos-recent",JSON.stringify(next))}catch{}return next})},[currentHref]);
  const toggleFav=(href:string)=>setFavs(old=>{const next=old.includes(href)?old.filter(h=>h!==href):[...old,href].slice(0,8);try{localStorage.setItem("marquinhos-favs",JSON.stringify(next))}catch{}return next});
  const byHref=(list:string[])=>list.map(h=>flat.find(i=>i.href===h)).filter((i):i is (typeof flat)[number]=>!!i);
- const favItems=byHref(favs),recentItems=byHref(recent.filter(h=>!favs.includes(h))).slice(0,4);
+ const favItems=byHref(favs),recentItems=byHref(recent.filter(h=>!favs.includes(h)&&h!==currentHref)).slice(0,3);
  const shortcutLink=(i:(typeof flat)[number])=><Link href={i.href} key={i.href} title={i.label} aria-current={pathname===i.href?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(pathname===i.href?" is-active":"")}><i.Icon size={18}/>{!compact&&i.label}</Link>;
  const shortcuts=(favItems.length>0||recentItems.length>0)&&<>
   {favItems.length>0&&<div className="sidebar-section">{!compact&&<p>Favoritos</p>}{favItems.map(shortcutLink)}</div>}
