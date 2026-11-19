@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -25,8 +25,8 @@ const groups=[
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck],["Serviços", "/servicos",Wrench]]},
  {title:"Compras e estoque",items:[["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Produtos & Peças", "/tabela-calhas",Boxes]]},
  {title:"Financeiro",collapsible:true,items:[["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Relatórios", "/relatorios",BarChart3]]},
- {title:"Inteligência artificial",collapsible:true,items:[["Central de IA", "/central-ia",Bot],["Agente IA", "/agente-ia",Bot],["Automações", "/automacoes",Bot]]},
- {title:"Equipe e sistema",collapsible:true,items:[["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Auditoria", "/auditoria",Shield],["Guia visual", "/design-system",Boxes]]},
+ // IA num lugar só: a Central de IA abre conversas e configurações da Lia (antes "Agente IA" era outro item).
+ {title:"Sistema",collapsible:true,items:[["Central de IA", "/central-ia",Bot],["Automações", "/automacoes",Workflow],["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Auditoria", "/auditoria",Shield],["Guia visual", "/design-system",Boxes]]},
 ] as const;
 // Painel do Jarvis (fila de tarefas de IA na VPS). Projeto separado: anderrsc/JARVIS-AI-CRM-Bielenki.
 // Atalhos de criação da paleta Ctrl+K (cada um só aparece para quem vê o módulo).
@@ -56,7 +56,8 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
  ];
  // Favoritos e recentes (por navegador): atalhos para as telas mais usadas.
  const flat=groups.flatMap(g=>g.items.map(([label,href,Icon])=>({label,href,Icon}))).filter(i=>canSee(i.href));
- const current=[...flat].sort((a,b)=>b.href.length-a.href.length).find(i=>pathname===i.href||pathname.startsWith(i.href+"/"));
+ const route=pathname.startsWith("/agente-ia")?"/central-ia":pathname;
+ const current=[...flat].sort((a,b)=>b.href.length-a.href.length).find(i=>route===i.href||route.startsWith(i.href+"/"));
  const [favs,setFavs]=useState<string[]>([]),[recent,setRecent]=useState<string[]>([]);
  useEffect(()=>{try{setFavs(JSON.parse(localStorage.getItem("marquinhos-favs")||"[]"));setRecent(JSON.parse(localStorage.getItem("marquinhos-recent")||"[]"))}catch{}},[]);
  const currentHref=current?.href;
@@ -75,7 +76,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
    <div className="sidebar-brand"><Link href="/dashboard" aria-label="Marquinhos Calhas e Esquadrias — início"><BrandLogo compact={compact}/></Link><button className="sidebar-close" aria-label="Fechar navegação" onClick={()=>setOpen(false)}><X size={18}/></button></div>
-   <nav className="sidebar-nav" aria-label="Navegação principal">{shortcuts}{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;const hasActive=items.some(([,href])=>href===current?.href);const closed="collapsible" in group&&!compact&&!hasActive&&!openGroups.includes(group.title);return <div className="sidebar-section" key={group.title}>{!compact&&("collapsible" in group?<button type="button" className="sidebar-group-toggle" aria-expanded={!closed} onClick={()=>toggleGroup(group.title)}>{group.title}<ChevronDown size={13} className={closed?"-rotate-90":""}/></button>:<p>{group.title}</p>)}{!closed&&items.map(([label,href,Icon])=>{const active=current?.href===href;return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}</div>})}{management&&<div className="sidebar-section">{!compact&&<p>Assistente</p>}<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a></div>}{recentBlock}</nav>
+   <nav className="sidebar-nav" aria-label="Navegação principal">{shortcuts}{groups.map(group=>{const items=group.items.filter(([,href])=>canSee(href));if(!items.length)return null;const hasActive=items.some(([,href])=>href===current?.href);const closed="collapsible" in group&&!compact&&!hasActive&&!openGroups.includes(group.title);return <div className="sidebar-section" key={group.title}>{!compact&&("collapsible" in group?<button type="button" className="sidebar-group-toggle" aria-expanded={!closed} onClick={()=>toggleGroup(group.title)}>{group.title}<ChevronDown size={13} className={closed?"-rotate-90":""}/></button>:<p>{group.title}</p>)}{!closed&&items.map(([label,href,Icon])=>{const active=current?.href===href;return <Link href={href} key={href} title={label} aria-current={active?"page":undefined} onClick={()=>setOpen(false)} className={"sidebar-link"+(active?" is-active":"")}><Icon size={18}/>{!compact&&label}</Link>})}{group.title==="Sistema"&&management&&!closed&&<a href={JARVIS_URL} target="_blank" rel="noopener noreferrer" title="Jarvis (abre em nova aba)" onClick={()=>setOpen(false)} className="sidebar-link"><Sparkles size={18}/>{!compact&&"Jarvis"}</a>}</div>})}{recentBlock}</nav>
    <div className="sidebar-footer"><LogoutButton collapsed={compact}/>{!compact&&<div className="sidebar-credit"><AuthorSignature/></div>}</div>
    <button className="sidebar-collapse" aria-label={collapsed?"Expandir menu":"Recolher menu"} onClick={toggleSidebar}>{collapsed?<ChevronRight size={16}/>:<ChevronLeft size={16}/>}</button>
   </aside>
