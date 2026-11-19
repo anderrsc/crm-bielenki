@@ -14,7 +14,7 @@ import { undoStockReceipt, undoStockReceipts } from "@/app/(crm)/undo-actions";
 type Po = { id: string; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
 type Item = { id: string; description: string; category: string | null; unit: string; purchased_quantity: number; received_quantity: number; pending_quantity: number; unit_price: number; total: number };
 
-export default async function PurchasePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; ok?: string }> }) {
+export default async function PurchasePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; ok?: string; aviso?: string }> }) {
   const { id } = await params;
   const search = await searchParams;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -48,6 +48,7 @@ export default async function PurchasePage({ params, searchParams }: { params: P
   return <div className="mx-auto max-w-4xl space-y-5">
     <Link href="/compras" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Compras</Link>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{search.erro.slice(0, 200)}</p>}
+    {search.aviso && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm font-medium text-amber-900">{search.aviso.slice(0, 120)}</p>}
     {search.ok && <p className="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{search.ok.slice(0, 80)}</p>}
     <section className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">

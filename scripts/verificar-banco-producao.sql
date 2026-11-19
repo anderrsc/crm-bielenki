@@ -6,7 +6,7 @@
 with expected_columns(table_name, column_name) as (
   select t, unnest(string_to_array(c, ',')) from (values
     ('activities', 'activity_type,client_id,company_id,created_by,description,id,lead_id,occurred_at,sale_id,subject'),
-    ('ai_agent_config', 'active,agent_name,ai_provider,anthropic_api_key,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_reconciled_at,inbox_synced_at,lia_daily_limit,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
+    ('ai_agent_config', 'active,agent_name,ai_provider,anthropic_api_key,auto_create_lead,company_id,created_at,evolution_api_key,evolution_api_url,evolution_instance,evolution_known_synced_at,evolution_webhook_secret,gemini_api_key,groq_api_key,id,inbox_reconciled_at,inbox_synced_at,lia_daily_limit,lia_followups_daily_limit,lia_followups_enabled,lia_hours,lia_mode,max_turns,notify_on_premium,openai_api_key,openai_model,system_prompt,temperature,updated_at,whatsapp_number_id,whatsapp_token,wpp_provider'),
     ('ai_decisions', 'company_id,conversation_id,created_at,decisao,id,modo,motivo,phone'),
     ('ai_lia_rules', 'anterior_id,arquivada_em,ativada_em,ativada_por,company_id,created_at,created_by,exemplo,id,instrucao,pedido_original,quando,status,versao'),
     ('aluminum_cost_settings', 'company_id,price_per_kg,updated_at,updated_by'),
@@ -27,7 +27,7 @@ with expected_columns(table_name, column_name) as (
     ('conversation_events', 'body,company_id,conversation_id,created_at,created_by,department,id,kind,status,to_profile'),
     ('conversation_label_links', 'company_id,conversation_id,created_at,created_by,label_id'),
     ('conversation_labels', 'color,company_id,created_at,created_by,id,name'),
-    ('conversations', 'ai_generation_id,ai_paused,ai_suggestion,ai_suggestion_at,archived_at,assigned_to,channel,channel_id,client_id,company_id,contact_name,created_at,department,external_id,id,last_inbound_at,last_message_at,last_message_preview,phone,status,status_changed_at,unread_count,updated_at'),
+    ('conversations', 'ai_generation_id,ai_opt_out,ai_paused,ai_suggestion,ai_suggestion_at,archived_at,assigned_to,channel,channel_id,client_id,company_id,contact_name,created_at,department,external_id,id,last_inbound_at,last_message_at,last_message_preview,phone,status,status_changed_at,unread_count,updated_at'),
     ('crm_operations_config', 'cron_secret,id,last_error,last_run_at,vapid_private,vapid_public'),
     ('discount_rules', 'active,company_id,created_at,customer_type,id,notes,percentage,updated_at'),
     ('document_templates', 'company_id,config,created_at,id,is_default,name,status,type,updated_at'),
@@ -49,6 +49,7 @@ with expected_columns(table_name, column_name) as (
     ('lead_followups', 'company_id,created_at,id,lead_id,scheduled_at,sent_at,stage,status'),
     ('lead_sources', 'active,channel,company_id,created_at,id,name,sort_order,updated_at'),
     ('leads', 'client_id,company_id,created_at,deleted_at,email,estimated_value,id,lead_source_id,lost_reason,name,next_action,next_action_date,notes,owner_id,phone,potencial_financeiro,priority,probability,quote_id,score,source,stage_changed_at,stage_id,status,triage_completed,triage_session_id,updated_at'),
+    ('lia_automation_executions', 'attempt,company_id,conversation_id,created_at,detail,event_key,id,kind,status'),
     ('material_categories', 'company_id,id,name'),
     ('materials', 'active,category_id,company_id,id,minimum_stock,name,sku,unit'),
     ('measurement_checklists', 'company_id,completed,completed_at,id,measurement_id,notes,sort_order,title'),
@@ -246,6 +247,7 @@ with expected_columns(table_name, column_name) as (
   ('public', 'launch_client_pipeline', 'p_client_id uuid, p_mode text, p_scheduled_at timestamp with time zone, p_estimated_value numeric, p_next_action text, p_next_action_date date', 'c0aa3fa92065774a49e1b38276e4eb03'),
   ('public', 'leads_normalize_phone', '', '12401ea6d151f616a589dd2c013b2534'),
   ('public', 'leads_stage_history', '', '3337459a49739a41920fbcfe0c096ef1'),
+  ('public', 'lia_followup_candidates', 'p_company uuid, p_now timestamp with time zone', '66e681f6468c5a5053919cdfb38e6d9d'),
   ('public', 'lia_rule_activate', 'p_id uuid', '712e91978dccc607198a43b44f188490'),
   ('public', 'lia_rule_archive', 'p_id uuid', '061ef11c6e0b2a3ebecddcf0880ca741'),
   ('public', 'lia_rule_propose', 'p_quando text, p_instrucao text, p_pedido text, p_exemplo text, p_anterior uuid', '0761408c117a9d0004c5bff7554491b5'),

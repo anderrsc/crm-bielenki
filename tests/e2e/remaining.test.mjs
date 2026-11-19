@@ -83,7 +83,8 @@ test("funcionarios: editar dados, cargos e redefinir senha", async () => {
   await page.goto(`${BASE}/configuracoes/funcionarios`, { waitUntil: "networkidle0" });
   // Depois de recarregar, a lista pode levar um instante para trazer a linha.
   const openRow = async () => {
-    await page.waitForFunction((n) => [...document.querySelectorAll("details")].some((x) => x.innerText.includes(n)), { timeout: 15000 }, `Editar ${RUN}`);
+    await page.waitForFunction((n) => [...document.querySelectorAll("details")].some((x) => x.innerText.includes(n)), { timeout: 15000 }, `Editar ${RUN}`)
+      .catch(async (e) => { throw new Error(`linha do funcionario nao apareceu em ${page.url()}: ${(await page.evaluate(() => document.body.innerText)).slice(0, 300).replace(/\s+/g, " ")} (${e.message})`); });
     await page.evaluate((n) => {
       const d = [...document.querySelectorAll("details")].find((x) => x.innerText.includes(n));
       d.open = true;

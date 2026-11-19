@@ -290,6 +290,44 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     expect(new Set(tables.messages.filter(m => m.direction === 'inbound').map(m => tables.conversations.find(c => c.id === m.conversation_id)?.external_id))).toEqual(new Set(['5547911112222']));
   });
 
+  describe('áudio do cliente', () => {
+    const audio = (id: string) => msg(id, '', { message: { audioMessage: { mimetype: 'audio/ogg; codecs=opus' } } });
+    const aiOk = () => aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Claro, me conta o endereço?', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const route = (geminiStatus = 200) => vi.stubGlobal('fetch', vi.fn(async (url: string, init: { body?: string }) => {
+      if (url.includes('/chat/getBase64FromMediaMessage/')) return new Response(JSON.stringify({ base64: 'QUJD', mimetype: 'audio/ogg; codecs=opus' }), { status: 200 });
+      if (url.includes('generativelanguage.googleapis.com')) return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Quero um orçamento de calha para a minha casa' }] } }] }), { status: geminiStatus });
+      sent.push({ url, body: JSON.parse(init.body ?? '{}') });
+      return new Response('{}', { status: 200 });
+    }));
+    const lastUserText = () => String((aiReply.mock.calls.at(-1)?.[0] as { messages?: Array<{ role: string; content: string }> } | undefined)?.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? JSON.stringify(aiReply.mock.calls.at(-1)));
+
+    test('com chave do Gemini: transcreve, a Lia responde ao conteúdo e a equipe vê o texto', async () => {
+      const { encryptSecret } = await import('@/lib/encrypt');
+      tables.ai_agent_config[0].gemini_api_key = encryptSecret('gemini-key');
+      route(); aiOk(); aiReply.mockClear(); aiOk();
+      const { POST } = await import('@/app/api/whatsapp/webhook/route');
+      expect((await (await POST(evo(audio('a1')) as never)).json()).status).toBe('ok');
+      expect(lastUserText()).toContain('[áudio] Quero um orçamento de calha para a minha casa');
+      expect((tables.messages ?? []).find((m) => m.external_id === 'a1')?.body).toBe('[áudio] Quero um orçamento de calha para a minha casa');
+    });
+
+    test('sem chave (ou falha): a IA recebe só "[áudio]", a falha é registrada e nada é inventado', async () => {
+      route(); aiReply.mockClear(); aiOk();
+      const { POST } = await import('@/app/api/whatsapp/webhook/route');
+      await POST(evo(audio('a2')) as never);
+      expect(lastUserText()).not.toContain('orçamento de calha');
+      expect((tables.messages ?? []).find((m) => m.external_id === 'a2')?.body).toBe('[áudio]');
+      expect((tables.ai_decisions ?? []).some((d) => d.decisao === 'falhou' && String(d.motivo).includes('Áudio não transcrito'))).toBe(true);
+    });
+  });
+
+  test('cliente que pede para parar fica marcado e nenhuma automação escreve para ele', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Tudo bem, obrigada.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('o1', 'Não tenho interesse, pode parar de mandar mensagem')) as never);
+    expect(tables.conversations[0].ai_opt_out).toBe(true);
+  });
+
   test('grupo é ignorado', async () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     const res = await POST(evo(msg('e7', 'Oi', {}, { remoteJid: '1203@g.us' })) as never);

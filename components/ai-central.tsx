@@ -9,6 +9,7 @@ import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then(module => module.WhatsappConnect), { loading: () => <p role="status">Carregando conexão…</p> });
+const LiaFollowupSettings = dynamic(() => import("@/components/lia-followup-settings").then(module => module.LiaFollowupSettings), { loading: () => <p role="status">Carregando acompanhamento…</p> });
 const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da Lia…</p> });
 const LiaLearnedRules = dynamic(() => import("@/components/lia-learned-rules").then(module => module.LiaLearnedRules), { loading: () => <p role="status">Carregando regras ensinadas…</p> });
 const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
@@ -85,6 +86,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       </div>
 
       <LiaModeSettings />
+      <LiaFollowupSettings />
 
       <details className="card p-4" onToggle={event => setConnectionOpen(event.currentTarget.open)}>
         <summary className="cursor-pointer font-bold">Conexão do WhatsApp</summary>
