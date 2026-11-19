@@ -62,11 +62,12 @@ Administrador e gerente têm acesso total à própria empresa; o isolamento entr
 | `suppliers` | — | — | — | — | VCE | — | — | — | — |
 | `tasks` | — | — | VCE | VCE | — | — | — | VE | VCE |
 
-## Decisões de negócio pendentes (não assumi regra)
-| # | Pergunta | Hoje |
+## Decisões de negócio (19/11/2026)
+| # | Pergunta | Decisão |
 |---|---|---|
-| 1 | O **vendedor** deve ver só os clientes/orçamentos/vendas **dele** (atribuídos), ou todos da empresa? | Vê todos da empresa |
-| 2 | O **atendente** deve ver só as conversas atribuídas a ele, além do número que conectou? | Vê as conversas dos números que pode acessar |
-| 3 | Quem pode **exportar** e **imprimir** (relatórios, PDFs com valores)? | Segue o "ver" do recurso |
-| 4 | Gerente pode alterar cargos de administrador? | Não (só administrador) |
-| 5 | Custos e margem aparecem para o vendedor? | Conforme a coluna do recurso acima |
+| 1 | Vendedor vê só as vendas dele? | **Sim.** Vê só vendas, itens e pedidos em que ele é o vendedor. Quem tem também outro cargo (financeiro, produção, instalação, compras, estoque), gerente e administrador veem todas. Migração `20261119110000` |
+| 2 | Venda manual (sem orçamento) | Continua **VEN-…** |
+| 3 | Pintura no impresso | **Aparece com valor** (não é ocultada) |
+| 4 | Atendente: só conversas atribuídas? | Pendente (hoje vê as dos números que pode acessar) |
+| 5 | Quem exporta/imprime com valores? | Pendente (segue o "ver" do recurso) |
+| 6 | Gerente altera cargo de administrador? | Não (só administrador) |
