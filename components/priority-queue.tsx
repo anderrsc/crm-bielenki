@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ClipboardList, FileText, MessageCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList, Factory, FileText, MessageCircle, Ruler, Wrench } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
 import { waitingLabel, waitingSince } from "@/lib/inbox-waiting";
 import { cn } from "@/lib/utils";
@@ -15,10 +15,17 @@ export async function PriorityQueue() {
   const db = await getRequestClient();
   const week = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
   const threeDays = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
-  const [convs, pending, quotes] = await Promise.all([
+  // Início e fim do dia de hoje em Brasília: medições e instalações marcadas para hoje.
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const dayStart = new Date(`${ymd}T00:00:00-03:00`).toISOString(), dayEnd = new Date(`${ymd}T23:59:59-03:00`).toISOString();
+  const [convs, pending, quotes, measurements, installs, production, receivable] = await Promise.all([
     db.from("conversations").select("last_inbound_at,last_message_at,status,archived_at").eq("channel", "whatsapp").not("last_inbound_at", "is", null).gte("last_inbound_at", week).limit(1000),
     db.from("v_order_pending").select("order_id", { count: "exact", head: true }),
     db.from("quotes").select("id", { count: "exact", head: true }).eq("status", "enviado").is("sale_id", null).lte("sent_at", threeDays),
+    db.from("measurements").select("id", { count: "exact", head: true }).is("completed_at", null).not("status", "in", "(concluida,cancelada)").gte("scheduled_at", dayStart).lte("scheduled_at", dayEnd),
+    db.from("installations").select("id", { count: "exact", head: true }).is("completed_at", null).not("status", "in", "(concluida,cancelada)").gte("scheduled_at", dayStart).lte("scheduled_at", dayEnd),
+    db.from("production_orders").select("id", { count: "exact", head: true }).eq("status", "aguardando_material"),
+    db.from("financial_entries").select("id", { count: "exact", head: true }).eq("entry_type", "receber").gt("open_amount", 0).lt("due_date", ymd).neq("status", "cancelado"),
   ]);
   const items: Item[] = [];
   const waiting = ((convs.data ?? []) as Array<{ last_inbound_at: string; last_message_at: string | null; status: string | null; archived_at: string | null }>)
@@ -30,6 +37,15 @@ export async function PriorityQueue() {
   }
   if (!pending.error && (pending.count ?? 0) > 0) items.push({ key: "med", icon: ClipboardList, title: `${pending.count} pendência(s) de pedidos fechados`, detail: "Conferir medidas, agendar visita ou liberar corte", href: "/agenda" });
   if (!quotes.error && (quotes.count ?? 0) > 0) items.push({ key: "orc", icon: FileText, title: `${quotes.count} orçamento(s) sem retorno há 3 dias ou mais`, detail: "Consulte o cliente para esclarecer dúvidas", href: "/orcamentos" });
+
+  if (!measurements.error && (measurements.count ?? 0) > 0) items.push({ key: "hoje-med", icon: Ruler, title: `${measurements.count} medição(ões) marcada(s) para hoje`, detail: "Confira endereço e horário antes de sair", href: "/medicoes" });
+  if (!installs.error && (installs.count ?? 0) > 0) items.push({ key: "hoje-inst", icon: Wrench, title: `${installs.count} instalação(ões) marcada(s) para hoje`, detail: "Veja checklist, fotos e endereço", href: "/instalacoes" });
+  if (!production.error && (production.count ?? 0) > 0) items.push({ key: "prod", icon: Factory, title: `${production.count} ordem(ns) de produção aguardando material`, detail: "Receber o material libera o corte", href: "/producao" });
+  // Cobrança vencida só aparece para quem tem acesso ao financeiro (a consulta respeita o acesso de quem está logado).
+  if (!receivable.error && (receivable.count ?? 0) > 0) items.push({ key: "fin", icon: ClipboardList, title: `${receivable.count} conta(s) a receber vencida(s)`, detail: "Cobrar o cliente ou registrar o pagamento", href: "/financeiro/receber", urgent: true });
+  // Itens do dia e atrasos antes das demais pendências.
+  const order = ["fin", "chat", "hoje-med", "hoje-inst", "prod", "med", "orc"];
+  items.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   return (
     <section aria-label="O que fazer agora" className="card mb-6 p-5">

@@ -72,7 +72,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
       setInvoiceNote(msgs.join(" "));
     }} />
     {invoiceNote && <p className="mb-5 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-900">{invoiceNote}</p>}
-    <form onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 lg:grid-cols-[1fr_340px]">
+    <form data-warn-unsaved onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <input type="hidden" name="payload" value={payload} />
       <div className="space-y-4">
         <div className="card p-5"><label className="label" htmlFor="compra-fornecedor">Fornecedor</label>

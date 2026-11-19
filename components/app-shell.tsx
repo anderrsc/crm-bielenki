@@ -3,6 +3,9 @@ import { LiveSearchForm } from "./live-search-form";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { Toaster } from "./ui-feedback/toast";
 import { QuickCreateMenu } from "./quick-create-menu";
+import { Breadcrumbs } from "./breadcrumbs";
+import { SavedViews, SAVED_VIEW_PAGES } from "./saved-views";
+import { UnsavedGuard } from "./unsaved-guard";
 import { ConfirmHost } from "./ui-feedback/confirm";
 
 import { useMobile } from "@/lib/use-mobile";
@@ -78,7 +81,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
     <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd role="button" tabIndex={0} title="Comandos rápidos (Ctrl K)" style={{cursor:"pointer"}} onClick={()=>dispatchEvent(new Event("open-command-palette"))} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();dispatchEvent(new Event("open-command-palette"))}}}>Ctrl K</kbd></LiveSearchForm>
     <div className="topbar-actions">{current&&<button type="button" onClick={()=>toggleFav(current.href)} aria-pressed={favs.includes(current.href)} title={favs.includes(current.href)?"Tirar dos favoritos":"Fixar nos favoritos"} aria-label={favs.includes(current.href)?`Tirar ${current.label} dos favoritos`:`Fixar ${current.label} nos favoritos`} className="rounded-lg p-2 text-ink/50 hover:bg-cream hover:text-ink"><Star size={18} fill={favs.includes(current.href)?"currentColor":"none"}/></button>}<QuickCreateMenu items={CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href}))}/><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
-   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
+   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content"><Breadcrumbs pathname={pathname} sectionLabel={href=>flat.find(i=>i.href===href)?.label}/>{SAVED_VIEW_PAGES.includes(pathname)&&<Suspense fallback={null}><SavedViews/></Suspense>}{children}</main><UnsavedGuard/><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
    <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>

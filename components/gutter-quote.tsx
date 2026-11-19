@@ -400,7 +400,7 @@ export function GutterQuote({
       {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <nav className="quote-steps" aria-label="Etapas do orçamento"><a href="#quote-client">1. Cliente</a><a href="#quote-items">2. Itens</a><a href="#quote-attachments">3. Anexos internos</a><a href="#quote-conditions">4. Condições e revisão</a></nav>
-      <form action={initial ? updateGutterQuote : saveGutterQuote} onSubmit={rememberDraft} className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <form data-warn-unsaved action={initial ? updateGutterQuote : saveGutterQuote} onSubmit={rememberDraft} className="grid gap-5 xl:grid-cols-[1fr_340px]">
         {initial && <input type="hidden" name="quote_id" value={initial.id} />}
         <input type="hidden" name="payload" value={payload} />
         <input type="hidden" name="valid_until" value={validUntil} />
