@@ -184,3 +184,32 @@ Os 45 casos de "cálculos corretos" do repositório oficial serão os testes de 
 4. **Emissor:** podemos cotar um emissor homologado por API?
 5. **Contador:** quem vai fornecer e aprovar NCM, NBS, CST e cClassTrib por produto/serviço? Sem essa aprovação, o ERP só mostra a pendência.
 6. **Bielenki Metal:** ela será uma segunda empresa neste mesmo ERP, com os mesmos usuários? Isso define a fase de multiempresa.
+
+---
+
+## 10. Decisões do dono (19/11/2026)
+
+| Pergunta | Resposta | Consequência |
+|---|---|---|
+| Empresas | **Só a Marquinhos** usa e vai continuar usando o sistema | A fase de multiempresa por usuário **sai do plano**. O isolamento por empresa que já existe continua |
+| Regime | **Hoje Simples Nacional; em 2027, híbrido** | Ver abaixo |
+| Hospedagem | **Cotar outro servidor** (não usar o da Evolution) | Cotação abaixo |
+| Aprovação da classificação fiscal | **Financeiro** aprova | Permissão "aprovar classificação fiscal" para o cargo financeiro, além de administrador e gerente, com registro na auditoria |
+| Certificado | **Tem** | Falta confirmar se é **A1 (arquivo .pfx)** ou **A3 (token/cartão)**: emissão pela nuvem precisa de A1 |
+
+### Regime híbrido e qual motor usar
+- **Entendimento a confirmar com o contador:** "híbrido" = empresa do Simples Nacional que **opta por apurar o IBS e a CBS pelo regime regular** (fora do DAS), para o cliente poder aproveitar o crédito.
+- No motor do Simples (0.0.6) esse caso é **recusado de propósito**. O código diz: `tpRegimeIBSCBS = 1 (regime regular - fora do escopo deste endpoint)`. Ou seja, nesse caso o IBS e a CBS são calculados pelo **motor do Regime Regular**, que já foi compilado e testado (seção 3).
+- **2026 (Simples puro):** o cálculo caberia ao motor do Simples, que ainda não roda como publicado e exige a alíquota efetiva informada. Proposta: **não calcular IBS/CBS em 2026** e preparar o ERP para 2027. Antes de executar, isso precisa ser confirmado com o contador.
+
+### Cotação do servidor do motor (pesquisada em 19/11/2026; conferir na contratação)
+O motor precisa de **~500 MB de memória**, então o mínimo seguro é uma máquina de **1 GB**.
+
+| Opção | Preço aproximado | Região | Manutenção | Observação |
+|---|---|---|---|---|
+| **Fly.io**, shared-cpu-1x 1 GB | US$ 6,70/mês na tabela oficial (EUA); ~US$ 10,82 em São Paulo segundo um comparativo, **não confirmado na página oficial** | São Paulo disponível | Baixa: deploy do Docker pelo GitHub, HTTPS pronto | **Recomendado**: sem servidor para manter e pode ficar perto do banco (sa-east-1) |
+| Railway | ~US$ 10/GB/mês de memória + CPU; plano Hobby com mínimo de US$ 5 | EUA/Europa | Baixa | Conta por uso |
+| Render | US$ 25/mês (Standard 2 GB); o Starter de 512 MB é pouco para o motor | EUA/Europa | Baixa | Mais caro para o tamanho necessário |
+| VPS no Brasil (ex.: Locaweb 2 GB) | ~R$ 39,90/mês por um agregador (a própria página mostra promoção de R$ 21,90 e **renovação de R$ 124,72**) | Brasil | **Alta**: sistema, Docker, HTTPS e atualizações por nossa conta | O preço de renovação é o que vale |
+
+Fontes da cotação: docs.fly.io/about/pricing, docs.railway.com/pricing/plans, render.com/pricing e locaweb.com.br/servidor-vps. Também foram usados comparativos de terceiros (buildmvpfast.com, budgetforge.dev, whtop.com).
