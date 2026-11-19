@@ -250,3 +250,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 @media (prefers-reduced-motion: reduce) { .animate-spin { animation: spin 1.6s linear infinite !important; } }
 
 @media (max-width: 1023px) { .app-topbar { height: 60px; } .app-content { padding-top: 20px; } }
+
+/* ==== Tema claro (único): ajustes finos ==== */
+.sidebar-brand { padding: 18px 22px 14px; }
+.sidebar-brand .brand-logo-pair { max-width: 196px; }
+/* Assinatura já aparece no rodapé da página: a barra lateral fica mais livre para o menu. */
+@media (min-width: 1024px) { .sidebar-credit { display: none; } .sidebar-footer { padding: 8px 12px; } .sidebar-collapse { padding: 8px; } }
+/* Links de texto: sublinhado fino e afastado, menos peso visual. */
+.app-content a.underline { text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.app-content a.underline:hover { text-decoration-color: currentColor; }
+/* Fundo levemente acinzentado e bordas suaves: cartões brancos se destacam sem sombra pesada. */
+:root, [data-theme="light"] { --border: #E6E6E9; }
+.app-topbar { box-shadow: 0 1px 0 rgb(16 24 40 / .02); }
