@@ -1,15 +1,19 @@
 "use client";
 // Atendimento → "Cobrar via Pix": escolhe a conta, o que cobrar e 50%/100%; manda a mensagem e o copia e cola.
+// A cobrança fica registrada na conta escolhida (extrato da conta, "aguardando pagamento") até confirmarem o recebimento.
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { QrCode, Send } from "lucide-react";
+import { Check, QrCode, Send, X } from "lucide-react";
 import { sendInboxMessage } from "@/app/(crm)/atendimento-actions";
 import { listReceivingAccounts, type ReceivingAccount } from "@/app/(crm)/receiving-accounts-actions";
 import { pixChargeMessage, pixCopiaECola } from "@/lib/pix";
+import { cancelPixCharge, confirmPixCharge, listPixCharges, recordPixCharge, type PixChargeRow } from "@/app/(crm)/pix-charge-actions";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
-type Base = { key: string; label: string; what: string; value: number };
+type Base = { key: string; label: string; what: string; value: number; entryId?: string; quoteId?: string };
 
-export function PixCharge({ conversationId, clientName, contas, orcamentos, onSent }: {
+export function PixCharge({ conversationId, clientId, clientName, contas, orcamentos, onSent }: {
   conversationId: string;
+  clientId?: string | null;
   clientName: string;
   contas: Array<{ id: string; descricao: string; aberto: number }>;
   orcamentos: Array<{ id: string; numero: string; total: number }>;
@@ -19,14 +23,17 @@ export function PixCharge({ conversationId, clientName, contas, orcamentos, onSe
   const [accounts, setAccounts] = useState<ReceivingAccount[] | null>(null);
   const [accountId, setAccountId] = useState("");
   const bases: Base[] = useMemo(() => [
-    ...contas.filter((c) => c.aberto > 0).map((c) => ({ key: `c:${c.id}`, label: `Em aberto: ${c.descricao}`, what: c.descricao, value: c.aberto })),
-    ...orcamentos.filter((o) => o.total > 0).map((o) => ({ key: `o:${o.id}`, label: `Orçamento ${o.numero}`, what: `orçamento ${o.numero}`, value: o.total })),
+    ...contas.filter((c) => c.aberto > 0).map((c) => ({ key: `c:${c.id}`, label: `Em aberto: ${c.descricao}`, what: c.descricao, value: c.aberto, entryId: c.id })),
+    ...orcamentos.filter((o) => o.total > 0).map((o) => ({ key: `o:${o.id}`, label: `Orçamento ${o.numero}`, what: `orçamento ${o.numero}`, value: o.total, quoteId: o.id })),
   ], [contas, orcamentos]);
   const [baseKey, setBaseKey] = useState("");
   const [percent, setPercent] = useState<50 | 100 | null>(50);
   const [custom, setCustom] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [charges, setCharges] = useState<PixChargeRow[]>([]);
+  const reload = () => { listPixCharges({ conversationId }).then(setCharges).catch(() => undefined); };
+  useEffect(reload, [conversationId]);
 
   useEffect(() => {
     if (!open || accounts) return;
@@ -53,11 +60,16 @@ export function PixCharge({ conversationId, clientName, contas, orcamentos, onSe
       if (a.error) return setErro(a.error);
       const b = await sendInboxMessage(conversationId, code, { unsigned: true });
       if (b.error) return setErro(`Mensagem enviada, mas o copia e cola falhou: ${b.error}`);
-      setErro(null); setOpen(false); onSent();
+      // Registra na conta escolhida: aparece no extrato dela como "aguardando pagamento".
+      const what = base?.what ? `${percent ? `${percent}% do ` : ""}${base.what}` : "Cobrança Pix";
+      const r = await recordPixCharge({ accountId, amount, description: `${what.charAt(0).toUpperCase()}${what.slice(1)}`.slice(0, 200), conversationId, clientId: clientId ?? null, entryId: base?.entryId ?? null, quoteId: base?.quoteId ?? null });
+      if (!r.ok) return setErro(`Cobrança enviada, mas não foi registrada na conta: ${r.error}`);
+      setErro(null); setOpen(false); reload(); onSent();
     });
   }
 
-  if (!open) return <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white"><QrCode className="h-4 w-4" /> Cobrar via Pix</button>;
+  const list = <PixChargeList charges={charges} onChange={() => { reload(); onSent(); }} />;
+  if (!open) return <div className="space-y-2"><button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white"><QrCode className="h-4 w-4" /> Cobrar via Pix</button>{list}</div>;
 
   return (
     <div className="space-y-2 rounded-xl border border-sand/80 bg-cream/50 p-2 text-xs">
@@ -88,4 +100,38 @@ export function PixCharge({ conversationId, clientName, contas, orcamentos, onSe
       </div>
     </div>
   );
+}
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const STATUS = { aguardando: "Aguardando", recebida: "Recebida", cancelada: "Cancelada" } as const;
+
+/** Cobranças já enviadas: confirmar quando o Pix cair (entra na conta) ou cancelar. */
+export function PixChargeList({ charges, onChange, showAccount = true }: { charges: PixChargeRow[]; onChange: () => void; showAccount?: boolean }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  if (!charges.length) return null;
+  async function act(c: PixChargeRow, kind: "ok" | "cancel") {
+    const ok = await confirmAction(kind === "ok"
+      ? { title: "Confirmar recebimento", message: `O Pix de ${brl(c.amount)} caiu na conta ${c.account_name}? A entrada vai para o extrato dessa conta.`, confirmLabel: "Sim, recebi", danger: false }
+      : { title: "Cancelar cobrança", message: `Cancelar a cobrança de ${brl(c.amount)}? Nada muda no financeiro.`, confirmLabel: "Cancelar cobrança" });
+    if (!ok) return;
+    setBusy(c.id); setErro(null);
+    const r = kind === "ok" ? await confirmPixCharge(c.id) : await cancelPixCharge(c.id);
+    setBusy(null);
+    if (!r.ok) setErro(r.error); else onChange();
+  }
+  return <div className="space-y-1.5 text-xs" aria-label="Cobranças Pix enviadas">
+    <p className="font-bold text-ink/60">Cobranças Pix enviadas</p>
+    {charges.slice(0, 6).map((c) => <div key={c.id} className="rounded-lg border border-sand/80 bg-surface p-2">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0"><b>{brl(c.amount)}</b>{showAccount && <> · {c.account_name}</>}<span className="block truncate text-ink/55">{c.description}</span></span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${c.status === "recebida" ? "bg-emerald-50 text-emerald-700" : c.status === "cancelada" ? "bg-cream text-ink/50" : "bg-amber-50 text-amber-800"}`}>{STATUS[c.status]}</span>
+      </div>
+      {c.status === "aguardando" && <div className="mt-1.5 flex gap-1.5">
+        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "ok")} className="flex flex-1 items-center justify-center gap-1 rounded-md bg-forest px-2 py-1 font-bold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" />Recebido</button>
+        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "cancel")} className="flex items-center justify-center gap-1 rounded-md px-2 py-1 font-bold text-ink/60 disabled:opacity-50"><X className="h-3.5 w-3.5" />Cancelar</button>
+      </div>}
+    </div>)}
+    {erro && <p role="alert" className="rounded-md bg-red-50 p-2 text-red-700">{erro}</p>}
+  </div>;
 }

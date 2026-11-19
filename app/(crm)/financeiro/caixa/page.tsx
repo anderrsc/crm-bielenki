@@ -14,10 +14,14 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   const days = Math.min(366, Math.max(1, Number.parseInt(search.dias ?? "30", 10) || 30));
   const scenario: ScenarioKey = keys.includes(search.cenario as ScenarioKey) ? (search.cenario as ScenarioKey) : "provavel";
   const db = await getRequestClient();
-  const [{ data, error }, { data: allowed }] = await Promise.all([
+  const [{ data, error }, { data: allowed }, { data: charges }] = await Promise.all([
     db.rpc("cash_overview", { p_days: days }),
     db.rpc("has_table_access", { resource: "financial_entries", action: "update" }),
+    db.from("pix_charges").select("receiving_account_id,amount").eq("status", "aguardando").limit(1000),
   ]);
+  // Cobranças Pix enviadas e ainda não confirmadas, por conta (não somam no saldo).
+  const waiting = new Map<string, { n: number; total: number }>();
+  for (const c of charges ?? []) { const w = waiting.get(c.receiving_account_id) ?? { n: 0, total: 0 }; w.n++; w.total += Number(c.amount); waiting.set(c.receiving_account_id, w); }
   const back = <Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link>;
   if (error || !data) return <div className="mx-auto max-w-5xl space-y-4">{back}<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">Não foi possível carregar o caixa. Atualize a página.</p></div>;
   const overview = data as CashOverview;
@@ -53,6 +57,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
             <p className={`text-lg font-black ${tone(Number(a.balance))}`}>{money(a.balance)}</p>
           </div>
           <p className="mt-1 text-xs text-ink/60">Inicial {money(a.opening_balance)}{a.opening_date ? ` em ${shortDate(a.opening_date)}` : ""} · entradas {money(a.inflow)} · saídas {money(a.outflow)}</p>
+          {waiting.get(a.id) && <Link href={`/financeiro/extrato?conta=${a.id}`} className="mt-1 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">{waiting.get(a.id)!.n} cobrança{waiting.get(a.id)!.n === 1 ? "" : "s"} Pix aguardando: {money(waiting.get(a.id)!.total)} →</Link>}
           {allowed === true && <form action={saveOpeningBalance} className="mt-3 flex flex-wrap items-end gap-2">
             <input type="hidden" name="account_id" value={a.id} />
             <label><span className="label">Saldo inicial</span><input className="field w-36" name="opening_balance" inputMode="decimal" defaultValue={Number(a.opening_balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} aria-label={`Saldo inicial de ${a.name}`} /></label>

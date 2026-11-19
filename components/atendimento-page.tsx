@@ -730,7 +730,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
 
       {panel.canViewFinancial === true && <div className="card p-3">
         <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
-        <div className="mb-2"><PixCharge conversationId={conversationId} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
+        <div className="mb-2"><PixCharge conversationId={conversationId} clientId={client.id} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
         <ul className="space-y-2">
           {abertas.map((e) => (
