@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { ArrowDownLeft, ArrowUpRight, MessagesSquare } from "lucide-react";
 import {
   channelRecentMessages, type ChannelMessage,
-  addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, renameWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
+  addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, renameWhatsappChannel, restartWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
   type ChannelRow,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
@@ -132,7 +132,7 @@ function Canal({ c, team, pending, run, onQr }: {
         </span>
       </div>
       <p className="text-xs text-ink/60">
-        {c.phone ? `${c.phone} · ` : ""}{c.isDefault || c.shared ? "Toda a equipe vê" : `De ${c.mine ? "você" : c.ownerName ?? "—"}`} · última mensagem {quando(c.lastEventAt)} · sincronizado {quando(c.lastSyncAt)}
+        {c.phone ? `${c.phone} · ` : ""}{c.isDefault || c.shared ? "Toda a equipe vê" : `De ${c.mine ? "você" : c.ownerName ?? "—"}`} · última mensagem {quando(c.lastEventAt)} · sincronizado {quando(c.lastSyncAt)}{c.lastRestartAt ? ` · reiniciado ${quando(c.lastRestartAt)}` : ""}
       </p>
       <Saude c={c} />
       <Mensagens c={c} />
@@ -164,6 +164,15 @@ function Canal({ c, team, pending, run, onQr }: {
           <button onClick={() => setEditando((v) => !v)} className="rounded-lg bg-cream px-3 py-1.5">Renomear</button>
           {c.active && <button disabled={pending} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-red-600"
             onClick={() => { void confirmAction({ title: "Desconectar número", message: `Desconectar "${c.name}"? O histórico continua no CRM.`, confirmLabel: "Desconectar" }).then((ok) => { if (ok) run(() => disconnectWhatsappChannel(c.id), "Número desconectado."); }); }}>Desconectar</button>}
+        </div>
+      )}
+      {c.canManage && c.provider === "evolution" && c.active && (
+        <div className="rounded-lg bg-cream/60 p-2 text-xs">
+          <p className="text-ink/65">As mensagens pararam de entrar, mas o número aparece conectado? Reinicie a conexão: não desconecta e não pede QR. O CRM também faz isso sozinho quando fica 20 min sem receber nada no expediente.</p>
+          <button disabled={pending} className="mt-1.5 rounded-lg bg-forest px-3 py-1.5 font-bold text-white disabled:opacity-60"
+            onClick={() => run(() => restartWhatsappChannel(c.id), "Conexão reiniciada. As mensagens que ficaram paradas entram em instantes; se o número não voltar como Conectado em 1 minuto, leia o QR de novo.")}>
+            {pending ? "Reiniciando…" : "Reiniciar conexão"}
+          </button>
         </div>
       )}
       {c.isDefault && <p className="text-xs text-ink/50">O número principal é conectado na seção "Conexão do número principal", no topo desta tela.</p>}

@@ -70,6 +70,21 @@ export async function evolutionQr(base: string, apiKey: string, instance: string
   return { qr: data?.base64 ?? data?.qrcode?.base64 ?? null, pairingCode: data?.pairingCode ?? null };
 }
 
+/**
+ * Reinicia a conexão do número no servidor da Evolution, sem desconectar o WhatsApp (não pede QR).
+ * Resolve a conexão "zumbi": aparece como conectada, mas parou de receber mensagens.
+ * Ao voltar, o WhatsApp entrega ao servidor o que chegou enquanto ela estava parada.
+ */
+export async function evolutionRestart(base: string, apiKey: string, instance: string) {
+  const path = `/instance/restart/${encodeURIComponent(instance)}`;
+  try { await call(base, apiKey, path, { method: "POST" }); }
+  catch (e) {
+    // Versões antigas da Evolution usam PUT nesta rota.
+    if (e instanceof EvolutionError && /HTTP (404|405)/.test(e.message)) await call(base, apiKey, path, { method: "PUT" });
+    else throw e;
+  }
+}
+
 export async function evolutionLogout(base: string, apiKey: string, instance: string) {
   await call(base, apiKey, `/instance/logout/${encodeURIComponent(instance)}`, { method: "DELETE" });
 }
