@@ -39,6 +39,7 @@
     "/agente-ia",
     "/central-ia",
     "/atendimento",
+    "/atendimento/canais",
     "/relatorios",
     "/auditoria",
     "/configuracoes",
