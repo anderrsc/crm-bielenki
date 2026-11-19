@@ -22,7 +22,7 @@ async function noOverflow(label){const d=await page.evaluate(()=>({width:innerWi
 test('mobile: core modules fit 320px and 430px without page-wide scrolling', {timeout:180000},async()=>{
  for(const width of [320,430]){
   await page.setViewport({width,height:932,isMobile:true,hasTouch:true,deviceScaleFactor:1});
-  await page.evaluate(theme=>{localStorage.setItem('marquinhos-theme',theme);document.documentElement.dataset.theme=theme},width===430?'light':'dark');
+  await page.evaluate(theme=>{localStorage.setItem('marquinhos-theme',theme);document.documentElement.dataset.theme=theme},'light');
   for(const route of ['/dashboard','/clientes','/orcamentos','/pipeline','/financeiro','/agenda','/medicoes','/atendimento']){
    const r=await visit(page,route);assert.equal(r.error,null,`${width}px ${route}: ${r.error}`);assert.equal(r.status,200);await noOverflow(`${width}px ${route}`);
    const bell=await page.$eval('button[aria-label^="Avisos"]',b=>{const r=b.getBoundingClientRect();return {visible:getComputedStyle(b).display!=='none',w:r.width,x:r.left,right:r.right}});

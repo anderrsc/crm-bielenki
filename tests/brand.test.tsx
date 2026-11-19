@@ -1,18 +1,15 @@
 // @vitest-environment jsdom
 import {afterEach,expect,test,vi} from 'vitest';
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
-import {ThemeToggle} from '@/components/theme-toggle';
 import {DraftQuoteAttachments} from '@/components/quote-attachments';
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock('@/app/(crm)/quote-attachment-actions',()=>({uploadQuoteAttachments:vi.fn(),downloadQuoteAttachment:vi.fn(),removeQuoteAttachment:vi.fn()}));
 afterEach(()=>{cleanup();localStorage.clear()});
-test('theme changes and persists the current choice',()=>{
- document.documentElement.dataset.theme='dark';render(<ThemeToggle/>);
- fireEvent.click(screen.getByRole('button',{name:'Ativar tema claro'}));
- expect(document.documentElement.dataset.theme).toBe('light');
- expect(localStorage.getItem('marquinhos-theme')).toBe('light');
- fireEvent.click(screen.getByRole('button',{name:'Ativar tema escuro'}));
- expect(localStorage.getItem('marquinhos-theme')).toBe('dark');
+test('o sistema usa sempre o tema claro (sem alternância)',async()=>{
+ const fs=await import('node:fs');
+ const layout=fs.readFileSync('app/layout.tsx','utf8');
+ expect(layout).toContain('data-theme="light"');
+ expect(layout).not.toContain('marquinhos-theme');
 });
 test('quote file field accepts multiple internal reference documents',()=>{
  const {container}=render(<DraftQuoteAttachments/>);

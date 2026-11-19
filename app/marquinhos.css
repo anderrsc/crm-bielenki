@@ -194,7 +194,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* ==== Refino visual v2 (guia Atlas UX/UI): mais sóbrio, denso e legível ==== */
 /* Superfícies: cartões com borda mais suave e um leve realce superior; sem "pulo" ao passar o mouse. */
 .card { border-radius: 14px; border-color: color-mix(in srgb, var(--border) 85%, transparent); }
-[data-theme="dark"] .card, :root:not([data-theme="light"]) .card { box-shadow: inset 0 1px 0 rgb(255 255 255 / .035), 0 1px 2px rgb(0 0 0 / .35); }
 [data-theme="light"] .card { box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .04); }
 .card:has(> a):hover { transform: none; border-color: var(--text-muted); }
 [data-theme="light"] { --bg: #F6F6F7; }
