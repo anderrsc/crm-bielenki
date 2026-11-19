@@ -86,7 +86,8 @@ test("cadastrar cliente", async () => {
   state.clientId = page.url().split("/").pop();
   const savedClient=(await db.query('select name from clients where id=$1',[state.clientId])).rows[0];
   assert.equal(savedClient?.name,CLIENT,'nome do cliente deve preservar palavras e espaços');
-  assert.ok((await page.content()).includes(CLIENT));
+  // A tela do cliente chega em partes (esboço de carregamento primeiro): espera o nome aparecer.
+  await page.waitForFunction((n) => document.body.innerText.includes(n), { timeout: 15000 }, CLIENT);
   const { rows: leads } = await db.query("select l.client_id, s.name from leads l join pipeline_stages s on s.id = l.stage_id where l.client_id = $1", [state.clientId]);
   assert.equal(leads.length, 1, "cadastro deve lancar o cliente no pipeline");
   assert.equal(leads[0].name, "Novo lead");
