@@ -10,13 +10,14 @@ import { z } from "zod";
 import { createClient as createAdmin, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecret, encryptSecret } from "@/lib/encrypt";
-import { ensureEvolutionInstance, evolutionLogout, evolutionOwnerPhone, evolutionQr, evolutionState } from "@/lib/whatsapp/evolution";
+import { ensureEvolutionInstance, evolutionLogout, evolutionOwnerPhone, evolutionQr, evolutionRestart, evolutionState } from "@/lib/whatsapp/evolution";
+import { syncRecentEvolutionMessages } from "@/lib/whatsapp/evolution-history";
 
 type Result<T = object> = ({ ok: true } & T) | { ok?: false; error: string };
 const fail = (e: unknown) => ({ error: e instanceof Error ? e.message : String(e) });
 export type ChannelRow = {
   id: string; name: string; provider: string; instance: string | null; phone: string | null; isDefault: boolean; shared: boolean;
-  active: boolean; status: string | null; lastEventAt: string | null; lastSyncAt: string | null;
+  active: boolean; status: string | null; lastEventAt: string | null; lastRestartAt: string | null; lastSyncAt: string | null;
   ownerId: string | null; ownerName: string | null; mine: boolean; canManage: boolean; members: Array<{ id: string; name: string }>;
   /** Saúde do número (últimas 24 h / 7 dias). */
   lastInboundAt: string | null; failed24h: number; unconfirmed24h: number; waitingOver2h: number;
@@ -75,7 +76,7 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
     }
     const [{ data: visible }, { data: chans }, { data: members }, { data: team }] = await Promise.all([
       ctx.db.rpc("my_whatsapp_channels"),
-      ctx.admin.from("whatsapp_channels").select("id,name,provider,instance,phone_display,phone_number_id,is_default,shared,active,status,last_event_at,last_sync_at,owner_id").eq("company_id", ctx.companyId).is("deleted_at", null).order("is_default", { ascending: false }).order("created_at"),
+      ctx.admin.from("whatsapp_channels").select("id,name,provider,instance,phone_display,phone_number_id,is_default,shared,active,status,last_event_at,last_message_event_at,last_restart_at,last_sync_at,owner_id").eq("company_id", ctx.companyId).is("deleted_at", null).order("is_default", { ascending: false }).order("created_at"),
       ctx.admin.from("whatsapp_channel_members").select("channel_id,profile_id").eq("company_id", ctx.companyId),
       ctx.admin.from("profiles").select("id,full_name").eq("company_id", ctx.companyId).eq("status", "ativo").order("full_name"),
     ]);
@@ -103,7 +104,7 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
     const allowed = new Set((visible as string[] | null) ?? []);
     const channels = ((chans ?? []) as Array<Record<string, any>>).filter((c) => allowed.has(c.id)).map((c) => ({
       id: c.id, name: c.name, provider: c.provider, instance: c.instance, phone: c.phone_display ?? c.phone_number_id ?? null,
-      isDefault: !!c.is_default, shared: !!c.shared, active: !!c.active, status: c.status ?? null, lastEventAt: c.last_event_at ?? null, lastSyncAt: c.last_sync_at ?? null,
+      isDefault: !!c.is_default, shared: !!c.shared, active: !!c.active, status: c.status ?? null, lastEventAt: c.last_message_event_at ?? c.last_event_at ?? null, lastRestartAt: c.last_restart_at ?? null, lastSyncAt: c.last_sync_at ?? null,
       ownerId: c.owner_id ?? null, ownerName: c.owner_id ? names.get(c.owner_id) ?? null : null, mine: c.owner_id === ctx.userId,
       canManage: ctx.manager || c.owner_id === ctx.userId,
       lastInboundAt: health.get(c.id)?.last ?? null, failed24h: health.get(c.id)?.failed ?? 0, unconfirmed24h: health.get(c.id)?.unconfirmed ?? 0, waitingOver2h: health.get(c.id)?.waiting ?? 0,
@@ -159,6 +160,36 @@ export async function whatsappChannelQr(id: string): Promise<Result<{ state: str
     const { qr, pairingCode } = await evolutionQr(apiUrl, apiKey, ch.instance);
     await ctx.admin.from("whatsapp_channels").update({ status: state }).eq("id", ch.id);
     return { ok: true, state, qr, pairingCode, phone: null };
+  } catch (e) { return fail(e); }
+}
+
+/**
+ * Reinicia a conexão do número sem desconectar (não pede QR). Resolve quando o número aparece
+ * conectado mas as mensagens pararam de entrar. Depois busca as mensagens recentes.
+ */
+export async function restartWhatsappChannel(id: string): Promise<Result<{ state: string; inserted: number }>> {
+  try {
+    const ctx = await context();
+    const { ch, canManage } = await ownChannel(ctx, id);
+    if (!canManage) return { error: "Só quem conectou o número ou a gerência pode reiniciar." };
+    if (ch.provider !== "evolution") return { error: "Este número usa a API oficial da Meta (não precisa reiniciar)." };
+    const { url, key } = await server(ctx.admin, ctx.companyId);
+    const apiUrl = ch.api_url || url; const apiKey = ch.api_key ? decryptSecret(ch.api_key) : key;
+    await evolutionRestart(apiUrl, apiKey, ch.instance);
+    const at = new Date().toISOString();
+    await ctx.admin.from("whatsapp_channels").update({ last_restart_at: at, updated_at: at }).eq("id", ch.id);
+    await ctx.admin.from("audit_logs").insert({ company_id: ctx.companyId, profile_id: ctx.userId, table_name: "whatsapp_channels", record_id: ch.id, action: "RESTART", new_data: { name: ch.name } });
+    // A conexão volta em poucos segundos; espera um pouco e já traz o que chegou.
+    let state = "connecting";
+    for (let i = 0; i < 6 && state !== "open"; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      state = await evolutionState(apiUrl, apiKey, ch.instance).catch(() => "connecting");
+    }
+    let inserted = 0;
+    if (state === "open") inserted = (await syncRecentEvolutionMessages(ctx.admin, ctx.companyId, apiUrl, apiKey, ch.instance, ch.id, { maxPages: 5 }).catch(() => ({ inserted: 0 }))).inserted;
+    await ctx.admin.from("whatsapp_channels").update({ status: state }).eq("id", ch.id);
+    revalidatePath("/atendimento/canais"); revalidatePath("/atendimento");
+    return { ok: true, state, inserted };
   } catch (e) { return fail(e); }
 }
 

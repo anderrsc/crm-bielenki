@@ -2,7 +2,8 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
-import { evolutionState } from '@/lib/whatsapp/evolution';
+import { evolutionRestart, evolutionState } from '@/lib/whatsapp/evolution';
+import { shouldRestart } from '@/lib/whatsapp/watchdog';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
 import { runLiaFollowups } from '@/lib/lia-followups';
@@ -26,7 +27,7 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
   }
   // Reconciliação automática das mensagens recentes de cada número (canal), mesmo com
   // ninguém no Atendimento. Só grava como histórico: não dispara a Lia nem muda atribuição.
-  const { data: channels } = await db.from('whatsapp_channels').select('id,company_id,name,provider,instance,phone_number_id,phone_display,api_url,api_key,meta_token,webhook_secret,is_default,active')
+  const { data: channels } = await db.from('whatsapp_channels').select('id,company_id,name,provider,instance,phone_number_id,phone_display,api_url,api_key,meta_token,webhook_secret,is_default,active,last_event_at,last_message_event_at,last_restart_at,restart_count')
     .eq('provider', 'evolution').eq('active', true).is('deleted_at', null);
   const byCompany = new Map((agents ?? []).map((a) => [a.company_id as string, a]));
   for (const ch of (channels ?? []) as WhatsappChannel[]) {
@@ -37,6 +38,20 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch(() => 'unreachable');
     await db.from('whatsapp_channels').update({ status: state, updated_at: new Date().toISOString() }).eq('id', ch.id);
     if (state !== 'open') continue;
+    // Conexão "zumbi": diz que está conectada, mas nenhum evento de mensagem chega há 20 min no
+    // expediente. Reinicia (sem pedir QR); o WhatsApp entrega o que ficou parado e a próxima
+    // reconciliação grava no Atendimento.
+    const row = ch as WhatsappChannel & { last_event_at?: string | null; last_message_event_at?: string | null; last_restart_at?: string | null; restart_count?: number };
+    if (shouldRestart({ state, lastMessageEventAt: row.last_message_event_at ?? row.last_event_at ?? null, lastRestartAt: row.last_restart_at ?? null, now: new Date() })) {
+      try {
+        await evolutionRestart(c.evolutionUrl, c.evolutionKey, c.evolutionInstance);
+        const at = new Date().toISOString();
+        await db.from('whatsapp_channels').update({ last_restart_at: at, restart_count: (row.restart_count ?? 0) + 1 }).eq('id', ch.id);
+        await db.from('audit_logs').insert({ company_id: ch.company_id, table_name: 'whatsapp_channels', record_id: ch.id, action: 'AUTO_RESTART', new_data: { name: ch.name, motivo: 'sem mensagens há 20 min com a conexão aberta' } });
+        await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-restart:${ch.id}:${at.slice(0, 16)}`, p_title: 'WhatsApp reiniciado', p_body: `O número ${ch.name} parou de receber mensagens e a conexão foi reiniciada sozinha. As mensagens paradas entram em seguida.`, p_link: '/atendimento/canais' }).then(() => undefined, () => undefined);
+      } catch (e) { console.error('Reiniciar WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
+      continue;
+    }
     try {
       const r = await syncRecentEvolutionMessages(db, ch.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 5 });
       const now = new Date().toISOString();

@@ -252,7 +252,13 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
         return NextResponse.json({ error: "Invalid Evolution webhook secret" }, { status: 401 });
       }
       if (channel && channel.active === false) return NextResponse.json({ status: "channel_inactive" });
-      if (channel) await getSupabase().from("whatsapp_channels").update({ last_event_at: new Date().toISOString() }).eq("id", channel.id).then(() => undefined, () => undefined);
+      if (channel) {
+        // Evento de conexão não prova que as mensagens estão chegando: o vigia olha só os de mensagem.
+        const now = new Date().toISOString();
+        const isConnection = /connection/i.test(String(payload?.event ?? ""));
+        await getSupabase().from("whatsapp_channels").update(isConnection ? { last_event_at: now } : { last_event_at: now, last_message_event_at: now })
+          .eq("id", channel.id).then(() => undefined, () => undefined);
+      }
     }
     // Empresa dona da instância da Evolution (canal novo ou conexão antiga).
     const instanceCompany = async (): Promise<{ company_id: string } | null> => {
