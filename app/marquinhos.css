@@ -262,3 +262,5 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:fo
 /* Fundo levemente acinzentado e bordas suaves: cartões brancos se destacam sem sombra pesada. */
 :root, [data-theme="light"] { --border: #E6E6E9; }
 .app-topbar { box-shadow: 0 1px 0 rgb(16 24 40 / .02); }
+/* Subtítulos: a fonte de display com espaçamento negativo só fica bem nos títulos grandes. */
+h2, h3 { letter-spacing: -.012em; }
