@@ -17,6 +17,10 @@ describe('Evolution', () => {
     expect(s).toContain('SERVER_URL: https://${HOST}');
     expect(s).toContain('{$HOST} {');
     expect(() => evolutionCloudInit('chave com espaço')).toThrow();
+    // O script roda no bash do Ubuntu: nada de PowerShell (Start-Sleep, Out-String...).
+    expect(s).not.toMatch(/Start-Sleep|Out-String|Out-Null|Write-Host/);
+    const { execFileSync } = require('node:child_process');
+    expect(() => execFileSync('bash', ['-n'], { input: s })).not.toThrow();
     // A Oracle recusa script com caractere fora do ASCII ("Incorrectly formatted request").
     expect([...s].every(c => c.charCodeAt(0) < 128)).toBe(true);
   });

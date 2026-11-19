@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
   const hook = cfg?.evolution_webhook_secret ? decryptSecret(cfg.evolution_webhook_secret) : "";
   if (!cfg || !same(req.headers.get("x-webhook-secret") ?? "", hook)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  // Servidor fixo (Oracle/VPS) ligado pela Central de IA tem prioridade: o PC
+  // continua avisando o túnel a cada minuto e não pode desfazer a troca.
+  if (cfg.evolution_api_url && !isTunnelUrl(cfg.evolution_api_url)) return NextResponse.json({ ok: true, ignored: "servidor_fixo" });
+
   const unchanged = cfg.evolution_api_url === url;
   if (!unchanged) {
     const { error: saveError } = await db.from("ai_agent_config")

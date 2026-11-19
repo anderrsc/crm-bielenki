@@ -203,13 +203,13 @@ YML
 # nao conseguir entrar nele (senha antiga de uma instalacao anterior), recria o banco.
 docker compose pull
 docker compose up -d
-Start-Sleep -Seconds 25
-if ((docker compose logs evolution --tail 80 2>&1 | Out-String) -match "password authentication failed|P1000|Authentication failed against database") {
-  Write-Host "Banco antigo com outra senha: recriando o banco do WhatsApp..." -ForegroundColor Yellow
+sleep 25
+if docker compose logs evolution --tail 80 2>&1 | grep -qE "password authentication failed|P1000|Authentication failed against database"; then
+  echo "Banco antigo com outra senha: recriando o banco do WhatsApp..."
   docker compose down
-  docker volume rm -f evolution-crm_pgdata | Out-Null
+  docker volume rm -f evolution_pgdata > /dev/null
   docker compose up -d
-}
+fi
 echo "PRONTO: https://$HOST"
 `;
 }

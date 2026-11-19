@@ -143,8 +143,8 @@ export function WhatsappConnect() {
               {setup.onPc && (setup.stateError || setup.state === null || setup.state === "unknown") && (
                 <button disabled={pending} onClick={() => run(() => saveEvolutionServer(""), "Servidor do PC ligado ao CRM.")} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{pending ? "Testando…" : "Ligar servidor do PC ao CRM"}</button>
               )}
-              {!setup.onPc && <div className="flex gap-2">
-                <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="IP público da instância (ex.: 129.146.10.20)" className="field flex-1" />
+              {(!setup.onPc || onde === "oracle") && <div className="flex gap-2">
+                <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="IP público do servidor (Oracle ou VPS, ex.: 129.146.10.20)" className="field flex-1" />
                 <button disabled={pending || !ip.trim()} onClick={() => run(() => saveEvolutionServer(ip), "Servidor ligado ao CRM.")} className="rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{pending ? "Testando…" : "Testar e salvar"}</button>
               </div>}
             </Passo>
