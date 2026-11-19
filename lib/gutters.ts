@@ -23,7 +23,6 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Rufo de Cumeeira",
     "Rufo Sobre Calha",
     "Rufo para Chaminé",
-    "Rufo colarinho",
   ],
   "Pingadeiras": [
     "Pingadeira",
