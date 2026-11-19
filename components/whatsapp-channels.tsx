@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then((m) => m.WhatsappConnect), { loading: () => <p role="status" className="text-sm text-ink/55">Carregando conexão…</p> });
 import { confirmAction } from "@/components/ui-feedback/confirm";
 
-const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Conectado" };
+const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Aguardando conferência", unreachable: "Servidor sem resposta" };
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
 export function WhatsappChannels() {
@@ -70,7 +70,7 @@ export function WhatsappChannels() {
       {msg && <p className="rounded-lg bg-green-500/10 p-2 text-sm text-green-600">{msg}</p>}
 
       {manager && (
-        <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && (c.status === "open" || c.status === "migrado"))}>
+        <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && c.status === "open")}>
           <summary className="cursor-pointer font-bold">Conexão do número principal (servidor da empresa)</summary>
           <p className="mt-1 text-xs text-ink/55">Servidor do WhatsApp (Evolution), chave e QR do número principal. Os outros números usam este mesmo servidor.</p>
           <div className="mt-3"><WhatsappConnect /></div>
@@ -110,7 +110,8 @@ function Canal({ c, team, pending, run, onQr }: {
   c: ChannelRow; team: Array<{ id: string; name: string }>; pending: boolean;
   run: (fn: () => Promise<{ error?: string } | object>, ok?: string) => void; onQr: () => void;
 }) {
-  const conectado = c.active && (c.status === "open" || c.status === "migrado");
+  // Só "conectado" depois que a rotina conferiu de verdade (status "open"); nunca por suposição.
+  const conectado = c.active && c.status === "open";
   const [editando, setEditando] = useState(false);
   const [nome, setNome] = useState(c.name);
   const [quem, setQuem] = useState("");
@@ -165,7 +166,7 @@ function Canal({ c, team, pending, run, onQr }: {
             onClick={() => { void confirmAction({ title: "Desconectar número", message: `Desconectar "${c.name}"? O histórico continua no CRM.`, confirmLabel: "Desconectar" }).then((ok) => { if (ok) run(() => disconnectWhatsappChannel(c.id), "Número desconectado."); }); }}>Desconectar</button>}
         </div>
       )}
-      {c.isDefault && <p className="text-xs text-ink/50">O número principal é gerenciado na Central de IA.</p>}
+      {c.isDefault && <p className="text-xs text-ink/50">O número principal é conectado na seção "Conexão do número principal", no topo desta tela.</p>}
     </div>
   );
 }
@@ -174,9 +175,9 @@ function Canal({ c, team, pending, run, onQr }: {
 function Saude({ c }: { c: ChannelRow }) {
   const idade = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000)) : null);
   const sync = idade(c.lastSyncAt);
-  const aberto = c.status === "open" || c.status === "migrado";
+  const aberto = c.status === "open";
   // A rotina confere o servidor a cada poucos minutos: sem conferência recente = sem resposta.
-  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
+  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !c.lastSyncAt ? { ok: false, t: "Ainda não conferido pela rotina (aguarde alguns minutos)" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
   const ultima = idade(c.lastInboundAt);
   const tempo = ultima === null ? "nenhuma nos últimos 7 dias" : ultima < 60 ? `há ${ultima} min` : ultima < 1440 ? `há ${Math.floor(ultima / 60)} h` : `há ${Math.floor(ultima / 1440)} dia(s)`;
   const item = "rounded-lg bg-cream px-2.5 py-1.5";

@@ -68,8 +68,8 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
       label: "WhatsApp (Evolution)",
       ok: evolution,
       detail: evolution ? "Servidor configurado — veja a conexão abaixo"
-        : !has(cfg.evolution_api_url) ? "O servidor do WhatsApp ainda não mandou o endereço: deixe o PC (ou a nuvem) com o servidor ligado — passo a passo no quadro abaixo"
-        : "Falta concluir a conexão no quadro abaixo (chave ou instância)",
+        : !has(cfg.evolution_api_url) ? "O servidor do WhatsApp ainda não mandou o endereço: deixe o PC (ou a nuvem) com o servidor ligado — passo a passo em WhatsApp (menu lateral)"
+        : "Falta concluir a conexão em WhatsApp, no menu lateral (chave ou instância)",
     });
   }
 

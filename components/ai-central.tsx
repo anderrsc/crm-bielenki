@@ -56,7 +56,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </div>
         <form action={setAiAgentActive}>
           <input type="hidden" name="active" value={data.active ? "0" : "1"} />
-          <button className={cn("flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold", data.active ? "bg-red-600 text-white" : "bg-brand-strong text-forest")}>
+          <button className={cn("flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold", data.active ? "bg-red-600 text-white" : "bg-brand-strong text-white")}>
             {data.active ? <><Pause className="h-4 w-4" /> Pausar {data.agentName}</> : <><Play className="h-4 w-4" /> Ativar {data.agentName}</>}
           </button>
         </form>
