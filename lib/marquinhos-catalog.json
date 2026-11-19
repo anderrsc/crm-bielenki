@@ -179,6 +179,31 @@
       "model": "pecas-3d.html#pingadeira-rufo-inclinado"
     },
     {
+      "id": "sobrecalha",
+      "code": "21",
+      "name": "Sobrecalha",
+      "category": "Rufos",
+      "aliases": [
+        "Rufo Sobre Calha",
+        "Rufo Sobrecalha",
+        "Sobre Calha",
+        "Rufo de Sobrecalha"
+      ],
+      "model": "pecas-3d.html#sobrecalha"
+    },
+    {
+      "id": "rufo-colarinho",
+      "code": "22",
+      "name": "Rufo colarinho",
+      "category": "Rufos",
+      "aliases": [
+        "Rufo de colarinho",
+        "Colarinho",
+        "Colarinho para Chaminé"
+      ],
+      "model": "pecas-3d.html#rufo-colarinho"
+    },
+    {
       "id": "tubo-silicone",
       "code": "22",
       "name": "Tubo de Silicone",
