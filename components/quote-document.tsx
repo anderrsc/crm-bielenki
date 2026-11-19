@@ -116,8 +116,11 @@ function formatCompanyTaxId(value?: string | null) {
   return digits.length === 14 ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : text;
 }
 
+/** Serviços cujo valor individual pode sumir do impresso: deslocamento, mão de obra, instalação e visita técnica. */
+const HIDDEN_SERVICE_TERMS = ["deslocamento", "mao de obra", "instalacao", "visita tecnica"];
 function isTravelItem(item: { product?: string | null }) {
-  return normalizeLabel(String(item.product ?? "")).includes("deslocamento");
+  const name = normalizeLabel(String(item.product ?? ""));
+  return HIDDEN_SERVICE_TERMS.some((term) => name.includes(term));
 }
 
 function normalizeLabel(value: string) {
@@ -276,7 +279,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     : ["pix", "cartao", "cheque", "dinheiro"];
   const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : availablePayments;
   const hideUnitPrices = quote.hide_unit_prices ?? false;
-  // Deslocamento aparece como "Incluso", sem valor (padrao), a nao ser que o orcamento peca para mostrar.
+  // Deslocamento, mao de obra, instalacao e visita tecnica aparecem como "Incluso", sem valor (padrao), a nao ser que o orcamento peca para mostrar.
   const hideTravelPrice = quote.hide_travel_price ?? true;
   // Com o deslocamento oculto, o valor dele é diluído nos outros itens (proporcional ao valor de cada um).
   const diluted = hideTravelPrice

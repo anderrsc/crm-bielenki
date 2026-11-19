@@ -573,7 +573,7 @@ export function GutterQuote({
                 onChange={e => setHideTravelPrice(e.target.checked)}
                 className="h-4 w-4 accent-forest"
               />
-              <span className="font-medium text-ink/70">Ocultar valor do deslocamento no impresso</span>
+              <span className="font-medium text-ink/70">Ocultar valor de deslocamento e mão de obra no impresso</span>
             </label>
             <div>
               <label className="label">Observações</label>

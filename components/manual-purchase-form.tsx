@@ -46,9 +46,10 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
   const payNow = mode === "nao" ? 0 : mode === "total" ? round(total - creditUsed) : paid;
   const balance = round(total - creditUsed - payNow); // >0 devendo, <0 credito
   const invalidItem = items.some((x) => (x.category === "Outro" && !x.description.trim()) || x.quantity <= 0 || x.unit_price < 0 || !Number.isFinite(x.quantity * x.unit_price));
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
   const payload = JSON.stringify({
     supplier_id: supplierId, paid_amount: payNow, paid_at: paidAt, payment_method: method, receiving_account_id: payNow > 0 ? account : "",
-    use_credit: creditUsed, due_date: balance > 0 ? due : "", notes, expected_at: expected, order_id: destino === "pedido" ? orderId : "",
+    allow_duplicate: allowDuplicate, use_credit: creditUsed, due_date: balance > 0 ? due : "", notes, expected_at: expected, order_id: destino === "pedido" ? orderId : "",
     items: items.map((x) => ({ category: x.category, description: x.description.trim() || x.category, unit: "un", quantity: x.quantity, unit_price: x.unit_price, notes: "" })),
   });
   const update = (index: number, patch: Partial<Item>) => setItems((current) => current.map((x, i) => (i === index ? { ...x, ...patch } : x)));
@@ -57,6 +58,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
     <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
     <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-black">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
     {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    {error?.startsWith("Compra parecida") && <label className="mb-5 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
     <InvoiceUpload onRead={(r) => {
       setItems(r.items);
       if (r.supplierId) { setSupplierId(r.supplierId); setUseCredit(false); }
