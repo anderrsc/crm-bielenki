@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { Calculator,Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -24,7 +24,7 @@ const groups=[
  {title:"Principal",items:[["Dashboard", "/dashboard",LayoutDashboard],["Pendências", "/pendencias",AlertCircle],["Atendimento", "/atendimento",MessageCircle],["WhatsApp", "/atendimento/canais",Smartphone],["Clientes", "/clientes",Users],["Pipeline", "/pipeline",BarChart3],["Orçamentos", "/orcamentos",FileText],["Vendas", "/vendas",HandCoins],["Pedidos", "/pedidos",ClipboardCheck]]},
  {title:"Operação",items:[["Agenda", "/agenda",CalendarCheck],["Medições", "/medicoes",Ruler],["Produção", "/producao",Factory],["Instalações", "/instalacoes",CalendarCheck],["Serviços", "/servicos",Wrench]]},
  {title:"Compras e estoque",items:[["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Produtos & Peças", "/tabela-calhas",Boxes]]},
- {title:"Financeiro",items:[["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Relatórios", "/relatorios",BarChart3]]},
+ {title:"Financeiro",items:[["Financeiro", "/financeiro",CircleDollarSign],["A Receber", "/financeiro/receber",WalletCards],["A Pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Tributos (calculadora)", "/fiscal",Calculator],["Relatórios", "/relatorios",BarChart3]]},
  // IA num lugar só: a Central de IA abre conversas e configurações da Lia (antes "Agente IA" era outro item).
  {title:"Sistema",items:[["Central de IA", "/central-ia",Bot],["Automações", "/automacoes",Workflow],["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Auditoria", "/auditoria",Shield],["Guia visual", "/design-system",Boxes]]},
 ] as const;

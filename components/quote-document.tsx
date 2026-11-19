@@ -9,7 +9,7 @@ import { brCity, formatBrPhone } from "@/lib/whatsapp/phone";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Printer, Send } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, Printer, Send } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { approveQuote, deleteQuote, duplicateQuote, markQuoteSent, revertQuoteApproval } from "@/app/(crm)/actions";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -261,13 +261,16 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   let canManageAttachments=false;
   let team:{id:string;full_name:string|null}[]=[];
   let outsideMeasurers:string[]=[];
+  let canSimulateTaxes=false;
   if(!printOnly){
-    const [files,permission,people,outside]=await Promise.all([
+    const [files,permission,people,outside,fiscal]=await Promise.all([
       db.from('quote_internal_attachments').select('id,original_name,size_bytes,created_at').eq('quote_id',id).order('created_at',{ascending:false}),
       db.rpc('has_table_access',{resource:'quotes',action:'update'}),
       db.from('profiles').select('id,full_name').eq('status','ativo').order('full_name'),
       db.from('quotes').select('measurer_name').not('measurer_name','is',null).order('updated_at',{ascending:false}).limit(1000),
+      db.rpc('has_table_access',{resource:'fiscal',action:'insert'}),
     ]);
+    canSimulateTaxes=fiscal.data===true;
     // Medidores de fora já usados em outros orçamentos viram opção da lista.
     outsideMeasurers=[...new Set(((outside.data||[]) as {measurer_name:string|null}[]).map(r=>r.measurer_name?.trim()).filter((n):n is string=>!!n))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     attachments=(files.data||[]) as InternalAttachment[];
@@ -337,6 +340,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
           <a className="button-ghost no-print" href={`/api/orcamentos/${id}/pdf`} target="_blank" rel="noopener noreferrer" title="Para imprimir em papel. Para enviar ao cliente use Baixar PDF (não use 'Microsoft Print to PDF': ele deixa a proposta borrada).">
             <Printer className="h-4 w-4" /> Imprimir em papel
           </a>
+          {canSimulateTaxes && <Link className="button-ghost no-print" href={`/fiscal?orcamento=${id}`} title="Simular CBS/IBS com o motor oficial da Receita (não muda o orçamento nem a impressão)"><Calculator className="h-4 w-4" /> Simular tributos</Link>}
           {(quote.status === "rascunho" || quote.status === "pendente") && (
             <form action={markQuoteSent}>
               <input type="hidden" name="quote_id" value={id} />
