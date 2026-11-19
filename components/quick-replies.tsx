@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { deleteQuickReply, listQuickReplies, saveQuickReply, type QuickReply } from "@/app/(crm)/quick-replies-actions";
 import { fillQuickReply } from "@/lib/quick-replies";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 export function QuickReplies({ query, open, onOpen, onClose, contactName, onPick }: {
   /** Texto depois da "/" (null = não está digitando atalho). */
@@ -31,7 +32,7 @@ export function QuickReplies({ query, open, onOpen, onClose, contactName, onPick
     setEditando(null);
   }
   async function apagar(id: string) {
-    if (!window.confirm("Apagar esta resposta pronta?")) return;
+    if (!(await confirmAction({ message: "Apagar esta resposta pronta?", confirmLabel: "Apagar" }))) return;
     const r = await deleteQuickReply(id);
     if (!r.ok) return setErro(r.error);
     setReplies((cur) => (cur ?? []).filter((x) => x.id !== id));

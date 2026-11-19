@@ -42,6 +42,12 @@
   --space: 4px;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --dur: 180ms;
+  /* Movimento: curto e sem "quique". Ver docs/DESIGN-SYSTEM.md */
+  --dur-press: 120ms;   /* clique em botão */
+  --dur-pop: 160ms;     /* menus, avisos, tooltips */
+  --dur-panel: 220ms;   /* painéis e diálogos */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand);
 }
 
 [data-theme="light"] {

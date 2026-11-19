@@ -9,6 +9,7 @@ import {
   type ChannelRow,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Conectado" };
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -146,7 +147,7 @@ function Canal({ c, team, pending, run, onQr }: {
           {!conectado && c.provider === "evolution" && <button onClick={onQr} className="rounded-lg bg-forest px-3 py-1.5 text-white">Ler QR</button>}
           <button onClick={() => setEditando((v) => !v)} className="rounded-lg bg-cream px-3 py-1.5">Renomear</button>
           {c.active && <button disabled={pending} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-red-600"
-            onClick={() => { if (confirm(`Desconectar "${c.name}"? O histórico continua no CRM.`)) run(() => disconnectWhatsappChannel(c.id), "Número desconectado."); }}>Desconectar</button>}
+            onClick={() => { void confirmAction({ title: "Desconectar número", message: `Desconectar "${c.name}"? O histórico continua no CRM.`, confirmLabel: "Desconectar" }).then((ok) => { if (ok) run(() => disconnectWhatsappChannel(c.id), "Número desconectado."); }); }}>Desconectar</button>}
         </div>
       )}
       {c.isDefault && <p className="text-xs text-ink/50">O número principal é gerenciado na Central de IA.</p>}

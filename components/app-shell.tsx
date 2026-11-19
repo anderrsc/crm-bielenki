@@ -1,5 +1,7 @@
 "use client";
 import { LiveSearchForm } from "./live-search-form";
+import { Toaster } from "./ui-feedback/toast";
+import { ConfirmHost } from "./ui-feedback/confirm";
 
 import { useMobile } from "@/lib/use-mobile";
 import { NotificationCenter } from "@/components/notification-center";
@@ -46,7 +48,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
     <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar no sistema..."/><kbd>Ctrl K</kbd></LiveSearchForm>
     <div className="topbar-actions"><ThemeToggle/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
-   <Suspense fallback={null}><NavProgress/></Suspense><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
+   <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><InputHelpers/><main className="app-content">{children}</main><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
    <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>

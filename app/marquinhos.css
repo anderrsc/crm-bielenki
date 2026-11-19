@@ -171,3 +171,22 @@ svg.lucide { stroke-width: 1.75; }
  .pipeline-stage-grid > .pipeline-stage { width: min(84vw,340px); }
  .pipeline-stage-cards { max-height: max(380px,calc(100dvh - 280px)); }
 }
+
+/* ---- Movimento e foco (design system) ---- */
+.button, .button-ghost { transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+.button:active:not(:disabled), .button-ghost:active:not(:disabled) { transform: scale(.98); }
+/* Foco visível só para teclado (o clique do mouse não mostra o anel). */
+a:focus-visible, button:focus-visible, summary:focus-visible, [role="button"]:focus-visible, [role="menuitem"]:focus-visible, [tabindex]:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+@keyframes ui-pop-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.ui-pop-in { animation: ui-pop-in var(--dur-pop) var(--ease-out) both; }
+.ui-fade-in { animation: ui-fade-in var(--dur-panel) var(--ease-out) both; }
+.ui-skeleton { background: var(--surface-2); border-radius: var(--r-sm); animation: ui-skeleton-pulse 1.4s ease-in-out infinite; }
+@keyframes ui-skeleton-pulse { 50% { opacity: .55; } }
+/* Quem pediu menos movimento no aparelho: sem animações decorativas. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  /* Indicadores de "carregando" continuam girando devagar: comunicam estado. */
+  .animate-spin { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+  .button:active:not(:disabled), .button-ghost:active:not(:disabled) { transform: none; }
+}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Save, Plus, Trash2, Check, AlertTriangle } from "lucide-react";
 import { saveMatrixRow, deleteMatrixRow } from "@/app/(crm)/matrix-actions";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 export type MatrixRow = {
   id: string;
@@ -73,12 +74,12 @@ export function AluminumMatrix({
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (id.startsWith("new-")) {
       setRows((prev) => prev.filter((r) => r.id !== id));
       return;
     }
-    if (!window.confirm("Excluir esta linha de preço?")) return;
+    if (!(await confirmAction({ message: "Excluir esta linha de preço?", confirmLabel: "Excluir" }))) return;
     startTransition(async () => {
       const result = await deleteMatrixRow(id);
       if (result?.error) { setErrors((e) => ({ ...e, [id]: result.error! })); return; }

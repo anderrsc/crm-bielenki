@@ -15,6 +15,7 @@ import {
   isFabricationCategory,
   isPvcCondutor,
 } from "@/lib/gutters";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 
 export type PriceRow = {
   id: string;
@@ -274,7 +275,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
                 : <input className="field min-w-0" type={col.type === "number" ? "number" : "text"} inputMode={col.type === "number" ? "decimal" : undefined} min={col.type === "number" ? 0 : undefined} step={col.type === "number" ? "0.01" : undefined} value={String(row[col.key] ?? "")} onChange={event => updateCell(row.id, col.key, col.type === "number" ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value)} />}
             </label>)}
           </div>
-          {canManage && <button type="button" className="button-ghost mt-3 min-h-11 text-red-600" onClick={() => { if (window.confirm(`Excluir ${row.product}?`)) deleteRow(row.id); }}><Trash2 className="h-4 w-4" />Excluir produto</button>}
+          {canManage && <button type="button" className="button-ghost mt-3 min-h-11 text-red-600" onClick={() => { void confirmAction({ message: `Excluir ${row.product}?`, confirmLabel: "Excluir" }).then((ok) => { if (ok) deleteRow(row.id); }); }}><Trash2 className="h-4 w-4" />Excluir produto</button>}
         </article>)}
         {!pageRows.length && <p className="card p-6 text-center">Nenhum produto encontrado.</p>}
       </div> : <div ref={tableScroll} className="overflow-auto rounded-2xl border shadow-sm" style={{ maxHeight: "70vh" }}>
