@@ -46,6 +46,10 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
   }
   const { data: reminders, error: reminderError } = await db.rpc('collect_quote_followups');
   if (reminderError) throw reminderError;
+  // Cliente sem resposta há mais de 2 h (dentro do horário de atendimento): avisa quem está atribuído.
+  // Falha aqui não pode parar o resto da rotina.
+  const { error: unansweredError } = await db.rpc('collect_unanswered_conversations');
+  if (unansweredError) console.error('Lembrete de conversa sem resposta:', unansweredError.message);
   // Claim each notification atomically. Failed deliveries are retried next run.
   const { data: notices, error: noticeError } = await db.from('notifications').select('id,company_id,profile_id,title,body,link,created_at')
     .not('event_key', 'is', null).is('push_processed_at', null).or(`push_claimed_at.is.null,push_claimed_at.lt.${new Date(Date.now()-5*60_000).toISOString()}`).order('created_at').limit(20);

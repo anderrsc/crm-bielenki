@@ -3,6 +3,7 @@
 // QR; as conversas desse número ficam com ele, com quem ele autorizar e com a gerência.
 // Cadastros (clientes, orçamentos…) continuam centralizados.
 import { randomBytes } from "node:crypto";
+import { waitingSince } from "@/lib/inbox-waiting";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -17,6 +18,8 @@ export type ChannelRow = {
   id: string; name: string; provider: string; instance: string | null; phone: string | null; isDefault: boolean; shared: boolean;
   active: boolean; status: string | null; lastEventAt: string | null; lastSyncAt: string | null;
   ownerId: string | null; ownerName: string | null; mine: boolean; canManage: boolean; members: Array<{ id: string; name: string }>;
+  /** Saúde do número (últimas 24 h / 7 dias). */
+  lastInboundAt: string | null; failed24h: number; unconfirmed24h: number; waitingOver2h: number;
 };
 
 async function context() {
@@ -64,6 +67,26 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
       ctx.admin.from("whatsapp_channel_members").select("channel_id,profile_id").eq("company_id", ctx.companyId),
       ctx.admin.from("profiles").select("id,full_name").eq("company_id", ctx.companyId).eq("status", "ativo").order("full_name"),
     ]);
+    // Saúde por número: última mensagem recebida, envios com problema e clientes esperando.
+    const sinceDay = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const sinceWeek = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+    const [{ data: bad }, { data: recent }] = await Promise.all([
+      ctx.admin.from("messages").select("delivery_status,conversation:conversations!inner(channel_id)").eq("company_id", ctx.companyId).eq("direction", "outbound").in("delivery_status", ["falhou", "desconhecido"]).gte("sent_at", sinceDay).limit(2000),
+      ctx.admin.from("conversations").select("channel_id,last_inbound_at,last_message_at,status,archived_at").eq("company_id", ctx.companyId).not("last_inbound_at", "is", null).gte("last_inbound_at", sinceWeek).limit(3000),
+    ]);
+    const health = new Map<string, { last: string | null; failed: number; unconfirmed: number; waiting: number }>();
+    const slot = (id: string | null) => { const k = id ?? "none"; if (!health.has(k)) health.set(k, { last: null, failed: 0, unconfirmed: 0, waiting: 0 }); return health.get(k)!; };
+    for (const m of (bad ?? []) as unknown as Array<{ delivery_status: string; conversation: { channel_id: string | null } | { channel_id: string | null }[] | null }>) {
+      const conv = Array.isArray(m.conversation) ? m.conversation[0] : m.conversation;
+      const h = slot(conv?.channel_id ?? null);
+      if (m.delivery_status === "falhou") h.failed++; else h.unconfirmed++;
+    }
+    for (const c of (recent ?? []) as Array<{ channel_id: string | null; last_inbound_at: string; last_message_at: string | null; status: string | null; archived_at: string | null }>) {
+      const h = slot(c.channel_id);
+      if (!h.last || c.last_inbound_at > h.last) h.last = c.last_inbound_at;
+      const waiting = waitingSince(c.last_inbound_at, c.last_message_at);
+      if (waiting && !c.archived_at && c.status !== "resolvida" && Date.now() - Date.parse(waiting) > 2 * 3600_000) h.waiting++;
+    }
     const names = new Map(((team ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [p.id, p.full_name || "Usuário"]));
     const allowed = new Set((visible as string[] | null) ?? []);
     const channels = ((chans ?? []) as Array<Record<string, any>>).filter((c) => allowed.has(c.id)).map((c) => ({
@@ -71,6 +94,7 @@ export async function listWhatsappChannels(): Promise<Result<{ channels: Channel
       isDefault: !!c.is_default, shared: !!c.shared, active: !!c.active, status: c.status ?? null, lastEventAt: c.last_event_at ?? null, lastSyncAt: c.last_sync_at ?? null,
       ownerId: c.owner_id ?? null, ownerName: c.owner_id ? names.get(c.owner_id) ?? null : null, mine: c.owner_id === ctx.userId,
       canManage: ctx.manager || c.owner_id === ctx.userId,
+      lastInboundAt: health.get(c.id)?.last ?? null, failed24h: health.get(c.id)?.failed ?? 0, unconfirmed24h: health.get(c.id)?.unconfirmed ?? 0, waitingOver2h: health.get(c.id)?.waiting ?? 0,
       members: ((members ?? []) as Array<{ channel_id: string; profile_id: string }>).filter((m) => m.channel_id === c.id).map((m) => ({ id: m.profile_id, name: names.get(m.profile_id) ?? "Usuário" })),
     }));
     return { ok: true, channels, team: [...names].map(([id, name]) => ({ id, name })) };

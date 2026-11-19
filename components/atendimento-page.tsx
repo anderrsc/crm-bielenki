@@ -14,6 +14,7 @@ import {
 } from "@/app/(crm)/atendimento-actions";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
+import { LabelChip, LabelMenu } from "@/components/conversation-labels";
 import { waitingLabel, waitingSince } from "@/lib/inbox-waiting";
 import { formatBrPhone } from "@/lib/whatsapp/phone";
 import { QuickReplies } from "@/components/quick-replies";
@@ -79,6 +80,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   const [openId, setOpenId] = useState<string | null>(initialOpen ?? null);
   const [status, setStatus] = useState<"" | ConversationStatus>("");
   const [numero, setNumero] = useState("");
+  const [etiqueta, setEtiqueta] = useState("");
   const [setor, setSetor] = useState("");
   const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
   const [buscandoHistorico, startHistorico] = useTransition();
@@ -239,9 +241,12 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
       if (status && c.status !== status) return false;
       if (setor && c.department !== setor) return false;
       if (numero && c.channelId !== numero) return false;
+      if (etiqueta && !(c.labels ?? []).some((l) => l.id === etiqueta)) return false;
       return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, "") || "§");
     });
-  }, [items, busca, filtro, aiActive, verArquivadas, status, setor, numero]);
+  }, [items, busca, filtro, aiActive, verArquivadas, status, setor, numero, etiqueta]);
+  // Etiquetas em uso na lista (para o filtro).
+  const etiquetas = useMemo(() => [...new Map(items.flatMap((c) => c.labels ?? []).map((l) => [l.id, l])).values()].sort((a, b) => a.name.localeCompare(b.name)), [items]);
   // Números de WhatsApp presentes na lista (só mostra o filtro quando há mais de um).
   const numeros = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, c.channelName ?? "WhatsApp"])).entries()], [items]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
@@ -305,6 +310,12 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
               <option value="">Todos os setores</option>
               {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
+            {etiquetas.length > 0 && (
+              <select value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Etiqueta">
+                <option value="">Todas as etiquetas</option>
+                {etiquetas.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
             {numeros.length > 1 && (
               <select value={numero} onChange={(e) => setNumero(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Número">
                 <option value="">Todos os números</option>
@@ -360,6 +371,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
                       return espera ? <span title="Cliente esperando resposta" className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", /h|dia/.test(espera) ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600")}>{espera}</span> : null; })()}
                     {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
+                  {(c.labels?.length ?? 0) > 0 && <div className="mt-0.5 flex flex-wrap gap-1">{c.labels!.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
                   {(numeros.length > 1 && c.channelName) || (!c.aiPaused && aiActive && c.channelAi !== false) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
                 </div>
               </button>
@@ -382,7 +394,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
-          <Conversa key={atual.conversation.id} detail={atual} aiActive={aiActive} officialWindow={provider === "meta"} visible={!showPanel} onBack={() => setOpenId(null)} onUnread={() => void organizar(atual.conversation, true)} onPanel={() => setShowPanel(v => !v)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
+          <Conversa key={atual.conversation.id} detail={atual} aiActive={aiActive} officialWindow={provider === "meta"} visible={!showPanel} onBack={() => setOpenId(null)} labels={items.find((i) => i.id === atual.conversation.id)?.labels ?? []} onUnread={() => void organizar(atual.conversation, true)} onPanel={() => setShowPanel(v => !v)} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
         )}
       </section>
 
@@ -400,7 +412,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen }: { initia
   );
 }
 
-function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread, onPanel, onChanged }: { aiActive: boolean; officialWindow: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onUnread: () => void; onPanel: () => void; onChanged: () => void }) {
+function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, onUnread, onPanel, onChanged }: { labels: Array<{ id: string; name: string; color: string }>; aiActive: boolean; officialWindow: boolean; visible: boolean; detail: ConversationDetail; onBack: () => void; onUnread: () => void; onPanel: () => void; onChanged: () => void }) {
   const { conversation: c } = detail;
   // Historico antigo: carrega sozinho ao rolar para o topo.
   const [antigas, setAntigas] = useState<InboxMessage[]>([]);
@@ -504,6 +516,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, onBack, onUnread,
           className="wa-chip hidden rounded-full px-2 py-1.5 text-xs font-bold lg:block">
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
+        <LabelMenu conversationId={c.id} current={labels} onChanged={onChanged} />
         <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted rounded-full p-2" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
         <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
         <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
