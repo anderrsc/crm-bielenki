@@ -57,8 +57,12 @@ select 'canal', w.name || case when w.is_default then ' (principal)' else '' end
   || ' | ultimo evento ' || coalesce(to_char(w.last_event_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-')
   || ' | ultima sincronizacao ' || coalesce(to_char(w.last_sync_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-')
   || ' | ultima recebida ' || coalesce((select to_char(max(m.sent_at) at time zone 'America/Sao_Paulo','DD/MM HH24:MI') from public.messages m join public.conversations c on c.id=m.conversation_id where c.channel_id=w.id and m.direction='inbound'),'-')
+  || ' | ultimo evento de mensagem ' || coalesce(to_char(w.last_message_event_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-')
+  || ' | reiniciado ' || coalesce(to_char(w.last_restart_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'nunca') || ' (' || w.restart_count || 'x)'
   || ' | recebidas 2h ' || (select count(*) from public.messages m join public.conversations c on c.id=m.conversation_id where c.channel_id=w.id and m.direction='inbound' and m.sent_at > now() - interval '2 hours')
 from public.whatsapp_channels w where w.deleted_at is null and w.active
+union all
+select 'reinicio', to_char(created_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI') || ' ' || action || ' ' || coalesce(new_data->>'name','') from public.audit_logs where table_name='whatsapp_channels' and action in ('AUTO_RESTART','RESTART') and created_at > now() - interval '1 day'
 union all
 select 'saude', 'estado ' || coalesce(state,'?') || ' | falhas seguidas ' || failed_checks || ' | conferido ' || coalesce(to_char(checked_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-') from public.whatsapp_health
 union all
