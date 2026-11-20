@@ -81,7 +81,9 @@ create or replace trigger order_consumables_touch_updated_at
  for each row execute function public.touch_updated_at();
 
 -- ─── Atualiza v_order_result para incluir mão de obra e insumos ──────────────
-create or replace view public.v_order_result with (security_invoker=true) as
+-- DROP necessário porque CREATE OR REPLACE VIEW não permite renomear colunas existentes
+drop view if exists public.v_order_result;
+create view public.v_order_result with (security_invoker=true) as
 with alloc as (
  select a.order_id, a.company_id,
  sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_total,
