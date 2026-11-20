@@ -78,7 +78,7 @@ select
   n.data->>'channel_name' as channel_name,
   (n.data->>'last_event_at')::timestamptz as last_event_at,
   n.created_at as alerted_at,
-  n.read,
+  (n.read_at is not null) as read,
   extract(epoch from (now() - (n.data->>'last_event_at')::timestamptz)) / 60 as minutes_disconnected
 from notifications n
 where n.type = 'whatsapp_disconnection'
