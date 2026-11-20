@@ -1,5 +1,7 @@
 -- Alertas automáticos para canais WhatsApp desconectados
 -- Detecta canais que ficaram sem conexão por mais de 30 minutos e notifica gerência
+-- COMPATÍVEL com schema de produção: usa apenas colunas existentes em notifications
+-- (id, company_id, profile_id, title, body, link, read_at, created_at, data)
 
 -- Adiciona coluna data (jsonb) à tabela notifications se não existir,
 -- pois o schema original (001_schema.sql) não a inclui.
@@ -33,26 +35,25 @@ begin
         and status != 'open'
         and (last_event_at is null or last_event_at < v_threshold_time)
     loop
-      -- Verifica se já notificou recentemente (últimas 2 horas)
+      -- Verifica se já notificou recentemente (últimas 2 horas) usando data->>'event_type' como discriminador
       select exists(
         select 1 from notifications
         where company_id = v_company_id
-          and type = 'whatsapp_disconnection'
+          and title = 'WhatsApp desconectado'
           and data->>'channel_id' = v_channel_id::text
           and created_at > now() - interval '2 hours'
       ) into v_already_notified;
 
       if not v_already_notified then
         -- Cria notificação para administradores e gerentes da empresa
-        insert into notifications (company_id, profile_id, type, title, message, data, read, created_at)
+        -- Usa apenas colunas existentes: title, body, data, read_at (null = não lido)
+        insert into notifications (company_id, profile_id, title, body, data, created_at)
         select
           v_company_id,
           p.id,
-          'whatsapp_disconnection',
           'WhatsApp desconectado',
           format('O canal "%s" está desconectado há mais de %s minutos. Verifique a conexão.', v_channel_name, v_threshold_minutes),
-          jsonb_build_object('channel_id', v_channel_id, 'channel_name', v_channel_name, 'last_event_at', v_last_event),
-          false,
+          jsonb_build_object('channel_id', v_channel_id, 'channel_name', v_channel_name, 'last_event_at', v_last_event, 'event_type', 'whatsapp_disconnection'),
           now()
         from profiles p
         inner join user_roles ur on ur.profile_id = p.id
@@ -69,6 +70,7 @@ $$;
 grant execute on function public.check_whatsapp_disconnections() to service_role;
 
 -- View para listar alertas recentes de desconexão
+-- Filtra por title + data->>'event_type' em vez de coluna type inexistente
 create or replace view public.v_whatsapp_disconnection_alerts with (security_invoker=true) as
 select
   n.company_id,
@@ -81,6 +83,7 @@ select
   (n.read_at is not null) as read,
   extract(epoch from (now() - (n.data->>'last_event_at')::timestamptz)) / 60 as minutes_disconnected
 from notifications n
-where n.type = 'whatsapp_disconnection'
+where n.title = 'WhatsApp desconectado'
+  and n.data->>'event_type' = 'whatsapp_disconnection'
   and n.created_at > now() - interval '24 hours'
 order by n.created_at desc;
