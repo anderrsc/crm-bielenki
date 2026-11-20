@@ -1,6 +1,10 @@
 -- Alertas automáticos para canais WhatsApp desconectados
 -- Detecta canais que ficaram sem conexão por mais de 30 minutos e notifica gerência
 
+-- Adiciona coluna data (jsonb) à tabela notifications se não existir,
+-- pois o schema original (001_schema.sql) não a inclui.
+alter table public.notifications add column if not exists data jsonb;
+
 create or replace function public.check_whatsapp_disconnections()
 returns void
 language plpgsql
