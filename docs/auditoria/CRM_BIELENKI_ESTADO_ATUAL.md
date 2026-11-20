@@ -334,29 +334,45 @@
 
 ---
 
-## 5. CONCLUSÃO DA AUDITORIA
+## 5. ENTREGAS CONCLUÍDAS
+
+### Fase 1 — Estabilização do WhatsApp (P0.1) ✅
+**Branch:** `feature/estabilizacao-e-melhorias` | **PR:** [#117](https://github.com/anderrsc/crm-bielenki/pull/117)
+
+| Commit | Descrição | Testes |
+|--------|-----------|--------|
+| `e4be72f` | Histórico de conexão WhatsApp (`whatsapp_connection_history`) | 10 ✓ |
+| `775f174` | Correção bug B2: registro de eventos `connection.update` no webhook | 19 ✓ |
+| `a80c53a` | Dashboard consolidado de saúde dos canais | typecheck ✓ |
+| `be11aec` | Alertas automáticos de desconexão (30 min threshold, 2h cooldown) | 9 ✓ |
+
+**Relatório detalhado:** [FASE_1_RELATORIO.md](FASE_1_RELATORIO.md)
+
+---
+
+## 6. CONCLUSÃO DA AUDITORIA
 
 O repositório `anderrsc/crm-bielenki` na branch `main` (commit `c444dfe`) representa um **ERP/CRM maduro e em produção**, com funcionalidades avançadas implementadas e validadas por testes automatizados. O sistema está em uso diário pela Marquinhos Calhas e Esquadrias.
 
 **Pontos fortes:**
 - Arquitetura sólida com Next.js 15 + Supabase + RLS
-- Suite de testes abrangente (708 unitários + 93 E2E)
+- Suite de testes abrangente (708 unitários + 93 E2E + 38 novos da Fase 1)
 - CI/CD robusto com deploy automático na Vercel
-- Integração WhatsApp completa (multi-número, reconciliação, vigia)
+- Integração WhatsApp completa (multi-número, reconciliação, vigia, histórico de conexão, alertas)
 - IA Lia com modos, regras aprendidas e fatos versionados
 - Calculadora fiscal oficial integrada (última entrega)
 - Financeiro completo (caixa, conciliação, recorrências, DRE, obras, Pix)
 
 **Riscos identificados:**
-- 🐛 Conexão Evolution trava periodicamente (vigia publicado, eficácia não confirmada)
+- 🐛 Conexão Evolution trava periodicamente (mitigado com histórico + alertas; causa raiz pendente)
 - ⚠️ Código do JARVIS não está neste repositório
 - ⚠️ Mão de obra/impostos/comissões por obra ainda não automatizados
 - ⚠️ Emissão de notas fiscais pausada por decisão do dono
 
-**Próximo passo recomendado:** Prosseguir com a estabilização do WhatsApp (P0.1) e ativação da calculadora fiscal em produção (P1).
+**Próxima fase:** Fase 2 — Testes, Segurança e Monitoramento (P0). Plano em [FASE_2_PLANO.md](FASE_2_PLANO.md).
 
 ---
 
-**Documento gerado em:** 20/11/2026  
+**Documento atualizado em:** 19/11/2026  
 **Responsável:** Engenheiro de Software Sênior (IA)  
-**Base:** Análise direta do código-fonte, migrações, testes e workflows do repositório `anderrsc/crm-bielenki`@`c444dfe`
+**Base:** Análise direta do código-fonte, migrações, testes e workflows do repositório `anderrsc/crm-bielenki`@`c444dfe` + entregas da Fase 1 na branch `feature/estabilizacao-e-melhorias`
