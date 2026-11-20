@@ -82,7 +82,7 @@ create or replace trigger order_consumables_touch_updated_at
 
 -- ─── Atualiza v_order_result para incluir mão de obra e insumos ──────────────
 -- DROP necessário porque CREATE OR REPLACE VIEW não permite renomear colunas existentes
-drop view if exists public.v_order_result;
+drop view if exists public.v_order_result cascade;
 create view public.v_order_result with (security_invoker=true) as
 with alloc as (
  select a.order_id, a.company_id,
@@ -145,3 +145,75 @@ left join aluminum alu on alu.order_id=o.id;
 
 revoke all on public.v_order_result from public,anon;
 grant select on public.v_order_result to authenticated;
+-- ─── Recria views dependentes para garantir consistência em replays ─────────
+drop view if exists public.v_order_financials cascade;
+create or replace view public.v_order_financials with (security_invoker=true) as
+with alloc as (
+  select a.order_id, a.company_id,
+    sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_total,
+    sum(round(a.amount * e.paid_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_paid,
+    sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='receber' and e.sale_id is null) as extra_revenue
+  from public.financial_entry_allocations a
+  join public.financial_entries e on e.id=a.entry_id and e.company_id=a.company_id and e.status::text<>'cancelado'
+  join (select entry_id, sum(amount) total from public.financial_entry_allocations group by entry_id) t on t.entry_id=a.entry_id
+  where a.order_id is not null
+  group by a.order_id, a.company_id
+), direct as (
+  select o.id order_id, sum(e.total_amount) cost_total, sum(e.paid_amount) cost_paid
+  from public.orders o
+  join public.financial_entries e on e.sale_id=o.sale_id and e.company_id=o.company_id and e.entry_type::text='pagar' and e.status::text<>'cancelado'
+  where not exists(select 1 from public.financial_entry_allocations a where a.entry_id=e.id)
+  group by o.id
+)
+select o.id as order_id, o.company_id, o.order_number, o.sale_id, c.name as client_name,
+  s.total as contracted, s.paid_amount as received, s.open_amount as receivable,
+  coalesce(al.extra_revenue,0) as extra_revenue,
+  coalesce(al.cost_total,0) + coalesce(d.cost_total,0) as cost_total,
+  coalesce(al.cost_paid,0) + coalesce(d.cost_paid,0) as cost_paid,
+  s.total + coalesce(al.extra_revenue,0) - coalesce(al.cost_total,0) - coalesce(d.cost_total,0) as margin
+from public.orders o
+join public.sales s on s.id=o.sale_id and s.company_id=o.company_id
+left join public.clients c on c.id=o.client_id and c.company_id=o.company_id
+left join alloc al on al.order_id=o.id and al.company_id=o.company_id
+left join direct d on d.order_id=o.id;
+
+revoke all on public.v_order_financials from public,anon;
+grant select on public.v_order_financials to authenticated;
+
+drop view if exists public.v_order_financial_report cascade;
+create or replace view public.v_order_financial_report with (security_invoker=true) as
+with alloc as (
+  select a.order_id, a.company_id,
+    sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_total,
+    sum(round(a.amount * e.paid_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_paid,
+    sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='receber' and e.sale_id is null) as extra_revenue,
+    sum(round(a.amount * e.paid_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='receber' and e.sale_id is null) as extra_received,
+    sum(round(a.amount * e.open_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='receber' and e.sale_id is null) as extra_receivable
+  from public.financial_entry_allocations a
+  join public.financial_entries e on e.id=a.entry_id and e.company_id=a.company_id and e.status::text<>'cancelado'
+  join (select entry_id, sum(amount) total from public.financial_entry_allocations group by entry_id) t on t.entry_id=a.entry_id
+  where a.order_id is not null
+  group by a.order_id, a.company_id
+), direct as (
+  select o.id order_id, sum(e.total_amount) cost_total, sum(e.paid_amount) cost_paid
+  from public.orders o
+  join public.financial_entries e on e.sale_id=o.sale_id and e.company_id=o.company_id and e.entry_type::text='pagar' and e.status::text<>'cancelado'
+  where not exists(select 1 from public.financial_entry_allocations a where a.entry_id=e.id)
+  group by o.id
+)
+select o.id as order_id, o.company_id, o.order_number, o.sale_id, c.name as client_name,
+  s.total as contracted, s.paid_amount as received, s.open_amount as receivable,
+  coalesce(al.extra_revenue,0) as extra_revenue,
+  coalesce(al.cost_total,0) + coalesce(d.cost_total,0) as cost_total,
+  coalesce(al.cost_paid,0) + coalesce(d.cost_paid,0) as cost_paid,
+  s.total + coalesce(al.extra_revenue,0) - coalesce(al.cost_total,0) - coalesce(d.cost_total,0) as margin, true as margin_partial,
+  s.paid_amount + coalesce(al.extra_received,0) as received_total,
+  s.open_amount + coalesce(al.extra_receivable,0) as receivable_total
+from public.orders o
+join public.sales s on s.id=o.sale_id and s.company_id=o.company_id
+left join public.clients c on c.id=o.client_id and c.company_id=o.company_id
+left join alloc al on al.order_id=o.id and al.company_id=o.company_id
+left join direct d on d.order_id=o.id;
+
+revoke all on public.v_order_financial_report from public,anon;
+grant select on public.v_order_financial_report to authenticated;
