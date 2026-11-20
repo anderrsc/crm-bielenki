@@ -59,6 +59,26 @@ async function ownChannel(ctx: Awaited<ReturnType<typeof context>>, id: string) 
   return { ch, canManage };
 }
 
+/** Resumo consolidado de saúde de todos os canais (view v_whatsapp_health_summary). */
+export type WhatsappHealthSummary = Array<{
+  channel_id: string;
+  channel_name: string;
+  current_status: string | null;
+  last_connection_event: string | null;
+  last_connection_event_at: string | null;
+  events_last_24h: number;
+  errors_last_24h: number;
+}>;
+
+export async function loadWhatsappHealthSummary(): Promise<Result<{ summary: WhatsappHealthSummary }>> {
+  try {
+    const ctx = await context();
+    const { data, error } = await ctx.db.from("v_whatsapp_health_summary").select("*");
+    if (error) return fail(error);
+    return { ok: true, summary: (data ?? []) as WhatsappHealthSummary };
+  } catch (e) { return fail(e); }
+}
+
 export async function listWhatsappChannels(): Promise<Result<{ channels: ChannelRow[]; team: Array<{ id: string; name: string }>; manager: boolean }>> {
   try {
     const ctx = await context();
