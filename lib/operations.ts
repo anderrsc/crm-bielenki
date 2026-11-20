@@ -78,6 +78,9 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
       reconciled += r.inserted;
     } catch (e) { console.error('Reconciliação WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
   }
+  // Alertas automáticos de desconexão: notifica gerência quando canal fica >30min sem conexão.
+  // Falha aqui não pode parar o resto da rotina.
+  try { await db.rpc('check_whatsapp_disconnections'); } catch (e) { console.error('Alerta de desconexão WhatsApp:', e instanceof Error ? e.message : e); }
   // Acompanhamento comercial da Lia (24 h sem resposta, até 3 tentativas): só roda onde o dono ligou.
   // Falha aqui não pode parar o resto da rotina.
   try { await runLiaFollowups(db); } catch (e) { console.error('Acompanhamento da Lia:', e instanceof Error ? e.message : e); }
