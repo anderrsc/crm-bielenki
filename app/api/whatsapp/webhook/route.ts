@@ -290,6 +290,28 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       return NextResponse.json({ status: "sync_only" });
     }
 
+    // ── Registro de eventos de conexão (B2): grava no histórico antes de descartar ──────────
+    // Eventos como connection.update, qrcode.updated, status.change etc. eram ignorados.
+    // Agora são persistidos para diagnóstico e monitoramento da estabilidade do WhatsApp.
+    if (isEvolution && channel && /connection|qrcode|status\.change/i.test(String(payload?.event ?? ""))) {
+      const eventType = String(payload?.event ?? "unknown");
+      const connState = payload?.data?.state ?? payload?.data?.connection ?? null;
+      const errorMsg = payload?.data?.reason ?? payload?.data?.error ?? null;
+      await getSupabase().rpc("record_whatsapp_connection_event", {
+        p_company_id: channel.company_id,
+        p_channel_id: channel.id,
+        p_provider: "evolution",
+        p_event_type: eventType,
+        p_status: typeof connState === "string" ? connState : null,
+        p_error_message: typeof errorMsg === "string" ? String(errorMsg).slice(0, 500) : null,
+        p_metadata: payload?.data && typeof payload.data === "object" ? payload.data as Record<string, unknown> : null,
+      }).then(() => undefined, () => undefined);
+      // Eventos de conexão não seguem para o fluxo de mensagens
+      if (!["messages.upsert", "MESSAGES_UPSERT"].includes(payload.event)) {
+        return NextResponse.json({ status: "connection_event_recorded" });
+      }
+    }
+
     let from = "";
     let phoneNumberId = "";
     let clientText = "";

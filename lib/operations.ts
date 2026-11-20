@@ -35,7 +35,25 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     const agent = byCompany.get(ch.company_id) ?? (await db.from('ai_agent_config').select('*').eq('company_id', ch.company_id).maybeSingle()).data;
     const c = channelCredentials(agent, ch);
     if (!c.evolutionUrl || !c.evolutionKey || !c.evolutionInstance) continue;
-    const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch(() => 'unreachable');
+    const state = await evolutionState(c.evolutionUrl, c.evolutionKey, c.evolutionInstance).catch((e) => {
+      // Registra falha de conexão no histórico para diagnóstico (B2/R05)
+      db.rpc('record_whatsapp_connection_event', {
+        p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution',
+        p_event_type: 'connection_check_failed', p_status: 'error',
+        p_error_message: e instanceof Error ? e.message.slice(0, 500) : String(e),
+      }).then(() => undefined, () => undefined);
+      return 'unreachable';
+    });
+    // Registra evento de conexão no histórico sempre que o estado mudar ou for diferente de open
+    // (evita duplicação: só grava se o último evento registrado for diferente do estado atual)
+    const { data: lastEvent } = await db.from('whatsapp_connection_history')
+      .select('event_type').eq('channel_id', ch.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (lastEvent?.event_type !== state) {
+      await db.rpc('record_whatsapp_connection_event', {
+        p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution',
+        p_event_type: state, p_status: state,
+      }).then(() => undefined, () => undefined);
+    }
     await db.from('whatsapp_channels').update({ status: state, updated_at: new Date().toISOString() }).eq('id', ch.id);
     if (state !== 'open') continue;
     // Conexão "zumbi": diz que está conectada, mas nenhum evento de mensagem chega há 20 min no
@@ -60,6 +78,9 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
       reconciled += r.inserted;
     } catch (e) { console.error('Reconciliação WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
   }
+  // Alertas automáticos de desconexão: notifica gerência quando canal fica >30min sem conexão.
+  // Falha aqui não pode parar o resto da rotina.
+  try { await db.rpc('check_whatsapp_disconnections'); } catch (e) { console.error('Alerta de desconexão WhatsApp:', e instanceof Error ? e.message : e); }
   // Acompanhamento comercial da Lia (24 h sem resposta, até 3 tentativas): só roda onde o dono ligou.
   // Falha aqui não pode parar o resto da rotina.
   try { await runLiaFollowups(db); } catch (e) { console.error('Acompanhamento da Lia:', e instanceof Error ? e.message : e); }

@@ -8,8 +8,8 @@ import dynamic from "next/dynamic";
 import { ArrowDownLeft, ArrowUpRight, MessagesSquare } from "lucide-react";
 import {
   channelRecentMessages, type ChannelMessage,
-  addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, renameWhatsappChannel, restartWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
-  type ChannelRow,
+  addWhatsappChannel, disconnectWhatsappChannel, listWhatsappChannels, loadWhatsappHealthSummary, renameWhatsappChannel, restartWhatsappChannel, setWhatsappChannelAccess, whatsappChannelQr,
+  type ChannelRow, type WhatsappHealthSummary,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +19,54 @@ import { confirmAction } from "@/components/ui-feedback/confirm";
 const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Aguardando QR", connecting: "Conectando", close: "Desconectado", desconectado: "Desconectado", migrado: "Aguardando conferência", unreachable: "Servidor sem resposta" };
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
+/** Painel consolidado de saúde de todos os canais usando v_whatsapp_health_summary. */
+function HealthDashboard({ summary }: { summary: WhatsappHealthSummary }) {
+  if (!summary.length) return null;
+  const totalErrors = summary.reduce((acc, c) => acc + (c.errors_last_24h ?? 0), 0);
+  const totalEvents = summary.reduce((acc, c) => acc + (c.events_last_24h ?? 0), 0);
+  const disconnected = summary.filter((c) => c.current_status !== "open");
+  return (
+    <div className="card space-y-3 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-black">Saúde do WhatsApp</h2>
+        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", totalErrors > 0 ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600")}>
+          {totalErrors > 0 ? `${totalErrors} erro(s) nas últimas 24h` : "Sem erros nas últimas 24h"}
+        </span>
+      </div>
+      <div className="grid gap-2 text-xs sm:grid-cols-3">
+        <div className="rounded-lg bg-cream px-3 py-2">
+          <p className="text-ink/55">Canais ativos</p>
+          <p className="text-xl font-black">{summary.length - disconnected.length}/{summary.length}</p>
+        </div>
+        <div className="rounded-lg bg-cream px-3 py-2">
+          <p className="text-ink/55">Eventos (24h)</p>
+          <p className="text-xl font-black">{totalEvents}</p>
+        </div>
+        <div className={cn("rounded-lg px-3 py-2", totalErrors > 0 ? "bg-red-500/10" : "bg-cream")}>
+          <p className={cn(totalErrors > 0 ? "text-red-500" : "text-ink/55")}>Erros (24h)</p>
+          <p className={cn("text-xl font-black", totalErrors > 0 ? "text-red-600" : "")}>{totalErrors}</p>
+        </div>
+      </div>
+      {disconnected.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-amber-600">Canais desconectados:</p>
+          {disconnected.map((c) => (
+            <p key={c.channel_id} className="text-xs text-ink/70">
+              • <b>{c.channel_name}</b> — {c.current_status ?? "desconhecido"}
+              {c.last_connection_event_at ? ` (último evento: ${new Date(c.last_connection_event_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})` : ""}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function WhatsappChannels() {
   const [channels, setChannels] = useState<ChannelRow[] | null>(null);
   const [team, setTeam] = useState<Array<{ id: string; name: string }>>([]);
   const [manager, setManager] = useState(false);
+  const [healthSummary, setHealthSummary] = useState<WhatsappHealthSummary>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -33,6 +77,8 @@ export function WhatsappChannels() {
   const carregar = useCallback(async () => {
     const r = await listWhatsappChannels();
     if ("channels" in r) { setChannels(r.channels); setTeam(r.team); setManager(r.manager); } else setErro(r.error);
+    const h = await loadWhatsappHealthSummary();
+    if ("summary" in h) setHealthSummary(h.summary);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -68,6 +114,8 @@ export function WhatsappChannels() {
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-sm text-red-500">{erro}</p>}
       {msg && <p className="rounded-lg bg-green-500/10 p-2 text-sm text-green-600">{msg}</p>}
+
+      <HealthDashboard summary={healthSummary} />
 
       {manager && (
         <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && c.status === "open")}>
