@@ -24,6 +24,8 @@ function database() {
       is: (k: string, v: unknown) => { filters.push(r => r[k] == v); return q; },
       in: (k: string, values: unknown[]) => { filters.push(r => values.includes(r[k])); return q; },
       not: (k: string, _op: string, value: unknown) => { filters.push(r => r[k] !== value); return q; },
+      // "col.is.null,col.lt.valor": basta uma das condições.
+      or: (expr: string) => { const parts = expr.split(',').map(p => { const [k, op, ...v] = p.split('.'); const value = v.join('.'); return (r: Row) => op === 'is' ? r[k] == null : op === 'lt' ? r[k] != null && r[k] < value : op === 'lte' ? r[k] != null && r[k] <= value : false; }); filters.push(r => parts.some(f => f(r))); return q; },
       gt: (k: string, v: any) => { filters.push(r => r[k] > v); return q; },
       gte: (k: string, v: any) => { filters.push(r => r[k] >= v); return q; },
       lte: (k: string, v: any) => { filters.push(r => r[k] <= v); return q; },
@@ -58,6 +60,8 @@ describe('marcação de leitura e retorno', () => {
   test('confirma no WhatsApp usando o identificador lid e limpa a contagem vista', async () => {
     const result = await markInboxRead(conversationId, [messageId], snapshot);
     expect(result).toMatchObject({ ok: true, cleared: true, receiptError: null });
+    // Lida até a mensagem vista: atrasada mais antiga não volta a contar como não lida.
+    expect(fixture.tables.conversations[0].read_through_at).toBe('2026-11-16T13:00:00.000Z');
     expect(fixture.read).toHaveBeenCalledWith({}, '123456789@lid', ['wa-1']);
     expect(fixture.tables.conversations[0].unread_count).toBe(0);
   });
@@ -90,6 +94,11 @@ describe('leitura recebida da Evolution', () => {
     await updateIncomingRead(database() as never, 'c1', 'wa-1', 'READ');
     expect(fixture.tables.messages[0].delivery_status).toBe('lida');
     expect(fixture.tables.conversations[0].unread_count).toBe(0);
+    expect(fixture.tables.conversations[0].read_through_at).toBe('2026-11-16T13:00:00.000Z');
+    // Recibo atrasado de uma mensagem mais antiga não faz a marca voltar.
+    fixture.tables.messages.push({ ...fixture.tables.messages[0], id: 'old', external_id: 'wa-0', sent_at: '2026-11-16T12:00:00Z' });
+    await updateIncomingRead(database() as never, 'c1', 'wa-0', 'READ');
+    expect(fixture.tables.conversations[0].read_through_at).toBe('2026-11-16T13:00:00.000Z');
   });
   test('recibo velho ou de outra empresa não limpa uma mensagem nova', async () => {
     fixture.tables.messages.push({ ...fixture.tables.messages[0], id: 'new', external_id: 'wa-2', sent_at: '2026-11-16T13:01:00Z' });

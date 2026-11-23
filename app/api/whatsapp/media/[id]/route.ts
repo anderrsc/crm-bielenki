@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { decryptSecret } from "@/lib/encrypt";
+import { channelById, channelCredentials } from "@/lib/whatsapp/channels";
 import { safeExternalUrl } from "@/lib/safe-url";
 
 export const maxDuration = 30;
@@ -27,13 +27,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return new NextResponse(await file.arrayBuffer(),{headers:{"Content-Type":inline?msg.media_type:"application/octet-stream","Content-Disposition":`${inline?"inline":"attachment"}; filename="${name}"`,"Cache-Control":"private, max-age=86400","X-Content-Type-Options":"nosniff"}});
   }
   if(!msg.external_id)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
-  const { data: cfg } = await admin.from("ai_agent_config").select("evolution_api_url,evolution_api_key,evolution_instance").eq("company_id", msg.company_id).maybeSingle();
-  const key = cfg?.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
-  const base = cfg?.evolution_api_url ? safeExternalUrl(cfg.evolution_api_url) : null;
-  if (!base || !key) return NextResponse.json({ error: "WhatsApp não conectado." }, { status: 400 });
+  // O arquivo fica na instância do número que recebeu a mensagem (cada número tem a sua).
+  const [{ data: cfg }, { data: conv }] = await Promise.all([
+    admin.from("ai_agent_config").select("*").eq("company_id", msg.company_id).maybeSingle(),
+    admin.from("conversations").select("channel_id").eq("id", msg.conversation_id).eq("company_id", msg.company_id).maybeSingle(),
+  ]);
+  const channel = await channelById(admin, conv?.channel_id);
+  if (channel && channel.company_id !== msg.company_id) return NextResponse.json({ error: "Arquivo indisponível." }, { status: 404 });
+  const creds = channelCredentials(cfg, channel);
+  if (creds.provider !== "evolution") return NextResponse.json({ error: "Arquivo indisponível." }, { status: 404 });
+  const key = creds.evolutionKey;
+  const base = creds.evolutionUrl ? safeExternalUrl(creds.evolutionUrl) : null;
+  if (!base || !key || !creds.evolutionInstance) return NextResponse.json({ error: "WhatsApp não conectado." }, { status: 400 });
 
   const audio = String(msg.body ?? "").startsWith("[áudio]");
-  const res = await fetch(`${base}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg!.evolution_instance || "crm")}`, {
+  const res = await fetch(`${base}/chat/getBase64FromMediaMessage/${encodeURIComponent(creds.evolutionInstance)}`, {
     method: "POST", redirect: "error", signal: AbortSignal.timeout(25_000),
     headers: { apikey: key, "Content-Type": "application/json" },
     // Áudio do WhatsApp é .ogg (iPhone não toca): pede convertido para mp4.

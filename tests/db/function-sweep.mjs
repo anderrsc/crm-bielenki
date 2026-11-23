@@ -27,6 +27,8 @@ export async function sweepFunctions(databaseUrl) {
   for (const f of fns) {
     if (SKIP.has(f.proname)) continue;
     const args = f.types.map((t, i) => {
+      // Lista primeiro: "timestamp with time zone[]" também começa com "timestamp".
+      if (t.endsWith("[]")) return "{}";
       if (t === "uuid") return /entry/.test(f.args.split(",")[i] ?? "") ? sample.entry : /client/.test(f.args.split(",")[i] ?? "") ? sample.client : /company/.test(f.args.split(",")[i] ?? "") ? sample.company : sample.quote;
       if (t === "text" || t === "character varying") return "teste";
       if (t === "date") return new Date().toISOString().slice(0, 10);
@@ -34,7 +36,6 @@ export async function sweepFunctions(databaseUrl) {
       if (t === "numeric" || t === "integer" || t === "bigint") return 1;
       if (t === "boolean") return true;
       if (t === "jsonb" || t === "json") return "{}";
-      if (t.endsWith("[]")) return "{}";
       return null;
     });
     const call = `select ${f.proname}(${args.map((_, i) => `$${i + 1}::${f.types[i]}`).join(",")})`;

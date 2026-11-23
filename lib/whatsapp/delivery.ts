@@ -33,9 +33,24 @@ export async function updateIncomingRead(db: SupabaseClient, companyId: string, 
   const { data: newer, error: newerError } = await db.from('messages').select('id').eq('company_id', companyId)
     .eq('conversation_id', seen.conversation_id).eq('direction', 'inbound').gte('sent_at', seen.sent_at).neq('id', seen.id).limit(1);
   if (newerError) throw new Error(newerError.message);
-  if (newer?.length) return;
+  // Lida no celular até aqui: mensagem atrasada mais antiga que isto não volta a contar como não lida.
+  // Depois do retrato da conversa, para uma chegada no meio não ser apagada.
+  const throughSoon = async () => {
+    const { error: throughError } = await advanceReadThrough(db, companyId, seen.conversation_id, seen.sent_at);
+    if (throughError) throw new Error(throughError.message);
+  };
+  if (newer?.length) return throughSoon();
   let clear = db.from('conversations').update({ unread_count: 0 }).eq('company_id', companyId).eq('id', seen.conversation_id).lte('last_inbound_at', seen.sent_at);
   clear = snapshot.ai_generation_id ? clear.eq('ai_generation_id', snapshot.ai_generation_id) : clear.is('ai_generation_id', null);
   const { error: clearError } = await clear;
   if (clearError) throw new Error(clearError.message);
+  await throughSoon();
+}
+
+/** Avança (nunca recua) o ponto até onde a conversa foi lida. */
+export function advanceReadThrough(db: SupabaseClient, companyId: string, conversationId: string, value: string) {
+  // Formato com "Z": o "+00:00" vindo do banco viraria espaço dentro do filtro da URL.
+  const at = new Date(value).toISOString();
+  return db.from('conversations').update({ read_through_at: at }).eq('company_id', companyId).eq('id', conversationId)
+    .or(`read_through_at.is.null,read_through_at.lt.${at}`);
 }

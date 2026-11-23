@@ -19,7 +19,8 @@ beforeAll(async () => {
   const other = (await row("select bootstrap_company('Outra',null,$1) id", [outsider])).id;
   await db.query("insert into profiles(id,company_id,full_name) values($1,$2,'Carlos Atendente')", [clerk, company]);
   await db.query("insert into user_roles(company_id,profile_id,role) values($2,$1,'atendente')", [clerk, company]);
-  await db.exec("grant usage on schema auth to authenticated");
+  // Como no Supabase: as tabelas do schema public já dão leitura ao papel; quem filtra é o RLS.
+  await db.exec("grant usage on schema auth to authenticated; grant select on conversations to authenticated");
   conv = (await row("insert into conversations(company_id,channel,phone,contact_name) values($1,'whatsapp','5547999990000','João') returning id", [company])).id;
   otherConv = (await row("insert into conversations(company_id,channel,phone) values($1,'whatsapp','5547988880000') returning id", [other])).id;
 });

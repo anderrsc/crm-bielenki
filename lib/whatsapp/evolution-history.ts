@@ -116,6 +116,12 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     convByPhone.set(phone, conv.id);
   }
 
+  // Recebidas que entraram agora, por conversa: contam como não lidas se ainda não foram vistas.
+  const recovered = new Map<string, string[]>();
+  const counted = (row: { conversation_id?: string; direction: string; sent_at: string }) => {
+    if (row.direction !== "inbound" || !row.conversation_id) return;
+    recovered.set(row.conversation_id, [...(recovered.get(row.conversation_id) ?? []), row.sent_at]);
+  };
   for (let i = 0; i < fresh.length; i += 200) {
     const rows = fresh.slice(i, i + 200).map((r) => ({
       company_id: companyId, conversation_id: convByPhone.get(r.phone), direction: r.direction, author: r.author,
@@ -127,8 +133,10 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       for (const row of rows) {
         const { error: one } = await db.from("messages").insert(row);
         if (one && one.code !== "23505") throw new Error(`Mensagens não gravadas: ${one.message}`);
+        if (!one) counted(row);
       }
     } else if (error) throw new Error(`Mensagens não gravadas: ${error.message}`);
+    else rows.forEach(counted);
   }
 
   // Atualiza o resumo de cada conversa com a mensagem mais recente que ela tem.
@@ -144,6 +152,11 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       last_inbound_at: lastIn?.sent_at ?? null,
       ...(!cleanContactName(conv?.contact_name) && contact ? { contact_name: contact } : {}),
     }).eq("id", convId);
+    const ats = recovered.get(convId);
+    if (ats?.length) {
+      const { error: unreadError } = await db.rpc("inbox_count_recovered", { p_conversation: convId, p_company: companyId, p_ats: ats });
+      if (unreadError) throw new Error(`Não lidas não atualizadas: ${unreadError.message}`);
+    }
   }
   return { inserted: fresh.length, conversations: convByPhone.size };
 }

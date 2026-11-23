@@ -112,7 +112,7 @@ export async function recordInbound(db: SupabaseClient, p: {
 
 export async function recordOutbound(db: SupabaseClient, p: {
   companyId: string; conversationId: string; body: string; author: MessageAuthor; senderName?: string | null;
-  sentBy?: string | null; externalId?: string | null; deliveryStatus?: "enviada" | "falhou"; error?: string | null; sentAt?: string;
+  sentBy?: string | null; externalId?: string | null; deliveryStatus?: "enviada" | "falhou" | "desconhecido"; error?: string | null; sentAt?: string;
 }) {
   const at = p.sentAt ?? new Date().toISOString();
   const { data, error } = await db.from("messages").insert({

@@ -23,7 +23,8 @@ describe('importa o histórico', () => {
   function fakeDb() {
     const t: Record<string, Record<string, unknown>[]> = { conversations: [], messages: [], clients: [{ id: 'cli', company_id: 'c1', name: 'Carlos', phone: '(47) 99999-0000' }] };
     let n = 0;
-    return { t, db: { from: (table: string) => {
+    const rpcs: Array<{ fn: string; args: Record<string, unknown> }> = [];
+    return { t, rpcs, db: { rpc: async (fn: string, args: Record<string, unknown>) => { rpcs.push({ fn, args }); return { data: null, error: null }; }, from: (table: string) => {
       const f: Array<(r: Record<string, unknown>) => boolean> = []; let ins: unknown = null; let upd: Record<string, unknown> | null = null; let order: string | null = null; let asc = true; let lim = Infinity;
       const rows = () => { let r = (t[table] ??= []).filter(x => f.every(fn => fn(x))); if (order) r = [...r].sort((a, b) => String(a[order!]).localeCompare(String(b[order!])) * (asc ? 1 : -1)); return r.slice(0, lim); };
       const exec = () => {
@@ -54,6 +55,16 @@ describe('importa o histórico', () => {
     expect(t.messages.map(m => [m.author, m.sender_name])).toEqual([['equipe', 'Rose'], ['cliente', 'Carlos']]);
     expect(await importHistoryPage(db as never, 'c1', page)).toEqual({ inserted: 0, conversations: 0 });
     expect(t.messages).toHaveLength(2);
+  });
+  test('recuperadas: só as recebidas que entraram agora vão para a contagem de não lidas', async () => {
+    const { t, rpcs, db } = fakeDb();
+    const page = [rec('r3', 1700000300, '*Rose:*\nJá vi', true), rec('r2', 1700000200, 'Chegou atrasada'), rec('r1', 1700000100, 'Primeira')];
+    await importHistoryPage(db as never, 'c1', page);
+    const unread = rpcs.filter(r => r.fn === 'inbox_count_recovered');
+    expect(unread).toEqual([{ fn: 'inbox_count_recovered', args: { p_conversation: t.conversations[0].id, p_company: 'c1', p_ats: [new Date(1700000200000).toISOString(), new Date(1700000100000).toISOString()] } }]);
+    // Repetir a mesma página não conta de novo.
+    await importHistoryPage(db as never, 'c1', page);
+    expect(rpcs.filter(r => r.fn === 'inbox_count_recovered')).toHaveLength(1);
   });
   test('sincronização recente recupera mensagens ausentes sem duplicar nem mudar o atendimento existente', async () => {
     const { t, db } = fakeDb();
