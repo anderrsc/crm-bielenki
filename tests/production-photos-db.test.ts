@@ -21,6 +21,11 @@ beforeAll(async()=>{
   await db.exec('grant usage on schema auth,storage to authenticated; grant select on profiles,production_orders,production_step_logs,quotes,orders,sales,sale_types to authenticated; grant select,insert on storage.objects to authenticated');
 });
 afterAll(async()=>{await db?.close();});
+test('políticas das fotos avaliam permissões uma vez por consulta',async()=>{
+  const policies=(await db.query<{qual:string,with_check:string}>("select qual,with_check from pg_policies where schemaname='public' and policyname in ('production_step_photos_select','production_step_photos_archive')")).rows;
+  expect(policies).toHaveLength(2);
+  for(const p of policies)for(const expression of [p.qual,p.with_check].filter(Boolean))expect(expression).not.toMatch(/(?<!SELECT )has_table_access\(/);
+});
 test('bucket privado e upload pela produção sem permissão em serviços',async()=>{
   expect((await row("select public from storage.buckets where id='production-photos'")).public).toBe(false);
   await as(worker,()=>db.query("insert into storage.objects(bucket_id,name) values('production-photos',$1)",[path]));
