@@ -19,6 +19,15 @@ describe('texto das mensagens', () => {
   });
 });
 
+test('mensagens de empresas (modelo, interativa, botões, lista) mostram o texto', () => {
+  expect(evolutionMessageText({ templateMessage: { hydratedTemplate: { hydratedContentText: 'Seu código é 123' } } }).text).toBe('Seu código é 123');
+  expect(evolutionMessageText({ interactiveMessage: { body: { text: 'Pedido confirmado' } } }).text).toBe('Pedido confirmado');
+  expect(evolutionMessageText({ buttonsMessage: { contentText: 'Escolha uma opção' } }).text).toBe('Escolha uma opção');
+  expect(evolutionMessageText({ listMessage: { description: 'Veja a lista' } }).text).toBe('Veja a lista');
+  expect(evolutionMessageText({ templateButtonReplyMessage: { selectedDisplayText: 'Sim' } }).text).toBe('Sim');
+  expect(evolutionMessageText({ interactiveMessage: {} }).text).toBe('');
+});
+
 describe('reações e citações', () => {
   test('reação aponta a mensagem reagida; vazia = removida', () => {
     expect(evolutionReaction({ reactionMessage: { key: { id: 'ALVO1' }, text: '👍' } })).toEqual({ targetId: 'ALVO1', emoji: '👍' });
