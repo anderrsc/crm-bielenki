@@ -31,6 +31,10 @@ export function evolutionMessageText(message: Msg): { text: string; media: strin
   if (get("listResponseMessage")) return { text: str(get("listResponseMessage")!.title), media: null };
   if (get("ephemeralMessage")) return evolutionMessageText((get("ephemeralMessage")!.message ?? {}) as Record<string, unknown>);
   if (get("viewOnceMessageV2")) return evolutionMessageText((get("viewOnceMessageV2")!.message ?? {}) as Record<string, unknown>);
+  // Envelopes que só embrulham a mensagem real: cada foto de um álbum chega como associatedChildMessage.
+  for (const k of ["associatedChildMessage", "viewOnceMessage", "viewOnceMessageV2Extension"]) {
+    if (get(k)) return evolutionMessageText((get(k)!.message ?? {}) as Record<string, unknown>);
+  }
   return { text: "", media: null };
 }
 
