@@ -43,6 +43,11 @@ export function whatsappCredentials(
 
 export class WhatsAppSendError extends Error {}
 
+/** Tempo esgotado / conexão caiu: a mensagem pode ter saído. Não presume falha (nem reenvia). */
+export function sendOutcomeUnknown(error: unknown, message = error instanceof Error ? error.message : String(error)) {
+  return /timeout|aborted|fetch failed|ECONNRESET|socket|network/i.test(message) || (error instanceof Error && /TimeoutError|AbortError/.test(error.name));
+}
+
 /** Envia texto. Devolve o id da mensagem no WhatsApp (quando o provedor informa). */
 export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body: string): Promise<string | null> {
   if (c.provider === "evolution") {

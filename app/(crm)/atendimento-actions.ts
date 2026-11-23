@@ -16,7 +16,7 @@ import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
 import { evolutionErrorMessage, syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
-import { markWhatsAppRead, markWhatsAppUnread, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { markWhatsAppRead, markWhatsAppUnread, sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { advanceReadThrough } from "@/lib/whatsapp/delivery";
 
 export type InboxItem = {
@@ -303,11 +303,6 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
     pagamentos: (pays ?? []).map((p) => ({ valor: n(p.amount), data: p.paid_at, forma: p.payment_method, descricao: entries.find((e) => e.id === p.financial_entry_id)?.description ?? "" })),
     pipeline: lead ? { etapa: lead.pipeline_stages?.name ?? null, valor: lead.estimated_value, proximaAcao: lead.next_action, data: lead.next_action_date } : null,
   };
-}
-
-/** Tempo esgotado / conexão caiu: a mensagem pode ter saído. Não presume falha. */
-function sendOutcomeUnknown(error: unknown, message: string) {
-  return /timeout|aborted|fetch failed|ECONNRESET|socket|network/i.test(message) || (error instanceof Error && /TimeoutError|AbortError/.test(error.name));
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */

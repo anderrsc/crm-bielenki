@@ -116,14 +116,37 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     convByPhone.set(phone, conv.id);
   }
 
+  // Envio do CRM/Lia que ficou sem confirmação (tempo esgotado): o eco que a reconciliação traz
+  // confirma aquela mensagem, em vez de entrar como uma segunda igual na tela.
+  const confirmed = new Set<string>();
+  for (const [phone, convId] of convByPhone) {
+    const echoes = fresh.filter((r) => r.phone === phone && r.direction === "outbound");
+    if (!echoes.length) continue;
+    const { data: pending, error: pendingError } = await db.from("messages").select("id,body,sent_at")
+      .eq("company_id", companyId).eq("conversation_id", convId).eq("direction", "outbound").is("external_id", null)
+      .in("delivery_status", ["enviando", "desconhecido"]);
+    if (pendingError) throw new Error(`Envios sem confirmação não consultados: ${pendingError.message}`);
+    const open = [...(pending ?? [])] as Array<{ id: string; body: string; sent_at: string }>;
+    for (const echo of echoes) {
+      const i = open.findIndex((m) => m.body === echo.body && Math.abs(Date.parse(m.sent_at) - Date.parse(echo.sent_at)) <= 15 * 60_000);
+      if (i < 0) continue;
+      const [match] = open.splice(i, 1);
+      const { error: confirmError } = await db.from("messages").update({ external_id: echo.external_id, delivery_status: "enviada", error_message: null })
+        .eq("company_id", companyId).eq("id", match.id).is("external_id", null);
+      if (confirmError) throw new Error(`Envio não confirmado: ${confirmError.message}`);
+      confirmed.add(echo.external_id);
+    }
+  }
+
   // Recebidas que entraram agora, por conversa: contam como não lidas se ainda não foram vistas.
   const recovered = new Map<string, string[]>();
   const counted = (row: { conversation_id?: string; direction: string; sent_at: string }) => {
     if (row.direction !== "inbound" || !row.conversation_id) return;
     recovered.set(row.conversation_id, [...(recovered.get(row.conversation_id) ?? []), row.sent_at]);
   };
-  for (let i = 0; i < fresh.length; i += 200) {
-    const rows = fresh.slice(i, i + 200).map((r) => ({
+  const toInsert = fresh.filter((r) => !confirmed.has(r.external_id));
+  for (let i = 0; i < toInsert.length; i += 200) {
+    const rows = toInsert.slice(i, i + 200).map((r) => ({
       company_id: companyId, conversation_id: convByPhone.get(r.phone), direction: r.direction, author: r.author,
       sender_name: r.sender_name, body: r.body, external_id: r.external_id, sent_at: r.sent_at, delivery_status: r.direction === "outbound" ? "enviada" : null,
     }));
@@ -158,7 +181,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       if (unreadError) throw new Error(`Não lidas não atualizadas: ${unreadError.message}`);
     }
   }
-  return { inserted: fresh.length, conversations: convByPhone.size };
+  return { inserted: toInsert.length, conversations: convByPhone.size };
 }
 
 /**

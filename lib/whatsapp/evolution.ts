@@ -16,7 +16,7 @@ export function evolutionUrlFromIp(ip: string): string | null {
   return `https://${m.slice(1).join("-")}.sslip.io`;
 }
 
-async function call<T = unknown>(base: string, apiKey: string, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+async function call<T = unknown>(base: string, apiKey: string, path: string, init: { method?: string; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const url = safeExternalUrl(base);
   if (!url) throw new EvolutionError("Endereço da Evolution inválido (precisa ser HTTPS público).");
   let response: Response;
@@ -26,7 +26,7 @@ async function call<T = unknown>(base: string, apiKey: string, path: string, ini
       redirect: "error",
       headers: { apikey: apiKey, "Content-Type": "application/json" },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(init.timeoutMs ?? 20_000),
     });
   } catch {
     throw new EvolutionError("O servidor da Evolution não respondeu. Ele pode ainda estar instalando (leva uns 10 minutos) ou as portas 80/443 estão fechadas.");
@@ -39,7 +39,44 @@ async function call<T = unknown>(base: string, apiKey: string, path: string, ini
   return data as T;
 }
 
-const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONTACTS_UPSERT", "CONTACTS_UPDATE", "CONNECTION_UPDATE"];
+export const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONTACTS_UPSERT", "CONTACTS_UPDATE", "CONNECTION_UPDATE"];
+/** Sem estes o Atendimento para: mensagens, recibos e estado da conexão. */
+export const REQUIRED_WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"];
+
+export type EvolutionWebhookConfig = { enabled: boolean; url: string; events: string[] };
+
+/** Configuração do webhook gravada na Evolution para a instância (sem os cabeçalhos/segredo). */
+export async function evolutionWebhookConfig(base: string, apiKey: string, instance: string): Promise<EvolutionWebhookConfig | null> {
+  const data = await call<Record<string, unknown> | null>(base, apiKey, `/webhook/find/${encodeURIComponent(instance)}`, { timeoutMs: 10_000 });
+  const w = (data && typeof data.webhook === "object" && data.webhook ? data.webhook : data) as Record<string, unknown> | null;
+  if (!w) return null;
+  return { enabled: w.enabled === true, url: typeof w.url === "string" ? w.url : "", events: Array.isArray(w.events) ? w.events.map(String) : [] };
+}
+
+/** O que está errado na configuração do webhook (vazio = ok). Só o caminho do endereço é conferido. */
+export function webhookConfigProblems(cfg: EvolutionWebhookConfig | null): string[] {
+  if (!cfg) return ["webhook não configurado"];
+  const problems: string[] = [];
+  if (!cfg.enabled) problems.push("webhook desligado");
+  let path = "";
+  try { path = new URL(cfg.url).pathname.replace(/\/+$/, ""); } catch { /* endereço inválido */ }
+  if (path !== "/api/whatsapp/webhook") problems.push("endereço do webhook não aponta para o CRM");
+  const events = new Set(cfg.events.map((e) => e.toUpperCase().replace(/\./g, "_")));
+  const missing = REQUIRED_WEBHOOK_EVENTS.filter((e) => !events.has(e));
+  if (missing.length) problems.push(`eventos faltando: ${missing.join(", ")}`);
+  return problems;
+}
+
+/**
+ * Teste ativo da conexão: pergunta aos servidores do WhatsApp se o próprio número existe.
+ * Exige ida e volta pela conexão; se ela estiver travada, falha ou estoura o tempo.
+ */
+export async function evolutionProbe(base: string, apiKey: string, instance: string, phone: string): Promise<boolean> {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10) throw new EvolutionError("Número do canal desconhecido para o teste.");
+  const data = await call<unknown>(base, apiKey, `/chat/whatsappNumbers/${encodeURIComponent(instance)}`, { method: "POST", body: { numbers: [digits] }, timeoutMs: 10_000 });
+  return Array.isArray(data);
+}
 
 export async function evolutionPing(base: string, apiKey: string) {
   return call<{ version?: string }>(base, apiKey, "/");
