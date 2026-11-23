@@ -144,3 +144,11 @@ test("erros do servidor do WhatsApp viram instrução clara", async () => {
   expect(evolutionErrorMessage(new Error("Evolution HTTP 401 ao ler o histórico."))).toMatch(/chave da Evolution/);
   expect(evolutionErrorMessage(new Error("fetch failed"))).toMatch(/não respondeu/);
 });
+
+test('foto de álbum (associatedChildMessage) e visualização única viram [foto] com legenda', () => {
+  const foto = { imageMessage: { caption: 'Cor da porta', mimetype: 'image/jpeg' }, messageContextInfo: {} };
+  expect(evolutionMessageText({ associatedChildMessage: { message: foto }, messageContextInfo: {} })).toEqual({ text: '[foto] Cor da porta', media: 'image' });
+  expect(evolutionMessageText({ viewOnceMessage: { message: { imageMessage: {} } } })).toEqual({ text: '[foto]', media: 'image' });
+  // O cabeçalho do álbum não é uma mensagem própria (as fotos chegam uma a uma).
+  expect(evolutionMessageText({ albumMessage: { expectedImageCount: 3 } })).toEqual({ text: '', media: null });
+});
