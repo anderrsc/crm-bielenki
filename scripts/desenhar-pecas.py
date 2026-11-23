@@ -1,5 +1,5 @@
 """Desenha, no mesmo traço das outras ilustrações do catálogo, as peças que
-entraram no site 3D depois do catálogo original (sobrecalha e rufo colarinho).
+entraram no site 3D depois do catálogo original (sobrecalha, rufo colarinho e calha platibanda com pingadeira).
 
 Perfil frontal em preto grosso, extrusão para cima/direita, faces deitadas
 claras e faces em pé escuras. Medidas padrão de pecas-3d.html.
@@ -33,6 +33,16 @@ def rufo_colarinho():
     a = D / 2 + .3
     b = a / math.cos(math.radians(ang))
     return pts, 70.0, (a, b)
+
+
+def calha_platibanda_pingadeira():
+    # Campos de pecas-3d.html#calha-platibanda-pingadeira: A pingadeira, F bainha, B topo,
+    # C lado parede, D fundo, E lado frente, G aba. Parede interna do muro em x = 0.
+    A, F, B, C, D, E, G = 3, 1, 15, 20, 15, 12, 2
+    s, c = math.sin(math.radians(20)), math.cos(math.radians(20))
+    ping = (-B - A * s, C - A * c)
+    pts = [(ping[0] + F * .8, ping[1] + F * .6), ping, (-B, C), (0, C), (0, 0), (D, 0), (D, E), (D + G, E)]
+    return pts, 60.0, None
 
 
 def desenhar(pts, comprimento, furo):
@@ -74,7 +84,8 @@ def desenhar(pts, comprimento, furo):
     return im.resize((W, H), Image.LANCZOS)
 
 
-for nome, peca in (("sobrecalha", sobrecalha), ("rufo-colarinho", rufo_colarinho)):
+for nome, peca in (("sobrecalha", sobrecalha), ("rufo-colarinho", rufo_colarinho),
+                   ("calha-platibanda-pingadeira", calha_platibanda_pingadeira)):
     im = desenhar(*peca())
     im.save(RAIZ / "pecas" / f"{nome}.png")
     branco = Image.new("RGB", (W, H), "white")

@@ -6,14 +6,14 @@ import { PRODUCTS_BY_CATEGORY } from "@/lib/gutters";
 import { quotePieceMedia } from "@/lib/quote-piece-media";
 
 test("all documented profiles have original drawings and distinct model links", async () => {
-  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(23);
+  expect(MARQUINHOS_CATALOG.pieces).toHaveLength(24);
   const links = new Set<string>();
   for (const piece of MARQUINHOS_CATALOG.pieces) {
     expect(existsSync(`public${catalogImagePath(piece)}`)).toBe(true);
     expect(catalogPieceForProduct(piece.name)?.id).toBe(piece.id);
     links.add(catalogModelUrl(piece));
   }
-  expect(links.size).toBe(23);
+  expect(links.size).toBe(24);
   // Peças que entraram no site 3D em 10/11/2026: nome do orçamento → desenho e QR.
   expect(catalogPieceForProduct("Rufo Sobre Calha")?.id).toBe("sobrecalha");
   expect(catalogPieceForProduct("Sobrecalha")?.id).toBe("sobrecalha");
@@ -23,6 +23,10 @@ test("all documented profiles have original drawings and distinct model links", 
   expect(catalogPieceForProduct("Rufo para Chaminé")?.id).toBe("rufo-colarinho");
   expect(catalogPieceForProduct("Rufo de Chaminé")?.id).toBe("rufo-colarinho");
   expect(PRODUCTS_BY_CATEGORY.Rufos).toEqual(expect.arrayContaining(["Rufo colarinho", "Rufo para Chaminé", "Sobrecalha", "Rufo Sobre Calha"]));
+  // Calha platibanda com pingadeira (site 3D, 23/11/2026): lista de Calhas, desenho e QR próprios.
+  expect(PRODUCTS_BY_CATEGORY.Calhas).toContain("Calha platibanda com pingadeira");
+  expect(catalogPieceForProduct("Calha Platibanda com Pingadeira")?.id).toBe("calha-platibanda-pingadeira");
+  expect(catalogPieceForProduct("Calha Platibanda")?.id).toBe("platibanda");
   expect(catalogPieceForProduct("Silicone incolor neutro")?.id).toBe("tubo-silicone");
   expect(catalogPieceForProduct("PU MS40")).toBeUndefined();
   expect(catalogPieceForProduct("Tubo Vedante PU MS40")).toBeUndefined();
@@ -41,6 +45,7 @@ test("all documented profiles have original drawings and distinct model links", 
   expect(await quotePieceMedia("Peça exclusiva", true)).toBeNull();
   expect((await quotePieceMedia("Rufo Sobre Calha", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#sobrecalha");
   expect((await quotePieceMedia("Rufo colarinho", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#rufo-colarinho");
+  expect((await quotePieceMedia("Calha platibanda com pingadeira", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#calha-platibanda-pingadeira");
 });
 
 test("catalog import updates reference prices, preserves extras and other tenants, and can be repeated", async () => {

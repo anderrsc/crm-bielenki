@@ -67,6 +67,18 @@
       "model": "pecas-3d.html#agua-furtada"
     },
     {
+      "id": "calha-platibanda-pingadeira",
+      "code": "23",
+      "name": "Calha platibanda com pingadeira",
+      "category": "Calhas",
+      "aliases": [
+        "Calha Platibanda com Pingadeira",
+        "Platibanda com pingadeira",
+        "Calha de platibanda com pingadeira"
+      ],
+      "model": "pecas-3d.html#calha-platibanda-pingadeira"
+    },
+    {
       "id": "rufo-condutor",
       "code": "08",
       "name": "Rufo condutor",
