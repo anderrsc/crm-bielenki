@@ -64,11 +64,14 @@ create or replace trigger post_sales_touch_updated_at
 -- RLS: post_sales
 alter table public.post_sales enable row level security;
 drop policy if exists post_sales_select on public.post_sales;
+drop policy if exists post_sales_select on public.post_sales;
 create policy post_sales_select on public.post_sales for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('orders', 'select'));
 drop policy if exists post_sales_insert on public.post_sales;
+drop policy if exists post_sales_insert on public.post_sales;
 create policy post_sales_insert on public.post_sales for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('orders', 'update'));
+drop policy if exists post_sales_update on public.post_sales;
 drop policy if exists post_sales_update on public.post_sales;
 create policy post_sales_update on public.post_sales for update to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('orders', 'update'))
@@ -77,11 +80,14 @@ create policy post_sales_update on public.post_sales for update to authenticated
 -- RLS: post_sale_photos
 alter table public.post_sale_photos enable row level security;
 drop policy if exists post_sale_photos_select on public.post_sale_photos;
+drop policy if exists post_sale_photos_select on public.post_sale_photos;
 create policy post_sale_photos_select on public.post_sale_photos for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('orders', 'select'));
 drop policy if exists post_sale_photos_insert on public.post_sale_photos;
+drop policy if exists post_sale_photos_insert on public.post_sale_photos;
 create policy post_sale_photos_insert on public.post_sale_photos for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('orders', 'update'));
+drop policy if exists post_sale_photos_delete on public.post_sale_photos;
 drop policy if exists post_sale_photos_delete on public.post_sale_photos;
 create policy post_sale_photos_delete on public.post_sale_photos for delete to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('orders', 'update'));
@@ -89,8 +95,10 @@ create policy post_sale_photos_delete on public.post_sale_photos for delete to a
 -- RLS: post_sale_history
 alter table public.post_sale_history enable row level security;
 drop policy if exists post_sale_history_select on public.post_sale_history;
+drop policy if exists post_sale_history_select on public.post_sale_history;
 create policy post_sale_history_select on public.post_sale_history for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('orders', 'select'));
+drop policy if exists post_sale_history_insert on public.post_sale_history;
 drop policy if exists post_sale_history_insert on public.post_sale_history;
 create policy post_sale_history_insert on public.post_sale_history for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('orders', 'update'));
