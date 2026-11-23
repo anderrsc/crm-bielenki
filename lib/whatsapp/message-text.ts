@@ -27,6 +27,21 @@ export function evolutionMessageText(message: Msg): { text: string; media: strin
   if (get("stickerMessage")) return { text: "[figurinha]", media: "sticker" };
   if (get("locationMessage")) return { text: "[localização]", media: "location" };
   if (get("contactMessage")) return { text: `[contato: ${str(get("contactMessage")!.displayName)}]`, media: "contact" };
+  // Mensagens de empresas (modelo, botões, lista, interativa): mostra o texto principal.
+  const tpl = get("templateMessage");
+  if (tpl) {
+    const h = (tpl.hydratedTemplate ?? (tpl.hydratedFourRowTemplate as unknown)) as Record<string, unknown> | undefined;
+    const t = str(h?.hydratedContentText) || str((tpl.fourRowTemplate as Record<string, unknown> | undefined)?.content);
+    if (t) return { text: t, media: null };
+  }
+  const inter = get("interactiveMessage");
+  if (inter) {
+    const t = str((inter.body as Record<string, unknown> | undefined)?.text) || str((inter.header as Record<string, unknown> | undefined)?.title);
+    if (t) return { text: t, media: null };
+  }
+  if (get("buttonsMessage")) { const t = str(get("buttonsMessage")!.contentText); if (t) return { text: t, media: null }; }
+  if (get("listMessage")) { const t = str(get("listMessage")!.description) || str(get("listMessage")!.title); if (t) return { text: t, media: null }; }
+  if (get("templateButtonReplyMessage")) return { text: str(get("templateButtonReplyMessage")!.selectedDisplayText), media: null };
   if (get("buttonsResponseMessage")) return { text: str(get("buttonsResponseMessage")!.selectedDisplayText), media: null };
   if (get("listResponseMessage")) return { text: str(get("listResponseMessage")!.title), media: null };
   if (get("ephemeralMessage")) return evolutionMessageText((get("ephemeralMessage")!.message ?? {}) as Record<string, unknown>);
