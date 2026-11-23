@@ -30,6 +30,8 @@ grant execute on function public.set_order_expected_cost(uuid,numeric) to authen
 --  realizado    = contas a pagar rateadas para a obra + contas sem rateio ligadas a venda ou a uma compra ja recebida;
 --  comprometido = contas de compras da obra cujo material ainda nao chegou por completo;
 --  previsto     = custo informado na obra.
+-- A versão estendida (20261120140000) tem mais colunas; ao reaplicar, recria do zero (nada depende desta view).
+drop view if exists public.v_order_result;
 create or replace view public.v_order_result with (security_invoker=true) as
 with alloc as (
   select a.order_id, a.company_id,

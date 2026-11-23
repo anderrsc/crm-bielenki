@@ -22,15 +22,18 @@ create index if not exists idx_production_step_photos_uploaded_by
 alter table public.production_step_photos enable row level security;
 
 drop policy if exists production_step_photos_select on public.production_step_photos;
+drop policy if exists production_step_photos_select on public.production_step_photos;
 create policy production_step_photos_select on public.production_step_photos
  for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('production_orders', 'select'));
 
 drop policy if exists production_step_photos_insert on public.production_step_photos;
+drop policy if exists production_step_photos_insert on public.production_step_photos;
 create policy production_step_photos_insert on public.production_step_photos
  for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('production_orders', 'update'));
 
+drop policy if exists production_step_photos_delete on public.production_step_photos;
 drop policy if exists production_step_photos_delete on public.production_step_photos;
 create policy production_step_photos_delete on public.production_step_photos
  for delete to authenticated

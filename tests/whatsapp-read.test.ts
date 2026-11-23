@@ -31,3 +31,15 @@ test('horários e separadores usam Brasília mesmo no servidor UTC e na virada d
   expect(inboxDayLabel('2026-11-15T02:20:00Z', now)).toBe('Ontem');
   expect(inboxListTime('2026-11-16T02:20:00Z', now)).toBe('23:20');
 });
+test('sem informar o "agora", usa a data real: hoje mostra a hora, como no WhatsApp', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-11-23T11:34:00Z')); // 08:34 em Brasília
+    expect(inboxListTime('2026-11-23T11:15:00Z')).toBe('08:15');
+    expect(inboxDayLabel('2026-11-23T11:15:00Z')).toBe('Hoje');
+    expect(inboxListTime('2026-11-22T20:00:00Z')).toBe('Ontem');
+    expect(inboxListTime('2026-11-20T20:00:00Z')).toBe('20/11');
+  } finally {
+    vi.useRealTimers();
+  }
+});

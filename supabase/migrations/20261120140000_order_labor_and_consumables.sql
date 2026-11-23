@@ -23,15 +23,19 @@ create index if not exists idx_order_labor_costs_profile on public.order_labor_c
 
 alter table public.order_labor_costs enable row level security;
 drop policy if exists order_labor_costs_select on public.order_labor_costs;
+drop policy if exists order_labor_costs_select on public.order_labor_costs;
 create policy order_labor_costs_select on public.order_labor_costs for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'select'));
+drop policy if exists order_labor_costs_insert on public.order_labor_costs;
 drop policy if exists order_labor_costs_insert on public.order_labor_costs;
 create policy order_labor_costs_insert on public.order_labor_costs for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
 drop policy if exists order_labor_costs_update on public.order_labor_costs;
+drop policy if exists order_labor_costs_update on public.order_labor_costs;
 create policy order_labor_costs_update on public.order_labor_costs for update to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'))
  with check (company_id = public.current_company_id());
+drop policy if exists order_labor_costs_delete on public.order_labor_costs;
 drop policy if exists order_labor_costs_delete on public.order_labor_costs;
 create policy order_labor_costs_delete on public.order_labor_costs for delete to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
@@ -62,15 +66,19 @@ create index if not exists idx_order_consumables_order on public.order_consumabl
 
 alter table public.order_consumables enable row level security;
 drop policy if exists order_consumables_select on public.order_consumables;
+drop policy if exists order_consumables_select on public.order_consumables;
 create policy order_consumables_select on public.order_consumables for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'select'));
+drop policy if exists order_consumables_insert on public.order_consumables;
 drop policy if exists order_consumables_insert on public.order_consumables;
 create policy order_consumables_insert on public.order_consumables for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
 drop policy if exists order_consumables_update on public.order_consumables;
+drop policy if exists order_consumables_update on public.order_consumables;
 create policy order_consumables_update on public.order_consumables for update to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'))
  with check (company_id = public.current_company_id());
+drop policy if exists order_consumables_delete on public.order_consumables;
 drop policy if exists order_consumables_delete on public.order_consumables;
 create policy order_consumables_delete on public.order_consumables for delete to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));

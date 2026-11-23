@@ -340,7 +340,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
                 const conv = items.find(i => i.id === h.conversationId);
                 return (
                   <button key={h.conversationId} onClick={() => abrir(h.conversationId)} className="wa-row block w-full rounded-lg px-2 py-1.5 text-left">
-                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span className="wa-muted text-[11px] font-normal">{hora(h.at)}</span></p>
+                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span suppressHydrationWarning className="wa-muted text-[11px] font-normal">{hora(h.at, new Date(agora))}</span></p>
                     <p className="wa-muted truncate text-xs">{h.snippet}</p>
                   </button>
                 );
@@ -364,12 +364,12 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
                 <div className="wa-line min-w-0 flex-1 border-b py-3 pr-6">
                   <div className="flex items-center justify-between gap-2">
                     <p className={cn("truncate text-[15px]", c.unread > 0 ? "font-bold" : "font-medium")}>{c.name}</p>
-                    <span className={cn("shrink-0 text-xs", c.unread > 0 ? "wa-unread-time" : "wa-muted")}>{hora(c.lastAt)}</span>
+                    <span suppressHydrationWarning className={cn("shrink-0 text-xs", c.unread > 0 ? "wa-unread-time" : "wa-muted")}>{hora(c.lastAt, new Date(agora))}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
                     {(() => { const espera = !c.archived && c.status !== "resolvida" && c.waitingSince ? waitingLabel(c.waitingSince, agora) : null;
-                      return espera ? <span title="Cliente esperando resposta" className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", /h|dia/.test(espera) ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600")}>{espera}</span> : null; })()}
+                      return espera ? <span suppressHydrationWarning title="Cliente esperando resposta" className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", /h|dia/.test(espera) ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600")}>{espera}</span> : null; })()}
                     {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
                   </div>
                   {(c.labels?.length ?? 0) > 0 && <div className="mt-0.5 flex flex-wrap gap-1">{c.labels!.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
@@ -547,7 +547,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           return (
             <Fragment key={m.id}>
             {eventosAntes.map(ev => <Evento key={`e-${ev.id}`} e={ev} />)}
-            {novoDia && <div className="sticky top-1 z-10 flex justify-center py-3"><span className="wa-date rounded-lg px-3 py-1.5 text-xs shadow-sm">{inboxDayLabel(m.at)}</span></div>}
+            {novoDia && <div className="sticky top-1 z-10 flex justify-center py-3"><span suppressHydrationWarning className="wa-date rounded-lg px-3 py-1.5 text-xs shadow-sm">{inboxDayLabel(m.at)}</span></div>}
             {!termo && primeiraNaoLida.current === m.id && <div role="separator" aria-label="Mensagens não lidas" className="wa-unread-divider -mx-[5%] my-4 flex justify-center py-2"><span className="wa-date rounded-full px-4 py-1.5 text-xs uppercase tracking-wide shadow-sm">Mensagens não lidas</span></div>}
             <div className={cn("flex", saida ? "justify-end" : "justify-start", !mesmoGrupo && "pt-1.5")}>
               <div className={cn("max-w-[88%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)] sm:max-w-[78%]", saida ? "wa-out" : "wa-in", !mesmoGrupo && (saida ? "rounded-tr-none" : "rounded-tl-none"), m.failed && "ring-2 ring-red-400")}>
