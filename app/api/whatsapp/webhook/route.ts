@@ -1,5 +1,6 @@
 import { channelByProviderId, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
+import { resolveMessageChannel, scopeMessages, webhookEventKey } from '@/lib/whatsapp/message-scope';
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
@@ -273,8 +274,8 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (cfg) for (const event of (Array.isArray(payload.data) ? payload.data : [payload.data])) {
         const id = String(event?.keyId ?? event?.key?.id ?? "");
         const status = event?.status ?? event?.update?.status;
-        if (event?.fromMe === false || event?.key?.fromMe === false) await updateIncomingRead(db, cfg.company_id, id, status);
-        else await updateDelivery(db, cfg.company_id, id, status);
+        if (event?.fromMe === false || event?.key?.fromMe === false) await updateIncomingRead(db, cfg.company_id, id, status, channel?.id);
+        else await updateDelivery(db, cfg.company_id, id, status, channel?.id);
       }
       return NextResponse.json({ status: "receipts_updated" });
     }
@@ -335,9 +336,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (reaction) {
         const cfgReaction = await instanceCompany();
         if (!cfgReaction) return NextResponse.json({ status: "company_not_found" });
-        const { error: reactionError } = await getSupabase().from("messages")
+        const reactionChannel=await resolveMessageChannel(getSupabase(),cfgReaction.company_id,channel?.id);
+        const { error: reactionError } = await scopeMessages(getSupabase().from("messages")
           .update(fromMe ? { reaction_team: reaction.emoji || null } : { reaction_customer: reaction.emoji || null })
-          .eq("company_id", cfgReaction.company_id).eq("external_id", reaction.targetId);
+          .eq("company_id", cfgReaction.company_id).eq("external_id", reaction.targetId),reactionChannel);
         if (reactionError) throw new Error(`Reação não gravada: ${reactionError.message}`);
         return NextResponse.json({ status: "reaction" });
       }
@@ -379,7 +381,8 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
         const { data: company } = await db.from("companies").select("id").eq("whatsapp_phone_number_id", phoneId).maybeSingle();
         const { data: cfg } = company ? { data: null } : await db.from("ai_agent_config").select("company_id").eq("whatsapp_number_id", phoneId).maybeSingle();
         const companyId = company?.id ?? cfg?.company_id;
-        if (companyId) for (const status of value.statuses) await updateDelivery(db, companyId, String(status.id ?? ""), status.status);
+        const receiptChannel=phoneId?await channelByProviderId(db,'meta',String(phoneId)):null;
+        if (companyId) for (const status of value.statuses) await updateDelivery(db, companyId, String(status.id ?? ""), status.status,receiptChannel?.id);
       }
       // Lote com varias mensagens (ou varias entradas): cada uma e processada.
       const batch = (payload?.entry ?? []).flatMap((e: any) => (e?.changes ?? []).flatMap((c: any) =>
@@ -419,14 +422,6 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Provedores reenviam o mesmo evento: cada mensagem e processada uma vez.
     const eventId = String((isEvolution ? payload?.data?.key?.id : payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id) ?? "");
-    if (eventId) {
-      const { data: novo, error: dedupeError } = await supabase.from("whatsapp_webhook_events")
-        .upsert({ provider: isEvolution ? "evolution" : "meta", event_id: eventId }, { onConflict: "provider,event_id", ignoreDuplicates: true })
-        .select("event_id");
-      if (dedupeError) throw new Error(`Deduplicação indisponível: ${dedupeError.message}`);
-      if (!novo?.length) return NextResponse.json({ status: "duplicate" });
-      lockedEvent = { provider: isEvolution ? "evolution" : "meta", event_id: eventId };
-    }
 
     // Busca empresa — por phone_number_id (Meta) ou instance (Evolution)
     let company: { id: string; name: string; trade_name: string; whatsapp_phone_number_id: string } | null = null;
@@ -464,6 +459,17 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       return NextResponse.json({ status: "company_not_found" });
     }
 
+    const messageChannelId=await resolveMessageChannel(supabase,company.id,channel?.id);
+    if(eventId){
+      const scopedEventId=webhookEventKey(messageChannelId??`legacy:${company.id}:${phoneNumberId}`,eventId);
+      const provider=isEvolution?'evolution':'meta';
+      const {data:novo,error:dedupeError}=await supabase.from('whatsapp_webhook_events')
+        .upsert({provider,event_id:scopedEventId,channel_id:messageChannelId},{onConflict:'provider,event_id',ignoreDuplicates:true}).select('event_id');
+      if(dedupeError)throw new Error(`Deduplicação indisponível: ${dedupeError.message}`);
+      if(!novo?.length)return NextResponse.json({status:'duplicate'});
+      lockedEvent={provider,event_id:scopedEventId};
+    }
+
     const { data: agentConfig } = await supabase
       .from("ai_agent_config")
       .select("*")
@@ -472,8 +478,8 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
     // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
     if (fromMe) {
-      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at, channel?.id ?? null);
-      await saveQuote(supabase, company.id, eventId, quote);
+      await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at, messageChannelId);
+      await saveQuote(supabase, company.id, eventId, quote,messageChannelId);
       return NextResponse.json({ status: "own_message" });
     }
 
@@ -481,9 +487,9 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Toda mensagem entra no Atendimento, com ou sem a Ana.
     let conversation: InboxConversation | null = null;
     try {
-      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: channel?.id ?? null });
+      conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: messageChannelId });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
-      await saveQuote(supabase, company.id, eventId, quote);
+      await saveQuote(supabase, company.id, eventId, quote,messageChannelId);
     } catch (error) {
       throw error;
     }
@@ -582,7 +588,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (result.ok) {
         clientText = `[áudio] ${result.text}`;
         // A equipe também passa a ver o que foi dito no áudio.
-        await supabase.from("messages").update({ body: clientText }).eq("company_id", company.id).eq("external_id", eventId).eq("direction", "inbound")
+        await scopeMessages(supabase.from("messages").update({ body: clientText }).eq("company_id", company.id).eq("external_id", eventId).eq("direction", "inbound"),messageChannelId)
           .then(() => undefined, () => undefined);
       } else {
         await logDecision("falhou", `Áudio não transcrito (${result.reason}). ${result.reason === "sem_chave" ? "Cadastre a chave do Gemini na Central de IA." : ""}`.trim());
@@ -864,10 +870,10 @@ async function runAfterResponse(work: () => Promise<NextResponse>, onError: (err
 }
 
 /** Mensagem que responde citando outra: guarda o id e o trecho citado para a tela mostrar. */
-async function saveQuote(supabase: ReturnType<typeof getSupabase>, companyId: string, externalId: string, quote: { id: string; preview: string } | null) {
+async function saveQuote(supabase: ReturnType<typeof getSupabase>, companyId: string, externalId: string, quote: { id: string; preview: string } | null,channelId:string|null) {
   if (!quote || !externalId) return;
-  const { error } = await supabase.from("messages").update({ quoted_external_id: quote.id, quoted_preview: quote.preview || null })
-    .eq("company_id", companyId).eq("external_id", externalId);
+  const { error } = await scopeMessages(supabase.from("messages").update({ quoted_external_id: quote.id, quoted_preview: quote.preview || null })
+    .eq("company_id", companyId).eq("external_id", externalId),channelId);
   if (error) console.error("Atendimento: citação não gravada:", error.message);
 }
 
@@ -880,7 +886,7 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
   try {
     const known = async () => {
       if (!externalId) return false;
-      const { data } = await supabase.from("messages").select("id").eq("company_id", companyId).eq("external_id", externalId).limit(1);
+      const { data } = await scopeMessages(supabase.from("messages").select("id").eq("company_id", companyId).eq("external_id", externalId),channelId).limit(1);
       return !!data?.length;
     };
     if (await known()) return;

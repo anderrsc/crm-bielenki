@@ -12,15 +12,17 @@ function query(table: string) {
   const filters: Array<[string, unknown]> = [];
   let joinCompany = false;
   let pending: { kind: 'insert' | 'update' | 'upsert' | 'delete'; data: Row } | null = null;
-  const rows = () => (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v))
+  const rows = () => (tables[table] ??= []).filter(r => filters.every(([k, v]) => (r[k]??null) === (v??null)))
     .map(r => joinCompany ? { ...r, company: (tables.companies ?? []).find(c => c.id === r.company_id) } : r);
   const run = () => {
     if (pending?.kind === 'insert' || pending?.kind === 'upsert') {
-      const row = { id: `${table}-${(tables[table] ??= []).length + 1}`, ...pending.data };
+      if(pending.kind==='upsert' && table==='whatsapp_webhook_events' && (tables[table]??[]).some(r=>r.provider===pending!.data.provider&&r.event_id===pending!.data.event_id))return [];
+      const row:Row = { id: `${table}-${(tables[table] ??= []).length + 1}`, ...pending.data };
+      if(table==='messages')row.channel_id=(tables.conversations??[]).find(c=>c.id===row.conversation_id)?.channel_id??null;
       tables[table].push(row); return [row];
     }
-    if (pending?.kind === 'delete') { const keep = (tables[table] ??= []).filter(r => !filters.every(([k, v]) => r[k] === v)); const gone = tables[table].length - keep.length; tables[table] = keep; return Array(gone).fill({}); }
-    if (pending?.kind === 'update') { const hit = (tables[table] ??= []).filter(r => filters.every(([k, v]) => r[k] === v)); hit.forEach(r => Object.assign(r, pending!.data)); return hit; }
+    if (pending?.kind === 'delete') { const keep = (tables[table] ??= []).filter(r => !filters.every(([k, v]) => (r[k]??null) === (v??null))); const gone = tables[table].length - keep.length; tables[table] = keep; return Array(gone).fill({}); }
+    if (pending?.kind === 'update') { const hit = (tables[table] ??= []).filter(r => filters.every(([k, v]) => (r[k]??null) === (v??null))); hit.forEach(r => Object.assign(r, pending!.data)); return hit; }
     return rows();
   };
   const api: Record<string, unknown> = {
@@ -110,7 +112,7 @@ describe('webhook WhatsApp (Meta)', () => {
     Object.defineProperty(tables, 'ai_agent_config', { configurable: true, get() { throw new Error('banco fora'); } });
     const res = await POST(metaRequest('Oi', 'retry1') as never);
     expect(res.status).toBe(500);
-    expect((tables.whatsapp_webhook_events ?? []).some(e => e.event_id === 'retry1')).toBe(false);
+    expect((tables.whatsapp_webhook_events ?? [])).toHaveLength(0);
     Object.defineProperty(tables, 'ai_agent_config', { configurable: true, writable: true, value: original });
   });
 
@@ -238,6 +240,35 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     expect(sent[0].body).toMatchObject({ number: '5547999990000', text: 'Oi! Sou a Ana.' });
   });
 
+  test('P10: mesmo ID nos dois números entra nos dois, citação isolada e reenvio não duplica',async()=>{
+    const {encryptSecret}=await import('@/lib/encrypt');
+    tables.ai_agent_config[0].active=false;
+    tables.whatsapp_channels=['crm','crm-calha'].map((instance,i)=>({id:`canal-${i}`,company_id:'c1',provider:'evolution',instance,is_default:i===0,active:true,deleted_at:null,webhook_secret:encryptSecret(HOOK)}));
+    const {POST}=await import('@/app/api/whatsapp/webhook/route');
+    const request=(instance:string,text:string)=>new Request('https://crm.test/api/whatsapp/webhook',{method:'POST',headers:{'x-webhook-secret':HOOK},body:JSON.stringify({event:'messages.upsert',instance,data:msg('SAME-ID',text,{message:{extendedTextMessage:{text,contextInfo:{stanzaId:'ORIGINAL',quotedMessage:{conversation:text}}}}})})});
+    for(const instance of ['crm','crm-calha'])expect((await POST(request(instance,instance) as never)).status).toBe(200);
+    expect((await (await POST(request('crm','crm') as never)).json()).status).toBe('duplicate');
+    expect(tables.messages).toHaveLength(2);
+    expect(tables.messages.map(m=>[m.channel_id,m.external_id,m.quoted_preview])).toEqual([['canal-0','SAME-ID','crm'],['canal-1','SAME-ID','crm-calha']]);
+    expect(tables.whatsapp_webhook_events).toHaveLength(2);
+    expect(tables.conversations.map(c=>c.unread_count)).toEqual([1,1]);
+    expect(sent).toHaveLength(0);
+  });
+
+  test('P10: reação e recibo com ID repetido atualizam só o número de origem',async()=>{
+    const {encryptSecret}=await import('@/lib/encrypt');
+    tables.whatsapp_channels=['crm','crm-calha'].map((instance,i)=>({id:`canal-${i}`,company_id:'c1',provider:'evolution',instance,is_default:i===0,active:true,deleted_at:null,webhook_secret:encryptSecret(HOOK)}));
+    tables.messages=[0,1].map(i=>({id:`m${i}`,company_id:'c1',channel_id:`canal-${i}`,external_id:'TARGET',direction:'outbound',delivery_status:'enviada'}));
+    const {POST}=await import('@/app/api/whatsapp/webhook/route');
+    const request=(event:string,data:unknown)=>new Request('https://crm.test/api/whatsapp/webhook',{method:'POST',headers:{'x-webhook-secret':HOOK},body:JSON.stringify({event,instance:'crm-calha',data})});
+    await POST(request('messages.upsert',msg('REACTION','',{message:{reactionMessage:{key:{id:'TARGET'},text:'👍'}}})) as never);
+    await POST(request('messages.update',{key:{id:'TARGET',fromMe:true},status:'READ'}) as never);
+    expect(tables.messages[0]).toMatchObject({delivery_status:'enviada'});
+    expect(tables.messages[0].reaction_customer).toBeUndefined();
+    expect(tables.messages[1]).toMatchObject({delivery_status:'lida',reaction_customer:'👍'});
+    expect(sent).toHaveLength(0);
+  });
+
   test('Lia roda depois de responder ao provedor: o webhook devolve antes da IA', async () => {
     deferred.on = true;
     aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi! Sou a Lia.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
@@ -300,7 +331,7 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     const { POST } = await import('@/app/api/whatsapp/webhook/route');
     const res = await POST(evo(msg('f1', '*Rose:*\nJá vou', {}, { fromMe: true })) as never);
     expect(res.status).toBe(500);
-    expect((tables.whatsapp_webhook_events ?? []).some(e => e.event_id === 'f1')).toBe(false);
+    expect((tables.whatsapp_webhook_events ?? [])).toHaveLength(0);
     failInsert.clear();
     await POST(evo(msg('f1', '*Rose:*\nJá vou', {}, { fromMe: true })) as never);
     expect(tables.messages.filter(m => m.external_id === 'f1')).toHaveLength(1);

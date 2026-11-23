@@ -81,6 +81,18 @@ describe('importa o histórico', () => {
     expect(t.messages.some(m => m.external_id === 'r1')).toBe(false);
   });
 
+  test('mesmo ID em dois canais é recuperado nos dois; reação não atravessa o canal',async()=>{
+    const {t,db}=fakeDb();
+    const page=[rec('same-id',1700000100,'Mensagem')];
+    expect((await importHistoryPage(db as never,'c1',page,'canal-1')).inserted).toBe(1);
+    expect((await importHistoryPage(db as never,'c1',page,'canal-2')).inserted).toBe(1);
+    expect((await importHistoryPage(db as never,'c1',page,'canal-1')).inserted).toBe(0);
+    const reaction={key:{id:'reaction',fromMe:false,remoteJid:'5547999990000@s.whatsapp.net'},message:{reactionMessage:{key:{id:'same-id'},text:'👍'}},messageTimestamp:1700000200};
+    await importHistoryPage(db as never,'c1',[reaction],'canal-2');
+    expect(t.messages.find(m=>m.channel_id==='canal-1')?.reaction_customer).toBeUndefined();
+    expect(t.messages.find(m=>m.channel_id==='canal-2')?.reaction_customer).toBe('👍');
+  });
+
   test('eco de envio sem confirmação confirma a mensagem do CRM em vez de duplicar', async () => {
     const { t, db } = fakeDb();
     await importHistoryPage(db as never, 'c1', [rec('in1', 1700000000, 'Bom dia')]);

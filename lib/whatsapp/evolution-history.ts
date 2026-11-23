@@ -5,6 +5,7 @@ import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
 import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
 import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction } from "@/lib/whatsapp/message-text";
+import { resolveMessageChannel, scopeMessages } from './message-scope';
 
 export const HISTORY_PAGE_SIZE = 400;
 const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
@@ -54,6 +55,7 @@ export function evolutionErrorMessage(e: unknown): string {
 
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[], channelId?: string | null) {
+  channelId=await resolveMessageChannel(db,companyId,channelId);
   type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null; quoted_external_id: string | null; quoted_preview: string | null };
   const rows: Row[] = [];
   // Reações (👍) que o webhook pode ter perdido: aplicadas na mensagem reagida, na ordem em que vieram.
@@ -95,14 +97,14 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     const latest = new Map<string, { targetId: string; emoji: string; fromMe: boolean }>();
     for (const r of reactions.sort((a, b) => a.ts - b.ts)) latest.set(`${r.targetId}|${r.fromMe}`, r);
     const targets = [...new Set([...latest.values()].map((r) => r.targetId))];
-    const { data: current, error: currentError } = await db.from("messages").select("external_id,reaction_customer,reaction_team").eq("company_id", companyId).in("external_id", targets);
+    const { data: current, error: currentError } = await scopeMessages(db.from("messages").select("external_id,reaction_customer,reaction_team").eq("company_id", companyId).in("external_id", targets),channelId);
     if (currentError) throw new Error(`Reações não consultadas: ${currentError.message}`);
     for (const r of latest.values()) {
       const row = (current ?? []).find((m) => m.external_id === r.targetId) as { reaction_customer?: string | null; reaction_team?: string | null } | undefined;
       if (!row) continue;
       const column = r.fromMe ? "reaction_team" : "reaction_customer";
       if ((row[column] ?? null) === (r.emoji || null)) continue;
-      const { error } = await db.from("messages").update({ [column]: r.emoji || null }).eq("company_id", companyId).eq("external_id", r.targetId);
+      const { error } = await scopeMessages(db.from("messages").update({ [column]: r.emoji || null }).eq("company_id", companyId).eq("external_id", r.targetId),channelId);
       if (error) throw new Error(`Reação não gravada: ${error.message}`);
     }
   }
@@ -113,7 +115,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
   const corrected = new Map<string, string>();
   const ids = rows.map((r) => r.external_id);
   for (let i = 0; i < ids.length; i += 200) {
-    const { data, error } = await db.from("messages").select("id,external_id,conversation_id,direction,sent_at").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200));
+    const { data, error } = await scopeMessages(db.from("messages").select("id,external_id,conversation_id,direction,sent_at").eq("company_id", companyId).in("external_id", ids.slice(i, i + 200)),channelId);
     if (error) throw new Error(`Histórico não consultado: ${error.message}`);
     for (const m of data ?? []) {
       known.add(m.external_id as string);
@@ -168,7 +170,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
   const toInsert = fresh.filter((r) => !confirmed.has(r.external_id));
   for (let i = 0; i < toInsert.length; i += 200) {
     const rows = toInsert.slice(i, i + 200).map((r) => ({
-      company_id: companyId, conversation_id: convByPhone.get(r.phone), direction: r.direction, author: r.author,
+      company_id: companyId, conversation_id: convByPhone.get(r.phone), channel_id:channelId, direction: r.direction, author: r.author,
       sender_name: r.sender_name, body: r.body, external_id: r.external_id, sent_at: r.sent_at, delivery_status: r.direction === "outbound" ? "enviada" : null,
       ...(r.quoted_external_id ? { quoted_external_id: r.quoted_external_id, quoted_preview: r.quoted_preview } : {}),
     }));
