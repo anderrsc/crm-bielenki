@@ -49,7 +49,10 @@ export function sendOutcomeUnknown(error: unknown, message = error instanceof Er
 }
 
 /** Envia texto. Devolve o id da mensagem no WhatsApp (quando o provedor informa). */
-export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body: string): Promise<string | null> {
+/** Mensagem citada na resposta (como o "Responder" do WhatsApp). */
+export type QuotedMessage = { id: string; fromMe: boolean; text: string };
+
+export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body: string, opts: { quoted?: QuotedMessage | null } = {}): Promise<string | null> {
   if (c.provider === "evolution") {
     if (!c.evolutionUrl || !c.evolutionInstance) throw new WhatsAppSendError("WhatsApp (Evolution) não configurado.");
     const base = safeExternalUrl(c.evolutionUrl);
@@ -59,7 +62,8 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
       method: "POST",
       signal: AbortSignal.timeout(20000),
       headers: { apikey: c.evolutionKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ number: to, text: body }),
+      body: JSON.stringify({ number: to, text: body,
+        ...(opts.quoted ? { quoted: { key: { id: opts.quoted.id, fromMe: opts.quoted.fromMe }, message: { conversation: opts.quoted.text } } } : {}) }),
     });
     if (!response.ok) throw new WhatsAppSendError(`Evolution API HTTP ${response.status}`);
     const data = await response.json().catch(() => null);
@@ -71,7 +75,7 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
     method: "POST",
     signal: AbortSignal.timeout(20000),
     headers: { Authorization: `Bearer ${c.metaToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } }),
+    body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body }, ...(opts.quoted ? { context: { message_id: opts.quoted.id } } : {}) }),
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {

@@ -67,6 +67,21 @@ describe('Atendimento estilo WhatsApp', () => {
     await waitFor(() => expect(actions.markConversationUnread).toHaveBeenCalledWith('a'));
     expect(screen.queryByPlaceholderText('Mensagem')).toBeNull();
   });
+  test('responder citando: barra acima do campo, envia com a mensagem citada e limpa', async () => {
+    const { sendInboxMessage } = await import('@/app/(crm)/atendimento-actions');
+    vi.mocked(sendInboxMessage).mockResolvedValue({ ok: true });
+    actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente', 2));
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    const botoes = await screen.findAllByLabelText('Responder esta mensagem');
+    fireEvent.click(botoes[1]);
+    expect(screen.getByRole('status', { name: 'Respondendo a' }).textContent).toContain('mensagem 1 de Ana Cliente');
+    fireEvent.change(screen.getByPlaceholderText('Mensagem'), { target: { value: 'Pode ser amanhã' } });
+    fireEvent.click(screen.getByLabelText('Enviar'));
+    await waitFor(() => expect(sendInboxMessage).toHaveBeenCalledWith('a', 'Pode ser amanhã', expect.objectContaining({ replyTo: 'a-m1' })));
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Respondendo a' })).toBeNull());
+  });
+
   test('reação e citação aparecem como no WhatsApp', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => {
       const d = detail(id, 'Ana Cliente', 2);

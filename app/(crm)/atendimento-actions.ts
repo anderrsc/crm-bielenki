@@ -16,7 +16,7 @@ import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
 import { evolutionErrorMessage, syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
-import { markWhatsAppRead, markWhatsAppUnread, sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { markWhatsAppRead, markWhatsAppUnread, sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials, type QuotedMessage } from "@/lib/whatsapp/send";
 import { advanceReadThrough } from "@/lib/whatsapp/delivery";
 
 export type InboxItem = {
@@ -311,7 +311,7 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */
-export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean; clientRef?: string } = {}): Promise<{ ok?: true; error?: string; warning?: string }> {
+export async function sendInboxMessage(conversationId: string, text: string, opts: { unsigned?: boolean; clientRef?: string; replyTo?: string } = {}): Promise<{ ok?: true; error?: string; warning?: string }> {
   try {
     const body = text.trim();
     if (!body) return { error: "Mensagem vazia." };
@@ -334,12 +334,21 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     await db.from("conversations").update({ ai_suggestion: null, ai_suggestion_at: null }).eq("id", conversationId).not("ai_suggestion", "is", null);
     // Sem assinatura só para o que o cliente precisa copiar inteiro (ex.: Pix copia e cola).
     const signed = opts.unsigned ? body : `*${myName}:*\n${body}`;
+    // Resposta citando uma mensagem da mesma conversa (só se o WhatsApp já conhece essa mensagem).
+    let quoted: QuotedMessage | null = null;
+    if (opts.replyTo && z.string().uuid().safeParse(opts.replyTo).success) {
+      const { data: original } = await db.from("messages").select("external_id,direction,body")
+        .eq("id", opts.replyTo).eq("company_id", companyId).eq("conversation_id", conversationId).maybeSingle();
+      if (original?.external_id) quoted = { id: original.external_id, fromMe: original.direction === "outbound", text: String(original.body ?? "").slice(0, 1000) };
+    }
+    const quotedPreview = quoted ? quoted.text.replace(/^\*[^*\n]{1,40}:\*\s*/, "").replace(/\s+/g, " ").trim().slice(0, 160) || null : null;
     // 1) Grava ANTES de enviar, com a chave do envio: duplo clique ou nova tentativa com a
     //    mesma chave não manda a mensagem duas vezes.
     const at = new Date().toISOString();
     const { data: row, error: rowError } = await db.from("messages").insert({
       company_id: companyId, conversation_id: conversationId, direction: "outbound", author: "equipe",
       sender_name: myName, sent_by: user.id, body: signed, delivery_status: "enviando", client_ref: clientRef, sent_at: at,
+      ...(quoted ? { quoted_external_id: quoted.id, quoted_preview: quotedPreview } : {}),
     }).select("id").single();
     if (rowError?.code === "23505") {
       const { data: prev } = await db.from("messages").select("delivery_status").eq("company_id", companyId).eq("client_ref", clientRef).maybeSingle();
@@ -351,7 +360,7 @@ export async function sendInboxMessage(conversationId: string, text: string, opt
     let failure: string | null = null;
     let unknown = false;
     try {
-      externalId = await sendWhatsAppText(channelCredentials(cfg, await channelById(admin, conv.channel_id), { companyPhoneNumberId: company?.whatsapp_phone_number_id }), to, signed);
+      externalId = await sendWhatsAppText(channelCredentials(cfg, await channelById(admin, conv.channel_id), { companyPhoneNumberId: company?.whatsapp_phone_number_id }), to, signed, { quoted });
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
       // Tempo esgotado / conexão caiu: pode ter saído. Não presume falha.

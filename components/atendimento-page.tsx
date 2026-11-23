@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown, Reply } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
   addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
@@ -445,6 +445,9 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
   const [mudandoIa, startIa] = useTransition();
   const [sugerindo, startSugestao] = useTransition();
   const [modoNota, setModoNota] = useState(false);
+  // Mensagem que está sendo respondida (citação, como o "Responder" do WhatsApp).
+  const [respondendo, setRespondendo] = useState<InboxMessage | null>(null);
+  useEffect(() => { setRespondendo(null); }, [c.id]);
   const [transferir, setTransferir] = useState(false);
   const [mudandoStatus, startStatus] = useTransition();
   const mudarStatus = (v: ConversationStatus) => startStatus(async () => { const r = await setConversationStatus(c.id, v); setErro(r.error ?? null); onChanged(); });
@@ -488,8 +491,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
     const t = texto.trim();
     if (!t || enviando) return;
     startEnvio(async () => {
-      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t, { clientRef: crypto.randomUUID() });
-      if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
+      const r: { error?: string; warning?: string } = modoNota ? await addInboxNote(c.id, t) : await sendInboxMessage(c.id, t, { clientRef: crypto.randomUUID(), replyTo: respondendo?.id });
+      if (r.error) setErro(r.error); else { setErro(r.warning ?? null); setTexto(""); if (!modoNota) setRespondendo(null); try { sessionStorage.removeItem(`inbox-draft:${c.id}`); } catch {} }
       onChanged();
     });
   };
@@ -556,6 +559,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
+                  {!m.pending && !m.failed && <button type="button" aria-label="Responder esta mensagem" title="Responder citando esta mensagem" className="mr-auto rounded p-0.5 opacity-60 hover:opacity-100"
+                    onClick={() => { setRespondendo(m); setModoNota(false); }}><Reply className="h-3.5 w-3.5" /></button>}
                   {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && m.deliveryStatus !== "desconhecido" && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
@@ -610,6 +615,13 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           </div>
         )}
         <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
+        {respondendo && !modoNota && (
+          <div className="mb-2 flex items-start gap-2 rounded-lg border-l-4 border-[var(--wa-green)] bg-black/5 px-3 py-2 text-xs" role="status" aria-label="Respondendo a">
+            <Reply className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p className="line-clamp-2 flex-1">{(respondendo.direction === "outbound" ? semAssinatura(respondendo.body) : respondendo.body) || "Mensagem"}</p>
+            <button type="button" aria-label="Cancelar resposta" onClick={() => setRespondendo(null)} className="rounded p-0.5"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <QuickReplies
             query={quickReplyQuery(texto)} open={atalhos} onOpen={() => setAtalhos(true)}
