@@ -383,6 +383,9 @@ flowchart LR
   - auditoria (`audit-log-page.tsx`) e guia visual (`/design-system`).
 - **Situação:** ✅ (E2E `remaining`, `forms`).
 
+### 6.15 Equipes, veículos e carregamento (23/11)
+`/equipes` (`work-planning-page.tsx`, `work-planning-actions.ts`, `lib/work-planning.ts`). Tabelas `work_teams`, `work_team_members`, `work_vehicles`, `work_days`, `work_day_members`, `work_day_jobs`, `work_load_items` e `work_load_events`. Gerência planeja; produção/estoque conferem; equipe externa acompanha e confere suas saídas. Usa a agenda existente, snapshots do dia, reservas exclusivas e checklist físico auditado. Sem cadastros ou operações automáticas. Detalhes em `docs/PROPOSTA-EQUIPES-VEICULOS-2026-11-23.md`.
+
 ---
 
 ## 7. APIs e integrações
@@ -578,9 +581,11 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 | 19/11 | Auditoria multiusuário, compras em lote, cancelamento, vendedor só suas vendas, etiquetas, lembrete 2 h, regras da Lia, áudio e acompanhamento (#106); tema só claro e refino (#107); menu recolhível, sobrecalha e rufo colarinho (#108, #109); **importação WVetro** e confirmação correta (#110); **cobrança Pix registrada** (#111); **vigia do WhatsApp** (#112); **fiscal**: diagnóstico (#113), verificação do motor (#114), **calculadora** (#115) |
 
 ### Decisões e descartes registrados
+- **23/11 — validação final de equipes:** E2E local em build de produção passou no celular (375 px): criar saída, selecionar visita, incluir ferramenta, separar/carregar/devolver e cancelar sem apagar o histórico. Formulários usam POST autenticado com validação de origem e retorno 303 para preservar a lista após envios consecutivos; membro removido fica somente com leitura. Incluídos testes da rota e dos controles da tela.
+- **23/11 — conferência às 18:05:** diagnóstico de produção verde, banco em dia, canais abertos e zero falhas seguidas; `webhook_ok` renovado até 17:21. Sem `probe_ok`/`probe_failed`; últimos eventos às 17:55 e 18:04, sem 20 minutos de silêncio na coleta. Vigia ainda depende dessa observação natural. Equipes/veículos/carregamento publicados no PR #139; Typecheck e 887 testes locais passaram, incluindo isolamento, reservas, agenda, snapshots e retornos. Advisors sem apontamentos nas novas tabelas.
 - **23/11 — WhatsApp P10:** deduplicação inclui o canal, mantendo IDs externos brutos e os dados existentes. Recibos, reações, citações, ecos e histórico também ficam no número de origem. Diagnósticos às 15:06/15:28: conexão e rotina em dia, zero envios sem confirmação, `webhook_ok` presente; sondas após 20 min de silêncio ainda pendentes. Avaliação da edição cifrada na Evolution 2.3.7 registrada em `docs/AUDITORIA-WHATSAPP-2026-11-23.md`, §10, sem alterar o provedor ou a Lia.
 - **23/11 — validade e fotos:** padrão de orçamento alinhado para 10 dias (empresas com 7 passam a 10; prazos personalizados e orçamentos existentes preservados). Fotos por etapa ligadas à Produção e à galeria do pedido, bucket privado, URLs temporárias, validação de imagem e permissão no RPC; arquivamento preserva arquivo e registro. Verificação de produção regenerada em PostgreSQL isolado.
-- **23/11 — equipes e veículos:** levantamento e modelo em `docs/PROPOSTA-EQUIPES-VEICULOS-2026-11-23.md`; aguarda aprovação do dono antes de implementar.
+- **23/11 — equipes, veículos e carregamento:** dono aprovou o modelo. Implementado `/equipes`, menu Operação e link na Agenda; cadastro de equipe/membros com histórico, frota, motorista e membros do dia, visitas das instalações/medições existentes e checklist físico com autor/horário/retorno. Reservas impedem pessoa, equipe ou veículo em duas saídas no mesmo dia. Reagendamento, cancelamento e inativação exigem revisão; histórico preservado, sem baixa automática de estoque/financeiro. Migração aditiva `20261123204303`, RLS por empresa e alocação, RPC autenticada e testes de banco, ações, tela e celular. Modelo e limites em `docs/PROPOSTA-EQUIPES-VEICULOS-2026-11-23.md`.
 - **23/11 — conferência das fotos no CI:** migração adicional otimiza a avaliação das permissões RLS por consulta; verificação de produção regenerada e políticas verificadas em PostgreSQL isolado.
 - **23/11 — WVetro e impressão:** propostas importadas e orçamentos com `hide_unit_prices=true` mostram itens, medidas e somente o total geral, sem unitário nem total por linha. A importação marca a opção sempre; PDFs usam nova versão de cache. Cobertura de renderização, importação e E2E `print-a4`.
 - **23/11 — prioridades do dono:** calculadora fiscal pausada; emissão de notas, resultado por obra completo, alçadas e relatório de compras duplicadas ficam para o futuro. Pix funciona. O dono atualizará o formulário da Lia; não implementar mudanças da Lia antes disso.
@@ -640,7 +645,7 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
   - bobinas, lotes, peso, sobras e perdas;
   - corte, dobra e conferência por responsável com fotos;
   - status "aguardando conferência das peças".
-- **Operação:** equipes, veículos e carregamento; folha individual restrita.
+- **Operação:** equipes, veículos e carregamento implementados (§6.15); folha individual restrita continua pendente.
 - **Compras:** consolidação, comparação e histórico; WVetro assistido para compras.
 - **Testes e homologação:**
   - homologação com Supabase real (revogação em sessão ativa, realtime, rate limit, MFA);
@@ -703,7 +708,7 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 ### P3 — Evolução
 - **Emissão fiscal** (quando o dono retomar). Opções avaliadas: emissor homologado por API + certificado **A1** (confirmar o tipo), DANFSe pelo gerador oficial em WASM.
 - **Produção:** bobinas, lotes e etapas com fotos.
-- **Operação:** equipes e veículos; folha individual.
+- **Operação:** equipes e veículos implementados (§6.15); folha individual pendente.
 - **Tributos:** motor do Simples Nacional (Release 16 da Receita).
 
 ---

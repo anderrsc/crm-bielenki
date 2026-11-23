@@ -22,7 +22,7 @@ export function ConfirmButton({
   title,
   children,
 }: {
-  formAction: (fd: FormData) => Promise<void>;
+  formAction?: (fd: FormData) => Promise<void>;
   message?: string;
   className?: string;
   title?: string;

@@ -1,10 +1,10 @@
-# Equipes, veículos e carregamento — proposta para aprovação
+# Equipes, veículos e carregamento
 
-Situação: levantamento concluído em 23/11/2026. **Não implementado. Aguarda aprovação do dono.**
+Situação: modelo aprovado pelo dono em 23/11/2026: “Confere, pode implementar e deixe pronto”. Implementado em `/equipes`, com testes de banco, ações, tela e fluxo no celular.
 
 ## O que já existe
 
-Não há tabelas de equipes, membros ou veículos. A descrição do módulo Instalações menciona equipes, mas o banco guarda apenas um `responsible_id` por instalação.
+No levantamento inicial não havia tabelas de equipes, membros ou veículos. Instalações guardava apenas um `responsible_id`; esse vínculo foi preservado.
 
 - `profiles`: funcionário/usuário, empresa, nome e situação. Será reutilizado; não criar outro cadastro de pessoas.
 - `installations`: pedido, responsável, agendamento, endereço, situação e conclusão.
@@ -21,7 +21,7 @@ Não há tabelas de equipes, membros ou veículos. A descrição do módulo Inst
 | Membros | Equipe, funcionário (`profiles`), função e período de participação. Histórico preservado. |
 | Veículos | Empresa, identificação/placa, tipo, capacidade e comprimento útil opcionais; disponível, manutenção ou inativo. |
 | Alocação do dia | Data de Brasília, equipe, veículo, motorista e observações. Guarda os membros daquele dia, para trocas não alterarem o passado. |
-| Serviços do dia | Alocação + evento da agenda + sequência de visitas. Instalações e conferências reutilizam seus vínculos; acrescentar referência opcional de medição na agenda para as medições que ainda não têm vínculo explícito. |
+| Serviços do dia | Alocação + registro existente de agenda, instalação ou medição + sequência de visitas. A view `v_operational_agenda` já reúne as fontes, dispensando outro vínculo ou calendário. Evento vinculado a instalação usa a instalação como chave para impedir duplicidade. |
 | Carregamento | Alocação, pedido, itens/quantidades/unidade, materiais ou ferramentas; conferência de separado, carregado e devolvido, com responsável e horário. |
 
 ## Como funcionará
@@ -41,4 +41,12 @@ Não há tabelas de equipes, membros ou veículos. A descrição do módulo Inst
 - RLS por empresa, validação dos vínculos e auditoria nas alterações. Veículo ou funcionário inativo não recebe nova alocação.
 - Sem rastreamento, envio automático de WhatsApp, baixa financeira ou baixa automática de estoque.
 
-**Aprovação solicitada:** autorizar esse modelo inicial, com uma equipe/veículo por dia e carregamento como checklist físico. Até a resposta, não criar tabelas, telas nem migrações deste módulo.
+## Operação e verificação
+
+- Acesso pelo menu Operação → Equipes e veículos, ou pelo link na Agenda. O módulo começa sem cadastros e sem saídas; nenhuma reserva ou conferência é criada automaticamente.
+- Gerência pode ajustar os membros de uma saída aberta, preservando snapshots anteriores. Uma pessoa removida conserva a leitura histórica, mas perde a conferência daquela saída.
+- Cancelar libera as reservas e mantém visitas, itens e conferências. Devolução de item já carregado continua possível após encerramento/cancelamento. Ferramenta com devolução parcial exige motivo.
+- Cada conferência guarda autor, horário, etapa e quantidade devolvida. Reabertura pela gerência exige motivo. Cliques repetidos na mesma etapa são idempotentes; página desatualizada não sobrescreve outra etapa.
+- Migração aditiva `20261123204303_equipes_veiculos_carregamento.sql`: oito tabelas, índices de reserva/FKs, RLS por empresa e equipe do dia, gravação somente via RPC autenticada e auditoria. Planejamento usa trava por empresa para serializar disputas.
+- Testes: `work-planning-db`, `work-planning-actions`, `work-planning-view` e E2E `work-planning` (375 px). Sem WhatsApp real, sem movimentar estoque/financeiro e sem apagar dados.
+- Os formulários usam envio autenticado pela rota `/api/equipes`, com origem validada e retorno HTTP 303 para a lista completa. O E2E cobre envios consecutivos, confirmação de cancelamento e ausência de corte horizontal. Membro removido conserva a leitura, sem botões de conferência.

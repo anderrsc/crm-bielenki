@@ -61,6 +61,9 @@ Administrador e gerente têm acesso total à própria empresa; o isolamento entr
 | `stock_movements` | — | — | — | — | VCE | VE | VE | — | — |
 | `suppliers` | — | — | — | — | VCE | — | — | — | — |
 | `tasks` | — | — | VCE | VCE | — | — | — | VE | VCE |
+| `work_planning` | VCE | VCE | V* | V* | V* | V** | V** | V* | V* |
+
+Em `work_planning` (23/11), a gravação é exclusivamente por RPC: gerência planeja; `*` vê e confere somente as saídas em que está alocado; `**` estoque/produção vê todas as saídas da empresa e inclui/confere itens, sem editar planejamento. A leitura histórica de um membro removido não autoriza novas conferências. Cancelamento preserva dados; retorno de item já carregado continua permitido. Não há exclusão de registros nem movimento automático de estoque/financeiro.
 
 ## Decisões de negócio (19/11/2026)
 | # | Pergunta | Decisão |

@@ -58,6 +58,7 @@ const AtendimentoPage = dynamic(() => import("@/components/atendimento-page").th
 import { loadInbox } from "@/app/(crm)/atendimento-actions";
 import { loadCentralData } from "@/lib/ai/central-data";
 import { ProductionFlowPage } from "@/components/production-flow-page";
+import { WorkPlanningPage } from "@/components/work-planning-page";
 import { AuditLogPage } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
 const WindowQuote = dynamic(() => import("@/components/window-quote").then((m) => m.WindowQuote));
@@ -73,6 +74,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   const path = (await params).path ?? [];
   if (!path.length) { const { redirect } = await import("next/navigation"); redirect("/dashboard"); }
   const search = await searchParams;
+  if(path[0]==='equipes')return <WorkPlanningPage date={(search as {dia?:string}).dia} error={search.erro} saved={(search as {salvo?:string}).salvo==='1'}/>;
   // Erro tecnico do banco vira mensagem em portugues claro em todas as telas.
   if (search.erro) search.erro = friendlyError(search.erro);
   if (path[0] === "design-system") return <DesignSystem />;

@@ -4,6 +4,7 @@ const resources: Record<string, string> = {
   estoque: "materials", producao: "production_orders", instalacoes: "installations", servicos: "service_orders",
   financeiro: "financial_entries", relatorios: "sales", auditoria: "audit_logs",
   agenda: "operational_events", medicoes: "measurements", "tabela-calhas": "gutter_prices",
+  equipes: "work_planning",
   funcionarios: "profiles", usuarios: "profiles", atendimento: "conversations", fiscal: "fiscal",
 };
 
