@@ -3,7 +3,7 @@ import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
 import { createClient } from "@supabase/supabase-js";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, aiProviderKey, parseAiProvider } from "@/lib/ai/chat";
 import { sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
@@ -507,6 +507,10 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       return NextResponse.json({ status: "agent_inactive" });
     }
 
+    // A mensagem já está gravada no Atendimento. A Lia (transcrição + IA, de segundos a 1 min) roda
+    // depois de responder ao provedor: o webhook devolve na hora e a Evolution não fica esperando a
+    // IA para entregar as próximas mensagens. Fora de uma requisição (testes), roda na hora.
+    const lia = async (): Promise<NextResponse> => {
     // Busca sessão de triagem ativa para este número
     let { data: session } = await supabase
       .from("triage_sessions")
@@ -828,6 +832,13 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
 
 
     return NextResponse.json({ status: "ok", triagem_concluida: isConcluida });
+    };
+    return await runAfterResponse(lia, async (error) => {
+      console.error("Lia: falha depois de responder ao provedor:", error);
+      await supabase.from("ai_decisions").insert({ company_id: company.id, conversation_id: conversation?.id ?? null, phone: from, decisao: "falhou",
+        motivo: `Erro ao processar a mensagem: ${error instanceof Error ? error.message : String(error)}`.slice(0, 300), modo: agentConfig?.lia_mode ?? null })
+        .then(() => undefined, () => undefined);
+    });
   } catch (err) {
     console.error("Webhook error:", err);
     if (lockedEvent) {
@@ -836,6 +847,20 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     }
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
+}
+
+/**
+ * Roda `work` depois de responder (after do Next, dentro do tempo da função) e devolve "ai_queued".
+ * Sem requisição em andamento (testes, chamadas internas), roda na hora e devolve o resultado.
+ */
+async function runAfterResponse(work: () => Promise<NextResponse>, onError: (error: unknown) => Promise<void>): Promise<NextResponse> {
+  const guarded = async () => { try { return await work(); } catch (error) { await onError(error); return NextResponse.json({ status: "ai_failed" }); } };
+  try {
+    after(async () => { await guarded(); });
+  } catch {
+    return guarded();
+  }
+  return NextResponse.json({ status: "ai_queued" });
 }
 
 /** Mensagem que responde citando outra: guarda o id e o trecho citado para a tela mostrar. */
