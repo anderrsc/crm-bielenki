@@ -64,6 +64,11 @@ from public.whatsapp_channels w where w.deleted_at is null and w.active
 union all
 select 'reinicio', to_char(created_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI') || ' ' || action || ' ' || coalesce(new_data->>'name','') from public.audit_logs where table_name='whatsapp_channels' and action in ('AUTO_RESTART','RESTART') and created_at > now() - interval '1 day'
 union all
+-- Vigia (23/11): testes ativos da conexão e conferências do webhook nas últimas 24 h (sem conteúdo).
+select 'vigia', to_char(h.created_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI') || ' ' || h.event_type || ' ' || coalesce(w.name,'?') || coalesce(' | ' || left(h.error_message, 120), '')
+from public.whatsapp_connection_history h left join public.whatsapp_channels w on w.id = h.channel_id
+where h.event_type in ('probe_ok','probe_failed','webhook_ok','webhook_invalid','webhook_check_failed') and h.created_at > now() - interval '1 day'
+union all
 select 'saude', 'estado ' || coalesce(state,'?') || ' | falhas seguidas ' || failed_checks || ' | conferido ' || coalesce(to_char(checked_at at time zone 'America/Sao_Paulo','DD/MM HH24:MI'),'-') from public.whatsapp_health
 union all
 select 'whatsapp', 'agora: ' || to_char(now() at time zone 'America/Sao_Paulo','DD/MM HH24:MI')
