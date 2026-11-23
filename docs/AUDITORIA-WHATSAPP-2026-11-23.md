@@ -7,9 +7,9 @@ Código auditado: `main` em `3a7ef47` (após o PR #129). **Nenhuma alteração f
 >   - P1–P4 (PR #130);
 >   - P5, P6, P7, P9, P11, P12, P13 (PR #131);
 >   - da etapa D: reações, citações, envio de vídeo/Word/Excel/DWG e painel de saúde (PR #131).
+>   - Lia fora do caminho do webhook (PR #132), diagnóstico do vigia (PR #133), "Responder" citando pelo CRM (PR #134).
 > - **Em aberto:**
 >   - P10 (chaves de deduplicação sem número; rara);
->   - Lia fora do webhook (fila);
 >   - edição e exclusão de mensagens (o conteúdo chega cifrado, `secretEncryptedMessage`);
 >   - testes reais com celular (seção 7, coluna "R").
 
