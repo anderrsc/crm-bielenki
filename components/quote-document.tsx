@@ -281,7 +281,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
     ? company.payment_methods_available
     : ["pix", "cartao", "cheque", "dinheiro"];
   const selectedPayments = quote.payment_methods?.length ? quote.payment_methods : availablePayments;
-  const hideUnitPrices = quote.hide_unit_prices ?? false;
+  const hideUnitPrices = quote.hide_unit_prices || /(?:^|\n)Referente à proposta nº [^\n]+\./.test(quote.notes ?? "");
   // Deslocamento, mao de obra, instalacao e visita tecnica aparecem como "Incluso", sem valor (padrao), a nao ser que o orcamento peca para mostrar.
   const hideTravelPrice = quote.hide_travel_price ?? true;
   // Com o deslocamento oculto, o valor dele é diluído nos outros itens (proporcional ao valor de cada um).
@@ -483,8 +483,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Tabela de itens ── */}
           <table className="quote-table">
-            <colgroup><col style={{width:'5%'}}/><col style={{width:hasPieceMedia?'40%':'58%'}}/>{hasPieceMedia&&<col style={{width:'18%'}}/>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<col style={{width:'10%'}}/>}<col style={{width:hideUnitPrices?'21%':'11%'}}/></colgroup>
-            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
+            <colgroup><col style={{width:'5%'}}/><col style={{width:hideUnitPrices?(hasPieceMedia?'61%':'79%'):(hasPieceMedia?'40%':'58%')}}/>{hasPieceMedia&&<col style={{width:'18%'}}/>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<><col style={{width:'10%'}}/><col style={{width:'11%'}}/></>}</colgroup>
+            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<><th>UNIT.</th><th>TOTAL</th></>}</tr></thead>
             <tbody>{items.map((item,i)=>{
               const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
               const dil=diluted?.[i];
@@ -495,7 +495,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                 <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
                 <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
                 {hasPieceMedia&&<td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td>}
-                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td>}<td className="quote-td-total">{hiddenTravel?'Incluso':money(lineTotal)}</td>
+                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<><td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td><td className="quote-td-total">{hiddenTravel?'Incluso':money(lineTotal)}</td></>}
               </tr>;
             })}</tbody>
           </table>
@@ -517,7 +517,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
             </div>
 
             <div className="quote-fin-box">
-              <div className="quote-fin-row">
+              {!hideUnitPrices && <><div className="quote-fin-row">
                 <span>SUBTOTAL</span>
                 <span>{money(quote.subtotal)}</span>
               </div>
@@ -528,7 +528,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
               <div className="quote-fin-row">
                 <span>FRETE</span>
                 <span>{money(quote.freight)}</span>
-              </div>
+              </div></>}
               <div className="quote-fin-total">
                 <span>TOTAL GERAL</span>
                 <span>{money(quote.total)}</span>

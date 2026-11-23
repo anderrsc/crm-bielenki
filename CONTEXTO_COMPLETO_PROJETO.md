@@ -578,6 +578,8 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 | 19/11 | Auditoria multiusuário, compras em lote, cancelamento, vendedor só suas vendas, etiquetas, lembrete 2 h, regras da Lia, áudio e acompanhamento (#106); tema só claro e refino (#107); menu recolhível, sobrecalha e rufo colarinho (#108, #109); **importação WVetro** e confirmação correta (#110); **cobrança Pix registrada** (#111); **vigia do WhatsApp** (#112); **fiscal**: diagnóstico (#113), verificação do motor (#114), **calculadora** (#115) |
 
 ### Decisões e descartes registrados
+- **23/11 — WVetro e impressão:** propostas importadas e orçamentos com `hide_unit_prices=true` mostram itens, medidas e somente o total geral, sem unitário nem total por linha. A importação marca a opção sempre; PDFs usam nova versão de cache. Cobertura de renderização, importação e E2E `print-a4`.
+- **23/11 — prioridades do dono:** calculadora fiscal pausada; emissão de notas, resultado por obra completo, alçadas e relatório de compras duplicadas ficam para o futuro. Pix funciona. O dono atualizará o formulário da Lia; não implementar mudanças da Lia antes disso.
 - **Lia:** só contato novo e só número principal; não responde grupos; mensagens automáticas com limites e desligadas por padrão; áudio sim.
 - **Tema:** só claro.
 - **Vendas e impressão:** vendedor só vê as próprias vendas; venda manual continua VEN-; pintura com valor no impresso.
