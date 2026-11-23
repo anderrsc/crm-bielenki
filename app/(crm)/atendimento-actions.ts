@@ -16,7 +16,7 @@ import { autoLinkClients, recordOutbound } from "@/lib/whatsapp/inbox-store";
 import { evolutionErrorMessage, syncRecentEvolutionMessages, syncAgendaNames } from "@/lib/whatsapp/evolution-history";
 import { decryptSecret } from "@/lib/encrypt";
 import { cleanContactName, formatBrPhone, digitsOnly } from "@/lib/whatsapp/phone";
-import { markWhatsAppRead, markWhatsAppUnread, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { markWhatsAppRead, markWhatsAppUnread, sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { advanceReadThrough } from "@/lib/whatsapp/delivery";
 
 export type InboxItem = {
@@ -37,6 +37,8 @@ export type InboxEvent = { id: string; kind: "nota" | "transferencia" | "status"
 export type InboxMessage = {
   id: string; direction: "inbound" | "outbound"; author: string | null; senderName: string | null;
   body: string; at: string; failed: boolean; error: string | null; pending?: boolean; deliveryStatus?: string | null;
+  /** Reações (emoji) do cliente e da empresa; trecho da mensagem citada, quando responde a outra. */
+  reactionCustomer?: string | null; reactionTeam?: string | null; quotedPreview?: string | null;
 };
 export type ClientPanel = { canViewFinancial?: boolean;
   client: { id: string; name: string; phone: string | null; email: string | null; city: string | null; address: string | null; notes: string | null; created_at: string };
@@ -215,12 +217,15 @@ async function loadEvents(db: Awaited<ReturnType<typeof context>>["db"], convers
   }));
 }
 
-const MESSAGE_COLUMNS = "id,direction,author,sender_name,body,sent_at,delivery_status,error_message";
-type MessageRow = { id: string; direction: string; author: string | null; sender_name: string | null; body: string | null; sent_at: string; delivery_status: string; error_message: string | null };
+const MESSAGE_COLUMNS = "id,direction,author,sender_name,body,sent_at,delivery_status,error_message,reaction_customer,reaction_team,quoted_external_id,quoted_preview";
+type MessageRow = { id: string; direction: string; author: string | null; sender_name: string | null; body: string | null; sent_at: string; delivery_status: string; error_message: string | null;
+  reaction_customer?: string | null; reaction_team?: string | null; quoted_external_id?: string | null; quoted_preview?: string | null };
 function toMessage(m: MessageRow): InboxMessage {
   return {
     id: m.id, direction: m.direction === "outbound" ? "outbound" : "inbound", author: m.author, senderName: m.sender_name,
     body: m.body ?? "", at: m.sent_at, deliveryStatus: m.delivery_status, pending: ["uploading", "processing", "enviando"].includes(m.delivery_status), failed: m.delivery_status === "falhou", error: m.error_message,
+    reactionCustomer: m.reaction_customer ?? null, reactionTeam: m.reaction_team ?? null,
+    quotedPreview: m.quoted_external_id ? (m.quoted_preview || "Mensagem") : null,
   };
 }
 
@@ -303,11 +308,6 @@ async function loadClientPanel(db: Awaited<ReturnType<typeof createClient>>, com
     pagamentos: (pays ?? []).map((p) => ({ valor: n(p.amount), data: p.paid_at, forma: p.payment_method, descricao: entries.find((e) => e.id === p.financial_entry_id)?.description ?? "" })),
     pipeline: lead ? { etapa: lead.pipeline_stages?.name ?? null, valor: lead.estimated_value, proximaAcao: lead.next_action, data: lead.next_action_date } : null,
   };
-}
-
-/** Tempo esgotado / conexão caiu: a mensagem pode ter saído. Não presume falha. */
-function sendOutcomeUnknown(error: unknown, message: string) {
-  return /timeout|aborted|fetch failed|ECONNRESET|socket|network/i.test(message) || (error instanceof Error && /TimeoutError|AbortError/.test(error.name));
 }
 
 /** Envia pelo WhatsApp com o nome de quem respondeu em cima ("*Rose:*"). */

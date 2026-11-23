@@ -43,6 +43,11 @@ export function whatsappCredentials(
 
 export class WhatsAppSendError extends Error {}
 
+/** Tempo esgotado / conexão caiu: a mensagem pode ter saído. Não presume falha (nem reenvia). */
+export function sendOutcomeUnknown(error: unknown, message = error instanceof Error ? error.message : String(error)) {
+  return /timeout|aborted|fetch failed|ECONNRESET|socket|network/i.test(message) || (error instanceof Error && /TimeoutError|AbortError/.test(error.name));
+}
+
 /** Envia texto. Devolve o id da mensagem no WhatsApp (quando o provedor informa). */
 export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body: string): Promise<string | null> {
   if (c.provider === "evolution") {
@@ -79,7 +84,7 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
 }
 
 /** Uploads private media directly to the provider. No public permanent download URL. */
-export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes:Buffer;mime:string;name:string;caption:string;kind:'document'|'image'|'audio'}):Promise<string|null>{
+export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes:Buffer;mime:string;name:string;caption:string;kind:'document'|'image'|'audio'|'video'}):Promise<string|null>{
  if(c.provider==='evolution'){
   const base=safeExternalUrl(c.evolutionUrl);
   if(!base||!c.evolutionInstance||!c.evolutionKey)throw new WhatsAppSendError('WhatsApp (Evolution) não configurado.');

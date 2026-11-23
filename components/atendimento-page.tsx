@@ -552,6 +552,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             <div className={cn("flex", saida ? "justify-end" : "justify-start", !mesmoGrupo && "pt-1.5")}>
               <div className={cn("max-w-[88%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)] sm:max-w-[78%]", saida ? "wa-out" : "wa-in", !mesmoGrupo && (saida ? "rounded-tr-none" : "rounded-tl-none"), m.failed && "ring-2 ring-red-400")}>
                 {nome && !mesmoGrupo && <p className={cn("mb-0.5 text-xs font-bold", m.author === "ana" ? "text-blue-400" : "wa-sender")}>{nome}</p>}
+                {m.quotedPreview && <p className="wa-quote mb-1 line-clamp-2 rounded border-l-4 border-[var(--wa-green)] bg-black/5 px-2 py-1 text-[12.5px] opacity-80" title="Respondendo a">{m.quotedPreview}</p>}
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
                 {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
                 <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
@@ -570,6 +571,13 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
                 {m.deliveryStatus === "desconhecido" && <p className="mt-1 flex items-start gap-1 text-[11px] text-amber-600"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Sem confirmação do WhatsApp: confira no celular antes de reenviar.</p>}
               </div>
             </div>
+            {(m.reactionCustomer || m.reactionTeam) && (
+              <div className={cn("-mt-1.5 mb-1 flex", saida ? "justify-end pr-2" : "justify-start pl-2")}>
+                <span className="wa-in rounded-full border px-1.5 py-0.5 text-sm leading-none shadow-sm" title={[m.reactionCustomer && "Cliente", m.reactionTeam && "Equipe"].filter(Boolean).join(" e ") + " reagiu"}>
+                  {m.reactionCustomer}{m.reactionTeam}
+                </span>
+              </div>
+            )}
             </Fragment>
           );
         })}

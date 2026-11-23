@@ -29,3 +29,13 @@ test("expediente: segunda a sábado, 7h às 20h de Brasília", () => {
   expect(inBusinessHours(at("2026-11-21T14:00:00Z"))).toBe(true);  // sáb
   expect(inBusinessHours(at("2026-11-22T14:00:00Z"))).toBe(false); // dom
 });
+
+test("teste ativo: conexão que responde não é reiniciada só pelo silêncio (reserva de 2 h)", () => {
+  // Caso real de 23/11: Número da Calha reiniciado 3 vezes num dia calmo.
+  const now = at("2026-11-23T16:00:00Z"); // seg 13:00 BR
+  expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T15:30:00Z", now, probe: "ok" })).toBe(false);
+  expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T15:30:00Z", now, probe: "failed" })).toBe(true);
+  // Mais de 2 h sem nenhum evento, mesmo respondendo ao teste: reinicia (reserva).
+  expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T13:50:00Z", now, probe: "ok" })).toBe(true);
+  expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T13:50:00Z", lastRestartAt: "2026-11-23T15:00:00Z", now, probe: "ok" })).toBe(false);
+});

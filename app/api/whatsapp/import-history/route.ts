@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
     catch (e) { return NextResponse.json({ error: evolutionErrorMessage(e) }, { status: 502 }); }
     const records = result.messages?.records ?? [];
     const pages = result.messages?.pages ?? 0;
-    const { inserted, conversations } = await importHistoryPage(db, profile.company_id, records);
+    // A importação lê a conexão principal: grava nas conversas desse número (não em outro).
+    const { data: principal } = await db.from("whatsapp_channels").select("id").eq("company_id", profile.company_id).eq("is_default", true).is("deleted_at", null).maybeSingle();
+    const { inserted, conversations } = await importHistoryPage(db, profile.company_id, records, principal?.id ?? null);
     const done = page >= pages || records.length === 0;
     // No fim, troca os nomes pelos da agenda do celular.
     const named = done ? await syncAgendaNames(db, profile.company_id, cfg.evolution_api_url, key, cfg.evolution_instance || "crm").catch(() => 0) : 0;

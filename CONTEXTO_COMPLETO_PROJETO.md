@@ -1,7 +1,7 @@
 # CONTEXTO COMPLETO DO PROJETO — CRM Bielenki (Marquinhos Calhas e Esquadrias)
 
 > Memória técnica e documento de transferência de contexto entre IAs.
-> **Gerado em 19/11/2026** a partir do código em `main` no commit `386dbc9` (merge do PR #115), do banco montado localmente com todas as 140 migrações, dos testes, dos workflows, dos documentos do repositório, do histórico Git (321 commits, PRs até #115) e das conversas desta sessão.
+> **Gerado em 19/11/2026, atualizado em 23/11/2026** (auditoria e correções do WhatsApp, PRs #126–#131) a partir do código em `main` no commit `386dbc9` (merge do PR #115), do banco montado localmente com todas as 140 migrações, dos testes, dos workflows, dos documentos do repositório, do histórico Git (321 commits, PRs até #115) e das conversas desta sessão.
 > Sem segredos, senhas, chaves ou dados pessoais de clientes.
 
 **Como ler as marcações**
@@ -363,8 +363,11 @@ flowchart LR
 - **Tela "WhatsApp"** (`/atendimento/canais`): números, conexão principal, saúde, mensagens recentes e **botão "Reiniciar conexão"**.
 - **Situação:**
   - ✅ testes de banco e E2E;
-  - 🐛 a conexão Evolution trava em produção (§13, B1);
-  - ❓ o vigia automático está publicado (reiniciou o principal às 16:41 de 19/11), mas o número principal seguia sem receber às 16:49.
+  - 23/11: recebimento em dia (última mensagem 1–3 min antes de cada diagnóstico, 434 recebidas em 24 h);
+  - não lidas contam também mensagens atrasadas ou recuperadas pela reconciliação (marca `read_through_at`);
+  - reações, citações, envio de vídeo/Word/Excel/DWG (16 MB) e mídia do 2º número funcionando (#130, #131);
+  - vigia com teste ativo e conferência do webhook a cada hora; painel de saúde por número na tela WhatsApp;
+  - notas, mensagens e ações isoladas por número no banco (RLS + `inbox_conversation`).
 
 ### 6.12 IA — Central de IA, Lia e JARVIS → ver §10.
 
@@ -570,6 +573,8 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 | 15–16/11 | Pós-venda operacional (medidas, liberação para corte, Serviços, painel) (#76); correção de mensagens @lid e sincronização (#83–#86); custo do alumínio por bobina (#87); regras aprendidas da Lia (#78) |
 | 17/11 | Estorno de baixa e telas financeiras restritas (#88); crédito com fornecedores e nova compra simples (#89); tela da conta e do fornecedor (#90); corrigir lançamentos errados (#92); desfazer estoque e etapa (#93) |
 | 18/11 | Lia: modos e sugestões (#79); atendimento com notas e transferências (#80); segurança (cabeçalhos, erros ocultos, limite de IA) (#95); JARVIS medição (#96); devolução de material (#97); **nota fiscal por IA** (#98); PDF sem borrões (#99); Claude/Gemini (#100); chaves não sobrescritas (#101); **WhatsApp fase 1 e 2** (confiabilidade e vários números) (#102, #103); Atendimento "Sem resposta" e recuperação (#104); interface com movimento, Ctrl+K e linha do tempo (#105) |
+| 20/11 | (Outra sessão) Fases 1–5 da auditoria geral: histórico de conexão do WhatsApp, alertas de desconexão, fotos nas etapas da produção, pós-venda estruturado, mão de obra e insumos por obra, painéis por função. Migrações aplicadas; o CI da `main` ficou vermelho e foi corrigido em 23/11 (#126) |
+| 23/11 | Horário de hoje no Atendimento igual ao WhatsApp + CI verde de novo + painéis de produção/instalação corrigidos (#126); fotos em álbum (#127); peça **Calha platibanda com pingadeira** no CRM (#128) e no site 3D; **Manta asfáltica** e "outro item" digitado no orçamento (#129); **auditoria do WhatsApp** (relatório no chat) e correções: não lidas após atraso/recuperação, mídia do 2º número, aprovação da Lia para @lid, isolamento por número (#130); vigia com teste ativo, conferência do webhook, envios sem confirmação, reações, citações, envio de vídeo/Word/Excel/DWG, painel de saúde por número e endereço completo no "Novo cliente" (#131) |
 | 19/11 | Auditoria multiusuário, compras em lote, cancelamento, vendedor só suas vendas, etiquetas, lembrete 2 h, regras da Lia, áudio e acompanhamento (#106); tema só claro e refino (#107); menu recolhível, sobrecalha e rufo colarinho (#108, #109); **importação WVetro** e confirmação correta (#110); **cobrança Pix registrada** (#111); **vigia do WhatsApp** (#112); **fiscal**: diagnóstico (#113), verificação do motor (#114), **calculadora** (#115) |
 
 ### Decisões e descartes registrados
@@ -588,7 +593,7 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 | # | Problema | Gravidade | Impacto | Evidência | Causa provável | Solução recomendada |
 |---|---|---|---|---|---|---|
 | B1 | 🐛 **WhatsApp para de receber mensagens** com a conexão "aberta" | **Crítica** | O Atendimento fica sem mensagens novas (19/11: principal sem mensagens desde 15:04, Calha desde 15:40) | Diagnóstico de produção em 19/11 às 16:26, 16:43 e 16:49 | Sessão Baileys "zumbi" na Evolution 2.3.7 (não recebe nem mesmo pelo findMessages). Às 16:45 o servidor ficou "unreachable" e voltou | Vigia e "Reiniciar conexão" publicados (#112). **Confirmar eficácia.** Se o reinício não resolve: conferir "Aparelhos conectados" no celular e ler o QR de novo. Avaliar servidor e versão da Evolution, ou a API oficial da Meta |
-| B2 | ⚠️ Os eventos `connection.update` não são gravados (só "ignored") | Média | Sem histórico de quedas | `route.ts` linha ~296 | Escopo | Gravar o estado da conexão por canal |
+| B2 | ✅ Resolvido (20/11): `connection.update` grava em `whatsapp_connection_history` | — | — | — | — | — |
 | B3 | ⚠️ Causa das "entradas duplicadas" de compras não reproduzida | Média | Pode voltar a ocorrer | RELATORIO_AUDITORIA D | Desconhecida | Relatório de duplicatas suspeitas |
 | B4 | ⚠️ Proposta WVetro mostra o total por linha estimado | Baixa/Média | O cliente vê valores por item que não vêm do WVetro | Teste local de 19/11 | Escolha de implementação | Esperar a decisão do dono (só itens + total geral?) |
 | B5 | ⚠️ Corrida real entre conexões em `approve_quote` não exercitada | Baixa | Aprovação dupla simultânea | Teste com uma conexão só | — | Teste com conexões paralelas |
@@ -596,7 +601,9 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 | B7 | ⚠️ Teste E2E de funcionários era instável | — | **Corrigido** (#108: o nome do teste é normalizado) | — | Nome com maiúscula inicial | — |
 | B8 | ❓ A rotina `operations_tick` é agendada fora das migrações | Média | Uma recriação do banco perderia o agendamento | Não há `cron.schedule` para ela nas migrações | Configuração manual | Documentar ou criar migração idempotente de agendamento |
 | B9 | ⚠️ Validade padrão do orçamento: Lia diz 10 dias, histórico diz 7 | Baixa | Divergência de comunicação | `lia-knowledge.ts` × migração `20261105190000` | — | Confirmar com o dono e alinhar `companies.default_validity_days` |
-| B10 | ⚠️ Mensagens enviadas da equipe sem confirmação ("desconhecido") | Média | Possível reenvio manual | AUDITORIA-WHATSAPP #7 | Timeout da Evolution | Validar com timeout real |
+| B10 | ⚠️ Mensagens sem confirmação ("desconhecido") | Baixa | Aviso âmbar na tela | 23/11: 0 em 7 dias | Timeout da Evolution | Equipe, Lia e aprovação de sugestão já usam "desconhecido"; o eco do celular e a reconciliação confirmam (#130, #131) |
+| B11 | ⚠️ Vigia: o teste ativo (`chat/whatsappNumbers`) ainda não foi visto numa conexão travada de verdade | Média | Se a conexão travada responder ao teste, só reinicia após 2 h (reserva) | #131 | — | Acompanhar `probe_ok`/`probe_failed` no diagnóstico e no painel de saúde |
+| B12 | ⚠️ `secretEncryptedMessage` (edição de mensagem, criptografada) e mensagens interativas não aparecem | Baixa | Edição feita pelo cliente não atualiza o texto | Diagnóstico 23/11 (11 no dia) | Conteúdo cifrado pelo WhatsApp | Avaliar com a Evolution |
 
 ---
 
@@ -660,7 +667,7 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 ## 16. Roadmap priorizado
 
 ### P0 — Crítico
-**P0.1 Confirmar e estabilizar o recebimento do WhatsApp**
+**P0.1 Confirmar e estabilizar o recebimento do WhatsApp** — *23/11: etapas C1, C2 e D da auditoria publicadas (#130, #131). Falta: ver o teste ativo numa queda real (B11), tirar a Lia de dentro do webhook (fila) e decidir sobre a API oficial da Meta.*
 - **Objetivo:** nenhuma janela longa sem mensagens.
 - **Estado:** vigia publicado em 19/11; o número principal seguia sem receber às 16:49.
 - **Dependências:** acesso ao celular do número principal e ao servidor da Evolution.

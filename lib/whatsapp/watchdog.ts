@@ -12,8 +12,23 @@ export function inBusinessHours(now: Date): boolean {
   return day >= 1 && day <= 6 && hour >= 7 && hour < 20;
 }
 
-export function shouldRestart(input: { state: string; lastMessageEventAt: string | null; lastRestartAt: string | null; now: Date }): boolean {
+// Silêncio não prova que travou: com o teste ativo ok, só reinicia depois de 2 h sem nenhum evento
+// (reserva para o caso de a conexão responder ao teste e mesmo assim não receber).
+export const QUIET_FALLBACK_MINUTES = 120;
+
+/** "ok" = a conexão respondeu ao teste ativo; "failed" = não respondeu; undefined = sem teste. */
+export type ProbeResult = "ok" | "failed";
+
+/** Silêncio suficiente para desconfiar (e fazer o teste ativo). */
+export function looksStale(input: { state: string; lastMessageEventAt: string | null; lastRestartAt: string | null; now: Date }): boolean {
   if (input.state !== "open" || !inBusinessHours(input.now)) return false;
   const min = (iso: string | null) => (iso ? (input.now.getTime() - Date.parse(iso)) / 60_000 : Infinity);
   return min(input.lastMessageEventAt) >= STALE_MINUTES && min(input.lastRestartAt) >= RESTART_EVERY_MINUTES;
+}
+
+export function shouldRestart(input: { state: string; lastMessageEventAt: string | null; lastRestartAt: string | null; now: Date; probe?: ProbeResult }): boolean {
+  if (!looksStale(input)) return false;
+  if (input.probe !== "ok") return true;
+  const min = (iso: string | null) => (iso ? (input.now.getTime() - Date.parse(iso)) / 60_000 : Infinity);
+  return min(input.lastMessageEventAt) >= QUIET_FALLBACK_MINUTES && min(input.lastRestartAt) >= QUIET_FALLBACK_MINUTES;
 }

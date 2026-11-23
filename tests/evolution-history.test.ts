@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { evolutionJidPhone, evolutionMessageText } from '@/lib/whatsapp/message-text';
+import { evolutionJidPhone, evolutionMessageText, evolutionQuote, evolutionReaction } from '@/lib/whatsapp/message-text';
 import { importHistoryPage, syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 
 describe('texto das mensagens', () => {
@@ -16,6 +16,19 @@ describe('texto das mensagens', () => {
     expect(evolutionJidPhone({ remoteJid: '5547999990000@s.whatsapp.net' })).toBe('5547999990000');
     expect(evolutionJidPhone({ remoteJid: '1@lid', remoteJidAlt: '5547988887777@s.whatsapp.net' })).toBe('5547988887777');
     expect(evolutionJidPhone({ remoteJid: '1203@g.us' })).toBeNull();
+  });
+});
+
+describe('reações e citações', () => {
+  test('reação aponta a mensagem reagida; vazia = removida', () => {
+    expect(evolutionReaction({ reactionMessage: { key: { id: 'ALVO1' }, text: '👍' } })).toEqual({ targetId: 'ALVO1', emoji: '👍' });
+    expect(evolutionReaction({ reactionMessage: { key: { id: 'ALVO1' }, text: '' } })).toEqual({ targetId: 'ALVO1', emoji: '' });
+    expect(evolutionReaction({ conversation: 'oi' })).toBeNull();
+  });
+  test('citação: id e trecho, no texto ou no nível do registro (Evolution v2), sem a assinatura', () => {
+    expect(evolutionQuote({ extendedTextMessage: { text: 'Pode ser', contextInfo: { stanzaId: 'Q1', quotedMessage: { conversation: '*Rose:*\nQual a cor?' } } } })).toEqual({ id: 'Q1', preview: 'Qual a cor?' });
+    expect(evolutionQuote({ conversation: 'Sim' }, { stanzaId: 'Q2', quotedMessage: { imageMessage: { caption: 'janela' } } })).toEqual({ id: 'Q2', preview: '[foto] janela' });
+    expect(evolutionQuote({ conversation: 'Sim' })).toBeNull();
   });
 });
 
@@ -36,6 +49,7 @@ describe('importa o histórico', () => {
         select: () => q, or: () => q,
         eq: (k: string, v: unknown) => { f.push(r => r[k] === v); return q; },
         in: (k: string, v: unknown[]) => { f.push(r => v.includes(r[k])); return q; },
+        is: (k: string, v: unknown) => { f.push(r => (r[k] ?? null) === v); return q; },
         order: (k: string, o?: { ascending?: boolean }) => { order = k; asc = o?.ascending !== false; return q; },
         limit: (x: number) => { lim = x; return q; },
         insert: (d: unknown) => { ins = d; return q; }, update: (d: Record<string, unknown>) => { upd = d; return q; },
@@ -55,6 +69,28 @@ describe('importa o histórico', () => {
     expect(t.messages.map(m => [m.author, m.sender_name])).toEqual([['equipe', 'Rose'], ['cliente', 'Carlos']]);
     expect(await importHistoryPage(db as never, 'c1', page)).toEqual({ inserted: 0, conversations: 0 });
     expect(t.messages).toHaveLength(2);
+  });
+  test('reconciliação aplica reação perdida e guarda a citação, sem regravar o que não mudou', async () => {
+    const { t, db } = fakeDb();
+    await importHistoryPage(db as never, 'c1', [rec('alvo', 1700000000, 'Orçamento enviado', true)]);
+    const reacao = { key: { id: 'r1', fromMe: false, remoteJid: '5547999990000@s.whatsapp.net' }, message: { reactionMessage: { key: { id: 'alvo' }, text: '❤️' } }, messageTimestamp: 1700000100 };
+    const citada = { ...rec('q1', 1700000200, 'Pode ser na terça'), contextInfo: { stanzaId: 'alvo', quotedMessage: { conversation: 'Orçamento enviado' } } };
+    await importHistoryPage(db as never, 'c1', [reacao, citada] as never);
+    expect(t.messages.find(m => m.external_id === 'alvo')).toMatchObject({ reaction_customer: '❤️' });
+    expect(t.messages.find(m => m.external_id === 'q1')).toMatchObject({ quoted_external_id: 'alvo', quoted_preview: 'Orçamento enviado' });
+    expect(t.messages.some(m => m.external_id === 'r1')).toBe(false);
+  });
+
+  test('eco de envio sem confirmação confirma a mensagem do CRM em vez de duplicar', async () => {
+    const { t, db } = fakeDb();
+    await importHistoryPage(db as never, 'c1', [rec('in1', 1700000000, 'Bom dia')]);
+    const conv = t.conversations[0].id;
+    t.messages.push({ id: 'pend', company_id: 'c1', conversation_id: conv, direction: 'outbound', author: 'equipe', body: '*Rose:*\nJá envio', external_id: null, delivery_status: 'desconhecido', sent_at: new Date(1700000290000).toISOString() });
+    expect(await importHistoryPage(db as never, 'c1', [rec('echo1', 1700000300, '*Rose:*\nJá envio', true)])).toMatchObject({ inserted: 0 });
+    expect(t.messages.filter(m => m.direction === 'outbound')).toHaveLength(1);
+    expect(t.messages.find(m => m.id === 'pend')).toMatchObject({ external_id: 'echo1', delivery_status: 'enviada', error_message: null });
+    // Texto diferente não é confundido com o envio pendente.
+    expect(await importHistoryPage(db as never, 'c1', [rec('echo2', 1700000400, '*Rose:*\nOutra coisa', true)])).toMatchObject({ inserted: 1 });
   });
   test('recuperadas: só as recebidas que entraram agora vão para a contagem de não lidas', async () => {
     const { t, rpcs, db } = fakeDb();

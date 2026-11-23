@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 type Row = Record<string, unknown>;
 const tables: Record<string, Row[]> = {};
 const aiReply = vi.fn();
+// Tabelas em que a próxima gravação falha (simula o banco fora do ar).
+const failInsert = new Set<string>();
 
 function query(table: string) {
   const filters: Array<[string, unknown]> = [];
@@ -29,7 +31,7 @@ function query(table: string) {
     upsert: (data: Row) => { pending = { kind: 'upsert', data }; return api; },
     update: (data: Row) => { pending = { kind: 'update', data }; return api; },
     delete: () => { pending = { kind: 'delete', data: {} }; return api; },
-    single: async () => { const r = run(); return { data: r[0] ?? null, error: r[0] ? null : { message: 'none' } }; },
+    single: async () => { if (pending?.kind === 'insert' && failInsert.has(table)) return { data: null, error: { message: 'banco fora do ar' } }; const r = run(); return { data: r[0] ?? null, error: r[0] ? null : { message: 'none' } }; },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
     then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: run(), error: null }).then(ok),
   };
@@ -78,7 +80,7 @@ beforeEach(() => {
     return new Response('{}', { status: 200 });
   }));
 });
-afterEach(() => { vi.unstubAllGlobals(); aiReply.mockReset(); });
+afterEach(() => { vi.unstubAllGlobals(); aiReply.mockReset(); failInsert.clear(); });
 
 describe('webhook WhatsApp (Meta)', () => {
   test('lote com duas mensagens grava as duas', async () => {
@@ -253,6 +255,47 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     expect(tables.conversations[0].ai_paused).toBe(true);
     expect(aiReply).not.toHaveBeenCalled();
   }, 10000);
+
+  test('resposta da Lia sem confirmação (tempo esgotado) fica "desconhecido" e não é reenviada', async () => {
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi! Sou a Lia.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => { calls++; throw Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }); }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('t1', 'Quero orçamento')) as never);
+    expect(calls).toBe(1);
+    expect(tables.messages.find(m => m.author === 'ana')).toMatchObject({ delivery_status: 'desconhecido', external_id: null });
+    expect(String(tables.messages.find(m => m.author === 'ana')?.error_message)).toMatch(/Confira no celular/);
+  });
+
+  test('falha ao gravar mensagem do celular libera a trava (o reenvio grava depois)', async () => {
+    failInsert.add('messages');
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('f1', '*Rose:*\nJá vou', {}, { fromMe: true })) as never);
+    expect(res.status).toBe(500);
+    expect((tables.whatsapp_webhook_events ?? []).some(e => e.event_id === 'f1')).toBe(false);
+    failInsert.clear();
+    await POST(evo(msg('f1', '*Rose:*\nJá vou', {}, { fromMe: true })) as never);
+    expect(tables.messages.filter(m => m.external_id === 'f1')).toHaveLength(1);
+  }, 20000);
+
+  test('reação do cliente marca a mensagem reagida e não vira mensagem nova nem chama a Lia', async () => {
+    tables.conversations = [{ id: 'cv1', company_id: 'c1', channel: 'whatsapp', external_id: '5547999990000', ai_paused: false, unread_count: 0, client_id: null }];
+    tables.messages = [{ id: 'm1', company_id: 'c1', conversation_id: 'cv1', direction: 'outbound', author: 'equipe', external_id: 'alvo', body: 'Segue o orçamento' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo({ ...msg('rx1', ''), message: { reactionMessage: { key: { id: 'alvo' }, text: '👍' } } }) as never);
+    expect((await res.json()).status).toBe('reaction');
+    expect(tables.messages).toHaveLength(1);
+    expect(tables.messages[0].reaction_customer).toBe('👍');
+    expect(tables.conversations[0].unread_count).toBe(0);
+    expect(aiReply).not.toHaveBeenCalled();
+  });
+
+  test('resposta citando outra mensagem guarda o trecho citado', async () => {
+    tables.clients = [{ id: 'cli1', company_id: 'c1', name: 'Carlos', phone: '(47) 99999-0000' }];
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo({ ...msg('cq1', ''), message: { extendedTextMessage: { text: 'Pode ser branca', contextInfo: { stanzaId: 'orig1', quotedMessage: { conversation: 'Qual a cor?' } } } } }) as never);
+    expect(tables.messages.find(m => m.external_id === 'cq1')).toMatchObject({ body: 'Pode ser branca', quoted_external_id: 'orig1', quoted_preview: 'Qual a cor?' });
+  });
 
   test('eco da mensagem que a Ana mandou é ignorado', async () => {
     tables.conversations = [{ id: 'cv1', company_id: 'c1', channel: 'whatsapp', external_id: '5547999990000', ai_paused: false, unread_count: 0, client_id: null }];

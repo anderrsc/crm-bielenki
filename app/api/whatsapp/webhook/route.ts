@@ -6,10 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { decryptSecret } from "@/lib/encrypt";
 import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, aiProviderKey, parseAiProvider } from "@/lib/ai/chat";
-import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
-import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
@@ -317,6 +317,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     let clientText = "";
     let mediaInfo: string | null = null;
     let contactName: string | null = null;
+    let quote: { id: string; preview: string } | null = null;
 
     if (isEvolution) {
       // Evolution API webhook format
@@ -329,6 +330,17 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       const jid = String(data?.key?.remoteJid ?? "");
       // Grupos, listas de transmissao e status nao sao clientes: a Ana nao responde.
       if (/@g\.us$|@broadcast$|^status@|@newsletter$/.test(jid)) return NextResponse.json({ status: "ignored_group" });
+      // Reação (👍): marca a mensagem reagida. Não é mensagem nova: não conta como não lida nem chama a Lia.
+      const reaction = evolutionReaction(data?.message);
+      if (reaction) {
+        const cfgReaction = await instanceCompany();
+        if (!cfgReaction) return NextResponse.json({ status: "company_not_found" });
+        const { error: reactionError } = await getSupabase().from("messages")
+          .update(fromMe ? { reaction_team: reaction.emoji || null } : { reaction_customer: reaction.emoji || null })
+          .eq("company_id", cfgReaction.company_id).eq("external_id", reaction.targetId);
+        if (reactionError) throw new Error(`Reação não gravada: ${reactionError.message}`);
+        return NextResponse.json({ status: "reaction" });
+      }
       // Contas novas do WhatsApp chegam como "@lid", as vezes sem o numero: antes eram descartadas.
       const contact = evolutionContact(data?.key);
       let phone = contact?.id ?? null;
@@ -350,6 +362,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (!extracted.text) return NextResponse.json({ status: "unsupported_type" });
       clientText = extracted.text;
       mediaInfo = extracted.media;
+      quote = evolutionQuote(data?.message, data?.contextInfo);
     } else {
       // Meta WhatsApp Business API format
       const signature = req.headers.get("x-hub-signature-256") ?? "";
@@ -460,6 +473,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     // Mensagem enviada pelo celular/WhatsApp Web da empresa (Evolution).
     if (fromMe) {
       await recordOwnMessage(supabase, company.id, from, clientText, eventId, inboundTiming(payload.data?.messageTimestamp).at, channel?.id ?? null);
+      await saveQuote(supabase, company.id, eventId, quote);
       return NextResponse.json({ status: "own_message" });
     }
 
@@ -469,6 +483,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     try {
       conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: channel?.id ?? null });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
+      await saveQuote(supabase, company.id, eventId, quote);
     } catch (error) {
       throw error;
     }
@@ -535,14 +550,18 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (claimError || claimed !== true) return false;
       let externalId: string | null = null;
       let failure: string | null = null;
+      let unknown = false;
       try { externalId = await sendWhatsAppText(credentials, from, text); }
-      catch (error) { failure = error instanceof Error ? error.message : String(error); console.error("Falha ao enviar WhatsApp:", failure); }
-      sendFailure = failure;
+      catch (error) { failure = error instanceof Error ? error.message : String(error); unknown = sendOutcomeUnknown(error, failure); console.error("Falha ao enviar WhatsApp:", failure); }
+      sendFailure = unknown ? null : failure;
       if (conversation) {
-        await recordOutbound(supabase, { companyId: company.id, conversationId: conversation.id, body: text, author: "ana", senderName: agentName, externalId, deliveryStatus: failure ? "falhou" : "enviada", error: failure })
+        // Tempo esgotado: pode ter saído. Fica "sem confirmação" e o eco do celular confirma depois.
+        await recordOutbound(supabase, { companyId: company.id, conversationId: conversation.id, body: text, author: "ana", senderName: agentName, externalId,
+          deliveryStatus: failure ? (unknown ? "desconhecido" : "falhou") : "enviada",
+          error: failure ? (unknown ? `Sem confirmação do WhatsApp (${failure}). Confira no celular antes de reenviar.` : failure) : null })
           .catch((error) => console.error("Atendimento: falha ao gravar resposta:", error instanceof Error ? error.message : error));
       }
-      return !failure;
+      return !failure || unknown;
     };
 
     // Áudio: a Lia só "ouve" se a transcrição funcionar. Se falhar, segue com "[áudio]" puro e a
@@ -819,6 +838,14 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
   }
 }
 
+/** Mensagem que responde citando outra: guarda o id e o trecho citado para a tela mostrar. */
+async function saveQuote(supabase: ReturnType<typeof getSupabase>, companyId: string, externalId: string, quote: { id: string; preview: string } | null) {
+  if (!quote || !externalId) return;
+  const { error } = await supabase.from("messages").update({ quoted_external_id: quote.id, quoted_preview: quote.preview || null })
+    .eq("company_id", companyId).eq("external_id", externalId);
+  if (error) console.error("Atendimento: citação não gravada:", error.message);
+}
+
 /**
  * Mensagem que a empresa mandou pelo celular ou WhatsApp Web. Ecos do que o CRM
  * ou a Lia enviaram são ignorados; o resto entra como "equipe" (nome pela
@@ -854,6 +881,8 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
     await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
   } catch (error) {
     console.error("Atendimento: falha ao gravar mensagem da equipe:", error instanceof Error ? error.message : error);
+    // Sobe o erro: a trava contra repetidos é desfeita e o reenvio (ou a reconciliação) grava depois.
+    throw error;
   }
 }
 
