@@ -1,6 +1,5 @@
 "use server";
 import {z} from 'zod';
-import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
 import {createClient} from '@/lib/supabase/server';
 import {safeBack,q} from '@/lib/back-url';
@@ -31,13 +30,13 @@ export async function saveWorkPlanning(form:FormData){
  raw.returned_quantity=raw.returned_quantity??'';
  const candidate=safeBack(form.get('_back'),'/equipes');const back=candidate.startsWith('/equipes')?candidate:'/equipes';
  const schema=schemas[action as keyof typeof schemas];const parsed=schema?.safeParse(raw);
- if(!parsed?.success)redirect(`${q(back)}erro=Confira+os+campos+do+planejamento`);
+ if(!parsed?.success)return `${q(back)}erro=Confira+os+campos+do+planejamento`;
  const db=await createClient();
  const {error}=await db.rpc('work_manage',{p_action:action,p_payload:parsed.data});
  if(error){
   const msg=error.code==='23505'?'Pessoa, equipe, veículo, visita ou posição já reservados. Atualize a lista.':friendlyError(error.message)??'Não foi possível salvar o planejamento.';
-  redirect(`${q(back)}erro=${encodeURIComponent(msg)}`);
+  return `${q(back)}erro=${encodeURIComponent(msg)}`;
  }
- revalidatePath('/equipes');revalidatePath('/agenda');revalidatePath('/instalacoes');
- redirect(`${q(back)}salvo=1`);
+ revalidatePath('/equipes');
+ return `${q(back)}salvo=1`;
 }

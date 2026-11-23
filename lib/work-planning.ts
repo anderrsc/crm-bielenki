@@ -11,7 +11,7 @@ export type LoadItem={id:string;job_id:string;description:string;kind:string;qua
 export type LoadEvent={id:string;item_id:string;from_state:string|null;to_state:string;returned_quantity:number|null;notes:string|null;profile_id:string;created_at:string};
 export type JobOption={source:string;id:string;title:string;starts_at:string;address:string|null};
 export function planningDate(value?:string){if(!value||!/^\d{4}-\d{2}-\d{2}$/.test(value))return todayISO();const d=new Date(`${value}T12:00:00Z`);return Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==value?todayISO():value;}
-export async function loadWorkPlanning(db:SupabaseClient,date:string){
+export async function loadWorkPlanning(db:SupabaseClient,date:string,viewerId:string){
  const [roles,daysResult,teamsResult,vehiclesResult]=await Promise.all([
   db.rpc('current_user_roles'),db.from('work_days').select('id,work_date,team_id,vehicle_id,driver_id,team_name,vehicle_name,driver_name,notes,status,crew_review_required').eq('work_date',date).order('created_at'),
   db.from('work_teams').select('id,name,leader_id,active').order('name'),
@@ -36,5 +36,5 @@ export async function loadWorkPlanning(db:SupabaseClient,date:string){
  const items=(itemsResult.data??[]) as LoadItem[];
  const logs=items.length?await db.from('work_load_events').select('id,item_id,from_state,to_state,returned_quantity,notes,profile_id,created_at').in('item_id',items.map(i=>i.id)).order('created_at',{ascending:false}).limit(1000):empty;
  if(logs.error)throw new Error('Não foi possível carregar as conferências.');
- return {date,manager,addLoad,days,teams:(teamsResult.data??[]) as Team[],vehicles:(vehiclesResult.data??[]) as Vehicle[],jobs,members:(membersResult.data??[]) as DayMember[],people:(peopleResult.data??[]) as Person[],roster:(rosterResult.data??[]) as Member[],options:(optionsResult.data??[]) as JobOption[],items,logs:(logs.data??[]) as LoadEvent[]};
+ return {date,viewerId,manager,addLoad,days,teams:(teamsResult.data??[]) as Team[],vehicles:(vehiclesResult.data??[]) as Vehicle[],jobs,members:(membersResult.data??[]) as DayMember[],people:(peopleResult.data??[]) as Person[],roster:(rosterResult.data??[]) as Member[],options:(optionsResult.data??[]) as JobOption[],items,logs:(logs.data??[]) as LoadEvent[]};
 }

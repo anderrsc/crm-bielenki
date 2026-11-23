@@ -8,6 +8,7 @@ type Permission = { id: string; role: string; resource: string; can_view: boolea
 const ALL_ROLES = ["administrador","gerente","vendedor","compras","producao","estoque","instalador","financeiro","atendente"];
 const ROLE_LABELS: Record<string, string> = { administrador:"Administrador", gerente:"Gerente", vendedor:"Vendedor", compras:"Compras", producao:"Produção", estoque:"Estoque", instalador:"Instalador", financeiro:"Financeiro", atendente:"Atendente" };
 const RESOURCE_LABELS: Record<string, string> = {
+  work_planning: "Equipes, veículos e carregamento",
   bank_reconciliation: "Conciliação bancária",
   service_orders: "Serviços e manutenções",
   financial_recurrences: "Contas recorrentes",
