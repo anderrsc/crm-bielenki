@@ -1,6 +1,6 @@
 import {test,expect,vi,afterEach} from 'vitest';
 import {attachmentLabel,attachmentKind,attachmentMime,matchesAttachment,validateAttachment,ATTACHMENT_LIMIT} from '@/lib/whatsapp/attachments';
-import {sendWhatsAppMedia,type WhatsAppCredentials} from '@/lib/whatsapp/send';
+import {sendWhatsAppMedia,sendWhatsAppText,type WhatsAppCredentials} from '@/lib/whatsapp/send';
 const c:WhatsAppCredentials={provider:'evolution',phoneNumberId:'pnid',metaToken:'token',evolutionUrl:'https://evo.example.com',evolutionKey:'secret',evolutionInstance:'crm'};
 afterEach(()=>vi.unstubAllGlobals());
 test('rejects active content, oversized and empty uploads; validates file signatures',()=>{
@@ -53,4 +53,14 @@ test('vídeo MP4 e documentos de obra (Word, Excel, DWG): tipo, assinatura e env
  const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({key:{id:'wa-v'}})));vi.stubGlobal('fetch',fetcher);
  expect(await sendWhatsAppMedia(c,'5547999999999',{bytes:Buffer.from('video'),mime:'video/mp4',name:'obra.mp4',caption:'*Rose:*',kind:'video'})).toBe('wa-v');
  expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({mediatype:'video',caption:'*Rose:*'});
+});
+test('responder citando: Evolution recebe "quoted" e a Meta recebe "context"',async()=>{
+ const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({key:{id:'wa-r'},messages:[{id:'wa-m'}]})));vi.stubGlobal('fetch',fetcher);
+ const quoted={id:'ORIG1',fromMe:false,text:'Qual a cor?'};
+ expect(await sendWhatsAppText(c,'5547999999999','*Rose:*\nBranca',{quoted})).toBe('wa-r');
+ expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({number:'5547999999999',text:'*Rose:*\nBranca',quoted:{key:{id:'ORIG1',fromMe:false},message:{conversation:'Qual a cor?'}}});
+ await sendWhatsAppText({...c,provider:'meta'},'5547999999999','Branca',{quoted});
+ expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({context:{message_id:'ORIG1'}});
+ await sendWhatsAppText(c,'5547999999999','Sem citação');
+ expect(JSON.parse(fetcher.mock.calls[2][1].body).quoted).toBeUndefined();
 });
