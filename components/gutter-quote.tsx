@@ -146,6 +146,7 @@ const otherCategoryFromRecord = (item: Partial<SpecialItem>): OtherCategory => {
   return "Itens Especiais";
 };
 
+const OTHER_PRODUCT = "__outro_item__";
 const PAINTABLE: OtherCategory[] = ["Condutores", "Acessórios"];
 const NATURAL_COLOR = "Aluminio Natural";
 const colorTag = /\s*·?\s*Cor:\s*([^·]+)$/i;
@@ -342,8 +343,11 @@ export function GutterQuote({
           if (isSheet(next.product)) return { ...blankSheet(prices, rates, factor), quantity: next.quantity };
           delete next.sheet;
           const price = specialPrice(prices, next.product);
-          next.unit_price = tableValue(price?.unit_price, factor);
-          next.unit = price?.unit || next.unit;
+          // Nome digitado fora da tabela: mantém o valor já informado (só zera ao sair de um item da tabela).
+          if (price || key === "item_type" || specialPrice(prices, item.product)) {
+            next.unit_price = tableValue(price?.unit_price, factor);
+            next.unit = price?.unit || next.unit;
+          }
         }
         return next;
       })
@@ -687,6 +691,8 @@ function OtherItemCard({
   const unitList = isOtherCat
     ? UNITS_BY_CATEGORY[item.item_type as OtherCategory]
     : SPECIAL_UNITS;
+  // Item fora da lista: digita o nome (o valor e a unidade ficam por conta de quem orça).
+  const [typing, setTyping] = useState(false);
 
   return (
     <div className="rounded-xl border bg-surface p-4 shadow-sm">
@@ -704,10 +710,23 @@ function OtherItemCard({
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
         <div className="sm:col-span-2">
           <label className="label">Produto / Serviço</label>
-          {productList.length > 0 ? (
-            <select className="field" value={item.product} onChange={e => onChange(index, "product", e.target.value)}>
+          {productList.length > 0 && !typing ? (
+            <select className="field" value={item.product} onChange={e => {
+              if (e.target.value === OTHER_PRODUCT) { setTyping(true); onChange(index, "product", ""); }
+              else onChange(index, "product", e.target.value);
+            }}>
               {productList.map(p => <option key={p}>{p}</option>)}
+              <option value={OTHER_PRODUCT}>+ Outro item (digitar o nome)</option>
             </select>
+          ) : productList.length > 0 ? (
+            <div className="flex gap-2">
+              <input className="field" type="text" autoFocus placeholder="Nome do item (ex.: Manta asfáltica)…" aria-label="Nome do item"
+                value={item.product} onChange={e => onChange(index, "product", e.target.value)} />
+              <button type="button" className="button-ghost shrink-0 px-3 text-xs" onClick={() => {
+                setTyping(false);
+                if (!productList.includes(item.product)) onChange(index, "product", productList[0]);
+              }}>Lista</button>
+            </div>
           ) : (
             <input className="field" type="text" placeholder="Nome do produto ou serviço…"
               value={item.product} onChange={e => onChange(index, "product", e.target.value)} />
