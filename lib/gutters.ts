@@ -55,6 +55,7 @@ export const PRODUCTS_BY_CATEGORY: Record<QuoteCategory, string[]> = {
     "Silicone incolor",
     "Silicone incolor neutro",
     "Chapa Lisa",
+    "Manta asfáltica",
   ],
 };
 
@@ -100,7 +101,7 @@ export const UNITS_BY_CATEGORY: Record<OtherCategory, string[]> = {
   "Condutores": ["metro", "unidade", "peça"],
   "Acessórios": ["peça", "unidade", "metro", "tubo", "caixa"],
   "Serviços": ["metro", "unidade", "hora", "serviço", "diária"],
-  "Itens Especiais": ["unidade", "peça", "serviço", "metro"],
+  "Itens Especiais": ["unidade", "peça", "serviço", "metro", "rolo", "m²"],
 };
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
