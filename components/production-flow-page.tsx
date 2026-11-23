@@ -8,6 +8,8 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { SubmitButton } from "@/components/submit-button";
 import { shortDate, todayISO } from "@/lib/utils";
 import { OP_STAGE_LABEL } from "@/components/order-operation-card";
+import { ProductionStepPhotos } from "@/components/production-step-photos";
+import { loadProductionStepPhotos } from "@/lib/production-photos";
 
 const STEPS_CALHAS = [
   "Medição",
@@ -92,7 +94,7 @@ export async function ProductionFlowPage({
   const db = await createClient();
 
   if (id) {
-    const [orderRes, logsRes, profilesRes] = await Promise.all([
+    const [orderRes, logsRes, profilesRes, photos, photoPermission] = await Promise.all([
       db
         .from("production_orders")
         .select(
@@ -111,6 +113,8 @@ export async function ProductionFlowPage({
         .eq("production_order_id", id)
         .order("step_number"),
       db.from("profiles").select("id,full_name").eq("status", "ativo").order("full_name"),
+      loadProductionStepPhotos(db,id),
+      db.rpc("has_table_access",{resource:"production_orders",action:"update"}),
     ]);
 
     const order = orderRes.data as unknown as Order & {
@@ -189,7 +193,7 @@ export async function ProductionFlowPage({
               return (
                 <div
                   key={stepNum}
-                  className={`flex items-center gap-4 p-4 ${isCurrent ? "bg-brand-strong/10" : ""}`}
+                  className={`flex flex-wrap items-center gap-4 p-4 ${isCurrent ? "bg-brand-strong/10" : ""}`}
                 >
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
@@ -222,6 +226,10 @@ export async function ProductionFlowPage({
                       Em andamento
                     </span>
                   )}
+                  {(log || isCurrent || photos.some(p=>p.step_number===stepNum)) && <div className="w-full">
+                    <ProductionStepPhotos productionOrderId={id} orderId={order.order?.id??''} stepNumber={stepNum} stepName={stepName}
+                      photos={photos} canEdit={photoPermission.data===true && order.status!=='cancelado' && !waitingCut && !!(log||isCurrent)} back={`/producao/${id}`} />
+                  </div>}
                 </div>
               );
             })}

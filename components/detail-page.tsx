@@ -6,6 +6,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { ModuleConfig } from "@/lib/modules";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
+import { OrderProductionPhotos } from "./order-production-photos";
 
 export async function DetailPage({ config, id, error: actionError, base }: { config: ModuleConfig; id: string; subpage?: string; error?: string; base?: string }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <Missing />;
@@ -39,6 +40,7 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
       </div>}
     </div>
     {config.table === "v_order_overview" && <OrderAluminumCost orderId={id} />}
+    {config.table === "v_order_overview" && <OrderProductionPhotos orderId={id} />}
     {config.table === "v_order_overview" && <div id="checklist-operacional" className="card mt-5 scroll-mt-28 overflow-hidden">
       <div className="border-b p-5"><h2 className="font-black">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
       <div className="divide-y">{checklist.length ? checklist.map((item) => <form action={toggleChecklistItem} className="flex items-center gap-4 p-4" key={String(item.id)}>

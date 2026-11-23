@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { Camera, Trash2, Upload } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
+import { ConfirmButton } from "@/components/confirm-button";
 import { uploadProductionStepPhoto, deleteProductionStepPhoto } from "@/app/(crm)/production-photo-actions";
 
 export type StepPhoto = {
@@ -32,8 +32,6 @@ export function ProductionStepPhotos({
  canEdit: boolean;
  back: string;
 }) {
- const [pending, start] = useTransition();
- const [uploading, setUploading] = useState(false);
 
  const stepPhotos = photos.filter((p) => p.step_number === stepNumber);
 
@@ -52,27 +50,27 @@ export function ProductionStepPhotos({
  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
  {stepPhotos.map((photo) => (
  <div key={photo.id} className="group relative overflow-hidden rounded-lg border border-ink/10 bg-cream">
- <img
+ {photo.photo_url ? <a href={photo.photo_url} target="_blank" rel="noopener noreferrer"><img
  src={photo.photo_url}
  alt={photo.caption ?? `Etapa ${stepNumber}`}
  className="aspect-square w-full object-cover"
  loading="lazy"
- />
+ /></a> : <p className="p-4 text-xs">Foto indisponível. Atualize a página para tentar novamente.</p>}
  {photo.caption && (
  <p className="truncate px-2 py-1 text-[10px] text-ink/60">{photo.caption}</p>
  )}
  {canEdit && (
- <form action={deleteProductionStepPhoto} className="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100">
+ <form action={deleteProductionStepPhoto} className="absolute right-1 top-1">
  <input type="hidden" name="photo_id" value={photo.id} />
  <input type="hidden" name="_back" value={back} />
- <button
- type="submit"
- disabled={pending}
+ <ConfirmButton
+ formAction={deleteProductionStepPhoto}
+ message="Arquivar esta foto? O arquivo será preservado."
  className="rounded-full bg-red-500/90 p-1 text-white shadow hover:bg-red-600 disabled:opacity-50"
- title="Remover foto"
+ title="Arquivar foto"
  >
  <Trash2 size={12} />
- </button>
+ </ConfirmButton>
  </form>
  )}
  {photo.uploaded_by_name && (
@@ -92,7 +90,6 @@ export function ProductionStepPhotos({
  <form
  action={uploadProductionStepPhoto}
  className="mt-3 grid gap-3 sm:grid-cols-2"
- onSubmit={() => setUploading(true)}
  >
  <input type="hidden" name="production_order_id" value={productionOrderId} />
  <input type="hidden" name="order_id" value={orderId} />
@@ -104,18 +101,18 @@ export function ProductionStepPhotos({
  type="file"
  name="photo"
  accept="image/jpeg,image/png,image/webp"
+ capture="environment"
  required
  className="field"
- disabled={uploading || pending}
  />
  <p className="mt-1 text-[10px] text-ink/50">JPG, PNG ou WebP · Máximo 5MB</p>
  </label>
  <label className="sm:col-span-2">
  <span className="label">Descrição (opcional)</span>
- <input name="caption" className="field" maxLength={300} placeholder="Ex.: corte das peças da fachada" disabled={uploading || pending} />
+ <input name="caption" className="field" maxLength={300} placeholder="Ex.: corte das peças da fachada" />
  </label>
- <SubmitButton className="button sm:col-span-2" disabled={uploading || pending}>
- {uploading ? "Enviando…" : "Adicionar foto"}
+ <SubmitButton className="button sm:col-span-2">
+ Adicionar foto
  </SubmitButton>
  </form>
  </details>
