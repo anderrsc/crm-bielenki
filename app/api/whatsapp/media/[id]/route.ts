@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const {data:file}=await admin.storage.from("atendimento-files").download(msg.media_url);
     if(!file)return NextResponse.json({error:"Arquivo indisponível."},{status:404});
     const name=(msg.file_name||"arquivo").replace(/[^\w.\- ]/g,"_");
-    const inline=/^(image\/(jpeg|png|webp)|audio\/[\w.+-]+|application\/pdf)$/.test(msg.media_type||"");
+    const inline=/^(image\/(jpeg|png|webp)|audio\/[\w.+-]+|video\/mp4|application\/pdf)$/.test(msg.media_type||"");
     return new NextResponse(await file.arrayBuffer(),{headers:{"Content-Type":inline?msg.media_type:"application/octet-stream","Content-Disposition":`${inline?"inline":"attachment"}; filename="${name}"`,"Cache-Control":"private, max-age=86400","X-Content-Type-Options":"nosniff"}});
   }
   if(!msg.external_id)return NextResponse.json({error:"Arquivo indisponível."},{status:404});

@@ -38,6 +38,31 @@ export function evolutionMessageText(message: Msg): { text: string; media: strin
   return { text: "", media: null };
 }
 
+/** Reação (👍) a outra mensagem. emoji vazio = reação removida. */
+export function evolutionReaction(message: Msg): { targetId: string; emoji: string } | null {
+  const r = (message as Record<string, unknown> | null | undefined)?.reactionMessage as Record<string, unknown> | undefined;
+  const key = r?.key as Record<string, unknown> | undefined;
+  const targetId = typeof key?.id === "string" ? key.id : "";
+  if (!r || !targetId) return null;
+  return { targetId, emoji: str(r.text).slice(0, 16) };
+}
+
+/** Mensagem que esta responde (citação): id no WhatsApp e um trecho legível. */
+export function evolutionQuote(message: Msg, recordContext?: unknown): { id: string; preview: string } | null {
+  const m = (message ?? {}) as Record<string, unknown>;
+  const contexts: unknown[] = [recordContext];
+  for (const v of Object.values(m)) if (v && typeof v === "object") contexts.push((v as Record<string, unknown>).contextInfo);
+  for (const c of contexts) {
+    const ctx = c as Record<string, unknown> | null | undefined;
+    const id = typeof ctx?.stanzaId === "string" ? ctx.stanzaId : "";
+    if (!id) continue;
+    const quoted = evolutionMessageText(ctx?.quotedMessage as Msg).text.replace(SIGNATURE_PREFIX, "").replace(/\s+/g, " ").trim();
+    return { id, preview: quoted.slice(0, 160) };
+  }
+  return null;
+}
+const SIGNATURE_PREFIX = /^\*[^*\n]{1,40}:\*\s*/;
+
 /** Número do contato a partir da chave da mensagem (inclui contas "@lid"). Null para grupo/status. */
 export function evolutionJidPhone(key: Record<string, unknown> | undefined | null): string | null {
   const jid = str(key?.remoteJid);

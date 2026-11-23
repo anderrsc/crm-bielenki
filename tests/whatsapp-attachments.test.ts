@@ -1,5 +1,5 @@
 import {test,expect,vi,afterEach} from 'vitest';
-import {attachmentLabel,attachmentKind,matchesAttachment,validateAttachment,ATTACHMENT_LIMIT} from '@/lib/whatsapp/attachments';
+import {attachmentLabel,attachmentKind,attachmentMime,matchesAttachment,validateAttachment,ATTACHMENT_LIMIT} from '@/lib/whatsapp/attachments';
 import {sendWhatsAppMedia,type WhatsAppCredentials} from '@/lib/whatsapp/send';
 const c:WhatsAppCredentials={provider:'evolution',phoneNumberId:'pnid',metaToken:'token',evolutionUrl:'https://evo.example.com',evolutionKey:'secret',evolutionInstance:'crm'};
 afterEach(()=>vi.unstubAllGlobals());
@@ -31,4 +31,26 @@ test('Meta uploads media then sends by media id and propagates the 24h restricti
  expect(JSON.parse(fetcher.mock.calls[1][1].body).document).toEqual({id:'media-id',filename:'Orcamento.pdf',caption:'*Rose:*'});
  fetcher.mockResolvedValueOnce(new Response(JSON.stringify({id:'media-2'}))).mockResolvedValueOnce(new Response(JSON.stringify({error:{code:131047}}),{status:400}));
  await expect(sendWhatsAppMedia({...c,provider:'meta'},'5547999999999',payload)).rejects.toThrow(/24h/);
+});
+test('vídeo MP4 e documentos de obra (Word, Excel, DWG): tipo, assinatura e envio como vídeo/documento',async()=>{
+ const DOCX='application/vnd.openxmlformats-officedocument.wordprocessingml.document',XLSX='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+ expect(attachmentMime('obra.mp4','')).toBe('video/mp4');
+ expect(attachmentMime('planta.dwg','application/octet-stream')).toBe('image/vnd.dwg');
+ expect(attachmentMime('lista.xlsx','')).toBe(XLSX);
+ expect(()=>validateAttachment('obra.mp4','video/mp4',15*1024*1024)).not.toThrow();
+ expect(()=>validateAttachment('obra.mov','video/quicktime',500)).toThrow();
+ expect(matchesAttachment(Buffer.concat([Buffer.from([0,0,0,0x18]),Buffer.from('ftypmp42')]),'video/mp4')).toBe(true);
+ expect(matchesAttachment(Buffer.from('PK\x03\x04resto'),DOCX)).toBe(true);
+ expect(matchesAttachment(Buffer.from('PK\x03\x04resto'),XLSX)).toBe(true);
+ expect(matchesAttachment(Buffer.from('<html>'),DOCX)).toBe(false);
+ expect(matchesAttachment(Buffer.from([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1,0]),'application/msword')).toBe(true);
+ expect(matchesAttachment(Buffer.from('AC1027xx'),'image/vnd.dwg')).toBe(true);
+ expect(matchesAttachment(Buffer.from('<svg>'),'image/vnd.dwg')).toBe(false);
+ expect(attachmentKind('video/mp4')).toBe('video');
+ expect(attachmentKind('image/vnd.dwg')).toBe('document');
+ expect(attachmentLabel('video/mp4','obra.mp4')).toBe('[vídeo]');
+ expect(attachmentLabel('image/vnd.dwg','planta.dwg')).toBe('[documento: planta.dwg]');
+ const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({key:{id:'wa-v'}})));vi.stubGlobal('fetch',fetcher);
+ expect(await sendWhatsAppMedia(c,'5547999999999',{bytes:Buffer.from('video'),mime:'video/mp4',name:'obra.mp4',caption:'*Rose:*',kind:'video'})).toBe('wa-v');
+ expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({mediatype:'video',caption:'*Rose:*'});
 });

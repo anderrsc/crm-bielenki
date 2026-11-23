@@ -60,7 +60,7 @@ with expected_columns(table_name, column_name) as (
     ('measurement_items', 'color,company_id,environment,glass_type,height,id,measurement_id,notes,product,quantity,sort_order,width'),
     ('measurements', 'address,client_id,company_id,completed_at,created_at,created_by,id,installation_id,lead_id,measurement_number,notes,order_id,phone,production_order_id,quote_id,responsible_id,scheduled_at,seller_id,sketch_notes,status,updated_at'),
     ('message_templates', 'active,body,category,channel,company_id,created_at,event,id,name,subject,updated_at,usage_count'),
-    ('messages', 'attachment_quote_id,author,body,client_ref,company_id,conversation_id,delivery_status,direction,error_message,external_id,file_name,id,media_type,media_url,sender_name,sent_at,sent_by'),
+    ('messages', 'attachment_quote_id,author,body,client_ref,company_id,conversation_id,delivery_status,direction,error_message,external_id,file_name,id,media_type,media_url,quoted_external_id,quoted_preview,reaction_customer,reaction_team,sender_name,sent_at,sent_by'),
     ('notifications', 'body,company_id,created_at,data,event_key,id,link,profile_id,push_claimed_at,push_processed_at,read_at,title'),
     ('operational_alerts', 'company_id,created_at,description,entity_id,entity_type,id,resolved,resolved_at,resolved_by,severity,title,type'),
     ('operational_events', 'address,client_id,client_name,color,company_id,created_at,created_by,ends_at,event_type,external_ref,id,installation_id,lead_id,notes,order_id,phone,purchase_order_id,quote_id,responsible_id,responsible_name,starts_at,status,title,updated_at'),

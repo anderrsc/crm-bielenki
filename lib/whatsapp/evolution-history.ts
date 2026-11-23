@@ -4,12 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
 import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
-import { evolutionContact, evolutionMessageText } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction } from "@/lib/whatsapp/message-text";
 
 export const HISTORY_PAGE_SIZE = 400;
 const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
 
-type EvoRecord = { key?: Record<string, unknown>; pushName?: string | null; message?: Record<string, unknown> | null; messageTimestamp?: number | string };
+type EvoRecord = { key?: Record<string, unknown>; pushName?: string | null; message?: Record<string, unknown> | null; messageTimestamp?: number | string; contextInfo?: unknown };
 type EvoPage = { messages?: { total?: number; pages?: number; currentPage?: number; records?: EvoRecord[] } };
 
 export async function fetchEvolutionMessages(base: string, apiKey: string, instance: string, page: number): Promise<EvoPage> {
@@ -54,8 +54,10 @@ export function evolutionErrorMessage(e: unknown): string {
 
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[], channelId?: string | null) {
-  type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null };
+  type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null; quoted_external_id: string | null; quoted_preview: string | null };
   const rows: Row[] = [];
+  // Reações (👍) que o webhook pode ter perdido: aplicadas na mensagem reagida, na ordem em que vieram.
+  const reactions: Array<{ targetId: string; emoji: string; fromMe: boolean; ts: number }> = [];
   // Contas "@lid" sem numero: usa a ligacao lid -> telefone ja conhecida, senao fica com o lid.
   const links = new Map<string, string>();
   const lidPhones = new Map<string, string>();
@@ -69,6 +71,8 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     if (contact?.lid && contact.phone) links.set(contact.lid, contact.phone);
     const phone = contact?.phone ?? (contact?.lid ? lidPhones.get(contact.lid) ?? contact.lid : null);
     const id = typeof r.key?.id === "string" ? r.key.id : "";
+    const reaction = evolutionReaction(r.message);
+    if (reaction) { reactions.push({ ...reaction, fromMe: r.key?.fromMe === true, ts: Number(r.messageTimestamp) || 0 }); continue; }
     const { text } = evolutionMessageText(r.message);
     const ts = Number(r.messageTimestamp);
     if (!phone || !id || !text || !Number.isFinite(ts) || ts <= 0) continue;
@@ -79,11 +83,28 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
       author: fromMe ? "equipe" : "cliente",
       sender_name: fromMe ? (text.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)") : cleanContactName(r.pushName),
       contact: fromMe ? null : cleanContactName(r.pushName),
+      ...(() => { const q = evolutionQuote(r.message, r.contextInfo); return { quoted_external_id: q?.id ?? null, quoted_preview: q?.preview || null }; })(),
     });
   }
   // Lid com numero descoberto nesta pagina: registra e junta a conversa que estava so com o lid.
   for (const [lid, phone] of links) {
     if (lidPhones.get(lid) !== phone) await db.rpc("link_whatsapp_lid", { p_company: companyId, p_lid: lid, p_phone: phone }).then(() => undefined, () => undefined);
+  }
+  if (reactions.length) {
+    // A última reação de cada pessoa vale; só grava o que mudou (a rotina roda a cada minuto).
+    const latest = new Map<string, { targetId: string; emoji: string; fromMe: boolean }>();
+    for (const r of reactions.sort((a, b) => a.ts - b.ts)) latest.set(`${r.targetId}|${r.fromMe}`, r);
+    const targets = [...new Set([...latest.values()].map((r) => r.targetId))];
+    const { data: current, error: currentError } = await db.from("messages").select("external_id,reaction_customer,reaction_team").eq("company_id", companyId).in("external_id", targets);
+    if (currentError) throw new Error(`Reações não consultadas: ${currentError.message}`);
+    for (const r of latest.values()) {
+      const row = (current ?? []).find((m) => m.external_id === r.targetId) as { reaction_customer?: string | null; reaction_team?: string | null } | undefined;
+      if (!row) continue;
+      const column = r.fromMe ? "reaction_team" : "reaction_customer";
+      if ((row[column] ?? null) === (r.emoji || null)) continue;
+      const { error } = await db.from("messages").update({ [column]: r.emoji || null }).eq("company_id", companyId).eq("external_id", r.targetId);
+      if (error) throw new Error(`Reação não gravada: ${error.message}`);
+    }
   }
   if (!rows.length) return { inserted: 0, conversations: 0 };
 
@@ -149,6 +170,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     const rows = toInsert.slice(i, i + 200).map((r) => ({
       company_id: companyId, conversation_id: convByPhone.get(r.phone), direction: r.direction, author: r.author,
       sender_name: r.sender_name, body: r.body, external_id: r.external_id, sent_at: r.sent_at, delivery_status: r.direction === "outbound" ? "enviada" : null,
+      ...(r.quoted_external_id ? { quoted_external_id: r.quoted_external_id, quoted_preview: r.quoted_preview } : {}),
     }));
     const { error } = await db.from("messages").insert(rows);
     // Uma repetida recusava o lote inteiro: grava uma a uma, pulando so as repetidas.

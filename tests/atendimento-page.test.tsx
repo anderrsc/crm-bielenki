@@ -67,6 +67,19 @@ describe('Atendimento estilo WhatsApp', () => {
     await waitFor(() => expect(actions.markConversationUnread).toHaveBeenCalledWith('a'));
     expect(screen.queryByPlaceholderText('Mensagem')).toBeNull();
   });
+  test('reação e citação aparecem como no WhatsApp', async () => {
+    actions.loadConversation.mockImplementation(async (id: string) => {
+      const d = detail(id, 'Ana Cliente', 2);
+      Object.assign(d.messages[0], { reactionCustomer: '👍' });
+      Object.assign(d.messages[1], { quotedPreview: 'Qual a cor da calha?' });
+      return d;
+    });
+    abrirTela([item('a', 'Ana Cliente')]);
+    fireEvent.click(screen.getByText('Ana Cliente'));
+    expect((await screen.findByTitle('Cliente reagiu')).textContent).toBe('👍');
+    expect(screen.getByTitle('Respondendo a').textContent).toBe('Qual a cor da calha?');
+  });
+
   test('busca mensagens carregadas e abre/fecha a ficha sem ocupar sempre a conversa', async () => {
     actions.loadConversation.mockImplementation(async (id: string) => detail(id, 'Ana Cliente'));
     abrirTela([item('a', 'Ana Cliente')]);

@@ -84,7 +84,7 @@ export async function sendWhatsAppText(c: WhatsAppCredentials, to: string, body:
 }
 
 /** Uploads private media directly to the provider. No public permanent download URL. */
-export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes:Buffer;mime:string;name:string;caption:string;kind:'document'|'image'|'audio'}):Promise<string|null>{
+export async function sendWhatsAppMedia(c:WhatsAppCredentials,to:string,p:{bytes:Buffer;mime:string;name:string;caption:string;kind:'document'|'image'|'audio'|'video'}):Promise<string|null>{
  if(c.provider==='evolution'){
   const base=safeExternalUrl(c.evolutionUrl);
   if(!base||!c.evolutionInstance||!c.evolutionKey)throw new WhatsAppSendError('WhatsApp (Evolution) não configurado.');
