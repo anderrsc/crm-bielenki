@@ -4,11 +4,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { MARQUINHOS_CATALOG } from "@/lib/gutter-catalog";
 
-const fixture=vi.hoisted(()=>({count:6}));
+const fixture=vi.hoisted(()=>({count:6,hidePrices:false,notes:''}));
 vi.mock("@/app/(crm)/actions",()=>({approveQuote:vi.fn(),deleteQuote:vi.fn(),duplicateQuote:vi.fn(),updateQuoteSeller:vi.fn(),updateQuotePaymentMethods:vi.fn()}));
 vi.mock("@/lib/supabase/server",()=>{const createClient=async()=>({from:(table:string)=>{
   let result: unknown;
-  if(table==='quotes') result={id:'00000000-0000-4000-8000-000000000123',quote_number:'EXEMPLO-001',status:'rascunho',subtotal:fixture.count*100,discount:0,freight:0,total:fixture.count*100,created_at:'2026-11-02',valid_until:'2026-12-02',installation_deadline:'A combinar',seller_name:'Equipe Marquinhos',hide_unit_prices:false,notes:'EXEMPLO SEM VALIDADE COMERCIAL. Ilustrações de referência. Medidas e detalhes devem ser confirmados antes da fabricação.',client:{name:'CLIENTE DE EXEMPLO',city:'Jaraguá do Sul',state:'SC'},company:{name:'Calhas e Esquadrias Marquinhos',trade_name:'Calhas e Esquadrias Marquinhos'}};
+  if(table==='quotes') result={id:'00000000-0000-4000-8000-000000000123',quote_number:'EXEMPLO-001',status:'rascunho',subtotal:fixture.count*100,discount:0,freight:0,total:fixture.count*100,created_at:'2026-11-02',valid_until:'2026-12-02',installation_deadline:'A combinar',seller_name:'Equipe Marquinhos',hide_unit_prices:fixture.hidePrices,notes:fixture.notes||'EXEMPLO SEM VALIDADE COMERCIAL. Ilustrações de referência. Medidas e detalhes devem ser confirmados antes da fabricação.',client:{name:'CLIENTE DE EXEMPLO',city:'Jaraguá do Sul',state:'SC'},company:{name:'Calhas e Esquadrias Marquinhos',trade_name:'Calhas e Esquadrias Marquinhos'}};
   else if(table==='gutter_quotes')result={items:MARQUINHOS_CATALOG.pieces.slice(0,fixture.count).map(piece=>({product:piece.name,category:piece.category,thickness:'0.50 mm',cut:'300',color:'Aluminio Natural',quantity:1,meters:2,unit_price:50,total:100}))};
   else result=[];
   const query={select:()=>query,eq:()=>query,single:async()=>({data:result,error:null}),maybeSingle:async()=>({data:result,error:null}),then:(resolve:(value:unknown)=>unknown)=>Promise.resolve({data:result,error:null}).then(resolve)};
@@ -44,6 +44,23 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect(html).not.toContain('quote_attachments');
   expect(html).not.toContain('quote-empty-row');
   if(process.env.CATALOG_PREVIEW_DIR){mkdirSync(process.env.CATALOG_PREVIEW_DIR,{recursive:true});writeFileSync(path.join(process.env.CATALOG_PREVIEW_DIR,`quote-${count}.html`),html);}
+});
+
+test.each([true,false])("somente total geral: flag ou proposta WVetro antiga (flag %s)", async hidePrices => {
+  fixture.count=2;
+  fixture.hidePrices=hidePrices;
+  fixture.notes=hidePrices?'':'Referente à proposta nº 1768 de 19/08/2026.';
+  try {
+    const html=renderToStaticMarkup(await QuoteDocument({id:'00000000-0000-4000-8000-000000000123',printOnly:true}));
+    expect(html).not.toContain('quote-unit-value');
+    expect(html).not.toContain('quote-td-total');
+    expect(html).not.toContain('quote-fin-row');
+    expect(html).toContain('TOTAL GERAL');
+    expect(html).toContain('200,00');
+    expect(html).toContain('DESCRIÇÃO');
+    expect(html).toContain('QTD.');
+    expect(html).not.toContain('100,00');
+  } finally {fixture.hidePrices=false;fixture.notes='';}
 });
 
 test("estilo da marca d'agua presente (cobre a folha inteira, por cima do conteudo)", () => {
