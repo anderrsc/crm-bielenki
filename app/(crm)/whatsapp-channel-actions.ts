@@ -68,14 +68,44 @@ export type WhatsappHealthSummary = Array<{
   last_connection_event_at: string | null;
   events_last_24h: number;
   errors_last_24h: number;
+  /** Último teste ativo da conexão (vigia) e última conferência do webhook na Evolution. */
+  probe?: { ok: boolean; at: string } | null;
+  webhook?: { ok: boolean; problems: string | null; at: string } | null;
+  /** Mensagens enviadas nas últimas 24 h que falharam ou ficaram sem confirmação do WhatsApp. */
+  failed_24h?: number;
+  unknown_24h?: number;
 }>;
 
 export async function loadWhatsappHealthSummary(): Promise<Result<{ summary: WhatsappHealthSummary }>> {
   try {
     const ctx = await context();
-    const { data, error } = await ctx.db.from("v_whatsapp_health_summary").select("*");
+    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const [{ data, error }, { data: checks }, { data: sends }] = await Promise.all([
+      ctx.db.from("v_whatsapp_health_summary").select("*"),
+      ctx.db.from("whatsapp_connection_history").select("channel_id,event_type,error_message,created_at")
+        .in("event_type", ["probe_ok", "probe_failed", "webhook_ok", "webhook_invalid"]).gte("created_at", new Date(Date.now() - 7 * 86400_000).toISOString())
+        .order("created_at", { ascending: false }).limit(500),
+      // Só o que a pessoa pode ver (regras por número): mensagens com problema nas últimas 24 h.
+      ctx.db.from("messages").select("delivery_status,conversations!inner(channel_id)").eq("direction", "outbound")
+        .in("delivery_status", ["falhou", "desconhecido"]).gte("sent_at", since).limit(1000),
+    ]);
     if (error) return fail(error);
-    return { ok: true, summary: (data ?? []) as WhatsappHealthSummary };
+    type Check = { channel_id: string; event_type: string; error_message: string | null; created_at: string };
+    const list = (checks ?? []) as Check[];
+    const summary = ((data ?? []) as WhatsappHealthSummary).map((c) => {
+      const probe = list.find((e) => e.channel_id === c.channel_id && e.event_type.startsWith("probe_"));
+      const hook = list.find((e) => e.channel_id === c.channel_id && e.event_type.startsWith("webhook_"));
+      const mine = ((sends ?? []) as Array<{ delivery_status: string; conversations: { channel_id: string | null } | Array<{ channel_id: string | null }> }>)
+        .filter((m) => (Array.isArray(m.conversations) ? m.conversations[0]?.channel_id : m.conversations?.channel_id) === c.channel_id);
+      return {
+        ...c,
+        probe: probe ? { ok: probe.event_type === "probe_ok", at: probe.created_at } : null,
+        webhook: hook ? { ok: hook.event_type === "webhook_ok", problems: hook.error_message, at: hook.created_at } : null,
+        failed_24h: mine.filter((m) => m.delivery_status === "falhou").length,
+        unknown_24h: mine.filter((m) => m.delivery_status === "desconhecido").length,
+      };
+    });
+    return { ok: true, summary };
   } catch (e) { return fail(e); }
 }
 

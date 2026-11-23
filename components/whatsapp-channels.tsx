@@ -20,7 +20,7 @@ const STATUS: Record<string, string> = { open: "Conectado", aguardando_qr: "Agua
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
 /** Painel consolidado de saúde de todos os canais usando v_whatsapp_health_summary. */
-function HealthDashboard({ summary }: { summary: WhatsappHealthSummary }) {
+export function HealthDashboard({ summary }: { summary: WhatsappHealthSummary }) {
   if (!summary.length) return null;
   const totalErrors = summary.reduce((acc, c) => acc + (c.errors_last_24h ?? 0), 0);
   const totalEvents = summary.reduce((acc, c) => acc + (c.events_last_24h ?? 0), 0);
@@ -47,6 +47,20 @@ function HealthDashboard({ summary }: { summary: WhatsappHealthSummary }) {
           <p className={cn("text-xl font-black", totalErrors > 0 ? "text-red-600" : "")}>{totalErrors}</p>
         </div>
       </div>
+      <ul className="space-y-1.5 text-xs" aria-label="Saúde por número">
+        {summary.map((c) => (
+          <li key={c.channel_id} className="rounded-lg border px-3 py-2">
+            <p className="font-bold">{c.channel_name}</p>
+            <p className="text-ink/70">
+              Teste de conexão: {c.probe ? <span className={c.probe.ok ? "text-green-600" : "text-red-600"}>{c.probe.ok ? "respondeu" : "não respondeu"} ({quando(c.probe.at)})</span> : "ainda não precisou (só testa depois de 20 min sem mensagens)"}
+              {" · "}Configuração do webhook: {c.webhook ? <span className={c.webhook.ok ? "text-green-600" : "text-red-600"} title={c.webhook.problems ?? undefined}>{c.webhook.ok ? "ok" : `com problema (${c.webhook.problems ?? "ver servidor"})`} ({quando(c.webhook.at)})</span> : "ainda não conferida"}
+            </p>
+            {((c.failed_24h ?? 0) > 0 || (c.unknown_24h ?? 0) > 0) && (
+              <p className="text-amber-700">Envios nas últimas 24 h: {c.failed_24h ?? 0} com falha · {c.unknown_24h ?? 0} sem confirmação do WhatsApp (confira no celular)</p>
+            )}
+          </li>
+        ))}
+      </ul>
       {disconnected.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-bold text-amber-600">Canais desconectados:</p>
