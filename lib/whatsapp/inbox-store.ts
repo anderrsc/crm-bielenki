@@ -94,7 +94,7 @@ export async function recordInbound(db: SupabaseClient, p: {
   const conversation = await getOrCreateConversation(db, p.companyId, p.phone, p.contactName, { channelId: p.channelId });
   const at = p.at ?? new Date().toISOString();
   const { error } = await db.from("messages").insert({
-    company_id: p.companyId, conversation_id: conversation.id, direction: "inbound", author: "cliente",
+    company_id: p.companyId, conversation_id: conversation.id, channel_id:conversation.channel_id??null, direction: "inbound", author: "cliente",
     sender_name: p.contactName || null, body: p.body, external_id: p.externalId || null, sent_at: at,
   });
   if (error?.code === "23505") return null;

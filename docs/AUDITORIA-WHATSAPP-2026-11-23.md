@@ -9,7 +9,7 @@ Código auditado: `main` em `3a7ef47` (após o PR #129). **Nenhuma alteração f
 >   - da etapa D: reações, citações, envio de vídeo/Word/Excel/DWG e painel de saúde (PR #131).
 >   - Lia fora do caminho do webhook (PR #132), diagnóstico do vigia (PR #133), "Responder" citando pelo CRM (PR #134).
 > - **Em aberto:**
->   - P10 (chaves de deduplicação sem número; rara);
+>   - validação real com o celular (P10 passa a ser coberto por isolamento automatizado por canal nesta continuação);
 >   - edição e exclusão de mensagens (o conteúdo chega cifrado, `secretEncryptedMessage`);
 >   - testes reais com celular (seção 7, coluna "R").
 
@@ -191,3 +191,25 @@ Nada será dado como "validado em produção" sem o teste **R** correspondente.
 - Logs da Vercel (tempo das funções, *timeouts* da Lia).
 - Testes reais com celular (QR, reinício, leitura no aparelho).
 - Se a Evolution reenvia o webhook quando a resposta é 500 [hipótese: a reconciliação cobre de qualquer forma].
+
+## 10. Continuação em 23/11 — P10, vigia e edições
+
+### P10: IDs repetidos em números diferentes
+
+- `messages.external_id` permanece com o ID bruto do provedor. O canal é derivado da conversa pelo banco e compõe a unicidade com empresa e ID externo.
+- A trava de webhook conserva a chave primária existente: `event_id` passa a guardar uma tupla JSON de canal e ID externo. Os eventos antigos são preservados; a versão anterior do webhook continua compatível durante a aplicação da migração.
+- Recibos, leitura no celular, reações, citações, ecos e reconciliação filtram o canal. Legado sem canal usa o principal da empresa, ou o escopo nulo quando não há canal cadastrado.
+- Testes simulados e de banco cobrem o mesmo ID em dois canais, reenvio no mesmo canal e atualização somente no número de origem. Nenhum envio real foi usado.
+
+### Vigia em produção
+
+Diagnósticos do workflow em 23/11 às 15:06 e 15:28 (Brasília): banco em dia, ambos os números `open`, nenhuma falha seguida e zero mensagens sem confirmação nos últimos sete dias. Foram observados `webhook_ok` às 14:19 e às 15:19/15:20. **Ainda não foram observados `probe_ok`/`probe_failed`**: no diagnóstico de 15:28, o último evento de mensagem do Número da Calha era 15:25. Não houve evidência de 20 minutos de silêncio naquele intervalo. Não provocar silêncio nem reiniciar uma conexão saudável para testar.
+
+### Mensagens editadas na Evolution 2.3.7
+
+- [Código do pacote 2.3.7](https://github.com/EvolutionAPI/evolution-api/blob/2.3.7/package.json): depende de Baileys `7.0.0-rc.9`.
+- [Handler dessa versão](https://github.com/EvolutionAPI/evolution-api/blob/2.3.7/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts): reconhece edição já decifrada via `protocolMessage` e emite `MESSAGES_EDITED`. Não há tratamento explícito de `secretEncryptedMessage` nesse arquivo. Isso não comprova a configuração ou o comportamento da imagem instalada no servidor.
+- O [relato upstream #2545](https://github.com/evolution-foundation/evolution-api/issues/2545) continua aberto e descreve o mesmo sintoma: chega o envelope, sem texto atualizado. O [protocolo Baileys](https://github.com/WhiskeySockets/Baileys/blob/master/WAProto/WAProto.proto) distingue `MESSAGE_EDIT` e carga cifrada; os relatos de [#2541](https://github.com/WhiskeySockets/Baileys/issues/2541) dependem do segredo da mensagem original para decifrar.
+- **Avaliação:** o CRM não pode reconstruir o texto apenas do envelope recebido. Primeiro é necessário homologar a entrega de texto decifrado pelo provedor e o evento de edição; depois atualizar o balão original pelo canal e ID, sem chamar a Lia nem incrementar não lidas. Não foi alterado o servidor, instalada uma versão nova ou armazenado segredo de mensagem no CRM.
+
+Continuam a cargo do dono os testes reais: QR, reinício, leitura no aparelho, envio de vídeo/DWG e “Responder”.

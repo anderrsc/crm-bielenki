@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveMessageChannel, scopeMessages } from './message-scope';
 export function deliveryStatus(value: unknown): 'enviada' | 'entregue' | 'lida' | 'falhou' | null {
   const s = String(value).toUpperCase();
   if (['READ','PLAYED','4','5'].includes(s)) return 'lida';
@@ -7,20 +8,22 @@ export function deliveryStatus(value: unknown): 'enviada' | 'entregue' | 'lida' 
   if (['FAILED','ERROR','0'].includes(s)) return 'falhou';
   return null;
 }
-export async function updateDelivery(db: SupabaseClient, companyId: string, id: string, value: unknown) {
+export async function updateDelivery(db: SupabaseClient, companyId: string, id: string, value: unknown, channelId?:string|null) {
   const status = deliveryStatus(value);
   if (!id || !status) return;
   // Conditional update keeps delayed receipts from moving read messages backwards.
   const previous = status === 'lida' ? ['enviada','entregue','falhou'] : status === 'entregue' ? ['enviada','falhou'] : ['enviada'];
-  const { error } = await db.from('messages').update({delivery_status:status}).eq('company_id',companyId).eq('external_id',id).eq('direction','outbound').in('delivery_status',previous);
+  const channel=await resolveMessageChannel(db,companyId,channelId);
+  const { error } = await scopeMessages(db.from('messages').update({delivery_status:status}).eq('company_id',companyId).eq('external_id',id).eq('direction','outbound').in('delivery_status',previous),channel);
   if (error) throw new Error(error.message);
 }
 
 /** Leitura feita no celular/Web: só limpa até a mensagem confirmada, sem apagar chegadas novas. */
-export async function updateIncomingRead(db: SupabaseClient, companyId: string, externalId: string, value: unknown) {
+export async function updateIncomingRead(db: SupabaseClient, companyId: string, externalId: string, value: unknown, channelId?:string|null) {
   if (!externalId || deliveryStatus(value) !== 'lida') return;
-  const { data: seen, error } = await db.from('messages').select('id,conversation_id,sent_at')
-    .eq('company_id', companyId).eq('external_id', externalId).eq('direction', 'inbound').limit(1).maybeSingle();
+  const channel=await resolveMessageChannel(db,companyId,channelId);
+  const { data: seen, error } = await scopeMessages(db.from('messages').select('id,conversation_id,sent_at')
+    .eq('company_id', companyId).eq('external_id', externalId).eq('direction', 'inbound'),channel).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
   if (!seen) return;
   const { error: receiptError } = await db.from('messages').update({ delivery_status: 'lida' }).eq('company_id', companyId).eq('id', seen.id);

@@ -56,6 +56,17 @@ beforeEach(() => {
   };
 });
 const snapshot = { count: 1, lastInbound: '2026-11-16T13:00:00Z', generation: 'generation-1' };
+
+test('recibo de leitura no celular com ID repetido limpa somente a conversa do canal de origem',async()=>{
+  const original=fixture.tables.messages[0];original.channel_id='canal-1';
+  fixture.tables.messages.push({...original,id:'other-message',conversation_id:'other-conversation',channel_id:'canal-2'});
+  fixture.tables.conversations.push({...fixture.tables.conversations[0],id:'other-conversation',ai_generation_id:'generation-2'});
+  await updateIncomingRead(database() as never,'c1','wa-1','READ','canal-2');
+  expect(fixture.tables.conversations[0].unread_count).toBe(1);
+  expect(fixture.tables.messages[0].delivery_status).toBeNull();
+  expect(fixture.tables.conversations[1].unread_count).toBe(0);
+  expect(fixture.tables.messages[1].delivery_status).toBe('lida');
+});
 describe('marcação de leitura e retorno', () => {
   test('confirma no WhatsApp usando o identificador lid e limpa a contagem vista', async () => {
     const result = await markInboxRead(conversationId, [messageId], snapshot);
