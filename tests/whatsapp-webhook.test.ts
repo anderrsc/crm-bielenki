@@ -52,6 +52,12 @@ vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: (t: strin
  return { error: null };
 } }) }));
 vi.mock('@/lib/ai/chat', async (orig) => ({ ...(await orig<object>()), aiChat: (...a: unknown[]) => aiReply(...a) }));
+// after() do Next: guarda o trabalho para rodar "depois da resposta" quando o teste pedir.
+const deferred = vi.hoisted(() => ({ on: false, jobs: [] as Array<() => Promise<unknown>> }));
+vi.mock('next/server', async (orig) => {
+  const real = await orig<typeof import('next/server')>();
+  return { ...real, after: (fn: () => Promise<unknown>) => { if (!deferred.on) return real.after(fn); deferred.jobs.push(fn); } };
+});
 
 const SECRET = 'app-secret';
 const sent: Array<{ url: string; body: { to: string; text: { body: string } } }> = [];
@@ -80,7 +86,7 @@ beforeEach(() => {
     return new Response('{}', { status: 200 });
   }));
 });
-afterEach(() => { vi.unstubAllGlobals(); aiReply.mockReset(); failInsert.clear(); });
+afterEach(() => { vi.unstubAllGlobals(); aiReply.mockReset(); failInsert.clear(); deferred.on = false; deferred.jobs.length = 0; });
 
 describe('webhook WhatsApp (Meta)', () => {
   test('lote com duas mensagens grava as duas', async () => {
@@ -230,6 +236,28 @@ describe('webhook WhatsApp (Evolution, número atual da empresa)', () => {
     expect((await res.json()).status).toBe('ok');
     expect(sent[0].url).toBe('https://1-2-3-4.sslip.io/message/sendText/crm');
     expect(sent[0].body).toMatchObject({ number: '5547999990000', text: 'Oi! Sou a Ana.' });
+  });
+
+  test('Lia roda depois de responder ao provedor: o webhook devolve antes da IA', async () => {
+    deferred.on = true;
+    aiReply.mockResolvedValue(JSON.stringify({ mensagem: 'Oi! Sou a Lia.', dados_coletados: {}, triagem_concluida: false, tipo_atendimento: 'comercial' }));
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    const res = await POST(evo(msg('q1', 'Quero orçamento')) as never);
+    expect((await res.json()).status).toBe('ai_queued');
+    expect(tables.messages.find(m => m.external_id === 'q1')).toBeTruthy(); // já está no Atendimento
+    expect(aiReply).not.toHaveBeenCalled();
+    expect(deferred.jobs).toHaveLength(1);
+    await deferred.jobs[0]();
+    expect(sent.at(-1)?.body).toMatchObject({ text: 'Oi! Sou a Lia.' });
+  });
+
+  test('IA falhando depois da resposta ao provedor fica registrada na Central de IA', async () => {
+    deferred.on = true;
+    aiReply.mockImplementation(() => { throw new Error('quebrou'); });
+    const { POST } = await import('@/app/api/whatsapp/webhook/route');
+    await POST(evo(msg('q2', 'Quero orçamento')) as never);
+    await deferred.jobs[0]();
+    expect((tables.ai_decisions ?? []).some(d => d.decisao === 'falhou')).toBe(true);
   });
 
   test('segredo errado é recusado', async () => {
