@@ -205,6 +205,8 @@ Nada será dado como "validado em produção" sem o teste **R** correspondente.
 
 Diagnósticos do workflow em 23/11 às 15:06 e 15:28 (Brasília): banco em dia, ambos os números `open`, nenhuma falha seguida e zero mensagens sem confirmação nos últimos sete dias. Foram observados `webhook_ok` às 14:19 e às 15:19/15:20. **Ainda não foram observados `probe_ok`/`probe_failed`**: no diagnóstico de 15:28, o último evento de mensagem do Número da Calha era 15:25. Não houve evidência de 20 minutos de silêncio naquele intervalo. Não provocar silêncio nem reiniciar uma conexão saudável para testar.
 
+Nova conferência às **18:05** pelo workflow [45265965905](https://github.com/anderrsc/crm-bielenki/actions/runs/45265965905): verificação de banco vazia, ambos os canais `open`, zero falhas seguidas e `webhook_ok` renovado às 16:20/16:21 e 17:21. Sem linhas `probe_ok`/`probe_failed`. Último evento de mensagem às 17:55 (Calha) e 18:04 (principal); nenhum canal completava 20 minutos de silêncio na coleta. A eficácia da sonda em silêncio no expediente permanece pendente de observação natural.
+
 ### Mensagens editadas na Evolution 2.3.7
 
 - [Código do pacote 2.3.7](https://github.com/EvolutionAPI/evolution-api/blob/2.3.7/package.json): depende de Baileys `7.0.0-rc.9`.
