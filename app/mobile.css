@@ -423,3 +423,52 @@
  .mobile-date-label::first-letter { text-transform: uppercase; }
 }
 @media screen and (max-width: 767px) { .mobile-day-heading .mobile-inline-button { display: none; } }
+
+/* ===== Segunda leva das referências: cartão claro no painel, tiles com seta, chips em pílula ===== */
+@media screen and (max-width: 767px) {
+ /* painel do Início: cartão claro com valor, barras e atalhos em quadrados arredondados */
+ .mh-hero { padding-bottom: 22px; }
+ .mh-hero-card { margin-top: 16px; padding: 16px; border-radius: 26px; background: #fff; color: #151517; box-shadow: 0 12px 32px rgb(0 0 0 / .28); }
+ .mh-hero-card .mh-hero-label { margin-top: 0; font-size: 14px; color: #667085; }
+ .mh-hero-card .mh-hero-value { margin-top: 4px; font-size: 38px; line-height: 44px; color: #151517; }
+ .mh-cents { font-size: .6em; font-weight: 600; opacity: .7; letter-spacing: 0; }
+ .mh-hero-card .mh-hero-note { color: #667085; }
+ .mh-hero-card .mh-bars { height: 76px; margin: 14px 0; }
+ .mh-hero-card .mh-bar-col > i { background: #E4E4E7; }
+ .mh-hero-card .mh-bar-col[data-current=true] > i { background: var(--brand); }
+ .mh-hero-card .mh-bar-col > span { color: #667085; }
+ .mh-circles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
+ .mh-circles a { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: #151517; }
+ .mh-circles a > span { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 18px; background: #151517; color: #fff; }
+
+ /* tiles: título e seta no topo, número embaixo */
+ .mh-kpis { gap: 10px; }
+ .mh-kpi { flex-direction: column; align-items: stretch; justify-content: space-between; gap: 14px; min-height: 108px; padding: 14px; border-radius: 24px; background: #fff; }
+ .mh-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; color: #98A2B3; }
+ .mh-kpi-top small { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #344054; }
+ .mh-kpi-top small svg { color: var(--brand-text); }
+ .mh-kpi-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; min-width: 0; }
+ .mh-kpi-value strong { font-size: clamp(24px, 7vw, 30px); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+ .mh-kpi-value strong.is-long { font-size: clamp(18px, 5.4vw, 22px); }
+ .mh-kpi-value em { font-style: normal; font-size: 12px; color: #667085; }
+ .mh-kpis > .mh-kpi:first-child { background: repeating-radial-gradient(circle at 100% 100%, transparent 0 15px, rgb(255 255 255 / .14) 15px 16px), linear-gradient(135deg, #F61111 0%, #B30B0B 100%); }
+ .mh-kpis > .mh-kpi:first-child .mh-kpi-top, .mh-kpis > .mh-kpi:first-child .mh-kpi-top small, .mh-kpis > .mh-kpi:first-child .mh-kpi-top small svg, .mh-kpis > .mh-kpi:first-child .mh-kpi-value em { color: rgb(255 255 255 / .9); }
+
+ /* agenda de hoje: ícone, título e horário à direita */
+ .mh-event { gap: 12px; padding: 12px; border-radius: 22px; }
+ .mh-event-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 14px; background: #151517; color: #fff; }
+ .mh-event-time { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+ .mh-event-time b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+ .mh-event-time small { font-size: 12px; color: var(--text-muted); }
+ .mh-stages a { border-radius: 20px; }
+
+ /* chips em pílula (selecionado em grafite) */
+ .mobile-quote-workspace nav[aria-label='Status do orçamento'] { gap: 8px; padding: 0; border-bottom: 0; overflow-x: auto; }
+ .mobile-quote-workspace nav[aria-label='Status do orçamento'] a { display: inline-flex; align-items: center; height: 38px; min-height: 38px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: #344054; font-size: 14px; font-weight: 500; }
+ .mobile-quote-workspace nav[aria-label='Status do orçamento'] a.button { background: #151517; border-color: #151517; color: #fff; font-weight: 600; }
+ .mobile-agenda-filters button[aria-pressed=true] { background: #151517; border-color: #151517; color: #fff; }
+
+ /* botões e cartões mais arredondados */
+ .app-content :is(.button, .button-ghost) { border-radius: 999px; }
+ .app-content .card { border-radius: 22px; }
+}

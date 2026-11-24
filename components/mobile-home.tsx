@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AgendaEventLink } from "@/components/agenda-event-link";
 import type { AgendaSource } from "@/lib/agenda";
-import { CalendarCheck, CalendarPlus, ChevronRight, CircleDollarSign, FileText, Layers, Plus, ShoppingCart, User, Users } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, CalendarPlus, ChevronRight, CircleDollarSign, FileText, Layers, Plus, Ruler, ShoppingCart, Users, Wrench } from "lucide-react";
 
 type TodayEvent = { id: string; source?: AgendaSource; title: string; starts_at: string; event_type: string; client_name?: string };
 export type MobileHomeProps = {
@@ -12,6 +12,11 @@ export type MobileHomeProps = {
   stages: { measure: number; production: number; install: number; done: number } | null;
 };
 
+/** "R$ 4.540,00" -> parte inteira grande e centavos pequenos (como nas referências). */
+function Money({ text }: { text: string }) {
+  const i = text.lastIndexOf(",");
+  return i < 0 ? <>{text}</> : <>{text.slice(0, i)}<span className="mh-cents">{text.slice(i)}</span></>;
+}
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const TYPE: Record<string, string> = { medicao: "Medição", instalacao: "Instalação", visita: "Visita", reuniao: "Reunião", entrega: "Entrega" };
 
@@ -27,47 +32,43 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
       : { label: "Leads", value: String(kpis.leads), note: "novos", Icon: Users, tone: "warning", href: "/pipeline" },
   ];
   const actions = [
-    { label: "Novo orçamento", href: "/orcamentos/calhas", Icon: Plus },
-    { label: "Agendar medição", href: "/medicoes", Icon: CalendarPlus },
-    { label: "Nova compra", href: "/compras/nova", Icon: ShoppingCart },
-    { label: "Novo cliente", href: "/clientes/novo", Icon: Users },
+    { label: "Orçamento", href: "/orcamentos/calhas", Icon: Plus },
+    { label: "Agendar", href: "/medicoes", Icon: CalendarPlus },
+    { label: "Compra", href: "/compras/nova", Icon: ShoppingCart },
+    { label: "Cliente", href: "/clientes/novo", Icon: Users },
   ];
   return (
     <div className="mobile-only mobile-home">
       <section className="mh-hero" aria-label="Resumo do mês">
         <h1 className="mh-greeting">{greeting}, {name}</h1>
         <p className="mh-date">{dateLabel}</p>
-        <p className="mh-hero-label">{hero.label}</p>
-        <p className="mh-hero-value">{hero.value}</p>
-        <p className="mh-hero-note">{hero.note}</p>
-        {hero.bars.length > 0 && (
-          <div className="mh-bars" role="img" aria-label={hero.bars.map(b => `${b.label}: ${b.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`).join("; ")}>
-            {hero.bars.map(b => (
-              <div key={b.label} className="mh-bar-col" data-current={b.current ? "true" : undefined}>
-                <i style={{ height: `${Math.max(6, Math.round((b.value / top) * 100))}%` }} />
-                <span>{b.label}</span>
-              </div>
-            ))}
+        <div className="mh-hero-card">
+          <p className="mh-hero-label">{hero.label}</p>
+          <p className="mh-hero-value"><Money text={hero.value} /></p>
+          <p className="mh-hero-note">{hero.note}</p>
+          {hero.bars.length > 0 && (
+            <div className="mh-bars" role="img" aria-label={hero.bars.map(b => `${b.label}: ${b.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`).join("; ")}>
+              {hero.bars.map(b => (
+                <div key={b.label} className="mh-bar-col" data-current={b.current ? "true" : undefined}>
+                  <i style={{ height: `${Math.max(6, Math.round((b.value / top) * 100))}%` }} />
+                  <span>{b.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mh-circles">
+            {actions.map(({ label, href, Icon }) => <Link key={label} href={href}><span><Icon size={22} /></span>{label}</Link>)}
           </div>
-        )}
-        <div className="mh-hero-actions">
-          <Link href="/orcamentos/calhas" className="mh-pill is-primary"><Plus size={18} />Novo orçamento</Link>
-          <Link href="/medicoes" className="mh-pill"><CalendarPlus size={18} />Agendar medição</Link>
         </div>
       </section>
 
       <div className="mh-kpis">
         {tiles.map(({ label, value, note, Icon, tone, href }) => (
-          <Link key={label} href={href} className="mh-kpi">
-            <span className="mh-kpi-icon" data-tone={tone}><Icon size={22} /></span>
-            <span className="mh-kpi-text"><small>{label}</small><strong>{value}</strong><em>{note}</em></span>
+          <Link key={label} href={href} className="mh-kpi" data-tone={tone}>
+            <span className="mh-kpi-top"><small><Icon size={16} />{label}</small><ArrowUpRight size={18} aria-hidden /></span>
+            <span className="mh-kpi-value"><strong className={value.length > 8 ? "is-long" : undefined}>{value}</strong><em>{note}</em></span>
           </Link>
         ))}
-      </div>
-
-      <h2 className="mh-title">Ações rápidas</h2>
-      <div className="mh-actions">
-        {actions.map(({ label, href, Icon }) => <Link key={label} href={href}><Icon size={26} strokeWidth={1.6} /><span>{label}</span></Link>)}
       </div>
 
       <div className="mh-section-head"><h2 className="mh-title"><CalendarCheck size={20} />Agenda de hoje</h2><Link href="/agenda">Ver agenda <ChevronRight size={15} /></Link></div>
@@ -76,9 +77,9 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
           {today.slice(0, 4).map(e => (
             <li key={`${e.source}-${e.id}`}>
               <AgendaEventLink eventId={e.id} source={e.source} className="mh-event">
-                <span className="mh-time">{hhmm(e.starts_at)}</span>
-                <span className="mh-event-text"><strong>{TYPE[e.event_type] ?? e.title}</strong><small>{e.client_name ? <><User size={14} />{e.client_name}</> : e.title}</small></span>
-                <ChevronRight size={18} className="mh-chevron" />
+                <span className="mh-event-icon">{e.event_type === "medicao" ? <Ruler size={20} /> : e.event_type === "instalacao" ? <Wrench size={20} /> : <CalendarCheck size={20} />}</span>
+                <span className="mh-event-text"><strong>{TYPE[e.event_type] ?? e.title}</strong><small>{e.client_name ?? e.title}</small></span>
+                <span className="mh-event-time"><b>{hhmm(e.starts_at)}</b><small>hoje</small></span>
               </AgendaEventLink>
             </li>
           ))}
