@@ -23,7 +23,6 @@ const TYPE: Record<string, string> = { medicao: "Medição", instalacao: "Instal
 
 /** Início no celular, na organização das referências: saudação, 4 indicadores, ações rápidas, agenda de hoje e pedidos em andamento. */
 export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stages }: MobileHomeProps) {
-  const top = Math.max(1, ...hero.bars.map(b => b.value));
   const tiles = [
     { label: "Orçamentos", value: String(kpis.quotes), note: "pendentes", Icon: FileText, tone: "success", href: "/orcamentos" },
     { label: "Pedidos", value: String(kpis.orders), note: "em andamento", Icon: ShoppingCart, tone: "info", href: "/pedidos" },
@@ -47,16 +46,6 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
           <p className="mh-hero-label">{hero.label}</p>
           <p className="mh-hero-value"><Money text={hero.value} /></p>
           <p className="mh-hero-note">{hero.note}</p>
-          {hero.bars.length > 0 && (
-            <div className="mh-bars" role="img" aria-label={hero.bars.map(b => `${b.label}: ${b.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`).join("; ")}>
-              {hero.bars.map(b => (
-                <div key={b.label} className="mh-bar-col" data-current={b.current ? "true" : undefined}>
-                  <i style={{ height: `${Math.max(6, Math.round((b.value / top) * 100))}%` }} />
-                  <span>{b.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
           <div className="mh-circles">
             {actions.map(({ label, href, Icon }) => <Link key={label} href={href}><span><Icon size={22} /></span>{label}</Link>)}
           </div>
