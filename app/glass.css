@@ -1,0 +1,127 @@
+/* ===== Vidro (liquid glass): painéis translúcidos com desfoque, borda clara e brilho, no lugar dos painéis pretos =====
+   Só os painéis principais, a barra do topo, a barra inferior e o menu lateral usam desfoque (leve em celulares).
+   Listas e cartões continuam brancos e sólidos: mais limpos e rápidos. */
+:root {
+  --glass-bg: linear-gradient(135deg, rgb(255 255 255 / .74) 0%, rgb(255 255 255 / .38) 100%);
+  --glass-border: rgb(255 255 255 / .85);
+  --glass-shadow: 0 14px 34px rgb(16 24 40 / .10), 0 2px 6px rgb(16 24 40 / .04), inset 0 1px 0 rgb(255 255 255 / .95), inset 0 -1px 0 rgb(255 255 255 / .4);
+  --glass-blur: blur(22px) saturate(175%);
+  --ink-strong: #101828;
+  --ink-soft: #475467;
+}
+
+/* Fundo claro com um brilho suave da marca: é o que o vidro "enxerga" por trás */
+.app-shell-root { position: relative; isolation: isolate; background: #F2F2F5; }
+.app-shell-root::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(560px 380px at 88% -4%, rgb(246 17 17 / .20) 0%, transparent 62%),
+    radial-gradient(520px 420px at -6% 34%, rgb(16 24 40 / .08) 0%, transparent 62%),
+    radial-gradient(560px 460px at 104% 88%, rgb(246 17 17 / .10) 0%, transparent 62%),
+    linear-gradient(180deg, #F7F7F9 0%, #EEEEF2 100%); }
+.app-workspace, .app-content { background: transparent; }
+
+/* ---------- painéis de destaque ---------- */
+.mh-hero, .shell-band, .detail-hero, .sale-hero, .module-hero {
+  position: relative; overflow: hidden; color: var(--ink-strong);
+  background: radial-gradient(90% 120% at 100% 0%, rgb(246 17 17 / .16) 0%, transparent 60%), var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.mh-hero::before, .shell-band::before, .sale-hero::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(118deg, rgb(255 255 255 / .55) 0%, rgb(255 255 255 / 0) 36%); }
+.mh-hero > *, .shell-band > *, .sale-hero > * { position: relative; z-index: 1; }
+
+.mh-hero .mh-greeting, .mh-hero h1, .shell-band, .detail-hero .mh-greeting { color: var(--ink-strong); }
+.mh-hero .mh-date, .mh-hero .mh-hero-label, .mh-hero .mh-hero-note, .module-hero-desc, .detail-kind, .sale-hero-client, .agenda-hero-note { color: var(--ink-soft); }
+.mh-hero:not(:has(.mh-hero-card)) .mh-hero-value { color: var(--ink-strong); }
+.mh-hero-card { background: rgb(255 255 255 / .66); border: 1px solid rgb(255 255 255 / .95); box-shadow: 0 10px 28px rgb(16 24 40 / .10), inset 0 1px 0 #fff; color: var(--ink-strong); }
+.mh-hero-card .mh-hero-value { color: var(--ink-strong); }
+.mh-bars .mh-bar-col > i, .mh-hero-card .mh-bar-col > i { background: rgb(16 24 40 / .12); }
+.mh-bar-col[data-current="true"] > i, .mh-hero-card .mh-bar-col[data-current="true"] > i { background: linear-gradient(180deg, #FF4A4A, #D90E0E); }
+.mh-bar-col > span { color: var(--ink-soft); }
+.mh-circles a { color: var(--ink-strong); }
+.mh-circles a > span { background: rgb(246 17 17 / .10); color: var(--brand-strong); border: 1px solid rgb(246 17 17 / .18); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); }
+.mh-pill { background: rgb(255 255 255 / .78); border: 1px solid rgb(255 255 255 / .95); color: var(--ink-strong); box-shadow: 0 4px 12px rgb(16 24 40 / .08), inset 0 1px 0 #fff; }
+.mh-pill.is-primary { background: linear-gradient(180deg, #FF3B3B, #D90E0E); border-color: rgb(255 255 255 / .35); color: #fff; box-shadow: 0 8px 18px rgb(217 14 14 / .30), inset 0 1px 0 rgb(255 255 255 / .45); }
+.mh-hero .mh-hero-note.module-hero-count { color: var(--ink-soft); }
+
+/* detalhe e venda */
+.detail-actions .button, .detail-actions .button-ghost, .sale-hero-actions .button, .sale-hero-actions .button-ghost { background: rgb(255 255 255 / .78); border: 1px solid rgb(255 255 255 / .95); color: var(--ink-strong); box-shadow: 0 3px 10px rgb(16 24 40 / .07), inset 0 1px 0 #fff; }
+.detail-actions .button, .sale-hero-actions .button { background: linear-gradient(180deg, #FF3B3B, #D90E0E); color: #fff; border-color: rgb(255 255 255 / .35); }
+.detail-actions .button-ghost.text-red-700 { color: var(--brand-strong); }
+.sale-money { background: rgb(255 255 255 / .55); border: 1px solid rgb(255 255 255 / .9); }
+.sale-money.is-total { background: rgb(255 255 255 / .85); }
+.sale-money > p:first-child { color: var(--ink-soft); }
+
+/* faixa de título */
+.shell-band { text-shadow: none; }
+
+/* agenda dentro do vidro */
+.agenda-hero .mobile-agenda-heading h1 { color: var(--ink-strong); }
+.agenda-hero .mobile-agenda-heading h1 svg { color: var(--ink-soft); }
+.agenda-hero .mobile-icon-button { background: rgb(255 255 255 / .75); color: var(--ink-strong); border: 1px solid rgb(255 255 255 / .95); }
+.agenda-hero .mobile-segmented { background: rgb(255 255 255 / .5); border: 1px solid rgb(255 255 255 / .9); }
+.agenda-hero .mobile-segmented > button { color: var(--ink-soft); }
+.agenda-hero .mobile-segmented > button[aria-pressed="true"] { background: #fff; color: var(--brand-strong); box-shadow: 0 3px 10px rgb(16 24 40 / .10); }
+.agenda-hero .mobile-date-nav { background: rgb(255 255 255 / .6); border: 1px solid rgb(255 255 255 / .9); }
+.agenda-hero .mobile-date-nav > button { color: var(--ink-strong); }
+
+/* WhatsApp: topo da lista em vidro (celular) */
+@media (max-width: 767px) {
+.mobile-inbox .wa-list-head { position: relative; overflow: hidden; color: var(--ink-strong);
+  background: radial-gradient(90% 120% at 100% 0%, rgb(246 17 17 / .16) 0%, transparent 60%), var(--glass-bg);
+  border: 1px solid var(--glass-border); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow); }
+.mobile-inbox .wa-list-head::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(118deg, rgb(255 255 255 / .55) 0%, rgb(255 255 255 / 0) 36%); }
+.mobile-inbox .wa-list-head > * { position: relative; z-index: 1; }
+.mobile-inbox .wa-list-head .wa-title { color: var(--ink-strong); }
+.mobile-inbox .wa-list-head .wa-subtitle { color: var(--ink-soft); }
+.mobile-inbox .wa-list-head .wa-icon-btn { color: var(--ink-strong); }
+.mobile-inbox .wa-list-head .wa-icon-btn:hover { background: rgb(255 255 255 / .6); }
+.mobile-inbox .wa-list-head .wa-icon-btn-box { background: rgb(255 255 255 / .7); color: var(--ink-strong); border: 1px solid rgb(255 255 255 / .95); }
+.mobile-inbox .wa-list-head .wa-number { background: rgb(255 255 255 / .6); border-color: rgb(255 255 255 / .95); }
+.mobile-inbox .wa-list-head .wa-number[aria-pressed="true"] { background: rgb(255 255 255 / .9); border-color: var(--wa-accent); }
+.mobile-inbox .wa-list-head .wa-number-name { color: var(--ink-strong); }
+.mobile-inbox .wa-list-head .wa-number-phone, .mobile-inbox .wa-list-head .wa-number-add { color: var(--ink-soft); }
+.mobile-inbox .wa-list-head .wa-chip { background: rgb(255 255 255 / .62); color: #344054; }
+.mobile-inbox .wa-list-head .wa-chip[aria-pressed="true"] { background: var(--wa-accent); color: #fff; }
+.mobile-inbox .wa-list-head .wa-chip-count { background: rgb(16 24 40 / .08); }
+.mobile-inbox .wa-list-head .wa-chip[aria-pressed="true"] .wa-chip-count { background: rgb(255 255 255 / .25); }
+.mobile-inbox .wa-list-head .wa-search { background: rgb(255 255 255 / .7); color: var(--ink-soft); border-color: rgb(255 255 255 / .95); }
+.mobile-inbox .wa-list-head .wa-search:focus-within { background: #fff; border-color: var(--wa-accent); }
+.mobile-inbox .wa-list-head .wa-search input { color: var(--ink-strong); }
+.mobile-inbox .wa-list-head .wa-search input::placeholder { color: var(--ink-soft); }
+.mobile-inbox .wa-list-head .wa-link { color: var(--wa-accent); }
+}
+
+/* ---------- elementos que eram pretos ---------- */
+.mh-event-icon { background: rgb(246 17 17 / .10); color: var(--brand-strong); border: 1px solid rgb(246 17 17 / .16); }
+.pq-count { background: rgb(246 17 17 / .12); color: var(--brand-strong); }
+.pq-item[data-urgent="true"] .pq-count { background: var(--brand); color: #fff; }
+.mh-story { background: conic-gradient(from 200deg, #F61111, #FF9A9A 38%, #F61111 70%, #B30B0B); }
+.mh-story > span { color: var(--brand-strong); }
+.mobile-quote-workspace nav[aria-label='Status do orçamento'] a.button { background: linear-gradient(180deg, #FF3B3B, #D90E0E); border-color: transparent; color: #fff; }
+.mobile-agenda-filters button[aria-pressed="true"] { background: linear-gradient(180deg, #FF3B3B, #D90E0E); border-color: transparent; color: #fff; }
+
+/* ---------- barra do topo, menu lateral e barra inferior ---------- */
+.app-topbar { background: rgb(255 255 255 / .66); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-bottom: 1px solid rgb(255 255 255 / .8); box-shadow: 0 1px 0 rgb(16 24 40 / .04); }
+.app-sidebar { background: linear-gradient(180deg, rgb(255 255 255 / .74), rgb(255 255 255 / .5)); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-right: 1px solid rgb(255 255 255 / .85); box-shadow: 8px 0 30px rgb(16 24 40 / .05); }
+.sidebar-link.is-active { background: #fff; color: var(--ink-strong); box-shadow: 0 6px 16px rgb(16 24 40 / .10), inset 0 1px 0 #fff; }
+.sidebar-link.is-active svg { color: var(--brand-strong); }
+.mobile-bottom-bar { background: linear-gradient(135deg, rgb(255 255 255 / .78), rgb(255 255 255 / .50)); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid rgb(255 255 255 / .9); box-shadow: 0 14px 34px rgb(16 24 40 / .16), inset 0 1px 0 #fff; }
+.mobile-bottom-bar a[aria-current="page"] .mobile-tab-icon { background: linear-gradient(180deg, #FFFFFF, rgb(255 255 255 / .78)); color: var(--brand-strong); box-shadow: 0 8px 18px rgb(16 24 40 / .20), 0 0 0 4px rgb(255 255 255 / .55), inset 0 1px 0 #fff; }
+.mobile-bottom-bar a[aria-current="page"] { color: var(--ink-strong); }
+.quote-save-bar { background: rgb(255 255 255 / .78); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+
+/* telas muito pequenas ou sem suporte a desfoque: fundo mais opaco para manter a leitura */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mh-hero, .shell-band, .detail-hero, .sale-hero, .module-hero, .app-topbar, .app-sidebar, .mobile-bottom-bar { background: rgb(255 255 255 / .94); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mh-hero, .shell-band, .detail-hero, .sale-hero, .module-hero, .app-topbar, .app-sidebar, .mobile-bottom-bar { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media print { .app-shell-root::before { display: none; } }
+
+/* corrige regras antigas de celular que reexibiam elementos escondidos */
+.mobile-quote-workspace > header.hidden { display: none; }
+@media (max-width: 767px) { .app-content .agenda-equipes-link { display: none; } }
