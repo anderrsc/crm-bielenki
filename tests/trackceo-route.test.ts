@@ -32,3 +32,10 @@ test('erro do provedor volta com mensagem segura e desconectar usa a sessão do 
  const r=await POST(request({action:'sync'}));expect(decodeURIComponent(r.headers.get('location')!)).toContain('Conta ou senha');
  await POST(request({action:'disconnect'}));expect(rpc).toHaveBeenCalledWith('trackceo_disconnect');
 });
+
+test('retorno da conexão mantém código e etapa seguros para diagnosticar a recusa',async()=>{
+ sync.mockRejectedValue(new TrackingError('permission',false,{providerCode:10007,stage:'authorization'}));
+ const r=await POST(request({action:'connect',account:'conta-privada',password:'senha-privada'}));
+ const url=new URL(r.headers.get('location')!);expect(url.searchParams.get('erro')).toContain('TrackCEO 10007 · autenticação');
+ expect(url.href).not.toMatch(/conta-privada|senha-privada/);expect(r.status).toBe(303);
+});
