@@ -46,6 +46,8 @@ EOF
 for i in $(seq 1 30); do curl -s -o /dev/null "$POSTGREST_URL" && break; sleep 1; done
 
 echo "==> fake Supabase + admin de teste"
+export CRM_E2E_TEST_MODE=1
+export TRACKCEO_TEST_API_ORIGIN=http://127.0.0.1:54323
 node tests/e2e/start-backend.mjs > "$WORK/backend.log" 2>&1 & PIDS+=($!)
 for i in $(seq 1 30); do grep -q SERVICE_ROLE_KEY "$WORK/backend.log" 2>/dev/null && break; sleep 1; done
 export NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
@@ -72,5 +74,5 @@ for i in $(seq 1 60); do curl -s -o /dev/null "$E2E_BASE_URL/login" && break; sl
 echo "==> testes de ponta a ponta"
 node --test --test-concurrency=1 --test-reporter=spec \
   tests/e2e/api.test.mjs tests/e2e/quote-flow.test.mjs tests/e2e/business.test.mjs tests/e2e/ui-actions.test.mjs \
-  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs tests/e2e/print-a4.test.mjs tests/e2e/mobile.test.mjs tests/e2e/design-audit.test.mjs tests/e2e/aluminum-cost.test.mjs tests/e2e/work-planning.test.mjs
+  tests/e2e/remaining.test.mjs tests/e2e/forms.test.mjs tests/e2e/crawl.test.mjs tests/e2e/print-a4.test.mjs tests/e2e/mobile.test.mjs tests/e2e/design-audit.test.mjs tests/e2e/aluminum-cost.test.mjs tests/e2e/work-planning.test.mjs tests/e2e/trackceo.test.mjs
 echo "==> tudo verde"

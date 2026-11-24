@@ -3,7 +3,8 @@
 import { todayISO } from "@/lib/utils";
 import { useErrorDraft } from "@/lib/form-draft";
 import Link from "next/link";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Plus, Save, StickyNote, Trash2, Truck } from "lucide-react";
+import { FormBlock, ItemBadge, Note, Segmented } from "@/components/form-blocks";
 import { createManualPurchase } from "@/app/(crm)/actions";
 import { money } from "@/lib/utils";
 import { ReceivingAccountSelect } from "@/components/receiving-account-select";
@@ -57,8 +58,8 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
   return <div className="mx-auto max-w-5xl">
     <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
     <div className="mb-7"><p className="text-xs font-semibold text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-semibold">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
-    {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    {error?.startsWith("Compra parecida") && <label className="mb-5 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
+    {error && <Note tone="error" role="alert" className="mb-5">{error}</Note>}
+    {error?.startsWith("Compra parecida") && <label className="fx-note fx-note-warn mb-5"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
     <InvoiceUpload onRead={(r) => {
       setItems(r.items);
       if (r.supplierId) { setSupplierId(r.supplierId); setUseCredit(false); }
@@ -71,60 +72,56 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
       if (r.total && Math.abs(r.total - sum) > 0.05) msgs.push(`Atenção: total da nota ${money(r.total)} e soma dos itens ${money(sum)} não batem (frete/impostos/desconto?).`);
       setInvoiceNote(msgs.join(" "));
     }} />
-    {invoiceNote && <p className="mb-5 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-900">{invoiceNote}</p>}
-    <form data-warn-unsaved onSubmit={rememberDraft} action={createManualPurchase} className="grid gap-5 lg:grid-cols-[1fr_340px]">
+    {invoiceNote && <Note tone="warn" className="mb-5">{invoiceNote}</Note>}
+    <form data-warn-unsaved onSubmit={rememberDraft} action={createManualPurchase} className="fx-layout">
       <input type="hidden" name="payload" value={payload} />
-      <div className="space-y-4">
-        <div className="card p-5"><label className="label" htmlFor="compra-fornecedor">Fornecedor</label>
+      <div className="fx-stack">
+        <FormBlock icon={Building2} title="Fornecedor" hint="De quem você comprou.">
+          <label className="label" htmlFor="compra-fornecedor">Fornecedor</label>
           <select id="compra-fornecedor" aria-label="Fornecedor" className="field" value={supplierId} onChange={(e) => { setSupplierId(e.target.value); setUseCredit(false); }} required>
             <option value="">Selecione</option>{suppliers.map((x) => <option value={x.id} key={x.id}>{x.name}</option>)}
           </select>
-          {credit > 0 && <label className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-sm font-semibold text-emerald-800"><input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />Usar crédito que o fornecedor tem ({money(credit)})</label>}
-        </div>
-        {items.map((item, index) => <div className="card p-5" key={index}>
-          <div className="mb-3 flex items-center justify-between"><b>{items.length > 1 ? `Item ${index + 1}` : "O que está comprando"}</b>
-            {items.length > 1 && <button type="button" aria-label="Remover item" className="button-ghost p-2 text-red-600" onClick={() => setItems((x) => x.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></button>}</div>
-          <div className="mb-3 flex flex-wrap gap-2">{PURCHASE_TYPES.map((t) => <button type="button" key={t} onClick={() => update(index, { category: t })} className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${item.category === t ? "border-forest bg-brand-strong text-white" : "border-sand bg-surface hover:bg-cream"}`}>{t}</button>)}</div>
-          <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr]">
-            <div><label className="label" htmlFor={`desc-${index}`}>Descrição do material</label><input id={`desc-${index}`} aria-label="Descrição do material" className="field" value={item.description} onChange={(e) => update(index, { description: e.target.value })} required={item.category === "Outro"} placeholder={item.category === "Outro" ? "Digite o que está comprando" : `${item.category} (opcional: detalhe)`} /></div>
+          {credit > 0 && <label className="fx-note fx-note-ok mt-3"><input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />Usar crédito que o fornecedor tem ({money(credit)})</label>}
+        </FormBlock>
+        {items.map((item, index) => <div className="fx-item" key={index}>
+          <div className="fx-item-head"><ItemBadge n={index + 1} /><b className="fx-item-title">{items.length > 1 ? `Item ${index + 1}` : "O que está comprando"}</b>
+            {items.length > 1 && <button type="button" aria-label="Remover item" className="fx-remove" onClick={() => setItems((x) => x.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></button>}</div>
+          <div className="fx-chips" role="group" aria-label="Tipo do que comprou">{PURCHASE_TYPES.map((t) => <button type="button" key={t} aria-pressed={item.category === t} onClick={() => update(index, { category: t })} className="fx-chip">{t}</button>)}</div>
+          <div className="fx-grid fx-grid-pair fx-grid-item">
+            <div className="fx-wide"><label className="label" htmlFor={`desc-${index}`}>Descrição do material</label><input id={`desc-${index}`} aria-label="Descrição do material" className="field" value={item.description} onChange={(e) => update(index, { description: e.target.value })} required={item.category === "Outro"} placeholder={item.category === "Outro" ? "Digite o que está comprando" : `${item.category} (opcional: detalhe)`} /></div>
             <div><label className="label" htmlFor={`qtd-${index}`}>Quantidade</label><input id={`qtd-${index}`} aria-label="Quantidade" className="field" type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => update(index, { quantity: Number(e.target.value) })} required /></div>
             <div><label className="label" htmlFor={`val-${index}`}>Valor unitário</label><input id={`val-${index}`} aria-label="Valor unitário" className="field" type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => update(index, { unit_price: Number(e.target.value) })} required /></div>
           </div>
-          {items.length > 1 && <p className="mt-2 text-right text-sm font-semibold">{money(item.quantity * item.unit_price)}</p>}
+          {items.length > 1 && <p className="fx-item-total"><span>Total do item</span><b>{money(item.quantity * item.unit_price)}</b></p>}
         </div>)}
-        <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems((x) => [...x, blank()])}><Plus className="h-4 w-4" />Adicionar outro item</button>
-        <div className="card grid gap-4 p-5 sm:grid-cols-2">
-          <div><label className="label" htmlFor="compra-previsao">Previsão de entrega</label><input id="compra-previsao" className="field" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} /><p className="mt-1 text-xs text-ink/50">Deixe vazio se já chegou.</p></div>
-          <fieldset><legend className="label">É para</legend>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-cream p-1 text-sm font-semibold">
-              {([["estoque", "Estoque"], ["pedido", "Um pedido"]] as const).map(([v, l]) => <button type="button" key={v} onClick={() => setDestino(v)} className={`rounded-lg px-2 py-2 ${destino === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
+        <button type="button" className="fx-add" onClick={() => setItems((x) => [...x, blank()])}><Plus className="h-4 w-4" />Adicionar outro item</button>
+        <FormBlock icon={Truck} title="Entrega e destino" hint="Quando chega e para onde vai.">
+          <div className="fx-grid fx-grid-2">
+            <div><label className="label" htmlFor="compra-previsao">Previsão de entrega</label><input id="compra-previsao" className="field" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} /><p className="mt-1 text-xs text-ink/50">Deixe vazio se já chegou.</p></div>
+            <div><Segmented label="É para" value={destino} onChange={setDestino} options={[["estoque", "Estoque"], ["pedido", "Um pedido"]] as const} />
+              {destino === "pedido" && <select aria-label="Pedido" className="field mt-2" value={orderId} onChange={(e) => setOrderId(e.target.value)} required><option value="">Escolha o pedido</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>}
             </div>
-            {destino === "pedido" && <select aria-label="Pedido" className="field mt-2" value={orderId} onChange={(e) => setOrderId(e.target.value)} required><option value="">Escolha o pedido</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>}
-          </fieldset>
-        </div>
-        <div className="card p-5"><label className="label" htmlFor="compra-obs">Observações</label><textarea id="compra-obs" className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+          </div>
+        </FormBlock>
+        <FormBlock icon={StickyNote} title="Observações"><label className="sr-only" htmlFor="compra-obs">Observações</label><textarea id="compra-obs" className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} /></FormBlock>
       </div>
 
-      <aside className="card h-fit space-y-4 p-5 lg:sticky lg:top-24">
-        <div><h2 className="font-semibold">Total da compra</h2><p className="mt-1 text-3xl font-semibold text-forest">{money(total)}</p>{creditUsed > 0 && <p className="text-sm text-emerald-700">− {money(creditUsed)} de crédito</p>}</div>
-        <fieldset><legend className="label">Pagou?</legend>
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1 text-sm font-semibold">
-            {([["total", "Pagou tudo"], ["parte", "Outro valor"], ["nao", "Não pagou"]] as [PaidMode, string][]).map(([v, l]) => <button type="button" key={v} onClick={() => { setMode(v); if (v === "parte") setPaid(round(total - creditUsed)); }} className={`rounded-lg px-2 py-2 ${mode === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
-          </div>
-        </fieldset>
+      <aside className="fx-summary" aria-label="Resumo e pagamento">
+        <div><h2 className="fx-total-label">Total da compra</h2><p className="fx-total">{money(total)}</p>{creditUsed > 0 && <p className="fx-total-sub">− {money(creditUsed)} de crédito</p>}</div>
+        <Segmented label="Pagou?" value={mode} onChange={(v) => { setMode(v); if (v === "parte") setPaid(round(total - creditUsed)); }} options={[["total", "Pagou tudo"], ["parte", "Outro valor"], ["nao", "Não pagou"]] as const} />
         {mode === "parte" && <div><label className="label" htmlFor="compra-pago">Valor pago</label><input id="compra-pago" aria-label="Valor já pago" className="field" type="number" min="0" step="0.01" value={paid} onChange={(e) => setPaid(Number(e.target.value))} required /></div>}
         {mode !== "nao" && <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="fx-grid fx-grid-pair">
             <div><label className="label" htmlFor="compra-metodo">Como pagou</label><select id="compra-metodo" className="field" value={method} onChange={(e) => setMethod(e.target.value)}>{METHODS.map((x) => <option key={x}>{x}</option>)}</select></div>
             <div><label className="label" htmlFor="compra-data">Quando</label><input id="compra-data" className="field" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} required /></div>
           </div>
           <div><label className="label">Conta que pagou</label><ReceivingAccountSelect name="_conta" value={account} onChange={setAccount} className="field" /></div>
         </>}
-        {total > 0 && <div className={`rounded-xl p-3 text-sm font-semibold ${balance > 0 ? "bg-amber-50 text-amber-800" : balance < 0 ? "bg-emerald-50 text-emerald-800" : "bg-cream text-ink/70"}`}>
+        {total > 0 && <Note tone={balance > 0 ? "warn" : balance < 0 ? "ok" : "info"}>
           {balance > 0 ? `Fica devendo ${money(balance)} ao fornecedor` : balance < 0 ? `Fica ${money(-balance)} de crédito com o fornecedor` : "Compra quitada"}
-        </div>}
+        </Note>}
         {balance > 0 && <div><label className="label" htmlFor="compra-venc">Vencimento do que ficou devendo</label><input id="compra-venc" className="field" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
-        <button disabled={!supplierId || total <= 0 || payNow < 0 || invalidItem || (destino === "pedido" && !orderId)} className="button w-full"><Save className="h-4 w-4" />Cadastrar compra</button>
+        <button disabled={!supplierId || total <= 0 || payNow < 0 || invalidItem || (destino === "pedido" && !orderId)} className="button fx-submit"><Save className="h-4 w-4" />Cadastrar compra</button>
       </aside>
     </form>
   </div>;

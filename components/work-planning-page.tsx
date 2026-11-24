@@ -18,7 +18,7 @@ export async function WorkPlanningPage({date:raw,error,saved}:{date?:string;erro
 export function WorkPlanningView({data:d,error,saved}:{data:Awaited<ReturnType<typeof loadWorkPlanning>>;error?:string;saved?:boolean}){
  const back=`/equipes?dia=${d.date}`;const peopleName=(id:string)=>d.people.find(p=>p.id===id)?.full_name??'Funcionário';
  return <div className="mx-auto max-w-6xl space-y-5">
-  <header><p className="text-xs font-semibold text-forest">Operação</p><h1 className="mt-2 text-3xl font-semibold">Equipes e veículos</h1><p className="mt-2 text-sm text-ink/60">Saídas do dia, visitas e conferência do carregamento.</p></header>
+  <header>{d.manager&&<Link href="/equipes/rastreamento" className="mb-3 inline-block text-sm font-medium text-forest underline">Mapa dos veículos</Link>}<p className="text-xs font-semibold text-forest">Operação</p><h1 className="mt-2 text-3xl font-semibold">Equipes e veículos</h1><p className="mt-2 text-sm text-ink/60">Saídas do dia, visitas e conferência do carregamento.</p></header>
   {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}{saved&&<p role="status" className="rounded-xl bg-emerald-50 p-4">Planejamento atualizado.</p>}
   <form method="get" className="card flex flex-wrap items-end gap-3 p-4"><Field label="Dia" name="dia" type="date" value={d.date} required/><button className="button">Ver dia</button><Link className="button-ghost" href="/agenda">Abrir agenda</Link></form>
   {d.manager&&<details className="card p-5"><summary className="cursor-pointer font-semibold">Cadastrar equipes e veículos</summary><div className="mt-4 grid gap-5 lg:grid-cols-2">
