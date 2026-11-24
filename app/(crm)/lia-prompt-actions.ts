@@ -6,9 +6,12 @@ async function getCtx() {
   const db = await getRequestClient();
   const user = await getAuthUser();
   if (!user) throw new Error("Não autenticado");
-  const { data: p } = await db.from("profiles").select("company_id,role").eq("id", user.id).single();
+  const { data: p } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!p?.company_id) throw new Error("Empresa não encontrada");
-  return { db, user, profile: p };
+  const { data: roles, error } = await db.rpc("current_user_roles");
+  if (error) throw new Error("Falha ao consultar permissões");
+  const role = Array.isArray(roles) ? roles.find(value => value === "administrador") ?? roles.find(value => value === "gerente") ?? null : null;
+  return { db, user, profile: { ...p, role } };
 }
 
 function isManager(role: string | null) {
