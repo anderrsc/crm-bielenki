@@ -50,18 +50,18 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
   const origin = e.sale_id ? { href: `/vendas/${e.sale_id}`, label: "Abrir venda" } : e.purchase_order_id ? { href: `/compras/${e.purchase_order_id}`, label: "Abrir compra" } : null;
 
   return <div className="mx-auto max-w-4xl space-y-5">
-    <Link href={pagar ? "/financeiro/pagar" : "/financeiro/receber"} className="inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />{pagar ? "Contas a pagar" : "Contas a receber"}</Link>
+    <Link href={pagar ? "/financeiro/pagar" : "/financeiro/receber"} className="inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" />{pagar ? "Contas a pagar" : "Contas a receber"}</Link>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{search.erro.slice(0, 200)}</p>}
     {(search.ok || search.recebido) && <p className="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{search.ok ? search.ok.slice(0, 80) : "Pagamento registrado."}</p>}
 
     <section className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <span className={`rounded-lg border px-2 py-0.5 text-xs font-bold ${pagar ? "border-orange-200 bg-orange-50 text-orange-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{pagar ? "A pagar" : "A receber"}</span>
-          <h1 className="mt-2 text-2xl font-black">{e.description}</h1>
+          <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${pagar ? "border-orange-200 bg-orange-50 text-orange-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{pagar ? "A pagar" : "A receber"}</span>
+          <h1 className="mt-2 text-2xl font-semibold">{e.description}</h1>
           <p className="mt-1 text-sm text-ink/60">{person ? (personHref ? <Link className="underline" href={personHref}>{person}</Link> : person) : "Sem cliente/fornecedor"} · {e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p>
         </div>
-        <span className="rounded-lg border border-sand px-3 py-1 text-sm font-bold">{STATUS[e.display_status] ?? e.display_status}</span>
+        <span className="rounded-lg border border-sand px-3 py-1 text-sm font-semibold">{STATUS[e.display_status] ?? e.display_status}</span>
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Info label="Total" value={money(e.total_amount)} />
@@ -77,7 +77,7 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
     </section>
 
     <section className="card p-5">
-      <h2 className="mb-3 font-black">Ações</h2>
+      <h2 className="mb-3 font-semibold">Ações</h2>
       <div className="flex flex-wrap gap-2">
         {open && canPay === true && <PaymentDialog backHref={self} canOverpay={pagar && !!e.supplier_id} supplierCredit={credit ? Number((credit as { balance: number }).balance) : 0} entryType={e.entry_type} entryId={e.id} openAmount={Number(e.open_amount)} interestAmount={Number(e.interest_amount)} discountAmount={Number(e.discount_amount)} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} buttonClassName="button" />}
         {open && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} backHref={self} label="Mudar vencimento" />}
@@ -88,7 +88,7 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
     </section>
 
     {canClassify === true && e.display_status !== "cancelado" && <section className="card p-5">
-      <details><summary className="cursor-pointer font-black">Corrigir esta conta</summary>
+      <details><summary className="cursor-pointer font-semibold">Corrigir esta conta</summary>
         <form action={editFinancialEntry} className="mt-4 grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="id" value={e.id} />
           <div className="sm:col-span-2"><label className="label" htmlFor="ed-desc">Descrição</label><input id="ed-desc" className="field" name="description" defaultValue={e.description} required minLength={2} maxLength={300} /></div>
@@ -108,15 +108,15 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
     </section>}
 
     <section className="card p-5">
-      <h2 className="mb-3 font-black">Pagamentos</h2>
+      <h2 className="mb-3 font-semibold">Pagamentos</h2>
       {!list.length && <p className="text-sm text-ink/50">Nenhum pagamento registrado.</p>}
       <div className="space-y-3">{list.map((p) => <div key={p.id} className={`rounded-xl border p-4 ${p.reversed_at ? "border-sand bg-cream/60 opacity-70" : "border-sand"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-bold">{money(p.amount)} · {shortDate(p.paid_at)}</p>
-          {p.reversed_at ? <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">Estornado em {shortDate(p.reversed_at)}</span> : <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">Válido</span>}
+          <p className="font-semibold">{money(p.amount)} · {shortDate(p.paid_at)}</p>
+          {p.reversed_at ? <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">Estornado em {shortDate(p.reversed_at)}</span> : <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Válido</span>}
         </div>
         <p className="text-sm text-ink/60">{METHOD[p.payment_method ?? ""] ?? (p.payment_method ?? "—").replaceAll("_", " ")}{p.receiving_account_name ? ` · ${p.receiving_account_name}` : ""}{p.notes ? ` · ${p.notes}` : ""}</p>
-        {!p.reversed_at && canReverse === true && <details className="mt-2"><summary className="cursor-pointer text-sm font-bold text-red-700">Estornar este pagamento</summary>
+        {!p.reversed_at && canReverse === true && <details className="mt-2"><summary className="cursor-pointer text-sm font-semibold text-red-700">Estornar este pagamento</summary>
           <form action={reversePayment} className="mt-2">
             <input type="hidden" name="payment_id" value={p.id} /><input type="hidden" name="_back" value={self} />
             <label className="block text-sm">Motivo do estorno<input className="field mt-1" name="notes" required minLength={3} maxLength={500} placeholder="Ex.: valor da baixa incorreto" /></label>
@@ -129,5 +129,5 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
 }
 
 function Info({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <div><dt className="text-xs font-bold uppercase tracking-wider text-ink/45">{label}</dt><dd className={`mt-1 text-lg font-black ${strong ? "text-red-700" : ""}`}>{value}</dd></div>;
+  return <div><dt className="text-xs font-semibold text-ink/45">{label}</dt><dd className={`mt-1 text-lg font-semibold ${strong ? "text-red-700" : ""}`}>{value}</dd></div>;
 }

@@ -53,7 +53,7 @@ export async function loadCentralData(db: SupabaseClient, companyId: string): Pr
   const providerName = { ollama: "Ollama Cloud", groq: "Groq", openai: "OpenAI", anthropic: "Claude" }[provider];
 
   const checks: CentralCheck[] = [
-    { label: "Agente ativo", ok: cfg.active === true, detail: cfg.active === true ? "Ligado" : "Desligado: a Lia não responde ninguém" },
+    { label: "Agente ativo", ok: cfg.active === true, detail: cfg.active === true ? "Ligado" : "Desligado: a LIA não responde ninguém" },
     { label: `Chave da IA (${providerName})`, ok: aiKey, detail: aiKey ? "Configurada — use Testar IA para ver se tem crédito" : "Falta a chave. Groq é grátis: console.groq.com/keys" },
   ];
   if (wppProvider === "meta") {

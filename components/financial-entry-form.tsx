@@ -21,7 +21,7 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-5 text-3xl font-black tracking-tight">Nova conta a {type}</h1>
+      <h1 className="mb-5 text-3xl font-semibold tracking-tight">Nova conta a {type}</h1>
       {error && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <form action={createFinancialEntry} className="card space-y-4 p-5 sm:p-6">
         <input type="hidden" name="id" value={randomUUID()} />

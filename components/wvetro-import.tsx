@@ -36,7 +36,7 @@ export function WvetroImport({ onRead, onClient }: { onRead: (r: ProposalRead) =
   }
 
   return <div className="card flex flex-wrap items-center justify-between gap-3 border-dashed p-4">
-    <div className="min-w-0 flex-1"><p className="font-bold">Tem a proposta do WVetro?</p><p className="text-sm text-ink/60">Envie o PDF: cliente, esquadrias, medidas, vidros e observações entram sozinhos para você conferir. No impresso e no PDF, os itens aparecem sem valores individuais, com somente o total geral.</p></div>
+    <div className="min-w-0 flex-1"><p className="font-semibold">Tem a proposta do WVetro?</p><p className="text-sm text-ink/60">Envie o PDF: cliente, esquadrias, medidas, vidros e observações entram sozinhos para você conferir. No impresso e no PDF, os itens aparecem sem valores individuais, com somente o total geral.</p></div>
     <input ref={input} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" aria-label="PDF da proposta do WVetro" onChange={(e) => { const f = e.target.files?.[0]; if (f) void send(f); }} />
     <button type="button" className="button" disabled={busy} onClick={() => input.current?.click()}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" />Lendo a proposta…</> : <><FileUp className="h-4 w-4" />Importar PDF do WVetro</>}</button>
     {pending && <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">

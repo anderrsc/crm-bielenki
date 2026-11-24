@@ -388,15 +388,15 @@ export function GutterQuote({
     <div className="mx-auto max-w-[1400px]">
       <div className="quote-editor-head mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Calculadora técnica</p>
-          <h1 className="mt-2 text-3xl font-black">
+          <p className="text-xs font-semibold text-forest">Calculadora técnica</p>
+          <h1 className="mt-2 text-3xl font-semibold">
             {initial ? "Editar orçamento de calhas" : "Orçamento de calhas"}
           </h1>
           <p className="mt-1 text-sm text-ink/50">
             Calhas · Rufos · Pingadeiras · Condutores · Acessórios · Serviços
           </p>
         </div>
-        <span className="flex items-center gap-2 text-xs font-bold text-ink/45">
+        <span className="flex items-center gap-2 text-xs font-semibold text-ink/45">
           <Database className="h-4 w-4" />{prices.length} preços cadastrados
         </span>
       </div>
@@ -428,7 +428,7 @@ export function GutterQuote({
           {fabricatedByCat.map(({ cat, rows }) => (
             <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
               <div className="flex items-center justify-between">
-                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${CAT_BADGE[cat]}`}>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${CAT_BADGE[cat]}`}>
                   {cat}
                 </span>
                 <span className="text-xs text-ink/40">
@@ -455,7 +455,7 @@ export function GutterQuote({
           {otherByCat.map(({ cat, rows }) => (
             <div key={cat} className={`rounded-2xl border p-4 space-y-3 ${CAT_COLORS[cat]}`}>
               <div className="flex items-center justify-between">
-                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${CAT_BADGE[cat]}`}>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${CAT_BADGE[cat]}`}>
                   {cat}
                 </span>
                 <span className="text-xs text-ink/40">
@@ -478,7 +478,7 @@ export function GutterQuote({
 
           {paintItems.length > 0 && (
             <section className="card space-y-2 p-4">
-              <h2 className="font-bold">Pintura adicionada automaticamente</h2>
+              <h2 className="font-semibold">Pintura adicionada automaticamente</h2>
               {paintItems.map(item => (
                 <div key={item.product} className="flex flex-wrap items-center justify-between gap-x-3 border-t pt-2 text-sm">
                   <span>{item.product}</span>
@@ -496,7 +496,7 @@ export function GutterQuote({
                 key={cat}
                 type="button"
                 onClick={() => setItems(c => [...c, blankFabricated(cat, prices, rates, factor)])}
-                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
               </button>
@@ -508,7 +508,7 @@ export function GutterQuote({
                 key={cat}
                 type="button"
                 onClick={() => setSpecialItems(c => [...c, blankOther(cat, prices, factor)])}
-                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition hover:shadow-sm ${CAT_COLORS[cat]}`}
               >
                 <Plus className="h-3.5 w-3.5" /> {cat}
               </button>
@@ -516,7 +516,7 @@ export function GutterQuote({
             <button
               type="button"
               onClick={() => setSpecialItems(c => [...c, blankSheet(prices, rates, factor)])}
-              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition hover:shadow-sm ${CAT_COLORS["Itens Especiais"]}`}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-semibold transition hover:shadow-sm ${CAT_COLORS["Itens Especiais"]}`}
             >
               <Plus className="h-3.5 w-3.5" /> Chapa lisa
             </button>
@@ -526,7 +526,7 @@ export function GutterQuote({
         <div className="xl:col-start-1"><DraftQuoteAttachments /></div>
         {/* ── Sidebar de resumo ── */}
         <aside id="quote-conditions" className="card h-fit p-5 xl:col-start-2 xl:row-start-1 xl:sticky xl:top-24">
-          <h2 className="text-lg font-black">Resumo</h2>
+          <h2 className="text-lg font-semibold">Resumo</h2>
           <div className="mt-5 space-y-4">
             {/* Subtotais por bloco */}
             <div className="space-y-1.5 rounded-xl bg-cream p-3 text-sm">
@@ -542,7 +542,7 @@ export function GutterQuote({
                   <b>{money(subtotalOther)}</b>
                 </div>
               )}
-              <div className="flex justify-between border-t pt-2 font-bold">
+              <div className="flex justify-between border-t pt-2 font-semibold">
                 <span>Subtotal</span><b>{money(subtotal)}</b>
               </div>
             </div>
@@ -552,7 +552,7 @@ export function GutterQuote({
               <div className="grid grid-cols-2 gap-1 rounded-xl border p-1" role="group" aria-label="Tabela de preços">
                 {[{ value: false, label: "Com instalação" }, { value: true, label: "Retirada (−25%)" }].map(option => (
                   <button key={option.label} type="button" onClick={() => changeTable(option.value)} aria-pressed={pickup === option.value}
-                    className={`rounded-lg px-2 py-2 text-xs font-bold transition ${pickup === option.value ? "bg-brand-strong text-white" : "text-ink/60 hover:bg-cream"}`}>
+                    className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${pickup === option.value ? "bg-brand-strong text-white" : "text-ink/60 hover:bg-cream"}`}>
                     {option.label}
                   </button>
                 ))}
@@ -596,8 +596,8 @@ export function GutterQuote({
             {saveProblem && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveProblem}</p>}
             <div className="quote-save-bar border-t pt-4">
               <div className="quote-save-total">
-                <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total do orçamento</p>
-                <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
+                <p className="text-xs font-semibold text-ink/45">Total do orçamento</p>
+                <p className="mt-1 text-3xl font-semibold text-forest">{money(total)}</p>
               </div>
               <SubmitButton disabled={!clientId || total <= 0 || !!saveProblem || (items.length === 0 && specialItems.length === 0)} className="button w-full">
                 <Save className="h-4 w-4" />Salvar orçamento
@@ -635,11 +635,11 @@ function FabricatedItemCard({
             value={item.category}
             options={[...FABRICATED_CATEGORIES]}
             onChange={v => onChange(index, "category", v)}
-            className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
+            className="h-7 rounded-lg border-0 bg-transparent text-xs font-semibold"
           />
           {tablePrice !== undefined
-            ? <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700"><Database className="h-3 w-3" />Da tabela</span>
-            : <span className="text-[10px] text-amber-700">Sem preço cadastrado — informe manualmente</span>}
+            ? <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700"><Database className="h-3 w-3" />Da tabela</span>
+            : <span className="text-[11px] text-amber-700">Sem preço cadastrado — informe manualmente</span>}
         </div>
         <div className="flex gap-1">
           <button type="button" title="Duplicar" className="button-ghost p-1.5" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /></button>
@@ -704,7 +704,7 @@ function OtherItemCard({
           value={item.item_type}
           options={[...OTHER_CATEGORIES]}
           onChange={v => onChange(index, "item_type", v)}
-          className="h-7 rounded-lg border-0 bg-transparent text-xs font-black"
+          className="h-7 rounded-lg border-0 bg-transparent text-xs font-semibold"
         />
         <button type="button" className="button-ghost p-1.5 text-red-600" onClick={() => { void confirmAction({ message: "Remover este item do orçamento?", confirmLabel: "Remover" }).then((ok) => { if (ok) onRemove(); }); }}><Trash2 className="h-3.5 w-3.5" /></button>
       </div>

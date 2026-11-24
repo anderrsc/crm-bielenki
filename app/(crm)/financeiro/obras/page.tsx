@@ -20,7 +20,7 @@ export default async function OrderResultsPage({ searchParams }: { searchParams:
   if (situacao === "abertas") query = query.not("operational_status", "in", "(finalizado,cancelado)");
   if (situacao === "semprevisao") query = query.is("expected_cost", null);
   const [{ data, error }, { data: allowed }] = await Promise.all([query, db.rpc("has_table_access", { resource: "financial_entries", action: "update" })]);
-  const back = <Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link>;
+  const back = <Link href="/financeiro" className="text-sm font-semibold text-forest underline">Voltar ao financeiro</Link>;
   if (error) return <div className="mx-auto max-w-5xl space-y-4">{back}<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">Não foi possível carregar as obras. Atualize a página.</p></div>;
   let rows = ((data ?? []) as OrderResult[]);
   const hasMore = rows.length > PAGE;
@@ -33,8 +33,8 @@ export default async function OrderResultsPage({ searchParams }: { searchParams:
   return <div className="mx-auto max-w-6xl space-y-5">
     {back}
     <div>
-      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Controle financeiro</p>
-      <h1 className="mt-2 text-3xl font-black">Resultado por obra</h1>
+      <p className="text-xs font-semibold text-forest">Controle financeiro</p>
+      <h1 className="mt-2 text-3xl font-semibold">Resultado por obra</h1>
       <p className="mt-1 text-sm text-ink/60">Para cada pedido: quanto foi contratado, o custo que você previu, o que está comprometido em compras ainda não recebidas e o custo já realizado.</p>
     </div>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{friendlyError(search.erro)?.slice(0, 250)}</p>}
@@ -44,7 +44,7 @@ export default async function OrderResultsPage({ searchParams }: { searchParams:
       <label><span className="label">Buscar</span><input className="field" name="q" defaultValue={search.q ?? ""} placeholder="Cliente ou número do pedido" /></label>
       <label><span className="label">Situação</span><select className="field" name="situacao" defaultValue={situacao}>{Object.entries(SITUACOES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
       <button className="button">Filtrar</button>
-      {(term || situacao !== "abertas") && <Link href="/financeiro/obras" className="pb-2 font-bold text-ink/55 underline">Limpar</Link>}
+      {(term || situacao !== "abertas") && <Link href="/financeiro/obras" className="pb-2 font-semibold text-ink/55 underline">Limpar</Link>}
     </form>
     {situacao === "estouradas" && <p className="text-xs text-ink/55">Este filtro confere as {rows.length} obras desta página; use as páginas para ver as demais.</p>}
 
@@ -54,8 +54,8 @@ export default async function OrderResultsPage({ searchParams }: { searchParams:
         const s = orderResultStatus(r);
         return <div key={r.order_id} className={`card space-y-3 p-4 ${s.over ? "border-red-200" : ""}`}>
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0"><p className="truncate text-base font-black">{r.client_name ?? "Cliente não informado"}</p><p className="text-xs text-ink/55">Pedido {r.order_number}{r.sale_id ? <> · <Link className="underline" href={`/vendas/${r.sale_id}`}>ver venda</Link></> : null}</p></div>
-            <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${s.over ? "bg-red-50 text-red-700" : s.noForecast ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{s.label}</span>
+            <div className="min-w-0"><p className="truncate text-base font-semibold">{r.client_name ?? "Cliente não informado"}</p><p className="text-xs text-ink/55">Pedido {r.order_number}{r.sale_id ? <> · <Link className="underline" href={`/vendas/${r.sale_id}`}>ver venda</Link></> : null}</p></div>
+            <span className={`rounded-lg px-2 py-0.5 text-xs font-semibold ${s.over ? "bg-red-50 text-red-700" : s.noForecast ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{s.label}</span>
           </div>
           <dl className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
             <Item label="Contratado" value={money(r.revenue)} hint={`recebido ${money(r.received)}`} />
@@ -83,5 +83,5 @@ export default async function OrderResultsPage({ searchParams }: { searchParams:
 }
 
 function Item({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "good" | "bad" }) {
-  return <div><dt className="text-xs font-bold uppercase tracking-wider text-ink/45">{label}</dt><dd className={`mt-0.5 font-black ${tone === "bad" ? "text-red-700" : tone === "good" ? "text-emerald-700" : ""}`}>{value}</dd>{hint && <dd className="text-xs text-ink/55">{hint}</dd>}</div>;
+  return <div><dt className="text-xs font-semibold text-ink/45">{label}</dt><dd className={`mt-0.5 font-semibold ${tone === "bad" ? "text-red-700" : tone === "good" ? "text-emerald-700" : ""}`}>{value}</dd>{hint && <dd className="text-xs text-ink/55">{hint}</dd>}</div>;
 }

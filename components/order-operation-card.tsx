@@ -27,8 +27,8 @@ export function OrderOperationCard({ op, people, canUpdate, isManager, back, com
   const scheduled = op.check?.status === "agendada" && op.check.scheduled_at;
 
   return <section id="etapa-operacional" className={`scroll-mt-28 rounded-2xl border ${stage === "liberado_corte" ? "border-emerald-200 bg-emerald-50/40" : "border-amber-300 bg-amber-50/60"} ${compact ? "p-4" : "p-5 sm:p-7"}`}>
-    <p className="text-xs font-bold uppercase tracking-widest text-ink/55">Etapa do pedido</p>
-    <h2 className={`mt-1 font-black ${compact ? "text-base" : "text-xl"}`}>{OP_STAGE_LABEL[stage] ?? stage}</h2>
+    <p className="text-xs font-semibold text-ink/55">Etapa do pedido</p>
+    <h2 className={`mt-1 font-semibold ${compact ? "text-base" : "text-xl"}`}>{OP_STAGE_LABEL[stage] ?? stage}</h2>
 
     {stage === "aguardando_decisao" && <>
       <p className="mt-2 text-sm">Este pedido precisa de conferência de medidas antes de iniciar a produção?</p>
@@ -45,7 +45,7 @@ export function OrderOperationCard({ op, people, canUpdate, isManager, back, com
       <p className="mt-2 text-sm">{scheduled ? <>Visita marcada para <strong>{shortDate(op.check!.scheduled_at!)} às {timeBR(op.check!.scheduled_at!)}</strong>{op.check?.responsible_name ? ` · ${op.check.responsible_name}` : ""}.</> : "A conferência ainda não tem data. Agende a visita."}</p>
       {op.check?.notes && <p className="mt-1 text-sm text-ink/60">Obs.: {op.check.notes}</p>}
       {canUpdate && <>
-        <details className="mt-4" open={!scheduled}><summary className="cursor-pointer text-sm font-bold"><span className="inline-flex items-center gap-2"><CalendarClock size={16} /> {scheduled ? "Reagendar conferência" : "Agendar conferência"}</span></summary>
+        <details className="mt-4" open={!scheduled}><summary className="cursor-pointer text-sm font-semibold"><span className="inline-flex items-center gap-2"><CalendarClock size={16} /> {scheduled ? "Reagendar conferência" : "Agendar conferência"}</span></summary>
           <form action={scheduleMeasureCheck} className="mt-3 grid gap-3 sm:grid-cols-2">{hidden}
             <label><span className="label">Data</span><input type="date" name="date" className="field" required min={todayISO()} /></label>
             <label><span className="label">Horário</span><input type="time" name="time" className="field" defaultValue="08:00" required /></label>
@@ -53,7 +53,7 @@ export function OrderOperationCard({ op, people, canUpdate, isManager, back, com
             <SubmitButton className="button sm:col-span-2">Salvar agendamento</SubmitButton>
           </form>
         </details>
-        <details className="mt-4"><summary className="cursor-pointer text-sm font-bold"><span className="inline-flex items-center gap-2"><CheckCircle2 size={16} /> Registrar resultado da visita</span></summary>
+        <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold"><span className="inline-flex items-center gap-2"><CheckCircle2 size={16} /> Registrar resultado da visita</span></summary>
           <form action={finishMeasureCheck} className="mt-3 grid gap-3 sm:grid-cols-2">{hidden}
             <label className="sm:col-span-2"><span className="label">Resultado</span><select name="result" className="field" required defaultValue="">
               <option value="" disabled>Escolha…</option><option value="conferidas">Medidas conferidas (iguais ao orçamento)</option><option value="alteradas">Medidas alteradas</option>
@@ -85,7 +85,7 @@ export function OrderOperationCard({ op, people, canUpdate, isManager, back, com
 
     {canUpdate && stage !== "aguardando_decisao" && stage !== "aguardando_conferencia" && <form action={answerMeasureDecision} className="mt-4">{hidden}
       <input type="hidden" name="needs" value="sim" /><input type="hidden" name="redo" value="1" />
-      <button className="text-sm font-bold text-ink/60 underline">Solicitar nova conferência de medidas</button>
+      <button className="text-sm font-semibold text-ink/60 underline">Solicitar nova conferência de medidas</button>
     </form>}
   </section>;
 }

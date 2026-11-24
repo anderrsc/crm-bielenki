@@ -44,15 +44,15 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
   const history = (logs.data ?? []) as unknown as { action: string; created_at: string; new_data: Record<string, unknown> | null; profile: { full_name?: string } | null }[];
 
   return <div className="mx-auto max-w-4xl space-y-5">
-    <Link href="/servicos" className="text-sm font-bold text-forest underline">Voltar aos serviços</Link>
+    <Link href="/servicos" className="text-sm font-semibold text-forest underline">Voltar aos serviços</Link>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{friendlyError(search.erro)?.slice(0, 250)}</p>}
     {search.ok && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{search.ok.slice(0, 200)}</p>}
 
     <section className={`card p-5 sm:p-7 ${s.priority === "urgente" && open ? "border-red-300" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-widest text-forest">{s.service_number} · {SERVICE_KINDS[s.kind] ?? s.kind}</p>
-          <h1 className="mt-1 text-2xl font-black">{client?.name ?? "Cliente"}</h1></div>
-        <span className={`rounded-lg px-3 py-1 text-sm font-bold ${s.status === "concluido" ? "bg-emerald-50 text-emerald-700" : s.status === "cancelado" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-800"}`}>{SERVICE_STATUS[s.status] ?? s.status}</span>
+        <div className="min-w-0"><p className="text-xs font-semibold text-forest">{s.service_number} · {SERVICE_KINDS[s.kind] ?? s.kind}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{client?.name ?? "Cliente"}</h1></div>
+        <span className={`rounded-lg px-3 py-1 text-sm font-semibold ${s.status === "concluido" ? "bg-emerald-50 text-emerald-700" : s.status === "cancelado" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-800"}`}>{SERVICE_STATUS[s.status] ?? s.status}</span>
       </div>
       <p className="mt-3 whitespace-pre-line text-sm">{s.description}</p>
       <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/65">
@@ -74,21 +74,21 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
     </section>
 
     {s.status === "concluido" && <section className="card border-emerald-200 p-5 sm:p-7">
-      <h2 className="text-xl font-black">Serviço concluído</h2>
+      <h2 className="text-xl font-semibold">Serviço concluído</h2>
       <p className="mt-2 text-sm">{s.completed_at ? `Concluído em ${when(s.completed_at)}.` : ""} {s.completion_notes}</p>
       {s.materials_used && <p className="mt-2 text-sm"><strong>Materiais:</strong> {s.materials_used}</p>}
       <p className="mt-2 text-sm">{s.billing === "gratuito" ? "Serviço gratuito: sem cobrança." : <>Valor final <strong>{money(s.final_amount ?? 0)}</strong>{Number(s.extra_expenses) > 0 ? ` · despesas ${money(s.extra_expenses)}` : ""}.</>}</p>
-      {entry && <p className="mt-2 text-sm">Conta a receber: {money(entry.total_amount)} · recebido {money(entry.paid_amount)} · em aberto {money(entry.open_amount)}{entry.due_date ? ` · vence ${shortDate(entry.due_date)}` : ""}. <Link className="font-bold underline" href={`/financeiro/receber?q=${encodeURIComponent(`Serviço ${s.service_number}`)}`}>Ver no Financeiro</Link></p>}
+      {entry && <p className="mt-2 text-sm">Conta a receber: {money(entry.total_amount)} · recebido {money(entry.paid_amount)} · em aberto {money(entry.open_amount)}{entry.due_date ? ` · vence ${shortDate(entry.due_date)}` : ""}. <Link className="font-semibold underline" href={`/financeiro/receber?q=${encodeURIComponent(`Serviço ${s.service_number}`)}`}>Ver no financeiro</Link></p>}
     </section>}
 
     {can && open && <section className="card space-y-5 p-5 sm:p-7">
-      <h2 className="text-xl font-black">Atualizar andamento</h2>
+      <h2 className="text-xl font-semibold">Atualizar andamento</h2>
       <form action={setServiceStatus} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">{hidden}
         <label><span className="label">Nova situação</span><select name="status" className="field" required defaultValue=""><option value="" disabled>Escolha…</option>{SERVICE_MANUAL_STATUS.filter((k) => k !== s.status).map((k) => <option key={k} value={k}>{SERVICE_STATUS[k]}</option>)}</select></label>
         <label><span className="label">Observação (opcional)</span><input name="notes" className="field" maxLength={500} /></label>
         <SubmitButton className="button self-end">Salvar</SubmitButton>
       </form>
-      <details open={!s.scheduled_at && ["aguardando_agendamento", "solicitacao_recebida", "necessita_retorno"].includes(s.status)}><summary className="cursor-pointer text-sm font-bold">{s.scheduled_at ? "Reagendar visita" : "Agendar visita"}</summary>
+      <details open={!s.scheduled_at && ["aguardando_agendamento", "solicitacao_recebida", "necessita_retorno"].includes(s.status)}><summary className="cursor-pointer text-sm font-semibold">{s.scheduled_at ? "Reagendar visita" : "Agendar visita"}</summary>
         <form action={scheduleService} className="mt-3 grid gap-3 sm:grid-cols-2">{hidden}
           <label><span className="label">Data</span><input type="date" name="date" className="field" required min={todayISO()} /></label>
           <label><span className="label">Horário</span><input type="time" name="time" className="field" defaultValue="08:00" required /></label>
@@ -98,7 +98,7 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
           <SubmitButton className="button sm:col-span-2">Salvar agendamento</SubmitButton>
         </form>
       </details>
-      <details><summary className="cursor-pointer text-sm font-bold">Concluir serviço</summary>
+      <details><summary className="cursor-pointer text-sm font-semibold">Concluir serviço</summary>
         <form action={completeService} className="mt-3 grid gap-3 sm:grid-cols-2">{hidden}
           <label className="sm:col-span-2"><span className="label">O que foi executado</span><textarea name="done" className="field min-h-20" required maxLength={2000} /></label>
           <label className="sm:col-span-2"><span className="label">Materiais utilizados</span><input name="materials_used" className="field" maxLength={2000} defaultValue={s.materials_used ?? ""} /></label>
@@ -114,12 +114,12 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
     </section>}
 
     <section id="fotos" className="card scroll-mt-28 space-y-4 p-5 sm:p-7">
-      <h2 className="text-xl font-black">Fotos <span className="rounded-full bg-sand px-2 py-0.5 text-xs">{photoList.length}</span></h2>
-      {(["antes", "depois", "geral"] as const).map((m) => { const list = photoList.filter((p) => p.moment === m); return list.length ? <div key={m}><p className="mb-2 text-sm font-bold">{MOMENT[m]}</p>
+      <h2 className="text-xl font-semibold">Fotos <span className="rounded-full bg-sand px-2 py-0.5 text-xs">{photoList.length}</span></h2>
+      {(["antes", "depois", "geral"] as const).map((m) => { const list = photoList.filter((p) => p.moment === m); return list.length ? <div key={m}><p className="mb-2 text-sm font-semibold">{MOMENT[m]}</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{list.map((p) => <div key={p.id} className="space-y-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a href={`/api/servicos/foto/${p.id}`} target="_blank" rel="noreferrer"><img src={`/api/servicos/foto/${p.id}`} alt={`Foto ${MOMENT[m].toLowerCase()} do serviço`} loading="lazy" className="aspect-square w-full rounded-xl object-cover" /></a>
-          {can && <form><input type="hidden" name="service_id" value={id} /><input type="hidden" name="photo_id" value={p.id} /><ConfirmButton formAction={removeServicePhoto} className="text-xs font-bold text-red-700 underline" message="Remover esta foto?">Remover</ConfirmButton></form>}
+          {can && <form><input type="hidden" name="service_id" value={id} /><input type="hidden" name="photo_id" value={p.id} /><ConfirmButton formAction={removeServicePhoto} className="text-xs font-semibold text-red-700 underline" message="Remover esta foto?">Remover</ConfirmButton></form>}
         </div>)}</div></div> : null; })}
       {!photoList.length && <p className="text-sm text-ink/55">Nenhuma foto ainda.</p>}
       {can && <form action={addServicePhotos} className="flex flex-wrap items-end gap-3 border-t pt-4">{hidden}
@@ -129,14 +129,14 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
       </form>}
     </section>
 
-    {can && <details className="card p-5 sm:p-7"><summary className="cursor-pointer text-lg font-black">Editar dados</summary>
+    {can && <details className="card p-5 sm:p-7"><summary className="cursor-pointer text-lg font-semibold">Editar dados</summary>
       <form action={updateService} className="mt-4 space-y-6">{hidden}
         <ServiceFields people={peopleList} value={s} />
         <SubmitButton className="button">Salvar dados</SubmitButton>
       </form>
     </details>}
 
-    {history.length > 0 && <details className="card p-5"><summary className="cursor-pointer text-sm font-bold">Histórico ({history.length})</summary>
+    {history.length > 0 && <details className="card p-5"><summary className="cursor-pointer text-sm font-semibold">Histórico ({history.length})</summary>
       <ul className="mt-3 space-y-2 text-sm">{history.map((h, i) => <li key={i}><strong>{h.action === "AGENDADO" ? "Visita agendada" : h.action === "CONCLUIDO" ? "Serviço concluído" : `Situação: ${SERVICE_STATUS[String(h.new_data?.status)] ?? "atualizada"}`}</strong>{h.new_data?.observacoes ? `: ${String(h.new_data.observacoes)}` : ""}<span className="text-ink/55"> · {h.profile?.full_name ?? "Usuário"} · {when(h.created_at)}</span></li>)}</ul>
     </details>}
   </div>;

@@ -68,10 +68,10 @@ export async function RolesPage({ error, saved }: { error?: string; saved?: bool
 
   return (
     <div className="mx-auto max-w-5xl">
-      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
       <div className="mb-7">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pessoas</p>
-        <h1 className="mt-2 text-3xl font-black">Cargos e Permissões</h1>
+        <p className="text-xs font-semibold text-forest">Pessoas</p>
+        <h1 className="mt-2 text-3xl font-semibold">Cargos e permissões</h1>
         <p className="mt-1 text-sm text-ink/50">Defina o que os cargos operacionais podem ver, criar, editar e excluir. Administrador e Gerente têm acesso de gestão.</p>
       </div>
       {(error || loadError) && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || loadError}</p>}
@@ -84,13 +84,13 @@ export async function RolesPage({ error, saved }: { error?: string; saved?: bool
         const count = ALL_ROLES.filter(r => permMap[resource]?.[r]).length;
         return (
           <details key={resource} className="card mb-3">
-            <summary className="flex cursor-pointer list-none items-center justify-between p-4 font-bold">
+            <summary className="flex cursor-pointer list-none items-center justify-between p-4 font-semibold">
               <span>{label}</span>
               <span className="text-xs font-normal text-ink/40">{count} cargos configurados</span>
             </summary>
             <div className="border-t">
               {/* cabeçalho */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-2 border-b px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink/40">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_40px] gap-2 border-b px-4 py-2 text-xs font-semibold text-ink/40">
                 <span>Cargo</span>
                 <span className="text-center">Visualizar</span>
                 <span className="text-center">Criar</span>

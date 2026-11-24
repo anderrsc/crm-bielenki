@@ -44,7 +44,7 @@ export function FinancialAllocationForm({ entryId, total, orders, centers, initi
     </div>
     <div className="flex flex-wrap items-center gap-3">
       <button type="button" className="button-ghost" onClick={() => setLines((cur) => [...cur, { order_id: "", cost_center_id: "", value: diff > 0 ? String(diff).replace(".", ",") : "" }])}><Plus className="h-4 w-4" /> Adicionar linha</button>
-      <p role="status" className={`text-sm font-bold ${closes || !lines.length ? "text-emerald-700" : "text-red-700"}`}>
+      <p role="status" className={`text-sm font-semibold ${closes || !lines.length ? "text-emerald-700" : "text-red-700"}`}>
         {!lines.length ? "Sem linhas: salvar remove o rateio." : closes ? `Fecha o total: ${show(sum)}` : diff > 0 ? `Faltam ${show(diff)}` : diff < 0 ? `Passou ${show(-diff)}` : "Preencha obra ou centro e o valor em todas as linhas."}
       </p>
     </div>

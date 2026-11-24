@@ -11,7 +11,7 @@ export function CompanyBrand({ company, compact = false }: { company: CompanyBra
   return <div className="flex items-center justify-between gap-5 border-b-2 pb-4" style={{ borderColor: "var(--red-500)" }}>
     <div className="flex min-w-0 items-center gap-4">
       <div className={compact?"w-32 shrink-0":"w-44 shrink-0"}><BrandLogo print/><AuthorSignature/></div>
-      <div className="min-w-0"><h1 className={`${compact ? "text-xl" : "text-2xl"} font-black leading-tight`}>{tradeName}</h1><p className="mt-1 text-xs text-ink/55">{company.name}{company.tax_id ? ` · CNPJ ${company.tax_id}` : ""}</p>{location && <p className="mt-1 text-xs text-ink/55">{location}</p>}</div>
+      <div className="min-w-0"><h1 className={`${compact ? "text-xl" : "text-2xl"} font-semibold leading-tight`}>{tradeName}</h1><p className="mt-1 text-xs text-ink/55">{company.name}{company.tax_id ? ` · CNPJ ${company.tax_id}` : ""}</p>{location && <p className="mt-1 text-xs text-ink/55">{location}</p>}</div>
     </div>
     <div className="hidden text-right text-xs leading-5 text-ink/65 sm:block">{company.whatsapp && <p>WhatsApp: {company.whatsapp}</p>}{company.phone && <p>Telefone: {company.phone}</p>}{company.email && <p>{company.email}</p>}{company.website && <p>{company.website}</p>}</div>
   </div>;

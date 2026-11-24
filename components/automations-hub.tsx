@@ -100,8 +100,8 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
     <div className="mx-auto max-w-6xl">
       <div className="mb-7 flex items-end justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Automações</p>
-          <h1 className="mt-2 text-3xl font-black">Central de Automações</h1>
+          <p className="text-xs font-semibold text-forest">Automações</p>
+          <h1 className="mt-2 text-3xl font-semibold">Central de automações</h1>
           <p className="mt-1 text-sm text-ink/50">Crie fluxos inteligentes para automatizar seu processo de vendas.</p>
         </div>
         <Link href="/automacoes/novo" className="button-primary flex items-center gap-2">
@@ -136,7 +136,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
           {workflows.length === 0 && (
             <div className="card p-12 text-center">
               <Zap className="h-10 w-10 mx-auto mb-3 text-ink/20" />
-              <p className="font-bold text-ink/70">Nenhum fluxo criado ainda</p>
+              <p className="font-semibold text-ink/70">Nenhum fluxo criado ainda</p>
               <p className="mt-1 text-sm text-ink/40">Crie seu primeiro fluxo de automação para começar.</p>
               <Link href="/automacoes/novo" className="button-primary mt-4 inline-flex items-center gap-2">
                 <Plus className="h-4 w-4" /> Criar primeiro fluxo
@@ -163,15 +163,15 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
             if (!catTemplates.length) return null;
             return (
               <div key={cat} className="mb-6">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-ink/40">{catLabel}</h3>
+                <h3 className="mb-3 text-xs font-semibold text-ink/40">{catLabel}</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {catTemplates.map(tpl => (
                     <div key={tpl.id} className="card p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold truncate">{tpl.name}</span>
-                            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${tpl.channel === "whatsapp" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
+                            <span className="text-sm font-semibold truncate">{tpl.name}</span>
+                            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${tpl.channel === "whatsapp" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
                               {tpl.channel === "whatsapp" ? "WhatsApp" : "E-mail"}
                             </span>
                           </div>
@@ -195,11 +195,11 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
           {/* Templates sem categoria reconhecida */}
           {templates.filter(t => !Object.keys(CATEGORY_LABELS).includes(t.category)).length > 0 && (
             <div className="mb-6">
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-ink/40">Outros</h3>
+              <h3 className="mb-3 text-xs font-semibold text-ink/40">Outros</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 {templates.filter(t => !Object.keys(CATEGORY_LABELS).includes(t.category)).map(tpl => (
                   <div key={tpl.id} className="card p-4">
-                    <p className="text-sm font-bold">{tpl.name}</p>
+                    <p className="text-sm font-semibold">{tpl.name}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-ink/50">{tpl.body}</p>
                   </div>
                 ))}
@@ -217,7 +217,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
           )}
           {executions.length > 0 && (
             <div>
-              <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 border-b px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink/40">
+              <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 border-b px-4 py-2 text-xs font-semibold text-ink/40">
                 <span>Status</span><span>Fluxo / Gatilho</span><span>Dados</span><span>Duração</span><span>Hora</span>
               </div>
               {executions.map(ex => {
@@ -251,7 +251,7 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
       {tab === "webhooks" && (
         <div className="card p-8 text-center">
           <Link2 className="h-10 w-10 mx-auto mb-3 text-ink/20" />
-          <p className="font-bold">Webhooks de entrada</p>
+          <p className="font-semibold">Webhooks de entrada</p>
           <p className="mt-1 text-sm text-ink/50 max-w-md mx-auto">Configure endpoints para disparar fluxos a partir de sistemas externos como formulários, e-commerce, CRMs e qualquer serviço que suporte webhooks.</p>
           <button className="button-primary mt-4 mx-auto flex items-center gap-2 opacity-60 cursor-not-allowed" disabled>
             <Plus className="h-4 w-4" /> Criar webhook (em breve)
@@ -266,7 +266,7 @@ function StatCard({ icon: Icon, label, value, total, color }: { icon: LucideIcon
   return (
     <div className="card p-4">
       <Icon className={`h-5 w-5 mb-2 ${color}`} />
-      <p className={`text-2xl font-black ${color}`}>{value}{total !== undefined ? <span className="text-sm font-normal text-ink/30 ml-1">/ {total}</span> : null}</p>
+      <p className={`text-2xl font-semibold ${color}`}>{value}{total !== undefined ? <span className="text-sm font-normal text-ink/30 ml-1">/ {total}</span> : null}</p>
       <p className="text-xs text-ink/50 mt-0.5">{label}</p>
     </div>
   );
@@ -282,8 +282,8 @@ function WorkflowCard({ workflow: wf }: { workflow: Workflow }) {
         <div className="mt-0.5 shrink-0 rounded-lg bg-cream/5 p-2"><TriggerIcon className="h-4 w-4 text-ink/50" /></div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-sm">{wf.name}</span>
-            <span className={`rounded border px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE[wf.status] ?? STATUS_BADGE.inativo}`}>
+            <span className="font-semibold text-sm">{wf.name}</span>
+            <span className={`rounded border px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[wf.status] ?? STATUS_BADGE.inativo}`}>
               {STATUS_LABELS[wf.status] ?? wf.status}
             </span>
           </div>

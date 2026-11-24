@@ -23,17 +23,17 @@ export async function OperationalPending() {
   if (error || !data?.length) return null;
   const rows = data as Row[];
   return <section className="mb-6 rounded-2xl border border-amber-300 bg-amber-50/60 p-4 sm:p-5" aria-label="Pendências operacionais">
-    <h2 className="text-lg font-black">Pendências operacionais <span className="rounded-full bg-surface px-2 py-0.5 text-xs">{rows.length}</span></h2>
+    <h2 className="text-lg font-semibold">Pendências operacionais <span className="rounded-full bg-surface px-2 py-0.5 text-xs">{rows.length}</span></h2>
     <p className="text-xs text-ink/60">Tarefas de pedidos fechados que ainda não são compromissos com data. Elas saem daqui quando forem resolvidas.</p>
     <div className="mt-3 space-y-3">
       {GROUPS.map((g) => ({ ...g, items: rows.filter(g.match) })).filter((g) => g.items.length).map((g) => <details key={g.key} open={g.items.length <= 6} className="rounded-xl bg-surface p-3">
-        <summary className="cursor-pointer text-sm font-bold">{g.title} <span className="rounded-full bg-sand px-2 py-0.5 text-xs">{g.items.length}</span> <span className="font-normal text-ink/55">· {g.hint}</span></summary>
+        <summary className="cursor-pointer text-sm font-semibold">{g.title} <span className="rounded-full bg-sand px-2 py-0.5 text-xs">{g.items.length}</span> <span className="font-normal text-ink/55">· {g.hint}</span></summary>
         <ul className="mt-2 divide-y divide-sand/70">
           {g.items.map((r) => <li key={r.order_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <div className="min-w-0">
-              <p className="truncate font-bold">{r.client_name ?? "Cliente"} <span className="font-normal text-ink/55">· Pedido {r.order_number}</span></p>
+              <p className="truncate font-semibold">{r.client_name ?? "Cliente"} <span className="font-normal text-ink/55">· Pedido {r.order_number}</span></p>
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink/60">
-                {r.scheduled_at && <span className="font-bold text-ink">{shortDate(r.scheduled_at)} às {time(r.scheduled_at)}{r.responsible_name ? ` · ${r.responsible_name}` : ""}</span>}
+                {r.scheduled_at && <span className="font-semibold text-ink">{shortDate(r.scheduled_at)} às {time(r.scheduled_at)}{r.responsible_name ? ` · ${r.responsible_name}` : ""}</span>}
                 {r.phone && <a className="inline-flex items-center gap-1 underline" href={`tel:${r.phone.replace(/[^\d+]/g, "")}`}><Phone size={12} />{r.phone}</a>}
                 {r.address && <a className="inline-flex items-center gap-1 underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}`}><MapPin size={12} />{r.address}</a>}
               </p>

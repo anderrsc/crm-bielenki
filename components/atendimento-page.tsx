@@ -48,7 +48,7 @@ function Midia({ id, body }: { id: string; body: string }) {
     return <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={tipo} loading="lazy" onError={() => setErro(true)} className={cn("mb-1 rounded-xl", tipo === "foto" ? "max-h-72 w-auto" : "h-28 w-28")} /></a>;
   if (tipo === "áudio") return <audio controls preload="none" src={src} onError={() => setErro(true)} className="mb-1 w-64 max-w-full" />;
   if (tipo === "vídeo") return <video controls preload="metadata" src={src} onError={() => setErro(true)} className="mb-1 max-h-72 rounded-xl" />;
-  return <a href={src} target="_blank" rel="noreferrer" className="mb-1 inline-block rounded-lg bg-cream px-2 py-1 text-xs font-bold underline">Abrir {body.match(/^\[documento:\s*([^\]]+)\]/)?.[1] ?? "documento"}</a>;
+  return <a href={src} target="_blank" rel="noreferrer" className="mb-1 inline-block rounded-lg bg-cream px-2 py-1 text-xs font-semibold underline">Abrir {body.match(/^\[documento:\s*([^\]]+)\]/)?.[1] ?? "documento"}</a>;
 }
 
 function Formatado({ text }: { text: string }) {
@@ -99,6 +99,14 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const [aiActive, setAiActive] = useState(false);
   const [provider, setProvider] = useState<"meta" | "evolution">();
   const [connection, setConnection] = useState("Conectando…");
+  // Sem internet no aparelho: mostra desconectado na hora e volta a reconectar quando a rede volta.
+  useEffect(() => {
+    const off = () => setConnection("Desconectado · sem internet");
+    const on = () => setConnection("Reconectando · atualização a cada 15s");
+    if (typeof navigator !== "undefined" && navigator.onLine === false) off();
+    window.addEventListener("offline", off); window.addEventListener("online", on);
+    return () => { window.removeEventListener("offline", off); window.removeEventListener("online", on); };
+  }, []);
   const [syncing, setSyncing] = useState(false);
   const selected = useRef(openId);
   selected.current = openId;
@@ -227,7 +235,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
     let first = true;
     channel.subscribe(status => {
       live.current = status === "SUBSCRIBED";
-      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : "Reconectando · atualização a cada 15s");
+      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : status === "CLOSED" ? "Desconectado · atualização a cada 15s" : "Reconectando · atualização a cada 15s");
       // Reconexao: pode ter perdido eventos, entao recarrega uma vez.
       if (status === "SUBSCRIBED") { if (!first) { listSoon(0); if (selected.current) detailSoon(selected.current); } first = false; }
     });
@@ -320,7 +328,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
             <span className="wa-logo" aria-hidden><MessageCircle className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
               <h1 className="wa-title">WhatsApp</h1>
-              <p className="wa-subtitle" title={connection}><i className="wa-dot" data-state={connection === "Em tempo real" ? "ok" : "wait"} aria-hidden />{connection === "Em tempo real" ? "Em tempo real" : "Reconectando…"}{!aiActive && <span className="wa-pill-warn">IA pausada</span>}</p>
+              <p className="wa-subtitle" title={connection}><i className="wa-dot" data-state={connection === "Em tempo real" ? "ok" : connection.startsWith("Desconectado") ? "off" : "wait"} aria-hidden />{connection === "Em tempo real" ? "Em tempo real" : connection.startsWith("Desconectado") ? "Desconectado" : "Reconectando…"}{!aiActive && <span className="wa-pill-warn">IA pausada</span>}</p>
             </div>
             <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
               setSyncing(true);
@@ -340,7 +348,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
             </div>
           )}
           <div className="wa-chips">
-            {([["todas", "Todas", items.filter((c) => !c.archived).length], ["naolidas", "Não lidas", totalNaoLidas], ["semresposta", "Sem resposta", totalSemResposta], ["ana", "Lia", 0], ["equipe", "Equipe", 0], ["lidas", "Lidas", 0]] as const).map(([k, l, n]) => (
+            {([["todas", "Todas", items.filter((c) => !c.archived).length], ["naolidas", "Não lidas", totalNaoLidas], ["semresposta", "Sem resposta", totalSemResposta], ["ana", "LIA", 0], ["equipe", "Equipe", 0], ["lidas", "Lidas", 0]] as const).map(([k, l, n]) => (
               <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip">{l}{n > 0 && " "}{n > 0 && <span className="wa-chip-count">{n}</span>}</button>
             ))}
           </div>
@@ -386,13 +394,13 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
         <ul className="flex-1 overflow-y-auto">
           {historico && (
             <li className="wa-line border-b p-2">
-              <div className="flex items-center justify-between px-1"><p className="text-xs font-bold">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between px-1"><p className="text-xs font-semibold">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
               {historico.length === 0 && <p className="wa-muted p-2 text-xs">Nada encontrado no histórico.</p>}
               {historico.map(h => {
                 const conv = items.find(i => i.id === h.conversationId);
                 return (
                   <button key={h.conversationId} onClick={() => abrir(h.conversationId)} className="wa-row block w-full rounded-lg px-2 py-1.5 text-left">
-                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span suppressHydrationWarning className="wa-muted text-[11px] font-normal">{hora(h.at, new Date(agora))}</span></p>
+                    <p className="truncate text-sm font-semibold">{conv?.name ?? "Conversa"} <span suppressHydrationWarning className="wa-muted text-[11px] font-normal">{hora(h.at, new Date(agora))}</span></p>
                     <p className="wa-muted truncate text-xs">{h.snippet}</p>
                   </button>
                 );
@@ -400,12 +408,12 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
             </li>
           )}
           {verArquivadas ? (
-            <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-bold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
+            <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-semibold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
           ) : arquivadas.length > 0 && (
             <li><button onClick={() => setVerArquivadas(true)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center" style={{ color: "var(--wa-green)" }}><Archive className="h-5 w-5" /></span>
               <span className="flex-1 font-medium">Arquivadas</span>
-              <span className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
             </button></li>
           )}
           {visiveis.length === 0 && !listError && <li className="wa-muted p-8 text-center text-sm">{busca ? "Nenhuma conversa encontrada." : verArquivadas ? "Nenhuma conversa arquivada." : filtro === "naolidas" ? "Você está em dia. Nenhuma conversa não lida." : filtro === "lidas" ? "Nenhuma conversa lida neste filtro." : filtro === "semresposta" ? "Nenhum cliente esperando resposta." : "Quando um cliente chamar no WhatsApp, a conversa aparece aqui."}</li>}
@@ -430,7 +438,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
                   </span>
                   {(() => {
                     const espera = !c.archived && c.status !== "resolvida" && c.waitingSince ? waitingLabel(c.waitingSince, agora) : null;
-                    const partes = [numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ");
+                    const partes = [numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "LIA" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ");
                     if (!espera && !partes && !(c.labels?.length)) return null;
                     return (
                       <span className="wa-conv-meta">
@@ -572,16 +580,16 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           <span className="wa-avatar wa-avatar-md" data-tone={avatarTone(c.name)}>{initials(c.name)}</span>
           <span className="min-w-0">
             <span className="wa-chat-name">{c.name}</span>
-            <span className="wa-chat-sub">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · Lia respondendo"}</span>
+            <span className="wa-chat-sub">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · LIA respondendo"}</span>
           </span>
         </button>
         <button
           disabled={mudandoIa || (!aiActive && c.aiPaused)}
           onClick={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })}
           className={cn("wa-assume", c.aiPaused ? "is-paused" : "is-active")}
-          title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
+          title={c.aiPaused ? "A LIA volta a responder este cliente" : "Você assume e a LIA para de responder"}
         >
-          <Bot className="h-4 w-4" /> <span className="hidden xl:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
+          <Bot className="h-4 w-4" /> <span className="hidden xl:inline">{c.aiPaused ? "Devolver p/ LIA" : "Assumir"}</span>
         </button>
         <select value={c.status} disabled={mudandoStatus} aria-label="Status da conversa" onChange={(e) => mudarStatus(e.target.value as ConversationStatus)}
           className="wa-select-pill">
@@ -607,7 +615,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           <DropdownMenu.Trigger asChild><button aria-label="Mais ações da conversa" className="wa-icon-btn wa-hide-2xl-up"><MoreVertical className="h-5 w-5" /></button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
             <DropdownMenu.Item onSelect={onPanel} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><PanelRightOpen className="h-4 w-4" />Ficha do cliente</DropdownMenu.Item>
-            {(aiActive || !c.aiPaused) && <DropdownMenu.Item onSelect={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Bot className="h-4 w-4" />{c.aiPaused ? "Devolver para a Lia" : "Assumir conversa"}</DropdownMenu.Item>}
+            {(aiActive || !c.aiPaused) && <DropdownMenu.Item onSelect={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Bot className="h-4 w-4" />{c.aiPaused ? "Devolver para a LIA" : "Assumir conversa"}</DropdownMenu.Item>}
             <DropdownMenu.Item onSelect={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Search className="h-4 w-4" />Pesquisar na conversa</DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => setModoNota(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><StickyNote className="h-4 w-4" />{modoNota ? "Voltar a escrever ao cliente" : "Escrever nota interna"}</DropdownMenu.Item>
             <DropdownMenu.Item onSelect={() => setTransferir(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><ArrowRightLeft className="h-4 w-4" />Transferir conversa</DropdownMenu.Item>
@@ -647,7 +655,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
                 {m.failed && saida && !MIDIA.test(m.body) && semAssinatura(m.body).trim() && (
-                  <button disabled={enviando} className="mt-1 text-[11px] font-bold text-red-500 underline disabled:opacity-50"
+                  <button disabled={enviando} className="mt-1 text-[11px] font-semibold text-red-500 underline disabled:opacity-50"
                     onClick={() => startEnvio(async () => {
                       // A original falhou de vez (não saiu): reenvia o mesmo texto como mensagem nova.
                       const r = await sendInboxMessage(c.id, semAssinatura(m.body), { clientRef: crypto.randomUUID() });
@@ -672,26 +680,26 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
         <div ref={fim} />
       </div>
 
-      {!atBottom && <button className="wa-head flex items-center justify-center gap-2 py-2 text-xs font-bold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}><ArrowDown className="h-4 w-4" />Ir para mensagens recentes ↓{c.unread > 0 && <span className="wa-badge rounded-full px-2 py-0.5">{c.unread}</span>}</button>}
+      {!atBottom && <button className="wa-head flex items-center justify-center gap-2 py-2 text-xs font-semibold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}><ArrowDown className="h-4 w-4" />Ir para mensagens recentes ↓{c.unread > 0 && <span className="wa-badge rounded-full px-2 py-0.5">{c.unread}</span>}</button>}
       <footer className="wa-composer">
         {officialWindow && !detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
-        {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-bold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
-        {modoNota ? <p className="mb-2 text-xs font-bold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
-          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
+        {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-semibold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
+        {modoNota ? <p className="mb-2 text-xs font-semibold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
+          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A LIA está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         {detail.suggestion && (
-          <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da Lia">
-            <p className="mb-1 flex items-center gap-1 text-xs font-black text-blue-400"><Bot className="h-3.5 w-3.5" /> Sugestão da Lia · aguarda aprovação</p>
+          <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da LIA">
+            <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-blue-400"><Bot className="h-3.5 w-3.5" /> Sugestão da LIA · aguarda aprovação</p>
             <p className="whitespace-pre-wrap break-words text-sm">{detail.suggestion.text}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button disabled={sugerindo} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              <button disabled={sugerindo} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 onClick={() => startSugestao(async () => { const r = await approveLiaSuggestion(c.id, detail.suggestion!.at); setErro(r.error ?? r.warning ?? null); onChanged(); })}>
                 {sugerindo ? "Enviando…" : "Usar"}
               </button>
-              <button disabled={sugerindo} className="rounded-lg bg-surface px-3 py-1.5 text-xs font-bold"
+              <button disabled={sugerindo} className="rounded-lg bg-surface px-3 py-1.5 text-xs font-semibold"
                 title="Você edita e envia; a conversa passa para você"
                 onClick={() => startSugestao(async () => { setTexto(detail.suggestion!.text); await discardLiaSuggestion(c.id); onChanged(); })}>Editar</button>
-              <button disabled={sugerindo} className="rounded-lg px-3 py-1.5 text-xs font-bold text-ink/60"
+              <button disabled={sugerindo} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-ink/60"
                 onClick={() => startSugestao(async () => { const r = await discardLiaSuggestion(c.id); setErro(r.error ?? null); onChanged(); })}>Descartar</button>
             </div>
           </div>
@@ -739,7 +747,7 @@ function Ficha({ detail, onChanged }: { detail: ConversationDetail; onChanged: (
       {panel ? <Cliente panel={panel} conversationId={c.id} onChanged={onChanged} /> : <SemCadastro conversationId={c.id} sugestao={c.name} onChanged={onChanged} />}
       {triage && (
         <div className="card p-3">
-          <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase text-blue-400"><Bot className="h-4 w-4" /> Triagem da Lia</p>
+          <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-blue-400"><Bot className="h-4 w-4" /> Triagem da LIA</p>
           {triage.resumo && <p className="mb-2 whitespace-pre-wrap text-sm">{triage.resumo}</p>}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
             {Object.entries(triage.dados).slice(0, 14).map(([k, v]) => (
@@ -767,16 +775,16 @@ function SemCadastro({ conversationId, sugestao, onChanged }: { conversationId: 
   return (
     <div className="space-y-3">
       <div className="card space-y-2 p-3">
-        <p className="font-black">Contato sem cadastro</p>
+        <p className="font-semibold">Contato sem cadastro</p>
         <p className="text-xs text-ink/55">Cadastre para ver orçamentos e financeiro aqui. O cliente novo já entra no pipeline.</p>
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do cliente" className="field w-full" />
         <button disabled={pending} onClick={() => start(async () => { const r = await createClientFromConversation(conversationId, nome); if (r.error) setErro(r.error); else onChanged(); })}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-3 py-2 text-sm font-bold text-white disabled:opacity-60">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
           <UserPlus className="h-4 w-4" /> Cadastrar cliente
         </button>
       </div>
       <div className="card space-y-2 p-3">
-        <p className="flex items-center gap-1 text-sm font-bold"><Link2 className="h-4 w-4" /> Já é cliente? Vincular</p>
+        <p className="flex items-center gap-1 text-sm font-semibold"><Link2 className="h-4 w-4" /> Já é cliente? Vincular</p>
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone" className="field w-full" />
         {achados.map((a) => (
           <button key={a.id} disabled={pending} onClick={() => start(async () => { const r = await linkConversationClient(conversationId, a.id); if (r.error) setErro(r.error); else onChanged(); })}
@@ -805,7 +813,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
         <div className="flex items-start gap-3">
           <span className="wa-avatar wa-avatar-xl" data-tone={avatarTone(client.name)}>{initials(client.name)}</span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xl font-bold leading-tight">{client.name}</p>
+            <p className="truncate text-xl font-semibold leading-tight">{client.name}</p>
             <span className="mt-1 inline-block rounded-md bg-[var(--success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--success-text)]">Cliente</span>
           </div>
           <Link href={`/clientes/${client.id}`} className="wa-edit-button shrink-0"><Pencil className="h-3.5 w-3.5" />Editar</Link>
@@ -853,7 +861,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{erro}</p>}
 
       {aba === "financeiro" && panel.canViewFinancial === true && <div className="card p-3">
-        <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
+        <p className="mb-2 flex items-center gap-1 font-semibold"><Wallet className="h-4 w-4" /> Financeiro</p>
         <div className="mb-2"><PixCharge conversationId={conversationId} clientId={client.id} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
         <ul className="space-y-2">
@@ -862,10 +870,10 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
               <div className="flex items-start justify-between gap-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{e.descricao}</p>
-                  <p className={cn("text-xs", e.vencida ? "font-bold text-red-600" : "text-ink/55")}>Vence {dataBr(e.vencimento)}{e.vencida && " · vencida"}</p>
+                  <p className={cn("text-xs", e.vencida ? "font-semibold text-red-600" : "text-ink/55")}>Vence {dataBr(e.vencimento)}{e.vencida && " · vencida"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-black">{brl(e.aberto)}</p>
+                  <p className="font-semibold">{brl(e.aberto)}</p>
                   {e.pago > 0 && <p className="text-[11px] text-ink/50">pago {brl(e.pago)} de {brl(e.total)}</p>}
                 </div>
               </div>
@@ -875,14 +883,14 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
                   if (res.error) setErro(res.error); else { setErro(null); setReceber(null); onChanged(); }
                 })} />
               ) : (
-                <button onClick={() => setReceber(e.id)} className="mt-2 w-full rounded-lg bg-brand-strong px-3 py-1.5 text-xs font-bold">Registrar pagamento</button>
+                <button onClick={() => setReceber(e.id)} className="mt-2 w-full rounded-lg bg-brand-strong px-3 py-1.5 text-xs font-semibold">Registrar pagamento</button>
               )}
             </li>
           ))}
         </ul>
         {panel.pagamentos.length > 0 && (
           <div className="mt-3">
-            <p className="mb-1 text-xs font-bold text-ink/55">Últimos pagamentos</p>
+            <p className="mb-1 text-xs font-semibold text-ink/55">Últimos pagamentos</p>
             <ul className="space-y-1 text-xs">
               {panel.pagamentos.slice(0, 6).map((p, i) => (
                 <li key={i} className="flex justify-between gap-2"><span className="truncate">{dataBr(p.data)} · {(p.forma ?? "").replaceAll("_", " ")}</span><b className="text-green-500">{brl(p.valor)}</b></li>
@@ -894,8 +902,8 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
 
       {aba === "orcamentos" && <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="font-black">Orçamentos</p>
-          <div className="flex gap-2 text-xs font-bold text-forest">
+          <p className="font-semibold">Orçamentos</p>
+          <div className="flex gap-2 text-xs font-semibold text-forest">
             <Link href="/orcamentos/calhas">+ Calhas</Link>
             <Link href="/orcamentos/esquadrias">+ Esquadrias</Link>
           </div>
@@ -905,7 +913,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
           {panel.orcamentos.map((q) => (
             <li key={q.id} className="rounded-xl border border-sand/80 bg-surface p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <Link href={`/orcamentos/${q.id}`} className="font-bold text-forest">{q.numero}</Link>
+                <Link href={`/orcamentos/${q.id}`} className="font-semibold text-forest">{q.numero}</Link>
                 <StatusBadge value={q.fechado ? "aprovado" : q.status} />
               </div>
               <div className="flex items-center justify-between text-xs text-ink/55">
@@ -918,7 +926,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
                     if (res.error) setErro(res.error); else { setErro(null); setFechar(null); onChanged(); }
                   })} />
                 ) : (
-                  <button onClick={() => setFechar(q.id)} className="mt-2 w-full rounded-lg bg-forest px-3 py-1.5 text-xs font-bold text-white">Fechar venda</button>
+                  <button onClick={() => setFechar(q.id)} className="mt-2 w-full rounded-lg bg-forest px-3 py-1.5 text-xs font-semibold text-white">Fechar venda</button>
                 )
               )}
             </li>
@@ -932,8 +940,8 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
 function Mini({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" | "bad" }) {
   return (
     <div className="rounded-xl border border-sand/80 bg-surface p-2">
-      <p className={cn("truncate text-sm font-black", tone === "ok" && "text-green-500", tone === "warn" && "text-amber-500", tone === "bad" && "text-red-600")}>{value}</p>
-      <p className="text-[10px] uppercase text-ink/45">{label}</p>
+      <p className={cn("truncate text-sm font-semibold", tone === "ok" && "text-green-500", tone === "warn" && "text-amber-500", tone === "bad" && "text-red-600")}>{value}</p>
+      <p className="text-[11px] text-ink/45">{label}</p>
     </div>
   );
 }
@@ -965,8 +973,8 @@ function ReceberForm({ aberto, pending, onSubmit, onCancel }: { aberto: number; 
       </div>
       <p className="text-ink/60">Saldo com desconto: <b>{brl(saldo)}</b>{num(valor) < saldo && ` · ficará em aberto ${brl(saldo - num(valor))}`}</p>
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold"><X className="mx-auto h-4 w-4" /></button>
-        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data, accountId: conta || undefined, notes: obs || undefined })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-bold text-white disabled:opacity-50">
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-semibold"><X className="mx-auto h-4 w-4" /></button>
+        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data, accountId: conta || undefined, notes: obs || undefined })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-semibold text-white disabled:opacity-50">
           {pending ? "Lançando…" : "Lançar no financeiro"}
         </button>
       </div>
@@ -981,8 +989,8 @@ function FecharForm({ pending, onSubmit, onCancel }: { pending: boolean; onCance
       <p>Gera a venda, o pedido e a conta a receber no financeiro.</p>
       <label className="block">Vencimento<input type="date" value={venc} onChange={(e) => setVenc(e.target.value)} className="field w-full" /></label>
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold">Cancelar</button>
-        <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-bold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-semibold">Cancelar</button>
+        <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-semibold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
       </div>
     </div>
   );
@@ -997,9 +1005,9 @@ function Evento({ e }: { e: InboxEvent }) {
   const quem = e.byName ?? "Equipe";
   if (e.kind === "nota") return (
     <div className="mx-auto my-2 max-w-[90%] rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-      <p className="mb-0.5 flex items-center gap-1 text-xs font-bold text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
+      <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
       <p className="whitespace-pre-wrap break-words">{e.body}</p>
-      <p className="wa-muted mt-1 text-right text-[10px]">{inboxClock(e.at)}</p>
+      <p className="wa-muted mt-1 text-right text-[11px]">{inboxClock(e.at)}</p>
     </div>
   );
   const texto = e.kind === "status"
@@ -1029,11 +1037,11 @@ function Transferencia({ conversation: c, onStatus, onDone }: { conversation: In
       </div>
       <input value={obs} onChange={e => setObs(e.target.value)} maxLength={1000} placeholder="Observação para quem recebe (opcional)" className="wa-input w-full rounded-lg px-3 py-2" />
       <div className="flex flex-wrap items-center gap-2">
-        <button disabled={salvando || (!para && !setor)} className="wa-send rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+        <button disabled={salvando || (!para && !setor)} className="wa-send rounded-full px-4 py-2 text-xs font-semibold disabled:opacity-50"
           onClick={() => startSalvar(async () => { const r = await transferConversation(c.id, { toProfile: para || null, department: setor || null, note: obs }); onDone(r.error ?? null); })}>
           {salvando ? "Transferindo…" : "Transferir"}
         </button>
-        <span className="wa-muted text-xs">Com pessoa escolhida, a Lia para de responder e ela recebe um aviso.</span>
+        <span className="wa-muted text-xs">Com pessoa escolhida, a LIA para de responder e ela recebe um aviso.</span>
         <select value={c.status} onChange={e => onStatus(e.target.value as ConversationStatus)} className="wa-input ml-auto rounded-lg px-2 py-1.5 text-xs lg:hidden" aria-label="Status da conversa">
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>

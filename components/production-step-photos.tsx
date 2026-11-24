@@ -38,7 +38,7 @@ export function ProductionStepPhotos({
  return (
  <div className="mt-4 space-y-3">
  <div className="flex items-center justify-between">
- <h4 className="text-sm font-bold text-ink/70">
+ <h4 className="text-sm font-semibold text-ink/70">
  <Camera size={14} className="mr-1 inline" />
  Fotos da etapa: {stepName}
  </h4>
@@ -57,7 +57,7 @@ export function ProductionStepPhotos({
  loading="lazy"
  /></a> : <p className="p-4 text-xs">Foto indisponível. Atualize a página para tentar novamente.</p>}
  {photo.caption && (
- <p className="truncate px-2 py-1 text-[10px] text-ink/60">{photo.caption}</p>
+ <p className="truncate px-2 py-1 text-[11px] text-ink/60">{photo.caption}</p>
  )}
  {canEdit && (
  <form action={deleteProductionStepPhoto} className="absolute right-1 top-1">
@@ -74,7 +74,7 @@ export function ProductionStepPhotos({
  </form>
  )}
  {photo.uploaded_by_name && (
- <p className="truncate px-2 pb-1 text-[9px] text-ink/40">{photo.uploaded_by_name}</p>
+ <p className="truncate px-2 pb-1 text-[11px] text-ink/40">{photo.uploaded_by_name}</p>
  )}
  </div>
  ))}
@@ -84,7 +84,7 @@ export function ProductionStepPhotos({
  {/* Formulário de upload */}
  {canEdit && (
  <details className="rounded-lg border border-dashed border-ink/20 bg-cream/50 p-3">
- <summary className="cursor-pointer text-sm font-bold text-ink/60">
+ <summary className="cursor-pointer text-sm font-semibold text-ink/60">
  <Upload size={14} className="mr-1 inline" /> Adicionar foto
  </summary>
  <form
@@ -105,7 +105,7 @@ export function ProductionStepPhotos({
  required
  className="field"
  />
- <p className="mt-1 text-[10px] text-ink/50">JPG, PNG ou WebP · Máximo 5MB</p>
+ <p className="mt-1 text-[11px] text-ink/50">JPG, PNG ou WebP · Máximo 5MB</p>
  </label>
  <label className="sm:col-span-2">
  <span className="label">Descrição (opcional)</span>

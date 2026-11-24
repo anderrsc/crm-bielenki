@@ -9,7 +9,7 @@ import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 const LiaFollowupSettings = dynamic(() => import("@/components/lia-followup-settings").then(module => module.LiaFollowupSettings), { loading: () => <p role="status">Carregando acompanhamento…</p> });
-const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da Lia…</p> });
+const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da LIA…</p> });
 const LiaLearnedRules = dynamic(() => import("@/components/lia-learned-rules").then(module => module.LiaLearnedRules), { loading: () => <p role="status">Carregando regras ensinadas…</p> });
 const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
 
@@ -25,7 +25,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-di
 function Stat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
   return (
     <div className="card p-4">
-      <p className={cn("text-2xl font-black", alert && value > 0 && "text-red-600")}>{value}</p>
+      <p className={cn("text-2xl font-semibold", alert && value > 0 && "text-red-600")}>{value}</p>
       <p className="text-xs text-ink/55">{label}</p>
     </div>
   );
@@ -45,9 +45,9 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2"><Bot className="h-6 w-6 text-forest" /><h1 className="text-2xl font-black">Central de IA</h1>
+          <div className="flex items-center gap-2"><Bot className="h-6 w-6 text-forest" /><h1 className="text-2xl font-semibold">Central de IA</h1>
             {/* Estado verdadeiro, vindo da configuração e das checagens (sem animação contínua). */}
-            <span role="status" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold",
+            <span role="status" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
               !ready ? "bg-amber-500/15 text-amber-600" : data.active ? "bg-green-500/15 text-green-600" : "bg-cream text-ink/60")}>
               <span aria-hidden className={cn("h-2 w-2 rounded-full", !ready ? "bg-amber-500" : data.active ? "bg-green-500" : "bg-ink/40")} />
               {!ready ? `Falta configurar (${pending.length})` : data.active ? `${data.agentName} pronta` : `${data.agentName} pausada`}
@@ -56,7 +56,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </div>
         <form action={setAiAgentActive}>
           <input type="hidden" name="active" value={data.active ? "0" : "1"} />
-          <button className={cn("flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold", data.active ? "bg-red-600 text-white" : "bg-brand-strong text-white")}>
+          <button className={cn("flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold", data.active ? "bg-red-600 text-white" : "bg-brand-strong text-white")}>
             {data.active ? <><Pause className="h-4 w-4" /> Pausar {data.agentName}</> : <><Play className="h-4 w-4" /> Ativar {data.agentName}</>}
           </button>
         </form>
@@ -65,7 +65,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       {error && <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>}
 
       <div className={cn("rounded-2xl border-2 p-4", ready ? "border-green-500/40 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10")}>
-        <p className="font-bold">{ready ? `${data.agentName} está pronta para atender.` : `${data.agentName} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
+        <p className="font-semibold">{ready ? `${data.agentName} está pronta para atender.` : `${data.agentName} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
         <ul className="mt-3 space-y-2">
           {data.checks.map((c) => (
             <li key={c.label} className="flex items-start gap-2 text-sm">
@@ -75,10 +75,10 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
           ))}
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" disabled={testing} onClick={() => startTest(async () => setTest(await testAiAgent()))} className="flex items-center gap-2 rounded-xl bg-forest px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+          <button type="button" disabled={testing} onClick={() => startTest(async () => setTest(await testAiAgent()))} className="flex items-center gap-2 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
             <TestTube className="h-4 w-4" /> {testing ? "Testando…" : "Testar IA agora"}
           </button>
-          <Link href="/agente-ia?aba=configuracoes" className="rounded-xl border border-sand px-4 py-2 text-sm font-bold">Configurar</Link>
+          <Link href="/agente-ia?aba=configuracoes" className="rounded-xl border border-sand px-4 py-2 text-sm font-semibold">Configurar</Link>
         </div>
         {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
       </div>
@@ -88,12 +88,12 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
 
       {/* Números e conexão do WhatsApp ficam num lugar só: menu lateral → WhatsApp. */}
       <div className="card flex flex-wrap items-center justify-between gap-2 p-4">
-        <div><p className="font-bold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
+        <div><p className="font-semibold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
         <Link href="/atendimento/canais" className="button-ghost">Abrir WhatsApp →</Link>
       </div>
       <LiaLearnedRules />
       <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
-        <summary className="cursor-pointer font-bold">Regras de atendimento</summary>
+        <summary className="cursor-pointer font-semibold">Regras de atendimento</summary>
         {rulesOpen && <div className="mt-4"><AnaRules /></div>}
       </details>
 
@@ -112,7 +112,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       )}
 
       <div className="card p-4">
-        <h2 className="font-bold">Histórico real</h2>
+        <h2 className="font-semibold">Histórico real</h2>
         {data.events.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">Nada nos últimos 30 dias. Quando um cliente chamar no WhatsApp, aparece aqui.</p>
         ) : (
@@ -129,7 +129,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
             })}
           </ul>
         )}
-        <Link href="/agente-ia" className="mt-3 inline-block text-sm font-bold text-forest">Ver conversas completas →</Link>
+        <Link href="/agente-ia" className="mt-3 inline-block text-sm font-semibold text-forest">Ver conversas completas →</Link>
       </div>
     </div>
   );

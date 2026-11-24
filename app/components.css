@@ -1,0 +1,30 @@
+/* ===== Bielenki Design System — componentes compartilhados =====
+   Um componente por finalidade: todo módulo usa estas classes em vez de criar a própria versão. */
+
+/* Link/atalho em pílula (navegação secundária) */
+.pill-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r-pill); background: #fff; color: var(--text); font-size: var(--type-filter); font-weight: var(--fw-medium); white-space: nowrap; text-decoration: none; transition: border-color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out); }
+.pill-link:hover { border-color: var(--text-muted); background: var(--surface-2); }
+.pill-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+
+/* Aba em pílula (filtro de lista): selecionada em vermelho */
+.tab-pill { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-pill); background: #fff; color: #344054; font-size: var(--type-filter); font-weight: var(--fw-medium); white-space: nowrap; text-decoration: none; }
+.tab-pill[aria-current="page"], .tab-pill[aria-pressed="true"] { background: linear-gradient(180deg, #E31616, #D90E0E); border-color: transparent; color: #fff; }
+
+/* Barra de ferramentas da página: abas à esquerda, ação principal à direita */
+.fin-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.fin-tabs { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.fin-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* Ação secundária dentro de tabelas: o vermelho cheio fica para a ação principal da página */
+.app-content table .button { min-height: 36px; padding: 0 12px; background: #fff; color: var(--brand-strong); border: 1px solid var(--border); box-shadow: none; white-space: nowrap; }
+.app-content table .button:hover { background: var(--brand-soft); color: var(--brand-strong); border-color: rgb(217 14 14 / .35); }
+.app-content table .button-ghost { min-height: 36px; padding: 0 12px; white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .pill-row { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+  .pill-row::-webkit-scrollbar { display: none; }
+  .pill-link { flex: none; }
+  .fin-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .fin-actions .button { min-height: 48px; padding: 0 var(--sp-3); justify-content: center; font-size: var(--type-filter); white-space: normal; text-align: center; line-height: 1.25; }
+  .fin-actions .button:only-child { grid-column: 1 / -1; }
+}

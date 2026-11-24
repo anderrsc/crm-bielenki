@@ -98,7 +98,7 @@ export function ClientAddressFields({ initial }: { initial?: { [K in keyof Addre
 
   return (
     <fieldset className="rounded-xl border p-4 sm:col-span-2">
-      <legend className="px-2 text-sm font-bold">Endereço <span className="font-normal text-ink/60">(opcional)</span></legend>
+      <legend className="px-2 text-sm font-semibold">Endereço <span className="font-normal text-ink/60">(opcional)</span></legend>
       <input type="hidden" name="address" value={formattedAddress} />
       <div className="grid gap-4 sm:grid-cols-6">
         <label className="sm:col-span-2">

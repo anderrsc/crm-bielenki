@@ -14,7 +14,7 @@ export function ClientPipelineLaunch() {
   const [mode, setMode] = useState<(typeof options)[number]["value"]>("novo");
   return (
     <fieldset className="rounded-2xl border border-forest/20 bg-forest/[.04] p-4 sm:col-span-2">
-      <legend className="px-2 text-sm font-black">Lançar no pipeline</legend>
+      <legend className="px-2 text-sm font-semibold">Lançar no pipeline</legend>
       <input type="hidden" name="pipeline_mode" value={mode} />
       <div className="grid gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Lançar no pipeline">
         {options.map(({ value, label, hint, icon: Icon }) => (
@@ -27,7 +27,7 @@ export function ClientPipelineLaunch() {
             className={`rounded-xl border p-3 text-left transition ${mode === value ? "border-forest bg-surface shadow-sm ring-2 ring-forest/30" : "border-ink/10 bg-cream/60 hover:border-forest/40"}`}
           >
             <Icon className={`h-4 w-4 ${mode === value ? "text-forest" : "text-ink/40"}`} />
-            <span className="mt-2 block text-sm font-bold">{label}</span>
+            <span className="mt-2 block text-sm font-semibold">{label}</span>
             <span className="block text-[11px] text-ink/50">{hint}</span>
           </button>
         ))}

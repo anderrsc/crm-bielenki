@@ -58,7 +58,7 @@ export function CommandPalette({ items }: { items: PaletteItem[] }) {
                 else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
                 else if (e.key === "Enter") { e.preventDefault(); go(results[active]); }
               }} />
-            <kbd className="rounded border border-sand px-1.5 py-0.5 text-[10px] text-ink/50">Esc</kbd>
+            <kbd className="rounded border border-sand px-1.5 py-0.5 text-[11px] text-ink/50">Esc</kbd>
           </div>
           <ul id="command-palette-list" role="listbox" ref={listRef} className="max-h-[50vh] overflow-y-auto p-1.5">
             {results.length === 0 && <li className="p-6 text-center text-sm text-ink/55">Nada encontrado. Digite pelo menos 2 letras para buscar no sistema.</li>}
@@ -67,7 +67,7 @@ export function CommandPalette({ items }: { items: PaletteItem[] }) {
               const head = i === 0 || results[i - 1].group !== item.group;
               return (
                 <li key={`${item.group}-${item.href}`} role="presentation">
-                  {head && <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.12em] text-ink/45">{item.group}</p>}
+                  {head && <p className="px-3 pb-1 pt-2 text-[11px] font-semibold text-ink/45">{item.group}</p>}
                   <button type="button" id={`cmd-${i}`} role="option" aria-selected={i === active} data-index={i}
                     onMouseMove={() => setActive(i)} onClick={() => go(item)}
                     className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm", i === active ? "bg-cream" : "")}>

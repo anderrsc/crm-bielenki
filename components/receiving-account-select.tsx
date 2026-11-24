@@ -39,8 +39,8 @@ export function ReceivingAccountSelect({ name = "receiving_account_id", value, d
           <input className="field w-full" placeholder="Nome (ex.: Pix Sicoob CNPJ)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="field w-full" placeholder="Chave Pix ou agência/conta (opcional)" value={draft.details} onChange={(e) => setDraft({ ...draft, details: e.target.value })} />
           <div className="flex justify-end gap-2 text-xs">
-            <button type="button" className="px-2 font-bold text-ink/60" onClick={() => setCreating(false)}>Cancelar</button>
-            <button type="button" className="rounded-lg bg-forest px-3 py-1.5 font-bold text-white" onClick={create}>Salvar conta</button>
+            <button type="button" className="px-2 font-semibold text-ink/60" onClick={() => setCreating(false)}>Cancelar</button>
+            <button type="button" className="rounded-lg bg-forest px-3 py-1.5 font-semibold text-white" onClick={create}>Salvar conta</button>
           </div>
         </div>
       )}

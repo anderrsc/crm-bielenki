@@ -15,6 +15,7 @@ export default {
         "brand-strong": "rgb(var(--brand-strong-rgb) / <alpha-value>)",
       },
       boxShadow: { soft: "var(--shadow-card)" },
+      fontFamily: { sans: ["var(--font-sans)"] },
     },
   },
   plugins: [],

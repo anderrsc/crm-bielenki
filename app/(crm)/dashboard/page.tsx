@@ -99,7 +99,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
   ].filter(item => item && (canViewFinancial || !item.href.startsWith("/financeiro"))) as { label:string; href:string; color:string; icon:typeof AlertCircle }[];
 
   const ABAS = [
-    { key:"geral",      label:"Visão Geral" },
+    { key:"geral",      label:"Visão geral" },
     { key:"comercial",  label:"Comercial" },
     { key:"producao",   label:"Produção" },
     { key:"financeiro", label:"Financeiro" },
@@ -121,8 +121,8 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
       {/* Header */}
       <div className={"mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"+(aba==="geral"?" hidden":"")}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pulso da operação</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
+          <p className="text-xs font-semibold text-forest">Pulso da operação</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight lg:text-4xl">Visão geral</h1>
           <p className="mt-1 text-sm text-ink/50">Visão completa — do comercial à instalação.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
                 <p className="text-sm font-medium text-ink/55">{label}</p>
                 <span className={`rounded-xl p-2.5 ${color}`}><Icon className="h-5 w-5" /></span>
               </div>
-              <p className="mt-5 text-2xl font-black tracking-tight">{value}</p>
+              <p className="mt-5 text-2xl font-semibold tracking-tight">{value}</p>
             </div>
           ))}
         </section>
@@ -185,13 +185,13 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         <section className="desktop-only mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b p-5">
-              <div><h2 className="font-bold">Próximas ações</h2><p className="text-xs text-ink/45">Pedidos ativos por prazo</p></div>
-              <Link href="/pedidos" className="text-sm font-bold text-forest">Ver todos</Link>
+              <div><h2 className="font-semibold">Próximas ações</h2><p className="text-xs text-ink/45">Pedidos ativos por prazo</p></div>
+              <Link href="/pedidos" className="text-sm font-semibold text-forest">Ver todos</Link>
             </div>
             <div className="divide-y">
               {d?.actions?.length ? d.actions.map((x: Record<string,string>) => (
                 <Link href={`/pedidos/${x.id}`} key={x.id} className="grid gap-2 p-4 transition hover:bg-cream/50 sm:grid-cols-[1fr_1.5fr_auto] sm:items-center">
-                  <div><p className="text-xs text-ink/40">{x.order_number}</p><p className="font-bold">{x.client_name}</p></div>
+                  <div><p className="text-xs text-ink/40">{x.order_number}</p><p className="font-semibold">{x.client_name}</p></div>
                   <div><p className="text-xs text-ink/40">Próxima ação</p><p className="text-sm">{x.next_action || "Definir próxima ação"}</p></div>
                   <span className="text-xs font-semibold text-ink/55">{shortDate(x.next_action_date)}</span>
                 </Link>
@@ -201,7 +201,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
           <div className="space-y-5">
             <div className="card p-5">
-              <h2 className="mb-4 font-bold">Pontos de atenção</h2>
+              <h2 className="mb-4 font-semibold">Pontos de atenção</h2>
               <div className="space-y-3">
                 <Attn icon={AlertTriangle} label="Pedidos travados"   value={d?.blocked_orders ?? 0}     href="/pedidos"   color="text-red-600 bg-red-50" />
                 <Attn icon={ShoppingCart}  label="Compras atrasadas"  value={d?.compras_pendentes ?? d?.late_purchases ?? 0}  href="/compras"  color="text-orange-600 bg-orange-50" />
@@ -215,8 +215,8 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
               <div className="card overflow-hidden">
                 <div className="flex items-center gap-2 border-b p-4">
                   <Bell className="h-4 w-4 text-red-600" />
-                  <h2 className="text-sm font-bold">Alertas ativos</h2>
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">{d.alertas_ativos ?? d.alerts.length}</span>
+                  <h2 className="text-sm font-semibold">Alertas ativos</h2>
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{d.alertas_ativos ?? d.alerts.length}</span>
                 </div>
                 <div className="divide-y">
                   {d.alerts.map((a: Record<string,string>) => (
@@ -226,7 +226,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
                         <p className="truncate text-xs font-semibold">{a.title}</p>
                         {a.description && <p className="text-xs text-ink/50">{a.description}</p>}
                       </div>
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${ALERTA_COR[a.severity] ?? ALERTA_COR.medium}`}>{ALERTA_LABEL[a.severity] ?? "MÉDIO"}</span>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ALERTA_COR[a.severity] ?? ALERTA_COR.medium}`}>{ALERTA_LABEL[a.severity] ?? "MÉDIO"}</span>
                     </div>
                   ))}
                 </div>
@@ -246,21 +246,21 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         </section>
         <section className="mt-5 grid gap-5 xl:grid-cols-2">
           <div className="card overflow-hidden">
-            <div className="border-b p-5"><h2 className="font-bold">Top vendedores do mês</h2></div>
+            <div className="border-b p-5"><h2 className="font-semibold">Top vendedores do mês</h2></div>
             <div className="divide-y">
               {(d?.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[] | null)?.length
                 ? (d.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[]).map((v, i) => (
                   <div key={v.nome} className="flex items-center gap-4 p-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-strong/10 text-sm font-black text-forest">{i+1}</span>
-                    <div className="flex-1"><p className="font-bold">{v.nome}</p><p className="text-xs text-ink/45">{v.qtd_vendas} venda{v.qtd_vendas !== 1 ? "s" : ""}</p></div>
-                    <p className="font-black text-emerald-700">{money(v.total_vendido)}</p>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-strong/10 text-sm font-semibold text-forest">{i+1}</span>
+                    <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-xs text-ink/45">{v.qtd_vendas} venda{v.qtd_vendas !== 1 ? "s" : ""}</p></div>
+                    <p className="font-semibold text-emerald-700">{money(v.total_vendido)}</p>
                   </div>
                 ))
                 : <div className="p-10 text-center text-sm text-ink/45">Nenhuma venda neste mês.</div>}
             </div>
           </div>
           <div className="card p-5">
-            <h2 className="mb-4 font-bold">Funil comercial</h2>
+            <h2 className="mb-4 font-semibold">Funil comercial</h2>
             <div className="space-y-3">
               <FunnelRow label="Leads gerados"      value={d?.leads_mes ?? 0}            total={d?.leads_mes ?? 1} color="bg-violet-500" />
               <FunnelRow label="Orçamentos enviados" value={d?.orcamentos_mes ?? 0}       total={d?.leads_mes ?? 1} color="bg-blue-500" />
@@ -285,15 +285,15 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         <section className="mt-5 grid gap-4 sm:grid-cols-3">
           <Link href="/producao" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50"><ClipboardList className="h-6 w-6 text-amber-700" /></span>
-            <div><p className="font-bold">Fluxo de Produção</p><p className="text-xs text-ink/45">Gerenciar etapas</p></div>
+            <div><p className="font-semibold">Fluxo de Produção</p><p className="text-xs text-ink/45">Gerenciar etapas</p></div>
           </Link>
           <Link href="/producao/materiais-do-pedido" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50"><ShoppingCart className="h-6 w-6 text-orange-700" /></span>
-            <div><p className="font-bold">Materiais do Pedido</p><p className="text-xs text-ink/45">Receber materiais</p></div>
+            <div><p className="font-semibold">Materiais do pedido</p><p className="text-xs text-ink/45">Receber materiais</p></div>
           </Link>
           <Link href="/instalacoes" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50"><BadgeCheck className="h-6 w-6 text-sky-700" /></span>
-            <div><p className="font-bold">Instalações</p><p className="text-xs text-ink/45">Checklists e status</p></div>
+            <div><p className="font-semibold">Instalações</p><p className="text-xs text-ink/45">Checklists e status</p></div>
           </Link>
         </section>
       </>}
@@ -309,21 +309,21 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         <section className="mt-5 grid gap-4 sm:grid-cols-3">
           <Link href="/financeiro" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50"><WalletCards className="h-6 w-6 text-emerald-700" /></span>
-            <div><p className="font-bold">Financeiro</p><p className="text-xs text-ink/45">Visão geral</p></div>
+            <div><p className="font-semibold">Financeiro</p><p className="text-xs text-ink/45">Visão geral</p></div>
           </Link>
           <Link href="/financeiro/receber" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50"><TrendingUp className="h-6 w-6 text-blue-700" /></span>
-            <div><p className="font-bold">A Receber</p><p className="text-xs text-ink/45">Contas a receber</p></div>
+            <div><p className="font-semibold">A receber</p><p className="text-xs text-ink/45">Contas a receber</p></div>
           </Link>
           <Link href="/financeiro/pagar" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50"><CircleDollarSign className="h-6 w-6 text-orange-700" /></span>
-            <div><p className="font-bold">A Pagar</p><p className="text-xs text-ink/45">Contas a pagar</p></div>
+            <div><p className="font-semibold">A pagar</p><p className="text-xs text-ink/45">Contas a pagar</p></div>
           </Link>
         </section>
         {(d?.overdue_receivable > 0 || d?.overdue_payable > 0) && (
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {d.overdue_receivable > 0 && <div className="card border-red-200 bg-red-50 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Recebimentos vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(d.overdue_receivable)}</p><Link href="/financeiro/receber" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-red-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
-            {d.overdue_payable > 0 && <div className="card border-orange-200 bg-orange-50 p-5"><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Pagamentos vencidos</p><p className="mt-2 text-2xl font-black text-orange-700">{money(d.overdue_payable)}</p><Link href="/financeiro/pagar" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
+            {d.overdue_receivable > 0 && <div className="card border-red-200 bg-red-50 p-5"><p className="text-xs font-semibold text-red-600">Recebimentos vencidos</p><p className="mt-2 text-2xl font-semibold text-red-700">{money(d.overdue_receivable)}</p><Link href="/financeiro/receber" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
+            {d.overdue_payable > 0 && <div className="card border-orange-200 bg-orange-50 p-5"><p className="text-xs font-semibold text-orange-600">Pagamentos vencidos</p><p className="mt-2 text-2xl font-semibold text-orange-700">{money(d.overdue_payable)}</p><Link href="/financeiro/pagar" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-orange-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
           </div>
         )}
       </>}
@@ -348,7 +348,7 @@ function KpiCard({ label, value, sub, icon:Icon, color }: { label:string; value:
         <p className="text-sm font-medium text-ink/55">{label}</p>
         <span className={`rounded-xl p-2.5 ${color}`}><Icon className="h-5 w-5" /></span>
       </div>
-      <p className="mt-4 text-2xl font-black tracking-tight">{value}</p>
+      <p className="mt-4 text-2xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-ink/40">{sub}</p>
     </div>
   );
@@ -360,7 +360,7 @@ function FunnelRow({ label, value, total, color }: { label:string; value:number;
     <div>
       <div className="mb-1 flex items-center justify-between text-sm">
         <span className="font-medium">{label}</span>
-        <span className="font-black">{value} <span className="font-normal text-ink/40">({pct}%)</span></span>
+        <span className="font-semibold">{value} <span className="font-normal text-ink/40">({pct}%)</span></span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-cream/10">
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />

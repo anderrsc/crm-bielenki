@@ -30,7 +30,7 @@ for(const route of ROUTES as string[]) {
 
 test('pending filters retain category and remove no-data false positives',async({page})=>{
   await page.goto('/pendencias');
-  await expect(page.getByRole('heading',{name:'Central de Pendências'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Central de pendências'})).toBeVisible();
   const finance=page.locator('a[href="/pendencias?categoria=financeiro"]');
   if(await finance.count()) {
     await finance.click();

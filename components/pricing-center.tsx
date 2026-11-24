@@ -141,17 +141,17 @@ export async function PricingCenter({
 
   return (
     <div className="mx-auto max-w-7xl">
-      <Link href={backHref} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+      <Link href={backHref} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55">
         <ArrowLeft className="h-4 w-4" />Voltar
       </Link>
 
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Precificação</p>
-          <h1 className="mt-2 text-3xl font-black">Central de Preços</h1>
+          <p className="text-xs font-semibold text-forest">Precificação</p>
+          <h1 className="mt-2 text-3xl font-semibold">Central de Preços</h1>
           <p className="mt-1 text-sm text-ink/50">Matéria-prima, pintura, peças, serviços e políticas comerciais em um só lugar.</p>
         </div>
-        {canManage && canViewFinancial ? <Link href={tabHref("custo-aluminio")} className="button-ghost">Preço do kg do alumínio</Link> : <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
+        {canManage && canViewFinancial ? <Link href={tabHref("custo-aluminio")} className="button-ghost">Preço do kg do alumínio</Link> : <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">Somente leitura</span>}
       </div>
 
       {error  && <p className="mb-5 rounded-xl bg-red-50     p-4 text-sm text-red-700">{error}</p>}
@@ -161,7 +161,7 @@ export async function PricingCenter({
       <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl bg-cream p-1">
         {TABS.filter(item => item.key !== "custo-aluminio" || canViewFinancial).map(({ key, label, icon: Icon }) => (
           <Link key={key} href={tabHref(key)}
-            className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition",
+            className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition",
               tab === key ? "bg-surface shadow text-ink" : "text-ink/50 hover:text-ink")}>
             <Icon className="h-4 w-4" />{label}
           </Link>
@@ -176,7 +176,7 @@ export async function PricingCenter({
         <div className="space-y-10">
           <AluminumMatrix initialRows={matrixRows} canManage={canManage} />
           <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-[.2em] text-ink/40">Outros itens e exceções</p>
+            <p className="mb-4 text-xs font-semibold text-ink/40">Outros itens e exceções</p>
             <PricingSpreadsheet
               initialRows={prices as unknown as import("@/components/pricing-spreadsheet").PriceRow[]}
               canManage={canManage}
@@ -191,7 +191,7 @@ export async function PricingCenter({
           <SearchBar q={q} selfHref={selfHref} tab="pintura" placeholder="Buscar cor..." />
           {canManage && (
             <details className="card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Nova cor de pintura</summary>
+              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold"><Plus className="h-4 w-4" />Nova cor de pintura</summary>
               <form action={savePaint} className="grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pintura`} />
                 <div>
@@ -207,7 +207,7 @@ export async function PricingCenter({
                   <label className="label">Observação</label>
                   <input className="field" name="notes" />
                 </div>
-                <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
+                <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold">
                   <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked />Ativo
                 </label>
                 <button className="button sm:col-span-2 lg:col-span-4"><Save className="h-4 w-4" />Salvar</button>
@@ -223,7 +223,7 @@ export async function PricingCenter({
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pintura`} />
                 <input className="field h-8 font-semibold" name="color" defaultValue={row.color} />
-                <input className="field h-8 font-black" name="price_per_meter" type="number" step="0.0001" min="0" defaultValue={row.price_per_meter} />
+                <input className="field h-8 font-semibold" name="price_per_meter" type="number" step="0.0001" min="0" defaultValue={row.price_per_meter} />
                 <input className="field h-8" name="notes" defaultValue={row.notes ?? ""} />
                 <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={row.active} />
                 <RowActions deleteAction={deletePaint} />
@@ -241,7 +241,7 @@ export async function PricingCenter({
           <SearchBar q={q} selfHref={selfHref} tab="pecas-especiais" placeholder="Buscar peça..." />
           {canManage && (
             <details className="card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Nova peça especial</summary>
+              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold"><Plus className="h-4 w-4" />Nova peça especial</summary>
               <form action={saveSpecialPart} className="grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pecas-especiais`} />
                 <div className="lg:col-span-2">
@@ -261,7 +261,7 @@ export async function PricingCenter({
                   <label className="label">Observação</label>
                   <input className="field" name="notes" />
                 </div>
-                <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
+                <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold">
                   <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked />Ativo
                 </label>
                 <button className="button sm:col-span-2 lg:col-span-4"><Save className="h-4 w-4" />Salvar</button>
@@ -278,7 +278,7 @@ export async function PricingCenter({
                 <input type="hidden" name="_back" value={`${selfHref}?aba=pecas-especiais`} />
                 <input className="field h-8 font-semibold" name="item_name" defaultValue={row.item_name} />
                 <select className="field h-8" name="unit" defaultValue={row.unit}>{PART_UNITS.map(u => <option key={u}>{u}</option>)}</select>
-                <input className="field h-8 font-black" name="unit_price" type="number" step="0.0001" min="0" defaultValue={row.unit_price} />
+                <input className="field h-8 font-semibold" name="unit_price" type="number" step="0.0001" min="0" defaultValue={row.unit_price} />
                 <input className="field h-8" name="notes" defaultValue={row.notes ?? ""} />
                 <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={row.active} />
                 <RowActions deleteAction={deleteSpecialPart} />
@@ -296,7 +296,7 @@ export async function PricingCenter({
           <SearchBar q={q} selfHref={selfHref} tab="servicos" placeholder="Buscar serviço..." />
           {canManage && (
             <details className="card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Novo serviço</summary>
+              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold"><Plus className="h-4 w-4" />Novo serviço</summary>
               <form action={savePricingService} className="grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <input type="hidden" name="_back" value={`${selfHref}?aba=servicos`} />
                 <div className="lg:col-span-2">
@@ -316,7 +316,7 @@ export async function PricingCenter({
                   <label className="label">Observação</label>
                   <input className="field" name="notes" />
                 </div>
-                <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
+                <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold">
                   <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked />Ativo
                 </label>
                 <button className="button sm:col-span-2 lg:col-span-4"><Save className="h-4 w-4" />Salvar</button>
@@ -333,7 +333,7 @@ export async function PricingCenter({
                 <input type="hidden" name="_back" value={`${selfHref}?aba=servicos`} />
                 <input className="field h-8 font-semibold" name="service_name" defaultValue={row.service_name} />
                 <select className="field h-8" name="unit" defaultValue={row.unit}>{SERVICE_UNITS.map(u => <option key={u}>{u}</option>)}</select>
-                <input className="field h-8 font-black" name="price" type="number" step="0.0001" min="0" defaultValue={row.price} />
+                <input className="field h-8 font-semibold" name="price" type="number" step="0.0001" min="0" defaultValue={row.price} />
                 <input className="field h-8" name="notes" defaultValue={row.notes ?? ""} />
                 <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={row.active} />
                 <RowActions deleteAction={deletePricingService} />
@@ -354,7 +354,7 @@ export async function PricingCenter({
           <SearchBar q={q} selfHref={selfHref} tab="tabelas-comerciais" placeholder="Buscar tabela..." />
           {canManage && (
             <details className="card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Nova tabela comercial</summary>
+              <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold"><Plus className="h-4 w-4" />Nova tabela comercial</summary>
               <form action={saveCommercialTable} className="grid gap-4 border-t p-5 sm:grid-cols-2 lg:grid-cols-4">
                 <input type="hidden" name="_back" value={`${selfHref}?aba=tabelas-comerciais`} />
                 <div className="sm:col-span-2">
@@ -378,7 +378,7 @@ export async function PricingCenter({
                   <label className="label">Percentual / Multiplicador</label>
                   <input className="field" name="adjustment_value" type="number" step="0.01" min="0" required placeholder="0" />
                 </div>
-                <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
+                <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold">
                   <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked />Ativo
                 </label>
                 <button className="button sm:col-span-2 lg:col-span-4"><Save className="h-4 w-4" />Salvar</button>
@@ -392,18 +392,18 @@ export async function PricingCenter({
                 <div className="border-b p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-black">{c.name}</p>
+                      <p className="font-semibold">{c.name}</p>
                       {c.description && <p className="mt-0.5 text-xs text-ink/50">{c.description}</p>}
                     </div>
-                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", c.active ? "bg-emerald-50 text-emerald-700" : "bg-cream/5 text-ink/40")}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", c.active ? "bg-emerald-50 text-emerald-700" : "bg-cream/5 text-ink/40")}>
                       {c.active ? "Ativo" : "Inativo"}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center gap-3">
-                    <span className="rounded-lg bg-brand-strong/10 px-3 py-1 text-xs font-bold text-forest">
+                    <span className="rounded-lg bg-brand-strong/10 px-3 py-1 text-xs font-semibold text-forest">
                       {c.adjustment_type === "desconto" ? "Desconto" : c.adjustment_type === "acrescimo" ? "Acréscimo" : "Multiplicador"}
                     </span>
-                    <span className="text-xl font-black">
+                    <span className="text-xl font-semibold">
                       {c.adjustment_type === "multiplicador" ? `${c.adjustment_value}×` : `${c.adjustment_value}%`}
                     </span>
                   </div>
@@ -430,9 +430,9 @@ export async function PricingCenter({
                     </div>
                     <div>
                       <label className="label">Valor</label>
-                      <input className="field h-8 text-sm font-bold" name="adjustment_value" type="number" step="0.01" min="0" defaultValue={c.adjustment_value} />
+                      <input className="field h-8 text-sm font-semibold" name="adjustment_value" type="number" step="0.01" min="0" defaultValue={c.adjustment_value} />
                     </div>
-                    <label className="flex items-center gap-2 text-xs font-bold">
+                    <label className="flex items-center gap-2 text-xs font-semibold">
                       <input className="h-4 w-4 accent-forest" type="checkbox" name="active" defaultChecked={c.active} />Ativo
                     </label>
                     <div className="flex items-center justify-end gap-2">
@@ -456,7 +456,7 @@ export async function PricingCenter({
           <div className="card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px] text-left text-sm">
-                <thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45">
+                <thead className="bg-cream/70 text-[11px] text-ink/45">
                   <tr>
                     <th className="px-4 py-3">Data / Hora</th>
                     <th className="px-4 py-3">Usuário</th>
@@ -481,7 +481,7 @@ export async function PricingCenter({
                           <span className="ml-2 text-ink/50">{String(itemName)}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold",
+                          <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold",
                             l.operation === "INSERT" ? "bg-emerald-50 text-emerald-700" :
                             l.operation === "DELETE" ? "bg-red-50 text-red-700" :
                             "bg-amber-50 text-amber-700")}>
@@ -532,7 +532,7 @@ function PricingTable<T extends { id: string; active: boolean }>({
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="responsive-pricing-table w-full text-left text-sm md:min-w-[600px]">
-          <thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45">
+          <thead className="bg-cream/70 text-[11px] text-ink/45">
             <tr>
               {headers.map(h => <th key={h} className="px-4 py-3">{h}</th>)}
               {canManage && <th className="px-4 py-3" />}
@@ -574,7 +574,7 @@ function ReadCells({ cells, bold = [], labels = [] }: { cells: (string|number)[]
   return (
     <div className="grid grid-cols-2 items-center gap-4 px-4 py-3 md:flex">
       {cells.map((c, i) => (
-        <span key={i} className={cn("min-w-0 flex-1 break-words", bold.includes(i) ? "font-black" : "text-ink/65")}><span className="label md:hidden">{labels[i]}</span>{c}</span>
+        <span key={i} className={cn("min-w-0 flex-1 break-words", bold.includes(i) ? "font-semibold" : "text-ink/65")}><span className="label md:hidden">{labels[i]}</span>{c}</span>
       ))}
     </div>
   );

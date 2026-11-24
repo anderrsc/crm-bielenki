@@ -135,11 +135,11 @@ export async function ProductionFlowPage({
     return (
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center gap-3">
-          <Link href="/producao" className="text-sm font-bold text-ink/50 hover:text-ink">
+          <Link href="/producao" className="text-sm font-semibold text-ink/50 hover:text-ink">
             ← Produção
           </Link>
           <span className="text-ink/25">/</span>
-          <span className="text-sm font-bold">{order.production_number}</span>
+          <span className="text-sm font-semibold">{order.production_number}</span>
         </div>
 
         {error && (
@@ -154,10 +154,10 @@ export async function ProductionFlowPage({
         <div className="card mb-6 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-forest">
+              <p className="text-xs font-semibold text-forest">
                 {order.flow_type === "esquadrias" ? "Esquadrias" : "Calhas"}
               </p>
-              <h1 className="mt-1 text-2xl font-black">{order.production_number}</h1>
+              <h1 className="mt-1 text-2xl font-semibold">{order.production_number}</h1>
               {order.order && (
                 <p className="mt-1 text-sm text-ink/55">
                   Pedido {(order.order as { order_number: string }).order_number}
@@ -167,7 +167,7 @@ export async function ProductionFlowPage({
               )}
             </div>
             <span
-              className={`rounded-xl px-3 py-1 text-xs font-bold ${
+              className={`rounded-xl px-3 py-1 text-xs font-semibold ${
                 isFinished
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-amber-50 text-amber-700"
@@ -181,7 +181,7 @@ export async function ProductionFlowPage({
         {/* Barra de progresso das etapas */}
         <div className="card mb-6 overflow-hidden">
           <div className="border-b p-4">
-            <h2 className="font-bold">Fluxo de Produção</h2>
+            <h2 className="font-semibold">Fluxo de Produção</h2>
           </div>
           <div className="divide-y">
             {steps.map((stepName, i) => {
@@ -196,7 +196,7 @@ export async function ProductionFlowPage({
                   className={`flex flex-wrap items-center gap-4 p-4 ${isCurrent ? "bg-brand-strong/10" : ""}`}
                 >
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                       isDone
                         ? "bg-emerald-500 text-white"
                         : isCurrent
@@ -222,7 +222,7 @@ export async function ProductionFlowPage({
                     )}
                   </div>
                   {isCurrent && (
-                    <span className="rounded-lg bg-brand-strong px-2 py-1 text-xs font-bold text-white">
+                    <span className="rounded-lg bg-brand-strong px-2 py-1 text-xs font-semibold text-white">
                       Em andamento
                     </span>
                   )}
@@ -239,14 +239,14 @@ export async function ProductionFlowPage({
         {/* Avançar etapa */}
         {waitingCut && (
           <div className="card border-amber-300 bg-amber-50/60 p-6">
-            <p className="font-bold">{OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas"}</p>
+            <p className="font-semibold">{OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas"}</p>
             <p className="mt-1 text-sm">A produção começa depois que as medidas forem confirmadas e o pedido for liberado para corte.</p>
             {order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}#etapa-operacional`} className="button mt-4 inline-flex">Resolver etapa do pedido</Link>}
           </div>
         )}
         {!isFinished && !waitingCut && (
           <div className="card p-6">
-            <h2 className="mb-4 font-bold">
+            <h2 className="mb-4 font-semibold">
               Concluir etapa {order.current_step}: {steps[order.current_step - 1]}
             </h2>
             <form action={advanceProductionStep} className="space-y-4">
@@ -281,7 +281,7 @@ export async function ProductionFlowPage({
         )}
         {order.current_step > 1 && order.status !== "cancelado" && (
           <details className="card p-5">
-            <summary className="cursor-pointer text-sm font-bold text-ink/70">Concluiu etapa por engano? Voltar para a etapa {order.current_step - 1}: {steps[order.current_step - 2]}</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-ink/70">Concluiu etapa por engano? Voltar para a etapa {order.current_step - 1}: {steps[order.current_step - 2]}</summary>
             <form action={productionStepBack} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="id" value={id} />
               <input className="field flex-1" name="reason" aria-label="Motivo para voltar a etapa" placeholder="Motivo (ex.: corte precisa ser refeito)" required minLength={3} maxLength={500} />
@@ -291,7 +291,7 @@ export async function ProductionFlowPage({
         )}
         {isFinished && (
           <div className="card border-emerald-200 bg-emerald-50 p-6 text-center">
-            <p className="text-lg font-black text-emerald-700">
+            <p className="text-lg font-semibold text-emerald-700">
               ✓ Produção concluída em {steps.length} etapas
             </p>
           </div>
@@ -331,14 +331,14 @@ export async function ProductionFlowPage({
     <div className="mx-auto max-w-6xl">
       <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-forest">Produção</p>
-          <h1 className="mt-2 text-3xl font-black">Pedidos em produção</h1>
+          <p className="text-xs font-semibold text-forest">Produção</p>
+          <h1 className="mt-2 text-3xl font-semibold">Pedidos em produção</h1>
           <p className="mt-1 text-sm text-ink/50">Todo pedido fechado entra aqui sozinho e segue até o pós-venda.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {tabs.map(([key, label]) => (
             <Link key={key} href={key ? `/producao?tipo=${key}` : "/producao"}
-              className={`rounded-xl border px-4 py-2 text-sm font-bold ${(filter ?? "") === key ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"}`}>
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold ${(filter ?? "") === key ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"}`}>
               {label}
             </Link>
           ))}
@@ -349,17 +349,17 @@ export async function ProductionFlowPage({
       {notice && <p role="status" className={`mb-4 rounded-xl p-3 text-sm ${aviso === "sent" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>{notice}</p>}
 
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
-        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-1 text-2xl font-black">{open.length}</p></div>
-        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Aguardando medidas ou corte</p><p className="mt-1 text-2xl font-black">{groups[0].items.length}</p></div>
-        <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Para instalar</p><p className="mt-1 text-2xl font-black">{groups[3].items.length + groups[4].items.length}</p></div>
-        <div className={`card p-4 ${late ? "border-red-200" : ""}`}><p className={`text-xs font-bold uppercase tracking-wider ${late ? "text-red-600" : "text-ink/45"}`}>Atrasados</p><p className={`mt-1 text-2xl font-black ${late ? "text-red-700" : ""}`}>{late}</p></div>
+        <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Em aberto</p><p className="mt-1 text-2xl font-semibold">{open.length}</p></div>
+        <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Aguardando medidas ou corte</p><p className="mt-1 text-2xl font-semibold">{groups[0].items.length}</p></div>
+        <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Para instalar</p><p className="mt-1 text-2xl font-semibold">{groups[3].items.length + groups[4].items.length}</p></div>
+        <div className={`card p-4 ${late ? "border-red-200" : ""}`}><p className={`text-xs font-semibold ${late ? "text-red-600" : "text-ink/45"}`}>Atrasados</p><p className={`mt-1 text-2xl font-semibold ${late ? "text-red-700" : ""}`}>{late}</p></div>
       </div>
 
       <form method="get" className="mb-5 flex flex-wrap gap-2">
         {filter && <input type="hidden" name="tipo" value={filter} />}
         <input className="field max-w-sm" name="q" defaultValue={search ?? ""} placeholder="Buscar por cliente, pedido ou ordem" aria-label="Buscar pedido" />
         <button className="button-ghost">Buscar</button>
-        {term && <Link href={filter ? `/producao?tipo=${filter}` : "/producao"} className="self-center text-sm font-bold text-ink/55 underline">Limpar</Link>}
+        {term && <Link href={filter ? `/producao?tipo=${filter}` : "/producao"} className="self-center text-sm font-semibold text-ink/55 underline">Limpar</Link>}
       </form>
 
       {all.length === 0 && <div className="card p-10 text-center text-sm text-ink/40">Nenhum pedido em produção.</div>}
@@ -382,21 +382,21 @@ export async function ProductionFlowPage({
                   <div key={order.id} className={`card p-4 ${overdue ? "border-red-200 bg-red-50/30" : ""}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-base font-black">{client?.name ?? "Cliente não informado"}</p>
+                        <p className="truncate text-base font-semibold">{client?.name ?? "Cliente não informado"}</p>
                         <p className="mt-0.5 text-xs text-ink/55">
                           {order.order?.order_number ? `Pedido ${order.order.order_number} · ` : ""}{order.production_number}{place ? ` · ${place}` : ""}
                         </p>
                       </div>
-                      <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${order.flow_type === "esquadrias" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
+                      <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-semibold ${order.flow_type === "esquadrias" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
                         {order.flow_type === "esquadrias" ? "Esquadrias" : "Calhas"}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm font-bold">{waiting ? OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas" : finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
+                    <p className="mt-3 text-sm font-semibold">{waiting ? OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas" : finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sand">
                       <div className={`h-full rounded-full ${finished ? "bg-emerald-500" : overdue ? "bg-red-500" : "bg-brand-strong"}`} style={{ width: `${pct}%` }} />
                     </div>
                     <p className="mt-2 text-xs text-ink/55">
-                      {order.planned_end ? <span className={overdue ? "font-bold text-red-700" : ""}>Prazo {shortDate(order.planned_end)}{overdue ? " · atrasado" : ""}</span> : "Sem prazo definido"}
+                      {order.planned_end ? <span className={overdue ? "font-semibold text-red-700" : ""}>Prazo {shortDate(order.planned_end)}{overdue ? " · atrasado" : ""}</span> : "Sem prazo definido"}
                       {order.responsible?.full_name ? ` · ${order.responsible.full_name}` : ""}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -419,8 +419,8 @@ export async function ProductionFlowPage({
           );
           const title = (
             <span className="flex items-center gap-2">
-              <span className="text-lg font-black">{group.title}</span>
-              <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold">{group.items.length}</span>
+              <span className="text-lg font-semibold">{group.title}</span>
+              <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-semibold">{group.items.length}</span>
               <span className="text-xs font-normal text-ink/50">{group.hint}</span>
             </span>
           );

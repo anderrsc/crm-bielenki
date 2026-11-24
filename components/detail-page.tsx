@@ -28,7 +28,7 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
     : "";
 
   return <div className="mx-auto max-w-6xl">
-    <Link href={`/${base ?? config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+    <Link href={`/${base ?? config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
     {actionError && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
     <div className="mh-hero is-simple detail-hero">
       <div className="mh-hero-main"><p className="detail-kind">{config.singular}</p><h1 className="mh-greeting">{title}</h1></div>
@@ -40,7 +40,7 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
     {config.table === "v_order_overview" && <OrderAluminumCost orderId={id} />}
     {config.table === "v_order_overview" && <OrderProductionPhotos orderId={id} />}
     {config.table === "v_order_overview" && <div id="checklist-operacional" className="card mt-5 scroll-mt-28 overflow-hidden">
-      <div className="border-b p-5"><h2 className="font-black">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
+      <div className="border-b p-5"><h2 className="font-semibold">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
       <div className="divide-y">{checklist.length ? checklist.map((item) => <form action={toggleChecklistItem} className="flex items-center gap-4 p-4" key={String(item.id)}>
         <input type="hidden" name="id" value={String(item.id)} /><input type="hidden" name="order_id" value={id} /><input type="hidden" name="status" value={String(item.status)} />
         <button className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${item.status === "concluido" ? "bg-brand-strong text-white" : "border bg-surface"}`}>{item.status === "concluido" ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4 text-ink/25" />}</button>
@@ -53,5 +53,5 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
 
 const get = (row: Record<string, unknown>, path: string) => path.split(".").reduce<unknown>((value, key) => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, row);
 const format = (value: unknown, kind?: string) => kind === "money" ? money(value as number) : kind === "date" ? shortDate(value as string) : kind === "status" ? statusLabel(String(value ?? "-")) : String(value ?? "-").replaceAll("_", " ");
-function Missing({ message }: { message?: string }) { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-black">Registro não encontrado</h1><p className="mt-2 text-sm text-ink/50">{message ?? "Configure o Supabase e execute as migrações para consultar este registro."}</p></div>; }
+function Missing({ message }: { message?: string }) { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-semibold">Registro não encontrado</h1><p className="mt-2 text-sm text-ink/50">{message ?? "Configure o Supabase e execute as migrações para consultar este registro."}</p></div>; }
 import { OrderAluminumCost } from "./aluminum-cost-summary";

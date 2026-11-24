@@ -329,4 +329,4 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} page={page} hasMore={hasMore} />;
 }
 
-function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-bold uppercase tracking-widest text-forest">Marquinhos Calhas e Esquadrias</p><h1 className="mt-2 text-3xl font-black capitalize">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }
+function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-semibold text-forest">Marquinhos Calhas e Esquadrias</p><h1 className="mt-2 text-3xl font-semibold ">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }

@@ -40,7 +40,7 @@ export function ConfirmHost() {
           <div className="flex gap-3">
             {danger && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500"><TriangleAlert className="h-5 w-5" /></span>}
             <div className="min-w-0">
-              <Dialog.Title className="font-black">{current?.title ?? "Confirmar"}</Dialog.Title>
+              <Dialog.Title className="font-semibold">{current?.title ?? "Confirmar"}</Dialog.Title>
               <Dialog.Description className="mt-1 whitespace-pre-line text-sm text-ink/70">{current?.message}</Dialog.Description>
             </div>
           </div>

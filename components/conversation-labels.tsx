@@ -13,7 +13,7 @@ const COLOR: Record<string, string> = {
 const PALETTE = ["blue", "green", "amber", "red", "purple", "slate"] as const;
 
 export function LabelChip({ label }: { label: { name: string; color: string } }) {
-  return <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", COLOR[label.color] ?? COLOR.slate)}>{label.name}</span>;
+  return <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold", COLOR[label.color] ?? COLOR.slate)}>{label.name}</span>;
 }
 
 export function LabelMenu({ conversationId, current, onChanged }: { conversationId: string; current: Array<{ id: string }>; onChanged: () => void }) {
@@ -48,7 +48,7 @@ export function LabelMenu({ conversationId, current, onChanged }: { conversation
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild>
         <button className="wa-row wa-muted relative rounded-full p-2" title="Etiquetas" aria-label="Etiquetas da conversa"><Tag className="h-4 w-4" />
-          {current.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-forest px-1 text-[9px] font-bold text-white">{current.length}</span>}
+          {current.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-forest px-1 text-[11px] font-semibold text-white">{current.length}</span>}
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

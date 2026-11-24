@@ -34,7 +34,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
     backHref={back} label="Registrar pagamento" buttonClassName={primary ? "button" : "button-ghost"} />;
 
   return <div className="mx-auto max-w-6xl space-y-5" data-testid="sale-workspace">
-    <Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft size={16} /> Voltar às vendas</Link>
+    <Link href="/vendas" className="inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft size={16} /> Voltar às vendas</Link>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {received && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Pagamento registrado. Os saldos da venda e do pedido foram atualizados.</p>}
     {warnings.map(warning => <p role="alert" key={warning} className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{warning} Atualize a página para tentar novamente.</p>)}
@@ -53,17 +53,17 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
 
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice.slice(0, 200)}</p>}
     {operation && <OrderOperationCard op={operation.op} people={operation.people} canUpdate={operation.canUpdate} isManager={operation.isManager} back={back} />}
-    {operation && operation.history.length > 0 && <details className="card p-5"><summary className="cursor-pointer text-sm font-bold">Histórico das etapas ({operation.history.length})</summary>
+    {operation && operation.history.length > 0 && <details className="card p-5"><summary className="cursor-pointer text-sm font-semibold">Histórico das etapas ({operation.history.length})</summary>
       <Timeline events={operation.history} />
     </details>}
-    {order && <section className="card p-5 sm:p-7"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-ink/55">Pedido vinculado</p><h2 className="mt-1 text-xl font-black">{order.order_number}</h2></div><StatusBadge value={order.operational_status} /></div>
+    {order && <section className="card p-5 sm:p-7"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-ink/55">Pedido vinculado</p><h2 className="mt-1 text-xl font-semibold">{order.order_number}</h2></div><StatusBadge value={order.operational_status} /></div>
       {order.next_action && <p className="mt-4 text-sm"><b>Próxima ação:</b> {order.next_action}</p>}
       {order.blocked_reason && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{order.blocked_reason}</p>}
       {access["order_checklist_items:select"] && <p className="mt-3 text-sm text-ink/55">{checklist.filter(item => item.status === "concluido").length} de {checklist.length} etapas concluídas</p>}
       <Link href={`/pedidos/${order.id}#checklist-operacional`} className="button-ghost mt-4">Acompanhar etapas do pedido</Link>
     </section>}
 
-    {hasMeasurements && <section id="conferencia-medidas" className="card scroll-mt-28 p-5 sm:p-7"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-xl font-black"><Ruler size={20} /> Conferência de medidas</h2>{measurementStep && <StatusBadge value={measurementStep.status} />}</div>
+    {hasMeasurements && <section id="conferencia-medidas" className="card scroll-mt-28 p-5 sm:p-7"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-xl font-semibold"><Ruler size={20} /> Conferência de medidas</h2>{measurementStep && <StatusBadge value={measurementStep.status} />}</div>
       <p className="mt-3 text-sm text-ink/60">Confira as medidas da obra com o orçamento antes de liberar a produção.</p>
       <div className="mt-4 flex flex-wrap gap-3">
         {quote && <Link href={`/orcamentos/${quote.id}`} className="button-ghost">Ver peças e medidas do orçamento</Link>}
@@ -79,10 +79,10 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
       </form> : <p className="mt-5 text-sm text-ink/55">Seu acesso permite consultar esta etapa, mas não alterá-la.</p>)}
     </section>}
 
-    {access["financial_entries:select"] && <section id="contas-da-venda" className="card scroll-mt-28 p-5 sm:p-7"><h2 className="text-xl font-black">Contas a receber desta venda</h2>
-      {entries.length ? <div className="mt-5 divide-y">{entries.map(entry => <article key={entry.id} className="flex flex-wrap items-center justify-between gap-4 py-4"><div className="min-w-0"><h3 className="font-semibold">{entry.description}</h3><p className="mt-1 text-sm text-ink/55">Vencimento: {shortDate(entry.due_date)} · Recebido: {money(Number(entry.paid_amount))}</p><p className="mt-1 font-bold">Em aberto: {money(Number(entry.open_amount))}</p></div><StatusBadge value={entry.status} />{canPay && Number(entry.open_amount) > 0 && entry.status !== "cancelado" && (pendingEntries.length === 1 ? <a href="#topo-venda" className="button-ghost">Ir para registrar pagamento</a> : payment(entry))}</article>)}</div> : <p className="mt-4 text-sm text-ink/55">Nenhuma conta a receber disponível para esta venda.</p>}
+    {access["financial_entries:select"] && <section id="contas-da-venda" className="card scroll-mt-28 p-5 sm:p-7"><h2 className="text-xl font-semibold">Contas a receber desta venda</h2>
+      {entries.length ? <div className="mt-5 divide-y">{entries.map(entry => <article key={entry.id} className="flex flex-wrap items-center justify-between gap-4 py-4"><div className="min-w-0"><h3 className="font-semibold">{entry.description}</h3><p className="mt-1 text-sm text-ink/55">Vencimento: {shortDate(entry.due_date)} · Recebido: {money(Number(entry.paid_amount))}</p><p className="mt-1 font-semibold">Em aberto: {money(Number(entry.open_amount))}</p></div><StatusBadge value={entry.status} />{canPay && Number(entry.open_amount) > 0 && entry.status !== "cancelado" && (pendingEntries.length === 1 ? <a href="#topo-venda" className="button-ghost">Ir para registrar pagamento</a> : payment(entry))}</article>)}</div> : <p className="mt-4 text-sm text-ink/55">Nenhuma conta a receber disponível para esta venda.</p>}
       {!canPay && pendingEntries.length > 0 && <p className="mt-4 text-sm text-ink/55">Seu acesso não permite registrar pagamentos.</p>}
     </section>}
   </div>;
 }
-function MissingSale() { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-black">Venda não encontrada</h1><p className="mt-2 text-sm text-ink/55">Verifique o endereço e seu acesso à venda.</p><Link className="button-ghost mt-4" href="/vendas">Voltar às vendas</Link></div>; }
+function MissingSale() { return <div className="card mx-auto max-w-2xl p-8"><h1 className="text-2xl font-semibold">Venda não encontrada</h1><p className="mt-2 text-sm text-ink/55">Verifique o endereço e seu acesso à venda.</p><Link className="button-ghost mt-4" href="/vendas">Voltar às vendas</Link></div>; }

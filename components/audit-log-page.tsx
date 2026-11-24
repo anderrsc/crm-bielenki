@@ -54,8 +54,8 @@ export async function AuditLogPage({
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <p className="text-xs font-bold uppercase tracking-widest text-forest">Gestão</p>
-        <h1 className="mt-2 text-3xl font-black">Log de Auditoria</h1>
+        <p className="text-xs font-semibold text-forest">Gestão</p>
+        <h1 className="mt-2 text-3xl font-semibold">Log de auditoria</h1>
         <p className="mt-1 text-sm text-ink/50">
           Todas as alterações registradas no sistema.
         </p>
@@ -71,7 +71,7 @@ export async function AuditLogPage({
       <div className="mb-4 flex flex-wrap gap-2">
         <a
           href="/auditoria"
-          className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+          className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
             !tableFilter
               ? "border-forest bg-brand-strong text-white"
               : "border-sand hover:bg-sand/50"
@@ -83,7 +83,7 @@ export async function AuditLogPage({
           <a
             key={t}
             href={`/auditoria?tabela=${t}`}
-            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+            className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
               tableFilter === t
                 ? "border-forest bg-brand-strong text-white"
                 : "border-sand hover:bg-sand/50"
@@ -98,19 +98,19 @@ export async function AuditLogPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-cream/50">
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Data/Hora
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Usuário
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Módulo
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Ação
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Detalhe
               </th>
             </tr>
@@ -156,7 +156,7 @@ export async function AuditLogPage({
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-lg px-2 py-0.5 text-xs font-bold ${act.color}`}
+                      className={`rounded-lg px-2 py-0.5 text-xs font-semibold ${act.color}`}
                     >
                       {act.label}
                     </span>

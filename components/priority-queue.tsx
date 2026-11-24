@@ -47,7 +47,7 @@ export async function PriorityQueue() {
 
   return (
     <section aria-label="O que fazer agora" className="pq card mb-6 p-5">
-      <h2 className="pq-heading font-black">O que fazer agora</h2>
+      <h2 className="pq-heading font-semibold">O que fazer agora</h2>
       {items.length === 0 ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-ink/60"><CheckCircle2 className="h-4 w-4 text-green-600" /> Nada urgente no momento. Pendências novas aparecem aqui.</p>
       ) : (

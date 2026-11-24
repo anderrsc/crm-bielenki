@@ -235,7 +235,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
             <button
               onClick={handleSave}
               disabled={isPending || (!dirty.size && !deleted.size)}
-              className={`flex h-9 items-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition-all disabled:opacity-40 ${
+              className={`flex h-9 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-white transition-all disabled:opacity-40 ${
                 dirty.size || deleted.size ? "bg-brand-strong hover:bg-[#18221e] shadow-md" : "bg-cream/25"
               }`}
             >
@@ -265,7 +265,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
 
       {mobile ? <div className="space-y-3" aria-label="Preços por produto">
         {pageRows.map(row => <article key={row.id} className={`card p-4 ${dirty.has(row.id) ? "border-amber-400" : ""}`}>
-          <h3 className="mb-3 font-bold">{row.product}</h3>
+          <h3 className="mb-3 font-semibold">{row.product}</h3>
           <div className="grid min-w-0 grid-cols-2 gap-3">
             {COLS.filter(col => !fieldHidden(row, col.key)).map(col => <label key={col.key} className={col.key === "product" || col.key === "notes" ? "col-span-2 min-w-0" : "min-w-0"}>
               <span className="label">{col.label}</span>
@@ -283,7 +283,7 @@ export function PricingSpreadsheet({ initialRows, canManage }: { initialRows: Pr
           <thead className="sticky top-0 z-10 bg-cream/95 backdrop-blur">
             <tr>
               {COLS.map((col) => (
-                <th key={col.key} style={{ width: col.width, minWidth: col.width }} className="border-b px-3 py-2.5 font-bold uppercase tracking-wider text-ink/50">
+                <th key={col.key} style={{ width: col.width, minWidth: col.width }} className="border-b px-3 py-2.5 font-semibold text-ink/50">
                   {col.label}
                 </th>
               ))}
@@ -421,7 +421,7 @@ function CellEditor({
   const displayValue = () => {
     if (val === null || val === undefined || val === "") return <span className="text-ink/25">-</span>;
     if (typeof val === "number") {
-      if (numericMoney.includes(String(col.key))) return <span className="font-mono font-bold text-forest">{money(val)}</span>;
+      if (numericMoney.includes(String(col.key))) return <span className="font-mono font-semibold text-forest">{money(val)}</span>;
       if (numericPercent.includes(String(col.key))) return <span className="font-mono">{val}%</span>;
       return <span className="font-mono">{String(val)}</span>;
     }

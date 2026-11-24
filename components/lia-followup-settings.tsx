@@ -27,10 +27,10 @@ export function LiaFollowupSettings() {
   return (
     <div className="card space-y-3 p-4">
       <div>
-        <h2 className="font-bold">Acompanhamento automático de leads</h2>
-        <p className="text-xs text-ink/55">Quando um lead que já conversou fica 24 horas sem responder, a Lia manda uma mensagem curta (depois de 48 h e 72 h, no máximo 3 vezes). Só no horário de atendimento, só para quem já falou com a empresa, e para de vez se o cliente responder ou pedir para não receber.</p>
+        <h2 className="font-semibold">Acompanhamento automático de leads</h2>
+        <p className="text-xs text-ink/55">Quando um lead que já conversou fica 24 horas sem responder, a LIA manda uma mensagem curta (depois de 48 h e 72 h, no máximo 3 vezes). Só no horário de atendimento, só para quem já falou com a empresa, e para de vez se o cliente responder ou pedir para não receber.</p>
       </div>
-      <label className="flex items-center gap-2 text-sm font-bold">
+      <label className="flex items-center gap-2 text-sm font-semibold">
         <input type="checkbox" checked={enabled} disabled={!data.canEdit} onChange={(e) => setEnabled(e.target.checked)} />
         {enabled ? "Ligado" : "Desligado"}
       </label>

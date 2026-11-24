@@ -24,7 +24,7 @@ export default async function DrePage({ searchParams }: { searchParams: Promise<
   const { data, error } = validIsoDate(start) && validIsoDate(end)
     ? await db.rpc("financial_dre_data", { p_start: start, p_end: end, p_sale_type: tipo || null })
     : { data: null, error: { message: "Período inválido" } };
-  if (error) return <div className="mx-auto max-w-5xl space-y-4"><Link href="/financeiro/dre" className="text-sm font-bold text-forest underline">Revisar período da DRE</Link><p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error.code==='P0001'?error.message:'Não foi possível carregar a DRE. Atualize a página.'}</p></div>;
+  if (error) return <div className="mx-auto max-w-5xl space-y-4"><Link href="/financeiro/dre" className="text-sm font-semibold text-forest underline">Revisar período da DRE</Link><p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error.code==='P0001'?error.message:'Não foi possível carregar a DRE. Atualize a página.'}</p></div>;
   const rows = buildDre((data ?? []) as DreLine[], months);
   const receita = rows[0].total, resultado = rows[10].total;
   const margin = receita ? Math.round((resultado / receita) * 1000) / 10 : null;
@@ -33,10 +33,10 @@ export default async function DrePage({ searchParams }: { searchParams: Promise<
   const prev = String(Number(year) - 1);
 
   return <div className="mx-auto max-w-[1400px] space-y-5">
-    <Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link>
+    <Link href="/financeiro" className="text-sm font-semibold text-forest underline">Voltar ao financeiro</Link>
     <div>
-      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Controle financeiro</p>
-      <h1 className="mt-2 text-3xl font-black">DRE gerencial</h1>
+      <p className="text-xs font-semibold text-forest">Controle financeiro</p>
+      <h1 className="mt-2 text-3xl font-semibold">DRE gerencial</h1>
       <p className="mt-1 text-sm text-ink/60">Resultado por competência (mês a que a conta pertence), não pelo dia do pagamento. É uma visão gerencial: não substitui o resultado contábil oficial.</p>
     </div>
 
@@ -51,22 +51,22 @@ export default async function DrePage({ searchParams }: { searchParams: Promise<
     </form>
 
     <div className="grid gap-3 sm:grid-cols-3">
-      <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Receita bruta</p><p className="mt-1 text-2xl font-black">{money(receita)}</p></div>
-      <div className={`card p-4 ${resultado < 0 ? "border-red-200" : "border-emerald-200"}`}><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Resultado do período</p><p className={`mt-1 text-2xl font-black ${resultado < 0 ? "text-red-700" : "text-emerald-700"}`}>{money(resultado)}</p></div>
-      <div className="card p-4"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Margem sobre a receita</p><p className="mt-1 text-2xl font-black">{margin === null ? "—" : `${margin.toLocaleString("pt-BR")}%`}</p></div>
+      <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Receita bruta</p><p className="mt-1 text-2xl font-semibold">{money(receita)}</p></div>
+      <div className={`card p-4 ${resultado < 0 ? "border-red-200" : "border-emerald-200"}`}><p className="text-xs font-semibold text-ink/45">Resultado do período</p><p className={`mt-1 text-2xl font-semibold ${resultado < 0 ? "text-red-700" : "text-emerald-700"}`}>{money(resultado)}</p></div>
+      <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Margem sobre a receita</p><p className="mt-1 text-2xl font-semibold">{margin === null ? "—" : `${margin.toLocaleString("pt-BR")}%`}</p></div>
     </div>
 
     {tipo && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Visão por tipo de venda: entram as receitas das vendas desse tipo e os custos ligados à venda ou rateados para as obras. Despesas gerais sem obra ficam de fora; veja em “Todos”.</p>}
-    {uncategorized > 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{money(uncategorized)} em contas sem categoria. <Link className="font-bold underline" href="/financeiro/classificacoes">Classifique as contas</Link> para a DRE ficar correta.</p>}
+    {uncategorized > 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{money(uncategorized)} em contas sem categoria. <Link className="font-semibold underline" href="/financeiro/classificacoes">Classifique as contas</Link> para a DRE ficar correta.</p>}
 
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[720px] text-sm">
-        <thead><tr className="border-b bg-cream text-left text-xs font-bold uppercase tracking-wider text-ink/45">
+        <thead><tr className="border-b bg-cream text-left text-xs font-semibold text-ink/45">
           <th className="px-3 py-2">Linha</th>{months.map((m) => <th key={m} className="px-3 py-2 text-right">{label(m)}</th>)}{months.length > 1 && <th className="px-3 py-2 text-right">Total</th>}
         </tr></thead>
         {rows.map((r) => <tbody key={r.key} className="border-b">
           <tr className={r.kind === "total" ? "bg-cream/60" : ""}>
-            <td className={`px-3 py-2 ${r.kind === "total" ? "font-black" : "font-bold"}`}>{r.label}</td>
+            <td className={`px-3 py-2 ${r.kind === "total" ? "font-semibold" : "font-semibold"}`}>{r.label}</td>
             {r.values.map((v, i) => <Cell key={i} n={v} strong={r.kind === "total"} />)}{months.length > 1 && <Cell n={r.total} strong />}
           </tr>
           {(r.details ?? []).map((d) => <tr key={d.category} className="text-ink/65">
@@ -81,5 +81,5 @@ export default async function DrePage({ searchParams }: { searchParams: Promise<
 }
 
 function Cell({ n, strong = false }: { n: number; strong?: boolean }) {
-  return <td className={`whitespace-nowrap px-3 py-2 text-right ${strong ? "font-black" : ""} ${n < 0 ? "text-red-700" : ""}`}>{n === 0 ? "—" : money(n)}</td>;
+  return <td className={`whitespace-nowrap px-3 py-2 text-right ${strong ? "font-semibold" : ""} ${n < 0 ? "text-red-700" : ""}`}>{n === 0 ? "—" : money(n)}</td>;
 }

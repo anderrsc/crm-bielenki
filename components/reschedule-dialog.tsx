@@ -24,7 +24,7 @@ export function RescheduleDialog({ entryId, currentDueDate, backHref, label }: {
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-surface p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="font-black text-lg">Renegociar vencimento</h2>
+                <h2 className="font-semibold text-lg">Renegociar vencimento</h2>
                 <p className="text-xs text-ink/50 mt-0.5">Altere a data de vencimento do lançamento</p>
               </div>
               <button onClick={() => setOpen(false)} className="rounded-lg p-2 hover:bg-cream"><X className="h-4 w-4" /></button>

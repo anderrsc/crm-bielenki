@@ -24,17 +24,17 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
   }
   return (
     <div className="mx-auto max-w-5xl">
-      <Link href={backHref} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+      <Link href={backHref} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
       <div className="mb-7">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
-        <h1 className="mt-2 text-3xl font-black">Fornecedores</h1>
+        <p className="text-xs font-semibold text-forest">Operação</p>
+        <h1 className="mt-2 text-3xl font-semibold">Fornecedores</h1>
         <p className="mt-1 text-sm text-ink/50">Cadastro de fornecedores e dados de contato.</p>
       </div>
       {(error || loadError) && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || loadError}</p>}
       {saved && <p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Fornecedor salvo.</p>}
       {canManage && (
         <details className="card mb-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black"><Plus className="h-4 w-4" />Novo fornecedor</summary>
+          <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold"><Plus className="h-4 w-4" />Novo fornecedor</summary>
           <SupplierForm states={states} selfHref={selfHref} />
         </details>
       )}
@@ -43,10 +43,10 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
           <details key={s.id} className="card">
             <summary className="flex cursor-pointer list-none items-center justify-between p-4">
               <div>
-                <Link href={`/fornecedores/${s.id}`} className="font-bold hover:text-forest hover:underline">{s.name}</Link>
+                <Link href={`/fornecedores/${s.id}`} className="font-semibold hover:text-forest hover:underline">{s.name}</Link>
                 <p className="text-xs text-ink/50">{[s.city, s.state].filter(Boolean).join(" – ") || "Sem localização"} · {s.status === "ativo" ? "Ativo" : "Inativo"}</p>
               </div>
-              <span className="flex items-center gap-2 text-xs text-ink/40">{credit.get(s.id) ? <a href="/financeiro/pagar#creditos-fornecedores" className="rounded-lg bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">Crédito {money(credit.get(s.id))}</a> : null}{s.phone || s.email || ""}<Link href={`/fornecedores/${s.id}`} className="rounded-lg border border-sand px-2 py-1 font-bold text-ink hover:border-forest hover:text-forest">Abrir</Link></span>
+              <span className="flex items-center gap-2 text-xs text-ink/40">{credit.get(s.id) ? <a href="/financeiro/pagar#creditos-fornecedores" className="rounded-lg bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">Crédito {money(credit.get(s.id))}</a> : null}{s.phone || s.email || ""}<Link href={`/fornecedores/${s.id}`} className="rounded-lg border border-sand px-2 py-1 font-semibold text-ink hover:border-forest hover:text-forest">Abrir</Link></span>
             </summary>
             <form action={saveSupplier} className="grid gap-3 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="id" value={s.id} />
@@ -61,7 +61,7 @@ export async function SuppliersPage({ error, saved, backHref = "/configuracoes",
               <div><label className="label">Condição de pagamento</label><input className="field" name="payment_terms" defaultValue={s.payment_terms ?? ""} disabled={!canManage} placeholder="Ex.: 30/60 dias" /></div>
               <div className="sm:col-span-2"><label className="label">Observações</label><input className="field" name="notes" defaultValue={s.notes ?? ""} disabled={!canManage} /></div>
               <div className="flex items-center gap-4 self-end">
-                <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" name="status_ativo" defaultChecked={s.status === "ativo"} disabled={!canManage} />Ativo</label>
+                <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" name="status_ativo" defaultChecked={s.status === "ativo"} disabled={!canManage} />Ativo</label>
               </div>
               {canManage && (
                 <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
@@ -91,7 +91,7 @@ function SupplierForm({ states, selfHref }: { states: string[]; selfHref: string
       <div><label className="label">Estado</label><select className="field" name="state" defaultValue="SC"><option value="">—</option>{states.map(st => <option key={st}>{st}</option>)}</select></div>
       <div><label className="label">Condição de pagamento</label><input className="field" name="payment_terms" placeholder="Ex.: 30/60 dias" /></div>
       <div className="sm:col-span-2"><label className="label">Observações</label><input className="field" name="notes" /></div>
-      <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold"><input type="checkbox" name="status_ativo" defaultChecked />Ativo</label>
+      <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold"><input type="checkbox" name="status_ativo" defaultChecked />Ativo</label>
       <button className="button sm:col-span-2 lg:col-span-3"><Save className="h-4 w-4" />Salvar fornecedor</button>
     </form>
   );

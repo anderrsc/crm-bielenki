@@ -67,7 +67,7 @@ export function QuoteTeamFields({ quoteId, people, measurerId, measurerName = nu
         <span className="mt-2 flex gap-2">
           <input autoFocus value={typing} onChange={(e) => setTyping(e.target.value)} placeholder="Nome do medidor" className="field min-w-0 flex-1 p-2 text-sm"
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionar(); } if (e.key === "Escape") setTyping(null); }} />
-          <button type="button" onClick={adicionar} className="rounded-xl bg-forest px-3 text-xs font-bold text-white">Salvar</button>
+          <button type="button" onClick={adicionar} className="rounded-xl bg-forest px-3 text-xs font-semibold text-white">Salvar</button>
         </span>
       )}
     </label>
@@ -75,7 +75,7 @@ export function QuoteTeamFields({ quoteId, people, measurerId, measurerName = nu
 
   return (
     <section className="card no-print mb-6 p-5" aria-label="Equipe da obra">
-      <h2 className="text-sm font-bold">Equipe da obra · somente a equipe</h2>
+      <h2 className="text-sm font-semibold">Equipe da obra · somente a equipe</h2>
       <div className="mt-3 flex flex-wrap gap-4">
         {select("measurer_id", "Medidor", Ruler)}
         {select("attendant_id", "Atendente responsável", UserCheck)}

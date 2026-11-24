@@ -34,7 +34,7 @@ export async function GutterPricesPage({ error, saved }: { error?: string; saved
     return (
       <div className="card mx-auto max-w-xl p-10 text-center">
         <LockKeyhole className="mx-auto h-8 w-8 text-ink/25" />
-        <h1 className="mt-4 text-2xl font-black">Acesso restrito</h1>
+        <h1 className="mt-4 text-2xl font-semibold">Acesso restrito</h1>
         <p className="mt-2 text-sm text-ink/50">Seu perfil não possui permissão para visualizar preços de calhas.</p>
       </div>
     );
@@ -42,24 +42,24 @@ export async function GutterPricesPage({ error, saved }: { error?: string; saved
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+      <Link href="/configuracoes" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55">
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Link>
       <div className="mb-7 flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Precificação real</p>
-          <h1 className="mt-2 text-3xl font-black">Tabela de preços de calhas</h1>
+          <p className="text-xs font-semibold text-forest">Precificação real</p>
+          <h1 className="mt-2 text-3xl font-semibold">Tabela de preços de calhas</h1>
           <p className="mt-1 text-sm text-ink/50">Preço por metro conforme produto, espessura, C/ e cor.</p>
         </div>
-        {!canManage && <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">Somente leitura</span>}
+        {!canManage && <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">Somente leitura</span>}
       </div>
 
       {(error || loadError) && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error || loadError}</p>}
       {saved && <p className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">Preço salvo e disponível na calculadora.</p>}
       {canManage && (
         <details className="card mb-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-black">
+          <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-semibold">
             <Plus className="h-4 w-4" />
             Adicionar preço
           </summary>
@@ -70,7 +70,7 @@ export async function GutterPricesPage({ error, saved }: { error?: string; saved
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[950px] text-left text-sm">
-            <thead className="bg-cream/70 text-[11px] uppercase tracking-wider text-ink/45">
+            <thead className="bg-cream/70 text-[11px] text-ink/45">
               <tr>
                 <th className="p-4">Produto</th>
                 <th className="p-4">Espessura</th>
@@ -150,11 +150,11 @@ function EditableRow({ price }: { price: GutterPrice }) {
 function ReadOnlyRow({ price }: { price: GutterPrice }) {
   return (
     <tr>
-      <td className="p-4 font-bold">{price.product}</td>
+      <td className="p-4 font-semibold">{price.product}</td>
       <td className="p-4">{price.thickness ?? "-"}</td>
       <td className="p-4">{price.cut_mm ? `${price.cut_mm} mm` : "-"}</td>
       <td className="p-4">{price.color ?? "-"}</td>
-      <td className="p-4 font-black">{money(price.unit_price)}/m</td>
+      <td className="p-4 font-semibold">{money(price.unit_price)}/m</td>
       <td className="p-4 text-ink/50">{price.notes || "-"}</td>
       <td className="p-4">{price.active ? "Sim" : "Não"}</td>
     </tr>
@@ -206,7 +206,7 @@ function PriceForm() {
         <label className="label">Observação</label>
         <input className="field" name="notes" />
       </div>
-      <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold">
+      <label className="flex items-center gap-2 self-end pb-3 text-sm font-semibold">
         <input className="h-4 w-4 accent-forest" name="active" type="checkbox" defaultChecked />
         Preço ativo
       </label>

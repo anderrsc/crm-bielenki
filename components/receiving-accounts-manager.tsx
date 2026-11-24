@@ -19,12 +19,12 @@ export function ReceivingAccountsManager() {
 
   return (
     <details className="card mb-6 p-4">
-      <summary className="flex cursor-pointer list-none items-center gap-2 font-bold"><Landmark className="h-4 w-4" /> Contas de recebimento <span className="text-xs font-normal text-ink/50">({accounts?.filter((a) => a.active).length ?? "…"} ativas) · onde caem os Pix e depósitos</span></summary>
+      <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><Landmark className="h-4 w-4" /> Contas de recebimento <span className="text-xs font-normal text-ink/50">({accounts?.filter((a) => a.active).length ?? "…"} ativas) · onde caem os Pix e depósitos</span></summary>
       <div className="mt-3 space-y-2">
         {error && <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{error}</p>}
         {(accounts ?? []).map((a) => (
           <div key={a.id} className={`flex items-center gap-2 rounded-xl border border-sand/80 p-2 text-sm ${a.active ? "" : "opacity-50"}`}>
-            <div className="min-w-0 flex-1"><p className="font-bold">{a.name}</p>{a.details && <p className="truncate text-xs text-ink/60">{a.details}</p>}{a.pix_key && <p className="truncate text-xs text-forest">Pix: {a.pix_key}{a.holder_name ? ` · ${a.holder_name}` : ""}</p>}</div>
+            <div className="min-w-0 flex-1"><p className="font-semibold">{a.name}</p>{a.details && <p className="truncate text-xs text-ink/60">{a.details}</p>}{a.pix_key && <p className="truncate text-xs text-forest">Pix: {a.pix_key}{a.holder_name ? ` · ${a.holder_name}` : ""}</p>}</div>
             <button type="button" onClick={() => setEdit({ id: a.id, name: a.name, details: a.details ?? "", pix_key: a.pix_key ?? "", holder_name: a.holder_name ?? "", holder_city: a.holder_city ?? "Jaraguá do Sul" })} className="button-ghost p-1.5" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></button>
             <button type="button" onClick={() => save({ id: a.id, name: a.name, details: a.details ?? "", active: !a.active })} className="button-ghost px-2 py-1 text-xs">{a.active ? "Desativar" : "Reativar"}</button>
           </div>

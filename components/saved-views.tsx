@@ -26,18 +26,18 @@ export function SavedViews() {
 
   return (
     <div className="no-print mb-3 flex flex-wrap items-center gap-2 text-xs" aria-label="Visões salvas">
-      {views.length > 0 && <span className="inline-flex items-center gap-1 font-bold text-ink/50"><Bookmark className="h-3.5 w-3.5" /> Minhas visões</span>}
+      {views.length > 0 && <span className="inline-flex items-center gap-1 font-semibold text-ink/50"><Bookmark className="h-3.5 w-3.5" /> Minhas visões</span>}
       {views.map((v) => (
         <span key={v.name} className={`inline-flex items-center overflow-hidden rounded-full border ${active?.name === v.name ? "border-forest bg-forest/10" : "border-sand"}`}>
-          <button type="button" className="px-2.5 py-1 font-bold" aria-pressed={active?.name === v.name} onClick={() => router.push(v.qs ? `${pathname}?${v.qs}` : pathname)}>{v.name}</button>
+          <button type="button" className="px-2.5 py-1 font-semibold" aria-pressed={active?.name === v.name} onClick={() => router.push(v.qs ? `${pathname}?${v.qs}` : pathname)}>{v.name}</button>
           <button type="button" aria-label={`Apagar visão ${v.name}`} className="px-1.5 py-1 text-ink/40 hover:text-red-500" onClick={() => save(views.filter((x) => x.name !== v.name))}><X className="h-3 w-3" /></button>
         </span>
       ))}
-      {qs && !active && !naming && <button type="button" className="rounded-full border border-dashed border-sand px-2.5 py-1 font-bold text-forest" onClick={() => setNaming(true)}>Salvar estes filtros</button>}
+      {qs && !active && !naming && <button type="button" className="rounded-full border border-dashed border-sand px-2.5 py-1 font-semibold text-forest" onClick={() => setNaming(true)}>Salvar estes filtros</button>}
       {naming && (
         <form className="inline-flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); const n = name.trim().slice(0, 24); if (!n) return; save([...views.filter((v) => v.name !== n), { name: n, qs }].slice(-8)); setName(""); setNaming(false); }}>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={24} placeholder="Nome da visão" aria-label="Nome da visão" className="field w-36 py-1 text-xs" />
-          <button className="rounded-lg bg-forest px-2.5 py-1 font-bold text-white">Salvar</button>
+          <button className="rounded-lg bg-forest px-2.5 py-1 font-semibold text-white">Salvar</button>
         </form>
       )}
     </div>

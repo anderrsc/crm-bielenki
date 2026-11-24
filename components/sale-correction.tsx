@@ -13,7 +13,7 @@ export async function SaleCorrection({ saleId }: { saleId: string }) {
     db.rpc("has_table_access", { resource: "sales", action: "update" }),
   ]);
   if (!sale || canEdit !== true || sale.operational_status === "cancelado") return null;
-  if (quote) return <section className="card mx-auto mt-5 max-w-6xl p-5 text-sm"><strong>Lançou algo errado nesta venda?</strong> Ela veio do orçamento {quote.quote_number}: <Link className="font-bold text-forest underline" href={`/orcamentos/${quote.id}`}>abra o orçamento</Link> e use &quot;Reverter aprovação&quot;, corrija e aprove de novo.</section>;
+  if (quote) return <section className="card mx-auto mt-5 max-w-6xl p-5 text-sm"><strong>Lançou algo errado nesta venda?</strong> Ela veio do orçamento {quote.quote_number}: <Link className="font-semibold text-forest underline" href={`/orcamentos/${quote.id}`}>abra o orçamento</Link> e use &quot;Reverter aprovação&quot;, corrija e aprove de novo.</section>;
   const [{ data: items }, { data: clients }, { data: entry }, { data: order }] = await Promise.all([
     db.from("sale_items").select("id,description,product,quantity,unit_price").eq("sale_id", saleId).order("id"),
     db.from("clients").select("id,name").order("name").limit(2000),
@@ -23,7 +23,7 @@ export async function SaleCorrection({ saleId }: { saleId: string }) {
   const list = (clients ?? []) as { id: string; name: string }[];
   if (!list.some((c) => c.id === sale.client_id)) list.unshift({ id: sale.client_id, name: "Cliente atual" });
   return <section className="card mx-auto mt-5 max-w-6xl p-5">
-    <details><summary className="cursor-pointer font-black">Corrigir esta venda</summary>
+    <details><summary className="cursor-pointer font-semibold">Corrigir esta venda</summary>
       <SaleEditForm id={sale.id} clientId={sale.client_id} clients={list} dueDate={entry?.due_date ?? ""} notes={sale.notes ?? ""}
         items={((items ?? []) as { id: string; description: string | null; product: string | null; quantity: number; unit_price: number }[]).map((i) => ({ id: i.id, description: i.description || i.product || "", quantity: Number(i.quantity), unit_price: Number(i.unit_price) }))} />
       {Number(sale.paid_amount) === 0 && !order && <form action={cancelManualSale} className="mt-4 flex flex-wrap items-end gap-2 border-t border-sand pt-4">

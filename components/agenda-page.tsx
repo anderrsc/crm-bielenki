@@ -119,22 +119,22 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
 
   if (!mounted) return (
     <div className="mx-auto max-w-[1400px]">
-      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
-      <h1 className="mt-1 text-3xl font-black">Agenda</h1>
+      <p className="text-xs font-semibold text-forest">Operação</p>
+      <h1 className="mt-1 text-3xl font-semibold">Agenda</h1>
       <p className="mt-6 text-sm text-ink/50">Carregando agenda…</p>
     </div>
   );
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <Link href={`/equipes?dia=${ymd(cursor)}`} className="agenda-equipes-link mb-4 inline-block text-sm font-bold underline">Equipes, veículos e carregamento</Link>
+      <Link href={`/equipes?dia=${ymd(cursor)}`} className="agenda-equipes-link mb-4 inline-block text-sm font-semibold underline">Equipes, veículos e carregamento</Link>
       {mobile ? <><MobileAgenda cursor={cursor} view={mobileView} events={events} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
-        {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-bold text-ink/50">Carregando agenda…</p>}
+        {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-semibold text-ink/50">Carregando agenda…</p>}
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Operação</p>
-          <h1 className="mt-1 text-3xl font-black">Agenda</h1>
+          <p className="text-xs font-semibold text-forest">Operação</p>
+          <h1 className="mt-1 text-3xl font-semibold">Agenda</h1>
           <p className="mt-1 text-sm text-ink/50">Medições, instalações, reuniões e tarefas.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -142,7 +142,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
           <div className="flex rounded-xl border bg-surface">
             {(["mes","semana","dia"] as View[]).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={`px-4 py-2 text-sm font-semibold capitalize transition-colors first:rounded-l-xl last:rounded-r-xl ${view===v?"bg-brand-strong text-white":"text-ink/60 hover:bg-cream"}`}>
+                className={`px-4 py-2 text-sm font-semibold transition-colors first:rounded-l-xl last:rounded-r-xl ${view===v?"bg-brand-strong text-white":"text-ink/60 hover:bg-cream"}`}>
                 {v === "mes" ? "Mês" : v === "semana" ? "Semana" : "Dia"}
               </button>
             ))}
@@ -164,7 +164,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
       </div>
 
       {/* ── Título do período ── */}
-      <p className="mb-4 text-lg font-black text-ink">{titleLabel()}</p>
+      <p className="mb-4 text-lg font-semibold text-ink">{titleLabel()}</p>
 
       {loadError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{loadError}</p>}
       {/* ── Grid ── */}
@@ -205,7 +205,7 @@ function MonthView({ cursor, events, onDayClick, onEventClick }:
     <div className="overflow-hidden rounded-2xl border bg-surface shadow-sm">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b bg-cream">
-        {DAYS_PT.map(d => <div key={d} className="py-2 text-center text-xs font-bold text-ink/50 uppercase tracking-wider">{d}</div>)}
+        {DAYS_PT.map(d => <div key={d} className="py-2 text-center text-xs font-semibold text-ink/50 ">{d}</div>)}
       </div>
       {/* Weeks */}
       <div className="grid grid-cols-7 divide-x divide-y">
@@ -216,7 +216,7 @@ function MonthView({ cursor, events, onDayClick, onEventClick }:
           return (
             <div key={i} onClick={() => onDayClick(ymd(day))}
               className={`min-h-[110px] p-2 cursor-pointer transition-colors hover:bg-brand-strong/10 ${!isCurrentMonth ? "bg-gray-50/70" : ""}`}>
-              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold transition-colors
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold transition-colors
                 ${isToday ? "bg-brand-strong text-white" : isCurrentMonth ? "text-ink" : "text-ink/30"}`}>
                 {day.getDate()}
               </span>
@@ -253,9 +253,9 @@ function WeekView({ cursor, events, onDayClick, onEventClick }:
           const isToday = sameDay(d, today);
           return (
             <div key={i} className="py-3 text-center">
-              <p className="text-xs font-bold text-ink/40 uppercase">{DAYS_PT[d.getDay()]}</p>
+              <p className="text-xs font-semibold text-ink/40 ">{DAYS_PT[d.getDay()]}</p>
               <span onClick={() => onDayClick(ymd(d))}
-                className={`mt-1 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-lg font-black transition-colors hover:bg-brand-strong/20
+                className={`mt-1 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-lg font-semibold transition-colors hover:bg-brand-strong/20
                   ${isToday ? "bg-brand-strong text-white" : "text-ink"}`}>
                 {d.getDate()}
               </span>
@@ -298,7 +298,7 @@ function DayView({ cursor, events, onEventClick, onNewEvent }:
   return (
     <div className="overflow-hidden rounded-2xl border bg-surface shadow-sm">
       <div className="border-b bg-cream px-6 py-3 flex items-center justify-between">
-        <p className="font-bold text-ink">{fmtDate(cursor.toISOString())}</p>
+        <p className="font-semibold text-ink">{fmtDate(cursor.toISOString())}</p>
         <p className="text-sm text-ink/50">{dayEvents.length} evento{dayEvents.length !== 1 ? "s" : ""}</p>
       </div>
       {/* All-day / sem horário */}
@@ -368,8 +368,8 @@ function EventModal({ event, onClose, onStatusChange }:
         <div className={`rounded-t-2xl px-6 py-4 ${cfg.bg}`}>
           <div className="flex items-start justify-between">
             <div>
-              <span className={`text-xs font-bold uppercase tracking-widest ${cfg.color}`}>{cfg.label}</span>
-              <h2 className="mt-1 text-xl font-black text-ink">{event.title}</h2>
+              <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+              <h2 className="mt-1 text-xl font-semibold text-ink">{event.title}</h2>
               {event.subtitle && <p className="mt-0.5 text-sm text-ink/60">{event.subtitle}</p>}
             </div>
             <button onClick={onClose} className="rounded-xl p-1.5 hover:bg-black/10"><X className="h-5 w-5" /></button>
@@ -379,15 +379,15 @@ function EventModal({ event, onClose, onStatusChange }:
           {(details?.clientName || event.client_name) && (
             <div>
               <Row icon={<User className="h-4 w-4" />} label="Cliente" value={details?.clientName || event.client_name || ""} />
-              {details?.clientId && <Link href={`/clientes/${details.clientId}`} className="ml-6 text-xs font-bold text-forest hover:underline">Ver cadastro e histórico →</Link>}
+              {details?.clientId && <Link href={`/clientes/${details.clientId}`} className="ml-6 text-xs font-semibold text-forest hover:underline">Ver cadastro e histórico →</Link>}
             </div>
           )}
           <div>
             <Row icon={<MapPin className="h-4 w-4" />} label="Local" value={details ? (details.address || "Endereço não informado") : detailsError || "Carregando…"} />
             {maps && (
               <div className="ml-6 mt-1.5 flex flex-wrap gap-2">
-                <a href={maps.google} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold"><Navigation className="h-3.5 w-3.5" /> Google Maps</a>
-                <a href={maps.waze} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold">Waze</a>
+                <a href={maps.google} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-semibold"><Navigation className="h-3.5 w-3.5" /> Google Maps</a>
+                <a href={maps.waze} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-cream px-2.5 py-1.5 text-xs font-semibold">Waze</a>
               </div>
             )}
           </div>
@@ -395,8 +395,8 @@ function EventModal({ event, onClose, onStatusChange }:
             <div>
               <Row icon={<Phone className="h-4 w-4" />} label="Telefone" value={details?.phone ?? ""} />
               <div className="ml-6 mt-1.5 flex flex-wrap gap-2">
-                <a href={contact.call} className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-bold"><Phone className="h-3.5 w-3.5" /> Ligar</a>
-                <a href={contact.whatsapp} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-green-600/15 px-2.5 py-1.5 text-xs font-bold text-green-700"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>
+                <a href={contact.call} className="flex items-center gap-1 rounded-lg bg-cream px-2.5 py-1.5 text-xs font-semibold"><Phone className="h-3.5 w-3.5" /> Ligar</a>
+                <a href={contact.whatsapp} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-green-600/15 px-2.5 py-1.5 text-xs font-semibold text-green-700"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>
               </div>
             </div>
           )}
@@ -410,30 +410,30 @@ function EventModal({ event, onClose, onStatusChange }:
             <Row icon={<Tag className="h-4 w-4" />} label="Observações" value={details?.notes || event.description || ""} />
           )}
           {details?.relatedHref && (
-            <Link href={details.relatedHref} className="inline-flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white">{details.relatedLabel} <ChevronRight className="h-3.5 w-3.5" /></Link>
+            <Link href={details.relatedHref} className="inline-flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-semibold text-white">{details.relatedLabel} <ChevronRight className="h-3.5 w-3.5" /></Link>
           )}
           <div className="flex items-center gap-2">
             <Tag className="h-4 w-4 text-ink/40" />
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusCfg.color}`}>{statusCfg.label}</span>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusCfg.color}`}>{statusCfg.label}</span>
           </div>
         </div>
         {/* Ações rápidas */}
         <div className="flex flex-wrap gap-2 border-t px-6 py-4">
           {!["concluido","concluida","medicao_concluida"].includes(event.status) && (
             <button onClick={() => onStatusChange(event.id, "concluido")}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100">
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
               <CheckCircle2 className="h-4 w-4" /> Concluir
             </button>
           )}
           {event.status !== "cancelado" && (
             <button onClick={() => onStatusChange(event.id, "cancelado")}
-              className="flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">
+              className="flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100">
               <XCircle className="h-4 w-4" /> Cancelar
             </button>
           )}
           {event.status === "agendado" && (
             <button onClick={() => onStatusChange(event.id, "confirmado")}
-              className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700 hover:bg-green-100">
+              className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100">
               <CheckCircle2 className="h-4 w-4" /> Confirmar
             </button>
           )}
@@ -448,7 +448,7 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
     <div className="flex gap-3">
       <span className="mt-0.5 text-ink/40 shrink-0">{icon}</span>
       <div>
-        <p className="text-xs font-bold text-ink/40 uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-semibold text-ink/40 ">{label}</p>
         <p className="text-sm font-medium text-ink">{value}</p>
       </div>
     </div>
@@ -479,7 +479,7 @@ function CreateEventModal({ date, onClose, onCreated }: { date: string; onClose:
         <div className="flex items-center justify-between rounded-t-2xl bg-brand-strong px-6 py-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-white/70" />
-            <h2 className="text-lg font-black text-white">Novo evento</h2>
+            <h2 className="text-lg font-semibold text-white">Novo evento</h2>
           </div>
           <button onClick={onClose} className="rounded-xl p-1.5 hover:bg-surface/10"><X className="h-5 w-5 text-white" /></button>
         </div>

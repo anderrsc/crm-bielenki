@@ -5,12 +5,12 @@
  --text-rgb:10 10 11; --surface-rgb:255 255 255; --surface-2-rgb:247 247 248;
  --border-rgb:228 228 231; --brand-text-rgb:179 11 11;
  --text-muted:var(--paper-muted); --surface:var(--paper); --surface-2:var(--paper-soft); --text:var(--paper-text);
- color-scheme:light; background:var(--paper)!important; color:var(--paper-text); font-family:var(--font-ui);
+ color-scheme:light; background:var(--paper)!important; color:var(--paper-text); font-family:var(--font-doc-ui);
  width:210mm; min-width:210mm; max-width:210mm; padding:10mm 12mm; margin:auto; box-sizing:border-box;
 }
 .quote-sheet img { display:block; }
 .quote-bar { grid-template-columns:1.8fr .85fr .85fr 1.1fr 1fr; border:1px solid var(--paper-border); border-radius:2mm; min-height:12mm; background:var(--paper-soft); color:var(--paper-text); }
-.quote-bar-numero { padding:2mm 3mm; font-family:var(--font-display); font-size:11px; white-space:normal; overflow-wrap:anywhere; }
+.quote-bar-numero { padding:2mm 3mm; font-family:var(--font-doc-display); font-size:11px; white-space:normal; overflow-wrap:anywhere; }
 .quote-bar-meta { padding:2mm 1mm; border-color:var(--paper-border); }
 .quote-bar-label { color:var(--paper-muted); font-size:9px; }
 .quote-bar-value { color:var(--paper-text); font-size:10px; max-height:none; -webkit-line-clamp:unset; }
@@ -18,7 +18,7 @@
 .quote-seller-icon { color:var(--paper-muted); }
 .quote-client-box,.quote-with-pieces .quote-client-box { min-height:0; padding:4mm; margin-top:4mm; background:var(--paper-soft); }
 .quote-client-watermark { position:absolute; right:4mm; bottom:2mm; width:22mm; height:auto; opacity:.025; pointer-events:none; }
-.quote-client-title,.quote-with-pieces .quote-client-title { font-family:var(--font-display); font-size:11px; margin-bottom:3mm; }
+.quote-client-title,.quote-with-pieces .quote-client-title { font-family:var(--font-doc-display); font-size:11px; margin-bottom:3mm; }
 .quote-client-title::before { display:none; }
 .quote-client-grid,.quote-with-pieces .quote-client-grid { position:relative; z-index:1; width:100%; grid-template-columns:18mm 1fr 23mm 1fr; column-gap:2mm; row-gap:2mm; font-size:10px; line-height:1.5; }
 .quote-client-obs,.quote-with-pieces .quote-client-obs { width:100%; margin-top:2mm; font-size:10px; }
@@ -80,7 +80,7 @@
 .quote-sheet .quote-logo-col { display:flex; align-items:center; justify-content:flex-start; height:24mm; }
 .quote-sheet .quote-logo-img { width:52mm; height:auto; max-height:24mm; object-fit:contain; background:transparent; }
 .quote-sheet .quote-company-col { min-height:0; border:0; padding:0 4mm; border-left:1px solid var(--paper-border); border-right:1px solid var(--paper-border); text-align:center; font-size:10px; line-height:1.45; color:var(--paper-text); overflow-wrap:anywhere; }
-.quote-sheet .quote-company-name { display:block; font-family:var(--font-display); font-size:13px; font-weight:800; letter-spacing:.02em; margin:0 auto 1.5mm; padding:0; border:0; }
+.quote-sheet .quote-company-name { display:block; font-family:var(--font-doc-display); font-size:13px; font-weight:800; letter-spacing:.02em; margin:0 auto 1.5mm; padding:0; border:0; }
 .quote-company-lines { display:grid; gap:.6mm; }
 .quote-company-lines p { margin:0; }
 .quote-company-tax,.quote-company-contacts { font-variant-numeric:tabular-nums; }

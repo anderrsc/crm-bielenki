@@ -46,11 +46,11 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
     <div className="mx-auto max-w-4xl space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/configuracoes" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+          <Link href="/configuracoes" className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-ink/55">
             <ArrowLeft className="h-4 w-4" />Voltar
           </Link>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pessoas</p>
-          <h1 className="mt-1 text-3xl font-black">Funcionários & Usuários</h1>
+          <p className="text-xs font-semibold text-forest">Pessoas</p>
+          <h1 className="mt-1 text-3xl font-semibold">Funcionários e usuários</h1>
           <p className="mt-1 text-sm text-ink/50">{profiles.length} membro{profiles.length !== 1 ? "s" : ""} da equipe</p>
         </div>
       </div>
@@ -77,7 +77,7 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
               <Plus className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="font-bold">Adicionar novo usuário</h2>
+              <h2 className="font-semibold">Adicionar novo usuário</h2>
               <p className="text-xs text-ink/50">O usuário receberá acesso imediato ao sistema</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
 
       {/* ─── LISTA DE FUNCIONÁRIOS ─── */}
       <div className="space-y-2">
-        <h2 className="font-bold text-sm uppercase tracking-widest text-ink/40">Equipe atual</h2>
+        <h2 className="font-semibold text-sm text-ink/40">Equipe atual</h2>
         {profiles.map(p => {
           const myRoles = userRoles.filter(r => r.profile_id === p.id).map(r => r.role);
           return (
@@ -133,7 +133,7 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
                     ? <UserCheck className="h-5 w-5 text-forest" />
                     : <UserX className="h-5 w-5 text-ink/30" />}
                   <div>
-                    <p className="font-bold">{p.full_name}</p>
+                    <p className="font-semibold">{p.full_name}</p>
                     <p className="text-xs text-ink/50">
                       {myRoles.map(r => ALL_ROLES.find(x => x.value === r)?.label ?? r).join(", ") || "Sem cargo"}
                     </p>
@@ -141,7 +141,7 @@ export async function EmployeesPage({ error, saved, passwordFor }: { error?: str
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`hidden rounded-full px-2 py-0.5 text-xs font-bold sm:inline ${p.status === "ativo" ? "bg-brand-strong/30 text-forest" : "bg-cream/10 text-ink/40"}`}>
+                  <span className={`hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline ${p.status === "ativo" ? "bg-brand-strong/30 text-forest" : "bg-cream/10 text-ink/40"}`}>
                     {p.status === "ativo" ? "Ativo" : "Inativo"}
                   </span>
                   <span className="text-xs text-ink/40">{p.phone || ""}</span>
