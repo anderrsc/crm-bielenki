@@ -16,7 +16,7 @@ export function TrackingPage({data,error,saved,focus}:{data:TrackingData;error?:
  });
  return <div className="mx-auto max-w-6xl space-y-5">
   <header><Link href="/equipes" className="text-sm font-medium text-forest underline">← Equipes e veículos</Link><h1 className="mt-3 text-3xl font-semibold">Localização dos veículos</h1><p className="mt-2 text-sm text-ink/65">Últimas posições do TrackCEO, vinculadas à frota do CRM. Acesso restrito à gerência.</p></header>
-  <section className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="font-semibold">Portal do rastreamento</h2><p className="mt-1 text-sm text-ink/65">Abra o próprio painel do TrackCEO dentro do CRM, com o login do portal.</p></div><Link href="/equipes/rastreamento?painel=1" className="button">Abrir painel TrackCEO</Link></section>
+  <section className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="font-semibold">Portal do rastreamento</h2><p className="mt-1 text-sm text-ink/65">Abra o TrackCEO em uma janela própria e mantenha o rastreamento ao lado do CRM.</p></div><Link href="/equipes/rastreamento?painel=1" className="button">Abrir painel TrackCEO</Link></section>
   {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
   {saved&&<p role="status" className="rounded-xl bg-green-50 p-4 text-sm">Rastreamento atualizado.</p>}
   {!error&&status.last_error&&<p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm">{TRACKING_ERRORS[status.last_error]} Última consulta concluída: {date(status.last_sync_at)}.</p>}
