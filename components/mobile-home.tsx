@@ -6,6 +6,7 @@ import { CalendarCheck, CalendarPlus, ChevronRight, CircleDollarSign, FileText, 
 type TodayEvent = { id: string; source?: AgendaSource; title: string; starts_at: string; event_type: string; client_name?: string };
 export type MobileHomeProps = {
   name: string; greeting: string; dateLabel: string;
+  hero: { label: string; value: string; note: string; bars: { label: string; value: number; current: boolean }[] };
   kpis: { quotes: number; orders: number; today: number; receivable: string | null; receivableNote: string; leads: number };
   today: TodayEvent[];
   stages: { measure: number; production: number; install: number; done: number } | null;
@@ -15,7 +16,8 @@ const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: 
 const TYPE: Record<string, string> = { medicao: "Medição", instalacao: "Instalação", visita: "Visita", reuniao: "Reunião", entrega: "Entrega" };
 
 /** Início no celular, na organização das referências: saudação, 4 indicadores, ações rápidas, agenda de hoje e pedidos em andamento. */
-export function MobileHome({ name, greeting, dateLabel, kpis, today, stages }: MobileHomeProps) {
+export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stages }: MobileHomeProps) {
+  const top = Math.max(1, ...hero.bars.map(b => b.value));
   const tiles = [
     { label: "Orçamentos", value: String(kpis.quotes), note: "pendentes", Icon: FileText, tone: "success", href: "/orcamentos" },
     { label: "Pedidos", value: String(kpis.orders), note: "em andamento", Icon: ShoppingCart, tone: "info", href: "/pedidos" },
@@ -32,8 +34,27 @@ export function MobileHome({ name, greeting, dateLabel, kpis, today, stages }: M
   ];
   return (
     <div className="mobile-only mobile-home">
-      <h1 className="mh-greeting">{greeting}, {name}</h1>
-      <p className="mh-date">{dateLabel}</p>
+      <section className="mh-hero" aria-label="Resumo do mês">
+        <h1 className="mh-greeting">{greeting}, {name}</h1>
+        <p className="mh-date">{dateLabel}</p>
+        <p className="mh-hero-label">{hero.label}</p>
+        <p className="mh-hero-value">{hero.value}</p>
+        <p className="mh-hero-note">{hero.note}</p>
+        {hero.bars.length > 0 && (
+          <div className="mh-bars" role="img" aria-label={hero.bars.map(b => `${b.label}: ${b.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`).join("; ")}>
+            {hero.bars.map(b => (
+              <div key={b.label} className="mh-bar-col" data-current={b.current ? "true" : undefined}>
+                <i style={{ height: `${Math.max(6, Math.round((b.value / top) * 100))}%` }} />
+                <span>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mh-hero-actions">
+          <Link href="/orcamentos/calhas" className="mh-pill is-primary"><Plus size={18} />Novo orçamento</Link>
+          <Link href="/medicoes" className="mh-pill"><CalendarPlus size={18} />Agendar medição</Link>
+        </div>
+      </section>
 
       <div className="mh-kpis">
         {tiles.map(({ label, value, note, Icon, tone, href }) => (

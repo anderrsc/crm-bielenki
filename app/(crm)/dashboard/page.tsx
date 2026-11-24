@@ -83,6 +83,13 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
     done: st.servicos_concluidos_mes ?? 0,
   } : null;
   const overdueReceivable = Number(d?.overdue_receivable ?? 0);
+  // Barras dos últimos 6 meses com vendas registradas (dados reais do relatório; sem dados, o gráfico some).
+  const monthNames = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const heroBars = ((d?.report?.monthly_sales ?? []) as { mes?: string; month?: string; total: number }[])
+    .map(m => ({ key: String(m.mes || m.month || ""), value: Number(m.total) || 0 }))
+    .filter(m => m.key.length >= 7)
+    .slice(-6)
+    .map(m => ({ label: monthNames[Number(m.key.slice(5, 7)) - 1] ?? "", value: m.value, current: m.key.startsWith(new Date().toISOString().slice(0, 7)) }));
 
   const overdueBadges = [
     (d?.overdue_receivable ?? 0) > 0 && { label:`${money(d.overdue_receivable)} a receber vencido(s)`, href:"/financeiro/receber", color:"bg-red-50 border-red-200 text-red-800", icon:AlertCircle },
@@ -102,6 +109,12 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
     <div className="mx-auto max-w-[1500px]">
       {aba === "geral" && <MobileHome
         name={(profileName ?? "").split(" ")[0] || "equipe"} greeting={greeting} dateLabel={dateLabel}
+        hero={{
+          label: canViewFinancial ? "Vendas do mês" : "Orçamentos pendentes",
+          value: canViewFinancial ? money(vendas) : String(Number(d?.orcamentos_pendentes ?? d?.quotes_pending ?? 0)),
+          note: `${Number(d?.activeOrders ?? 0)} ${Number(d?.activeOrders ?? 0) === 1 ? "pedido" : "pedidos"} em andamento · ${todayEvents.length} ${todayEvents.length === 1 ? "compromisso" : "compromissos"} hoje`,
+          bars: canViewFinancial ? heroBars : [],
+        }}
         kpis={{ quotes: Number(d?.orcamentos_pendentes ?? d?.quotes_pending ?? 0), orders: Number(d?.activeOrders ?? 0), today: todayEvents.length, leads: Number(d?.leads_novos ?? 0),
           receivable: canViewFinancial ? money(receitas) : null, receivableNote: overdueReceivable > 0 ? `${money(overdueReceivable)} vencido` : "em aberto" }}
         today={todayEvents as never} stages={stages} />}

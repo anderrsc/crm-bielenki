@@ -229,14 +229,14 @@
  .mobile-home .mh-date { margin: 4px 0 16px; color: var(--text-muted); font-size: 16px; }
  .mh-kpis { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
  .mh-kpi { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
- .mh-kpi-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; }
+ .mh-kpi-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0; }
  .mh-kpi-icon[data-tone=success] { background: var(--success-soft); color: var(--success-text); }
  .mh-kpi-icon[data-tone=info] { background: var(--info-soft); color: var(--info-text); }
  .mh-kpi-icon[data-tone=warning] { background: var(--warning-soft); color: var(--warning-text); }
  .mh-kpi-icon[data-tone=violet] { background: #F0EBFF; color: #5B3FB5; }
  .mh-kpi-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
  .mh-kpi-text small { font-size: 13px; color: var(--text); font-weight: 500; }
- .mh-kpi-text strong { font-size: clamp(16px,4.7vw,19px); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+ .mh-kpi-text strong { font-size: clamp(15px,4.4vw,17px); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
  .mh-kpi-text em { font-style: normal; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
  .mh-title { display: flex; align-items: center; gap: 8px; margin: 22px 0 10px; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
  .mh-title svg { color: var(--text-muted); }
@@ -318,4 +318,56 @@
 @media screen and (max-width: 767px) {
  .mh-list > li, .mh-event { min-width: 0; max-width: 100%; }
  .mh-kpis > a, .mh-actions > a, .mh-stages > a { min-width: 0; }
+}
+
+/* ===== Estilo "app": painel de destaque escuro, cartões bem arredondados e barra inferior flutuante ===== */
+@media screen and (max-width: 767px) {
+ /* Painel de destaque do Início */
+ .mh-hero { margin: -18px -16px 18px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; background: linear-gradient(180deg, #2a2b2e 0%, #151517 100%); }
+ .mobile-home .mh-hero .mh-greeting { font-size: 22px; line-height: 28px; font-weight: 700; color: #fff; }
+ .mobile-home .mh-hero .mh-date { margin: 2px 0 16px; font-size: 14px; color: rgb(255 255 255 / .62); }
+ .mh-hero-label { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
+ .mh-hero-value { margin-top: 2px; font-size: 34px; line-height: 40px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+ .mh-hero-note { margin-top: 4px; font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
+ .mh-bars { display: flex; align-items: flex-end; gap: 10px; height: 104px; margin: 16px 0 4px; }
+ .mh-bar-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; }
+ .mh-bar-col > i { display: block; width: 100%; max-width: 28px; min-height: 6px; border-radius: 8px; background: rgb(255 255 255 / .28); }
+ .mh-bar-col[data-current=true] > i { background: var(--brand); }
+ .mh-bar-col > span { font-size: 11px; line-height: 14px; color: rgb(255 255 255 / .55); }
+ .mh-hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+ .mh-pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 12px; border-radius: 999px; background: #fff; color: #151517; font-size: 14px; font-weight: 700; white-space: nowrap; }
+ .mh-pill.is-primary { background: var(--brand); color: #fff; }
+
+ /* Cartões e blocos mais arredondados */
+ .app-content .card { border-radius: 20px; }
+ .mh-kpi, .mh-event, .mh-actions a, .mh-stages a { border-radius: 18px; }
+ .mh-kpi-icon { border-radius: 14px; }
+ .mh-section-head > a { padding: 0 14px; min-height: 36px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 13px; }
+ .mobile-quote-workspace .quote-list-row, .mobile-appointment, .mobile-date-nav, .mobile-calendar { border-radius: 18px; }
+ .quote-row-icon { border-radius: 14px; }
+
+ /* Barra inferior flutuante, com o item ativo em círculo */
+ .mobile-bottom-bar { left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); height: 62px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 30px; background: var(--surface); box-shadow: 0 10px 30px rgb(16 24 40 / .16); }
+ .mobile-bottom-bar a, .mobile-bottom-bar button { height: 54px; font-size: 11px; font-weight: 500; gap: 2px; }
+ .mobile-bottom-bar a[aria-current=page], .mobile-bottom-bar button[aria-expanded=true] { color: var(--text); font-weight: 700; }
+ .mobile-bottom-bar a[aria-current=page] .mobile-tab-icon { width: 46px; height: 46px; margin-top: -22px; border-radius: 50%; align-items: center; justify-content: center; background: #151517; color: #fff; box-shadow: 0 6px 14px rgb(0 0 0 / .28), 0 0 0 4px var(--surface); }
+ .mobile-bottom-bar a[aria-current=page] { justify-content: flex-end; padding-bottom: 4px; }
+ .app-content { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+ .app-content > .mobile-inbox { height: calc(100dvh - 140px - env(safe-area-inset-bottom)); margin-bottom: calc(-100px - env(safe-area-inset-bottom)); }
+ .app-shell-root:has([data-chat-open=true]) .app-content > .mobile-inbox { margin-bottom: calc(-100px - env(safe-area-inset-bottom)); }
+ .quote-save-bar { bottom: calc(82px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
+ .app-content:has(.quote-save-bar) { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
+}
+@media screen and (max-width: 767px) {
+ .quote-row-number { white-space: nowrap; }
+ .quote-row-total { font-size: 15px; white-space: nowrap; }
+}
+@media screen and (max-width: 767px) {
+ .mh-hero-actions > .mh-pill { min-width: 0; padding: 0 10px; }
+ .mh-hero-value { overflow-wrap: anywhere; }
+}
+@media screen and (max-width: 359px) {
+ .mh-pill { font-size: 13px; gap: 0; white-space: normal; line-height: 1.15; text-align: center; }
+ .mh-pill svg { display: none; }
+ .mh-hero-value { font-size: 30px; }
 }
