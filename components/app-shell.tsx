@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator,Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { House,LayoutGrid,Calculator,Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -77,6 +77,14 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
  // Favoritos no topo (escolha da pessoa); recentes no fim, para não repetir o menu logo de cara.
  const shortcuts=favItems.length>0&&<div className="sidebar-section">{groupHeader("Favoritos",groupOpen("Favoritos"))}{groupOpen("Favoritos")&&favItems.map(shortcutLink)}</div>;
  const recentBlock=recentItems.length>0&&!compact&&<div className="sidebar-section">{groupHeader("Recentes",groupOpen("Recentes"))}{groupOpen("Recentes")&&recentItems.map(shortcutLink)}</div>;
+ // Barra do celular: Início · WhatsApp · Agenda · Orçamentos · Mais. Só entra o que o cargo pode ver.
+ const mobileTabs=[
+  {href:"/dashboard",label:"Início",Icon:House,show:true},
+  {href:"/atendimento",label:"WhatsApp",Icon:MessageCircle,show:canSee("/atendimento")},
+  {href:"/agenda",label:"Agenda",Icon:CalendarCheck,show:canSee("/agenda")},
+  {href:"/orcamentos",label:"Orçamentos",Icon:FileText,show:canSee("/orcamentos")},
+ ].filter(t=>t.show);
+ if(mobileTabs.length<4)mobileTabs.splice(1,0,{href:"/pendencias",label:"Pendências",Icon:AlertCircle,show:true});
  return <div className="app-shell-root">
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
@@ -87,17 +95,15 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[]}:{c
   </aside>
   <div className="app-workspace">
    <header className="app-topbar"><button className="mobile-menu-button" aria-label="Abrir menu" aria-expanded={open} onClick={()=>setOpen(true)}><Menu size={21}/></button>
+    <Link href="/dashboard" className="mobile-brand" aria-label="Marquinhos Calhas e Esquadrias — início"><img src="/brand/mark.svg" alt="" width={34} height={34}/><span><strong>Marquinhos</strong><small>Calhas e Esquadrias</small></span></Link>
     <LiveSearchForm action="/busca" className="topbar-search"><Search size={17}/><input ref={searchRef} className="field" name="q" aria-label="Busca global" placeholder="Pesquisar…"/><kbd role="button" tabIndex={0} title="Comandos rápidos (Ctrl K)" style={{cursor:"pointer"}} onClick={()=>dispatchEvent(new Event("open-command-palette"))} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();dispatchEvent(new Event("open-command-palette"))}}}>Ctrl K</kbd></LiveSearchForm>
-    <div className="topbar-actions">{current&&<button type="button" onClick={()=>toggleFav(current.href)} aria-pressed={favs.includes(current.href)} title={favs.includes(current.href)?"Tirar dos favoritos":"Fixar nos favoritos"} aria-label={favs.includes(current.href)?`Tirar ${current.label} dos favoritos`:`Fixar ${current.label} nos favoritos`} className="rounded-lg p-2 text-ink/50 hover:bg-cream hover:text-ink"><Star size={18} fill={favs.includes(current.href)?"currentColor":"none"}/></button>}<QuickCreateMenu items={CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href}))}/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
+    <div className="topbar-actions"><Link href="/busca" className="topbar-icon mobile-search-link" aria-label="Buscar"><Search size={18}/></Link>{current&&<button type="button" onClick={()=>toggleFav(current.href)} aria-pressed={favs.includes(current.href)} title={favs.includes(current.href)?"Tirar dos favoritos":"Fixar nos favoritos"} aria-label={favs.includes(current.href)?`Tirar ${current.label} dos favoritos`:`Fixar ${current.label} nos favoritos`} className="rounded-lg p-2 text-ink/50 hover:bg-cream hover:text-ink"><Star size={18} fill={favs.includes(current.href)?"currentColor":"none"}/></button>}<QuickCreateMenu items={CREATE.filter(c=>canSee(c.base)).map(c=>({label:c.label,href:c.href}))}/><NotificationCenter/><div className="topbar-user"><span className="user-avatar">{userName.slice(0,2).toUpperCase()}</span><span>{userName}<small title={companyName}>Marquinhos · Gestão</small></span></div></div>
    </header>
    <Suspense fallback={null}><NavProgress/><Toaster/></Suspense><ConfirmHost/><CommandPalette items={paletteItems}/><InputHelpers/><main className="app-content"><Breadcrumbs pathname={pathname} sectionLabel={href=>flat.find(i=>i.href===href)?.label}/>{SAVED_VIEW_PAGES.includes(pathname)&&<Suspense fallback={null}><SavedViews/></Suspense>}{children}</main><UnsavedGuard/><footer className="app-footer"><AuthorSignature/></footer>
   </div>
   <nav className="mobile-bottom-bar" aria-label="Navegação no celular">
-   <Link href="/dashboard" aria-current={pathname==="/dashboard"?"page":undefined}><LayoutDashboard size={19}/>Início</Link>
-   {canSee("/clientes")?<Link href="/clientes" aria-current={pathname.startsWith("/clientes")?"page":undefined}><Users size={19}/>Clientes</Link>:<Link href="/pendencias"><AlertCircle size={19}/>Pendências</Link>}
-   {canSee("/orcamentos")?<Link className="mobile-create" href="/orcamentos/calhas" aria-label="Novo orçamento"><Plus size={24}/><span>Orçamento</span></Link>:<Link className="mobile-create" href="/pendencias"><ClipboardCheck size={24}/><span>Pendências</span></Link>}
-   <Link href={canSee("/agenda")?"/agenda":"/busca"} aria-current={pathname.startsWith("/agenda")?"page":undefined}><CalendarCheck size={19}/>{canSee("/agenda")?"Agenda":"Busca"}</Link>
-   <button type="button" onClick={()=>setOpen(true)} aria-expanded={open}><Menu size={20}/>Menu</button>
+   {mobileTabs.map(({href,label,Icon})=>{const active=href==="/dashboard"?pathname===href:pathname===href||pathname.startsWith(href+"/");return <Link key={href} href={href} aria-current={active?"page":undefined}><Icon size={22} strokeWidth={active?2.2:1.8}/><span>{label}</span></Link>})}
+   <button type="button" onClick={()=>setOpen(true)} aria-expanded={open}><LayoutGrid size={22} strokeWidth={1.8}/><span>Mais</span></button>
   </nav>
  </div>;
 }

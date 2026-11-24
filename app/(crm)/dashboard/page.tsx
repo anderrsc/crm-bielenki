@@ -90,7 +90,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
             <ClipboardList className="h-4 w-4" /> Pendências
           </Link>
           <Link href="/orcamentos/calhas" className="button flex items-center gap-2">
-            Novo orçamento <ArrowUpRight className="h-4 w-4" />
+            <FileText className="h-4 w-4" /> Novo orçamento
           </Link>
         </div>
       </div>

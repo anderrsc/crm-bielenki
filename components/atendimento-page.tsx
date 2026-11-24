@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown, Reply } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown, Reply, SlidersHorizontal } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
   addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
@@ -83,6 +83,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const [numero, setNumero] = useState(initialNumero && /^[0-9a-f-]{36}$/i.test(initialNumero) ? initialNumero : "");
   const [etiqueta, setEtiqueta] = useState("");
   const [setor, setSetor] = useState("");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
   const [buscandoHistorico, startHistorico] = useTransition();
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -293,16 +294,22 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
           }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
           <p className="wa-muted flex items-center justify-between text-[11px]"><span>{connection}</span><Link href="/atendimento/canais" className="font-bold underline">Números de WhatsApp</Link></p>
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
-          <div className="wa-search flex items-center gap-3 rounded-lg px-3 py-2">
-            <Search className="wa-muted h-4 w-4" />
-            <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+          <div className="flex items-center gap-2">
+            <div className="wa-search flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2">
+              <Search className="wa-muted h-4 w-4" />
+              <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Pesquisar nome ou telefone" aria-label="Pesquisar conversas" className="w-full bg-transparent text-sm outline-none" />
+            </div>
+            <button type="button" onClick={() => setFiltrosAbertos(v => !v)} aria-expanded={filtrosAbertos} aria-controls="wa-filtros" aria-label="Filtros" className="wa-search wa-filter-toggle relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg md:hidden">
+              <SlidersHorizontal className="h-4 w-4" />
+              {[status, setor, etiqueta, numero].filter(Boolean).length > 0 && <span className="wa-badge absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">{[status, setor, etiqueta, numero].filter(Boolean).length}</span>}
+            </button>
           </div>
           {busca.trim().length >= 3 && (
             <button disabled={buscandoHistorico} onClick={() => startHistorico(async () => setHistorico((await searchInboxHistory(busca)).results))} className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>
               {buscandoHistorico ? "Buscando nas mensagens…" : `Buscar "${busca.trim()}" no texto das mensagens`}
             </button>
           )}
-          <div className="flex gap-2">
+          <div id="wa-filtros" className={cn("flex flex-wrap gap-2 md:flex-nowrap", !filtrosAbertos && "hidden md:flex")}>
             <select value={status} onChange={(e) => setStatus(e.target.value as "" | ConversationStatus)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Status">
               <option value="">Todos os status</option>
               {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
