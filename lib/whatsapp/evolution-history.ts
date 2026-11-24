@@ -39,7 +39,7 @@ export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId:
     const r = await importHistoryPage(db, companyId, records, channelId);
     inserted += r.inserted; conversations += r.conversations; pages = n;
     const total = Number(page.messages?.pages ?? 1);
-    if (!r.inserted || records.length < HISTORY_PAGE_SIZE || n >= total) break;
+    if (records.length < HISTORY_PAGE_SIZE || n >= total) break;
   }
   return { inserted, conversations, pages };
 }
