@@ -57,6 +57,7 @@ const AiCentral = dynamic(() => import("@/components/ai-central").then((m) => m.
 const AtendimentoPage = dynamic(() => import("@/components/atendimento-page").then((m) => m.AtendimentoPage));
 import { loadInbox } from "@/app/(crm)/atendimento-actions";
 import { loadCentralData } from "@/lib/ai/central-data";
+import { loadLiaV2Data } from "@/lib/ai/lia-v2-data";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { WorkPlanningPage } from "@/components/work-planning-page";
 import { AuditLogPage } from "@/components/audit-log-page";
@@ -131,8 +132,11 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const user = await getAuthUser();
     const { data: profile } = user ? await db.from("profiles").select("company_id").eq("id", user.id).single() : { data: null };
     if (!profile?.company_id) return <AiCentral data={null} error="Empresa não encontrada" />;
-    const data = await loadCentralData(db, profile.company_id).catch(() => null);
-    return <AiCentral data={data} error={search.erro} />;
+    const [data, v2] = await Promise.all([
+      loadCentralData(db, profile.company_id).catch(() => null),
+      loadLiaV2Data(db, profile.company_id).catch(() => null),
+    ]);
+    return <AiCentral data={data} error={search.erro} v2={v2} />;
   }
   if (path[0] === "agente-ia") {
     const tab = (search as { aba?: string }).aba ?? "triagens";
