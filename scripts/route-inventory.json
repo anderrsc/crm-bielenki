@@ -16,6 +16,7 @@
     "/agenda",
     "/equipes",
     "/equipes/rastreamento",
+    "/equipes/rastreamento?painel=1",
     "/medicoes",
     "/medicoes/ficha-em-branco",
     "/compras",

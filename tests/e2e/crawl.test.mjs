@@ -18,6 +18,10 @@ let browser, page;
 before(async () => {
   browser = await launch();
   page = await browser.newPage();
+  // A visita ao painel incorporado usa somente o portal fictício, sem rede ou sessão real.
+  await page.setRequestInterception(true);
+  page.on('request',req=>new URL(req.url()).origin==='https://gps.trackceo.com'
+    ?req.respond({status:200,contentType:'text/html',body:'<!doctype html><title>TrackCEO fictício</title><h1>Portal de teste</h1>'}):req.continue());
   await login(page, process.env.E2E_EMAIL ?? "admin@teste.local", process.env.E2E_PASSWORD ?? "senha-de-teste-123");
 });
 after(async () => browser?.close());
