@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown, Reply, SlidersHorizontal } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, Phone, Plus, Pencil, Copy, MapPin, FileText, CalendarDays, Package, Coins, PanelRightOpen, ArrowDown, Reply, SlidersHorizontal } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
   addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
@@ -251,6 +251,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const etiquetas = useMemo(() => [...new Map(items.flatMap((c) => c.labels ?? []).map((l) => [l.id, l])).values()].sort((a, b) => a.name.localeCompare(b.name)), [items]);
   // Números de WhatsApp presentes na lista (só mostra o filtro quando há mais de um).
   const numeros = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, c.channelName ?? "WhatsApp"])).entries()], [items]);
+  const numeroCards = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, { name: c.channelName ?? "WhatsApp", phone: c.channelPhone ?? "" }])).entries()], [items]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -285,21 +286,40 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
     <div className="wa-inbox mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
       {/* Lista */}
       <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
-        <div className="space-y-2 p-3">
-          <div className="flex items-center justify-between"><div><h1 className="text-[22px] font-bold tracking-tight">Conversas</h1><p className="wa-muted text-[11px]">Atendimento · WhatsApp</p></div>
-          <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
-            setSyncing(true);
-            try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
-            finally { setSyncing(false); }
-          }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
-          <p className="wa-muted flex items-center justify-between text-[11px]"><span>{connection}</span><Link href="/atendimento/canais" className="font-bold underline">Números de WhatsApp</Link></p>
+        <div className="wa-list-head space-y-3 p-3">
+          <div className="flex items-center gap-3">
+            <span className="wa-logo" aria-hidden><MessageCircle className="h-6 w-6" /></span>
+            <div className="min-w-0 flex-1"><h1 className="text-[20px] font-bold leading-tight">WhatsApp</h1><p className="wa-muted truncate text-xs">Central de atendimento integrada ao CRM</p></div>
+            <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
+              setSyncing(true);
+              try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
+              finally { setSyncing(false); }
+            }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button>
+          </div>
+          <p className="wa-muted flex items-center justify-between text-[11px]"><span>{connection}</span><Link href="/atendimento/canais" className="font-bold underline">Gerenciar números</Link></p>
           {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
-          <div className="flex items-center gap-2">
-            <div className="wa-search flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2">
-              <Search className="wa-muted h-4 w-4" />
-              <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Pesquisar nome ou telefone" aria-label="Pesquisar conversas" className="w-full bg-transparent text-sm outline-none" />
+          {numeroCards.length > 0 && (
+            <div className="wa-numbers flex gap-2 overflow-x-auto" role="group" aria-label="Números de WhatsApp">
+              {numeroCards.map(([k, n]) => (
+                <button key={k} type="button" onClick={() => setNumero(numero === k ? "" : k)} aria-pressed={numero === k} className="wa-number">
+                  <span className="block truncate text-[14px] font-bold">{n.name}</span>
+                  <span className="wa-muted flex items-center gap-1.5 text-[13px]"><span className="truncate">{n.phone || "Conectado"}</span><i className="wa-dot" aria-hidden /></span>
+                </button>
+              ))}
+              <Link href="/atendimento/canais" aria-label="Adicionar ou gerenciar números" className="wa-number wa-number-add"><Plus className="h-5 w-5" /></Link>
             </div>
-            <button type="button" onClick={() => setFiltrosAbertos(v => !v)} aria-expanded={filtrosAbertos} aria-controls="wa-filtros" aria-label="Filtros" className="wa-search wa-filter-toggle relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg md:hidden">
+          )}
+          <div className="wa-chips flex gap-2 overflow-x-auto pb-0.5 text-[14px] font-medium">
+            {([["todas", "Todas", items.filter((c) => !c.archived).length], ["naolidas", "Não lidas", totalNaoLidas], ["semresposta", "Sem resposta", totalSemResposta], ["ana", "Lia", 0], ["equipe", "Equipe", 0], ["lidas", "Lidas", 0]] as const).map(([k, l, n]) => (
+              <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip shrink-0 rounded-full px-3.5 py-1.5">{l}{n > 0 && " "}{n > 0 && <span className="wa-chip-count">{n}</span>}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="wa-search flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5">
+              <Search className="wa-muted h-4 w-4" />
+              <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Buscar conversas…" aria-label="Pesquisar conversas" className="w-full bg-transparent text-sm outline-none" />
+            </div>
+            <button type="button" onClick={() => setFiltrosAbertos(v => !v)} aria-expanded={filtrosAbertos} aria-controls="wa-filtros" aria-label="Filtros" className="wa-search wa-filter-toggle relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl md:hidden">
               <SlidersHorizontal className="h-4 w-4" />
               {[status, setor, etiqueta, numero].filter(Boolean).length > 0 && <span className="wa-badge absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">{[status, setor, etiqueta, numero].filter(Boolean).length}</span>}
             </button>
@@ -330,11 +350,6 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
                 {numeros.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             )}
-          </div>
-          <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
-            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["semresposta", `Sem resposta${totalSemResposta ? ` ${totalSemResposta}` : ""}`], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip rounded-full px-3 py-1">{l}</button>
-            ))}
           </div>
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
@@ -396,7 +411,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
       </aside>
 
       {/* Conversa */}
-      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
+      <section data-chat-open={openId ? "true" : undefined} className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
         {!openId ? (
           <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-4 border-b-4 px-6 text-center" style={{ borderColor: "var(--wa-green)" }}><span className="wa-avatar flex h-24 w-24 items-center justify-center rounded-full"><MessageCircle className="h-12 w-12" strokeWidth={1.25} /></span><p className="text-[28px] font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm leading-6">Suas conversas do WhatsApp, organizadas em um só lugar. Escolha um contato para conversar ou acompanhar o atendimento.</p></div>
         ) : !atual ? (
@@ -506,19 +521,19 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
 
   return (
     <>
-      <header className="wa-head flex items-center gap-1.5 px-2 py-2 sm:gap-3 sm:px-3">
-        <button onClick={onBack} className="wa-row rounded-full p-1 md:hidden" aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></button>
+      <header className="wa-head wa-chat-head flex items-center gap-1.5 px-2 py-2 sm:gap-3 sm:px-3">
+        <button onClick={onBack} className="wa-row rounded-full p-1.5 md:hidden" aria-label="Voltar"><ArrowLeft className="h-6 w-6" /></button>
         <button onClick={onPanel} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Ficha do cliente">
-          <span className="wa-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-medium">{c.name.slice(0, 1).toUpperCase()}</span>
+          <span className="wa-avatar flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-medium">{c.name.slice(0, 1).toUpperCase()}</span>
           <span className="min-w-0">
-            <span className="block truncate font-medium">{c.name}</span>
-            <span className="wa-muted block truncate text-xs">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · Lia respondendo"}</span>
+            <span className="block truncate text-[17px] font-bold leading-tight">{c.name}</span>
+            <span className="wa-muted block truncate text-[13px]">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · Lia respondendo"}</span>
           </span>
         </button>
         <button
           disabled={mudandoIa || (!aiActive && c.aiPaused)}
           onClick={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })}
-          className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold", c.aiPaused ? "wa-chip" : "wa-send")}
+          className={cn("hidden items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold md:flex", c.aiPaused ? "wa-chip" : "wa-send")}
           title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
           <Bot className="h-4 w-4" /> <span className="hidden sm:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
@@ -528,6 +543,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <LabelMenu conversationId={c.id} current={labels} onChanged={onChanged} />
+        {c.phone && !c.phone.includes("@") && <a href={`tel:+${c.phone.replace(/\D/g, "")}`} className="wa-row wa-muted rounded-full p-2" title="Ligar" aria-label={`Ligar para ${c.name}`}><Phone className="h-5 w-5" /></a>}
+<div className="hidden items-center gap-0.5 md:flex">
         <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted rounded-full p-2" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
         <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
         <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
@@ -540,6 +557,19 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         </button>
         <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-row wa-muted rounded-full p-2"><PanelRightOpen className="h-4 w-4" /></button>
+        </div>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild><button aria-label="Mais ações da conversa" className="wa-row wa-muted rounded-full p-2 md:hidden"><MoreVertical className="h-5 w-5" /></button></DropdownMenu.Trigger>
+          <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
+            <DropdownMenu.Item onSelect={onPanel} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><PanelRightOpen className="h-4 w-4" />Ficha do cliente</DropdownMenu.Item>
+            {(aiActive || !c.aiPaused) && <DropdownMenu.Item onSelect={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Bot className="h-4 w-4" />{c.aiPaused ? "Devolver para a Lia" : "Assumir conversa"}</DropdownMenu.Item>}
+            <DropdownMenu.Item onSelect={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Search className="h-4 w-4" />Pesquisar na conversa</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => setModoNota(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><StickyNote className="h-4 w-4" />{modoNota ? "Voltar a escrever ao cliente" : "Escrever nota interna"}</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => setTransferir(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><ArrowRightLeft className="h-4 w-4" />Transferir conversa</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={onUnread} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Mail className="h-4 w-4" />Marcar como não lida</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream">{c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}{c.archived ? "Desarquivar conversa" : "Arquivar conversa"}</DropdownMenu.Item>
+          </DropdownMenu.Content></DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </header>
       {transferir && <Transferencia conversation={c} onStatus={mudarStatus} onDone={(error) => { setErro(error); if (!error) setTransferir(false); onChanged(); }} />}
       {pesquisando && <div className="wa-head wa-line flex items-center gap-2 border-t px-4 py-2"><Search className="wa-muted h-4 w-4" /><input aria-label="Buscar mensagens nesta conversa" autoFocus value={buscaMensagem} onChange={e => setBuscaMensagem(e.target.value)} placeholder="Pesquisar nesta conversa" className="wa-input min-w-0 flex-1 rounded-lg px-3 py-2 text-sm outline-none" /><span role="status" className="wa-muted text-xs">{termo ? `${exibidas.length} encontradas` : ""}</span><button aria-label="Fechar busca de mensagens" onClick={() => { setPesquisando(false); setBuscaMensagem(""); }} className="wa-muted rounded-full p-2"><X className="h-4 w-4" /></button></div>}
@@ -621,7 +651,6 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             </div>
           </div>
         )}
-        <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
         {respondendo && !modoNota && (
           <div className="mb-2 flex items-start gap-2 rounded-lg border-l-4 border-[var(--wa-green)] bg-black/5 px-3 py-2 text-xs" role="status" aria-label="Respondendo a">
             <Reply className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -629,7 +658,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             <button type="button" aria-label="Cancelar resposta" onClick={() => setRespondendo(null)} className="rounded p-0.5"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-1.5">
+          <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
           <QuickReplies
             query={quickReplyQuery(texto)} open={atalhos} onOpen={() => setAtalhos(true)}
             onClose={() => { setAtalhos(false); if (quickReplyQuery(texto) !== null) setTexto(""); }}
@@ -640,15 +670,15 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Mensagem"}
+            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Digite uma mensagem…"}
             title="Digite / para respostas prontas"
-            className={cn("wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none", modoNota && "ring-1 ring-amber-500/60")}
+            className={cn("wa-input max-h-40 flex-1 resize-none rounded-3xl px-4 py-2.5 text-[16px] outline-none", modoNota && "ring-1 ring-amber-500/60")}
           />
           <button onClick={() => setModoNota(v => !v)} aria-pressed={modoNota} title={modoNota ? "Voltar a escrever para o cliente" : "Escrever nota interna (o cliente não vê)"}
-            className={cn("rounded-full p-3", modoNota ? "bg-amber-500 text-white" : "wa-row wa-muted")} aria-label="Nota interna">
+            className={cn("hidden rounded-full p-3 md:block", modoNota ? "bg-amber-500 text-white" : "wa-row wa-muted")} aria-label="Nota interna">
             <StickyNote className="h-5 w-5" />
           </button>
-          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("rounded-full p-3 disabled:opacity-50", modoNota ? "bg-amber-600 text-white" : "wa-send")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
+          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50", modoNota ? "bg-amber-600 text-white" : "wa-send")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
             <Send className="h-5 w-5" />
           </button>
         </div>
@@ -720,42 +750,64 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
   const [receber, setReceber] = useState<string | null>(null);
   const [fechar, setFechar] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [aba, setAba] = useState<"resumo" | "orcamentos" | "financeiro">("resumo");
   const [pending, start] = useTransition();
   const abertas = panel.contas.filter((e) => e.aberto > 0);
 
   return (
     <div className="space-y-4">
-      <div className="card p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-black">{client.name}</p>
-            <p className="text-xs text-ink/55">{[client.phone, client.city].filter(Boolean).join(" · ")}</p>
-            {client.address && <p className="text-xs text-ink/55">{client.address}</p>}
+      <div className="wa-client-head">
+        <div className="flex items-start gap-3">
+          <span className="wa-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-medium">{client.name.slice(0, 1).toUpperCase()}</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xl font-bold leading-tight">{client.name}</p>
+            <span className="mt-1 inline-block rounded-md bg-[var(--success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--success-text)]">Cliente</span>
           </div>
-          <Link href={`/clientes/${client.id}`} className="shrink-0 text-xs font-bold text-forest">Ficha →</Link>
+          <Link href={`/clientes/${client.id}`} className="wa-edit-button shrink-0"><Pencil className="h-3.5 w-3.5" />Editar</Link>
         </div>
-        {panel.pipeline && (
-          <p className="mt-2 rounded-lg bg-cream px-2 py-1 text-xs">
-            Pipeline: <b>{panel.pipeline.etapa ?? "—"}</b>
-            {panel.pipeline.valor ? ` · ${brl(Number(panel.pipeline.valor))}` : ""}
-            {panel.pipeline.proximaAcao ? ` · ${panel.pipeline.proximaAcao}${panel.pipeline.data ? ` (${dataBr(panel.pipeline.data)})` : ""}` : ""}
-          </p>
-        )}
-        {client.notes && <p className="mt-2 whitespace-pre-wrap text-xs text-ink/60">{client.notes}</p>}
+        <ul className="mt-3 space-y-1.5 text-sm">
+          {client.phone && <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-ink/50" /><span className="flex-1">{client.phone}</span><button type="button" aria-label="Copiar telefone" onClick={() => { try { void navigator.clipboard.writeText(client.phone ?? ""); } catch {} }} className="rounded p-1 text-ink/50 hover:bg-cream"><Copy className="h-4 w-4" /></button></li>}
+          {(client.city || client.address) && <li className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/50" /><span>{[client.address, client.city].filter(Boolean).join(" · ")}</span></li>}
+        </ul>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Mini label="Orçamentos" value={String(r.feitos)} />
-        <Mini label="Enviados" value={String(r.enviados)} />
-        <Mini label="Fechados" value={String(r.fechados)} />
-        <Mini label="Fechado" value={brl(r.valorFechado)} />
-        {panel.canViewFinancial === true && <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />}
-        {panel.canViewFinancial === true && <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />}
+      <div className="wa-client-actions grid grid-cols-4 gap-2">
+        <Link href="/orcamentos/calhas"><FileText className="h-6 w-6" />Orçamento</Link>
+        <Link href="/agenda"><CalendarDays className="h-6 w-6" />Agendar</Link>
+        <Link href="/pedidos"><Package className="h-6 w-6" />Pedido</Link>
+        {panel.canViewFinancial === true ? <button type="button" onClick={() => setAba("financeiro")}><Coins className="h-6 w-6" />Financeiro</button> : <Link href={`/clientes/${client.id}`}><UserPlus className="h-6 w-6" />Cadastro</Link>}
       </div>
+
+      <div role="tablist" aria-label="Seções do cliente" className="wa-client-tabs flex gap-5 border-b">
+        {([["resumo", "Resumo"], ["orcamentos", "Orçamentos"], ...(panel.canViewFinancial === true ? [["financeiro", "Financeiro"]] : [])] as [string, string][]).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={aba === k} onClick={() => setAba(k as typeof aba)} className="wa-tab">{l}</button>
+        ))}
+      </div>
+
+      {aba === "resumo" && <>
+        {panel.pipeline && (
+          <div className="wa-info-card">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm">
+              <dt className="text-ink/60">Etapa no CRM</dt><dd className="font-semibold">{panel.pipeline.etapa ?? "—"}</dd>
+              {panel.pipeline.valor ? <><dt className="text-ink/60">Valor</dt><dd className="font-semibold">{brl(Number(panel.pipeline.valor))}</dd></> : null}
+              {panel.pipeline.proximaAcao ? <><dt className="text-ink/60">Próxima ação</dt><dd className="font-semibold">{panel.pipeline.proximaAcao}{panel.pipeline.data ? ` (${dataBr(panel.pipeline.data)})` : ""}</dd></> : null}
+            </dl>
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <Mini label="Orçamentos" value={String(r.feitos)} />
+          <Mini label="Enviados" value={String(r.enviados)} />
+          <Mini label="Fechados" value={String(r.fechados)} />
+          <Mini label="Fechado" value={brl(r.valorFechado)} />
+          {panel.canViewFinancial === true && <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />}
+          {panel.canViewFinancial === true && <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />}
+        </div>
+        {client.notes && <div className="wa-info-card"><p className="mb-1.5 flex items-center gap-2 font-semibold"><StickyNote className="h-4 w-4" />Anotações</p><p className="whitespace-pre-wrap text-sm text-ink/70">{client.notes}</p></div>}
+      </>}
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{erro}</p>}
 
-      {panel.canViewFinancial === true && <div className="card p-3">
+      {aba === "financeiro" && panel.canViewFinancial === true && <div className="card p-3">
         <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
         <div className="mb-2"><PixCharge conversationId={conversationId} clientId={client.id} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
@@ -795,7 +847,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
         )}
       </div>}
 
-      <div className="card p-3">
+      {aba === "orcamentos" && <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="font-black">Orçamentos</p>
           <div className="flex gap-2 text-xs font-bold text-forest">
@@ -827,7 +879,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
     </div>
   );
 }

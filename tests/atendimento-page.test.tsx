@@ -65,7 +65,7 @@ describe('Atendimento estilo WhatsApp', () => {
     fireEvent.click(screen.getByText('Ana Cliente'));
     fireEvent.click(await screen.findByLabelText('Marcar como não lida'));
     await waitFor(() => expect(actions.markConversationUnread).toHaveBeenCalledWith('a'));
-    expect(screen.queryByPlaceholderText('Mensagem')).toBeNull();
+    expect(screen.queryByPlaceholderText('Digite uma mensagem…')).toBeNull();
   });
   test('responder citando: barra acima do campo, envia com a mensagem citada e limpa', async () => {
     const { sendInboxMessage } = await import('@/app/(crm)/atendimento-actions');
@@ -76,7 +76,7 @@ describe('Atendimento estilo WhatsApp', () => {
     const botoes = await screen.findAllByLabelText('Responder esta mensagem');
     fireEvent.click(botoes[1]);
     expect(screen.getByRole('status', { name: 'Respondendo a' }).textContent).toContain('mensagem 1 de Ana Cliente');
-    fireEvent.change(screen.getByPlaceholderText('Mensagem'), { target: { value: 'Pode ser amanhã' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite uma mensagem…'), { target: { value: 'Pode ser amanhã' } });
     fireEvent.click(screen.getByLabelText('Enviar'));
     await waitFor(() => expect(sendInboxMessage).toHaveBeenCalledWith('a', 'Pode ser amanhã', expect.objectContaining({ replyTo: 'a-m1' })));
     await waitFor(() => expect(screen.queryByRole('status', { name: 'Respondendo a' })).toBeNull());
