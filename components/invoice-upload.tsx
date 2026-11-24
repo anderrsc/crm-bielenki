@@ -4,17 +4,34 @@ import { useRef, useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 import { readInvoice, type InvoiceResult } from "@/app/(crm)/invoice-reader-actions";
 
+// A Vercel recusa corpo de requisição acima de ~4,5 MB: fotos grandes (iPhone) são reduzidas antes de enviar.
+const SAFE_BYTES = 4 * 1024 * 1024;
+async function shrinkImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.size <= SAFE_BYTES / 2) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.85));
+    return blob && blob.size < file.size ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
+
 export function InvoiceUpload({ onRead }: { onRead: (r: Extract<InvoiceResult, { ok: true }>) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function send(file: File) {
     setBusy(true); setError("");
+    file = await shrinkImage(file);
+    if (file.size > SAFE_BYTES) { setError("Arquivo grande demais (máx. 4 MB). Envie uma foto da nota ou um PDF menor."); setBusy(false); if (input.current) input.current.value = ""; return; }
     const form = new FormData(); form.set("file", file);
     try {
       const r = await readInvoice(form);
       if (r.ok) onRead(r); else setError(r.error);
-    } catch { setError("Não foi possível ler a nota. Tente de novo."); }
+    } catch { setError("A leitura demorou demais ou foi interrompida. Tente de novo; se repetir, envie uma foto mais leve da nota."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
   return <div className="card mb-5 flex flex-wrap items-center justify-between gap-3 border-dashed p-4">

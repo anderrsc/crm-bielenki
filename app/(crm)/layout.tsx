@@ -3,6 +3,10 @@ import { AppShell } from "@/components/app-shell";
 import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+// Server Actions rodam dentro da rota da página: sem isto a Vercel corta em poucos segundos as ações que chamam IA
+// (ler nota fiscal, importar proposta do WVetro, testar a IA) e o navegador só vê "Tente de novo".
+export const maxDuration = 60;
+
 export default async function CrmLayout({ children }: { children: React.ReactNode }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return <AppShell userName="Configuração" companyName="Marquinhos Calhas e Esquadrias">{children}</AppShell>;
   const supabase = await getRequestClient();
