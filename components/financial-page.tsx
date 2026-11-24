@@ -1,3 +1,4 @@
+import { MobileCollapse } from "./mobile-collapse";
 import { PaymentReversals } from "@/components/payment-reversals";
 import { SupplierCredits } from "@/components/supplier-credits";
 import { getRequestClient } from "@/lib/supabase/server";
@@ -143,6 +144,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         {!t && <p>Totais indisponíveis. Nenhum valor parcial será apresentado como total.</p>}
         {saleTypesError && <p>Não foi possível carregar os serviços do filtro.</p>}
       </div>}
+      <MobileCollapse>
       <form method="get" action={base} className="mb-5 grid gap-2 rounded-2xl border border-sand bg-surface p-3 text-sm sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
         <div><label className="label">Buscar</label><input className="field" name="q" defaultValue={term} placeholder="Cliente, fornecedor ou descrição" /></div>
         <div><label className="label">Vencimento de</label><input className="field" type="date" name="de" defaultValue={isDate(filters.de) ? filters.de : ""} /></div>
@@ -151,6 +153,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         <div><label className="label">Serviço</label><select className="field" name="servico" defaultValue={servico ?? ""}><option value="">Todos</option>{(saleTypes ?? []).map((x: { id: string; name: string }) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
         <div className="flex items-end gap-2"><button className="button">Filtrar</button>{hasFilters && <Link href={base} className="pb-2 font-bold text-ink/55 underline">Limpar</Link>}</div>
       </form>
+      </MobileCollapse>
 
       {(overdueCount > 0 || todayCount > 0) && (
         <div className="mb-5 flex flex-wrap gap-3">

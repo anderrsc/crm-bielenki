@@ -228,7 +228,7 @@ test("orçamentos: ações acompanham a rolagem e a proposta selecionada", async
     const number = await page.evaluate(() => {
       const button = document.querySelectorAll('.quote-list-row')[25];
       button.scrollIntoView({ block: 'center' }); button.click();
-      return button.querySelector('p').textContent.trim();
+      return button.querySelector('.quote-row-number, p').textContent.trim();
     });
     await page.waitForFunction(n => document.querySelector('.quote-list-detail h2')?.textContent === n, {}, number);
     const position = await page.$eval('.quote-list-detail a', el => {

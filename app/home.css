@@ -164,3 +164,17 @@
 .module-hero .module-hero-count { margin-top: 4px; }
 .module-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 767px) { .module-hero-desc { display: none; } .module-hero { padding-bottom: 18px; } .module-hero-actions { margin-top: 14px; } .module-hero-actions > .mh-pill { flex: 1 1 auto; } }
+
+/* Filtros recolhíveis: no PC o conteúdo aparece sempre */
+.mc-toggle { display: none; }
+.shell-band { display: flex; align-items: center; gap: 14px; margin: 0 0 20px; padding: 22px 28px; border-radius: 28px; color: #fff; font-size: 26px; line-height: 32px; font-weight: 800; letter-spacing: -.02em; background: radial-gradient(130% 120% at 100% 0%, rgb(246 17 17 / .28) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+.shell-band-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 46px; height: 46px; border-radius: 16px; background: var(--brand); }
+.app-content:has(.mh-hero) > .shell-band, .app-content:has(.mobile-inbox) > .shell-band, .app-content:has(.mobile-agenda) > .shell-band, .app-content:has(.agenda-stack) > .shell-band { display: none; }
+@media (min-width: 768px) {
+ .app-content:has(> .shell-band):not(:has(.mh-hero)):not(:has(.mobile-inbox)):not(:has(.agenda-stack)) h1 { display: none; }
+ .app-content:has(> .shell-band):not(:has(.mh-hero)):not(:has(.mobile-inbox)):not(:has(.agenda-stack)) p:has(+ h1), .app-content:has(> .shell-band):not(:has(.mh-hero)):not(:has(.mobile-inbox)):not(:has(.agenda-stack)) h1 + p { display: none; }
+}
+
+/* Links de navegação interna viram pílulas também no PC */
+.app-content a.underline { display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; }
+.app-content a.underline:hover { border-color: var(--text-muted); }

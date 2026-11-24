@@ -521,3 +521,26 @@
  .module-hero-main { margin-bottom: 0; }
  .mh-hero.is-simple .mh-hero-actions { margin-top: 14px; }
 }
+
+/* Faixa de título (telas sem painel próprio), filtros recolhíveis e migalhas fora do celular */
+@media screen and (max-width: 767px) {
+ .shell-band { display: flex; align-items: center; gap: 12px; margin: -18px -16px 16px; padding: 18px 16px 20px; border-radius: 0 0 28px 28px; color: #fff; font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing: -.02em; background: radial-gradient(130% 120% at 100% 0%, rgb(246 17 17 / .28) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .shell-band-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 15px; background: var(--brand); }
+ .app-content:has(.mh-hero) > .shell-band, .app-content:has(.mobile-inbox) > .shell-band, .app-content:has(.mobile-agenda) > .shell-band { display: none; }
+ .app-content:has(> .shell-band) > nav[aria-label="Você está em"] { display: none; }
+ .app-content:has(> .shell-band):not(:has(.mh-hero)):not(:has(.mobile-inbox)):not(:has(.mobile-agenda)) h1 { display: none; }
+ .app-content > nav[aria-label="Você está em"] { display: none; }
+ .mc-toggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin-bottom: 12px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: 15px; font-weight: 600; color: var(--text); }
+ .mc-toggle svg:first-child { color: var(--brand-text); }
+ .mc-chevron { margin-left: auto; transition: transform .15s; }
+ .mc[data-open="true"] .mc-chevron { transform: rotate(180deg); }
+ .mc-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--brand-strong); color: var(--on-brand); font-size: 12px; line-height: 20px; text-align: center; }
+ .mc[data-open="false"] .mc-body { display: none; }
+}
+@media screen and (max-width: 767px) {
+ .app-content > .shell-band { max-width: none; width: calc(100% + 32px); }
+ .app-content p:has(+ h1) { display: none; }
+ .report-period { width: 100%; }
+ .report-period input { flex: 1 1 130px; min-width: 0; }
+ .report-period .button { flex: 1 1 100%; }
+}
