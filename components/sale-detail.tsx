@@ -38,10 +38,10 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     {received && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Pagamento registrado. Os saldos da venda e do pedido foram atualizados.</p>}
     {warnings.map(warning => <p role="alert" key={warning} className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{warning} Atualize a página para tentar novamente.</p>)}
-    <section id="topo-venda" className="card scroll-mt-28 p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-forest">Venda</p><h1 className="mt-2 text-3xl font-black">{sale.sale_number}</h1><p className="mt-2 font-medium">{sale.client?.name ?? "Cliente"}</p></div>{access["financial_entries:select"] && <StatusBadge value={sale.financial_status} />}</div>
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">{[["Total da venda", sale.total], ["Recebido", sale.paid_amount], ["Em aberto", sale.open_amount]].filter((_, index) => index === 0 || access["financial_entries:select"]).map(([title, amount], index) => <div className={`rounded-xl bg-cream/70 p-4${index === 0 ? " col-span-2 sm:col-span-1" : ""}`} key={String(title)}><p className="text-xs text-ink/55">{title}</p><p className="mt-2 text-2xl font-black num">{money(Number(amount))}</p></div>)}</div>
-      <nav aria-label="Ações da venda" className="mt-6 flex flex-wrap gap-3">
+    <section id="topo-venda" className="mh-hero sale-hero scroll-mt-28">
+      <div className="sale-hero-top"><div className="min-w-0"><p className="detail-kind">Venda</p><h1 className="mh-greeting">{sale.sale_number}</h1><p className="sale-hero-client">{sale.client?.name ?? "Cliente"}</p></div>{access["financial_entries:select"] && <StatusBadge value={sale.financial_status} />}</div>
+      <div className="sale-hero-money">{[["Total da venda", sale.total], ["Recebido", sale.paid_amount], ["Em aberto", sale.open_amount]].filter((_, index) => index === 0 || access["financial_entries:select"]).map(([title, amount], index) => <div className={`sale-money${index === 0 ? " is-total" : ""}`} key={String(title)}><p>{title}</p><p className="num">{money(Number(amount))}</p></div>)}</div>
+      <nav aria-label="Ações da venda" className="sale-hero-actions">
         {canPay && pendingEntries.length === 1 && payment(pendingEntries[0], true)}
         {canPay && pendingEntries.length > 1 && <a className="button" href="#contas-da-venda">Registrar pagamento</a>}
         {hasMeasurements && <a className="button-ghost" href="#conferencia-medidas"><Ruler size={16} /> Conferir medidas</a>}

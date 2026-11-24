@@ -194,3 +194,20 @@
 .detail-value { margin-top: 4px; font-size: 16px; line-height: 22px; font-weight: 700; overflow-wrap: anywhere; }
 @media (min-width: 1024px) { .detail-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .detail-hero { padding: 24px 28px; } }
 @media (max-width: 767px) { .detail-actions { justify-content: flex-start; margin-top: 14px; } }
+
+/* Venda: painel com total, recebido e em aberto */
+.sale-hero { display: block; }
+.sale-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sale-hero-client { margin-top: 2px; font-size: 15px; color: rgb(255 255 255 / .7); }
+.sale-hero-money { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.sale-money { padding: 12px 14px; border-radius: 20px; background: rgb(255 255 255 / .1); }
+.sale-money.is-total { grid-column: 1 / -1; background: #fff; color: #151517; }
+.sale-money > p:first-child { font-size: 12px; line-height: 16px; color: rgb(255 255 255 / .65); }
+.sale-money.is-total > p:first-child { color: #667085; }
+.sale-money > p:last-child { margin-top: 2px; font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+.sale-money.is-total > p:last-child { font-size: 30px; line-height: 36px; }
+.sale-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.sale-hero-actions .button, .sale-hero-actions .button-ghost { min-height: 42px; padding: 0 16px; border: 0; background: rgb(255 255 255 / .12); color: #fff; font-weight: 600; }
+.sale-hero-actions .button { background: var(--brand); }
+@media (min-width: 768px) { .sale-hero { padding: 28px 32px; } .sale-hero-money { grid-template-columns: 1.4fr 1fr 1fr; } .sale-money.is-total { grid-column: auto; } }
+@media (max-width: 767px) { .sale-hero { margin: -18px -16px 16px; padding: 20px 16px 18px; border-radius: 0 0 28px 28px; } }
