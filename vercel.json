@@ -7,10 +7,5 @@
       "**": false
     }
   },
-  "crons": [
-    {
-      "path": "/api/internal/operations",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "crons": []
 }
