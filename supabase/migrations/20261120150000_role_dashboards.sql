@@ -44,7 +44,7 @@ begin
  'liberados_corte', (select count(*) from orders o where o.company_id = v_company_id and o.op_stage = 'liberado_corte' and o.operational_status not in ('finalizado','cancelado')),
  'aguardando_liberacao', (select count(*) from orders o where o.company_id = v_company_id and o.op_stage = 'aguardando_liberacao_corte' and o.operational_status not in ('finalizado','cancelado')),
  'compras_pendentes', (select count(*) from purchase_orders po where po.company_id = v_company_id and po.status not in ('recebido_completo','cancelado','cancelada')),
- 'instalacoes_hoje', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_date = current_date and i.status not in ('concluida','cancelada')),
+ 'instalacoes_hoje', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_at::date = current_date and i.status not in ('concluida','cancelada')),
  'pedidos_atrasados', (select count(*) from orders o where o.company_id = v_company_id and o.next_action_date < current_date and o.operational_status not in ('finalizado','cancelado') and o.next_action_date is not null),
  'producao_concluida_mes', (select count(*) from production_orders po where po.company_id = v_company_id and po.status = 'concluida' and po.updated_at >= date_trunc('month', now()))
  ) into v_result;
@@ -65,12 +65,12 @@ begin
  if v_company_id is null then return '{}'::jsonb; end if;
 
  select jsonb_build_object(
- 'instalacoes_hoje', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_date = current_date and i.status not in ('concluida','cancelada')),
- 'instalacoes_semana', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_date between current_date and current_date + 6 and i.status not in ('concluida','cancelada')),
+ 'instalacoes_hoje', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_at::date = current_date and i.status not in ('concluida','cancelada')),
+ 'instalacoes_semana', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_at::date between current_date and current_date + 6 and i.status not in ('concluida','cancelada')),
  'instalacoes_pendentes', (select count(*) from installations i where i.company_id = v_company_id and i.status not in ('concluida','cancelada')),
- 'instalacoes_atrasadas', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_date < current_date and i.status not in ('concluida','cancelada')),
+ 'instalacoes_atrasadas', (select count(*) from installations i where i.company_id = v_company_id and i.scheduled_at::date < current_date and i.status not in ('concluida','cancelada')),
  'concluidas_mes', (select count(*) from installations i where i.company_id = v_company_id and i.status = 'concluida' and i.completed_at >= date_trunc('month', now())),
- 'checklists_incompletos', (select count(distinct i.id) from installations i join installation_checklists ic on ic.installation_id = i.id where i.company_id = v_company_id and i.status not in ('concluida','cancelada') and ic.status != 'concluido'),
+ 'checklists_incompletos', (select count(distinct i.id) from installations i join installation_checklists ic on ic.installation_id = i.id where i.company_id = v_company_id and i.status not in ('concluida','cancelada') and ic.completed = false),
  'pos_venda_aberto', (select count(*) from post_sales ps where ps.company_id = v_company_id and ps.type = 'follow_up' and ps.status in ('aberto','em_andamento')),
  'problemas_abertos', (select count(*) from post_sales ps where ps.company_id = v_company_id and ps.type = 'problema' and ps.status in ('aberto','em_andamento'))
  ) into v_result;

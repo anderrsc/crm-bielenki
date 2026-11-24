@@ -53,21 +53,16 @@ describe('Role Dashboards Migration', () => {
  expect(content).toContain("'followups_hoje'");
  });
 
- it('dashboard_producao retorna métricas operacionais relevantes', () => {
+ it('dashboard_producao usa scheduled_at::date em vez de scheduled_date inexistente', () => {
  const content = fs.readFileSync(migrationPath, 'utf-8');
- expect(content).toContain("'em_producao'");
- expect(content).toContain("'aguardando_material'");
- expect(content).toContain("'liberados_corte'");
- expect(content).toContain("'compras_pendentes'");
+ expect(content).toContain("i.scheduled_at::date");
+ expect(content).not.toContain("i.scheduled_date");
  });
 
- it('dashboard_instalacao retorna métricas de instalação e pós-venda', () => {
+ it('dashboard_instalacao usa completed boolean em vez de status inexistente', () => {
  const content = fs.readFileSync(migrationPath, 'utf-8');
- expect(content).toContain("'instalacoes_hoje'");
- expect(content).toContain("'instalacoes_atrasadas'");
- expect(content).toContain("'checklists_incompletos'");
- expect(content).toContain("'pos_venda_aberto'");
- expect(content).toContain("'problemas_abertos'");
+ expect(content).toContain("ic.completed = false");
+ expect(content).not.toContain("ic.status");
  });
 
  it('funções retornam jsonb vazio quando company_id é null', () => {

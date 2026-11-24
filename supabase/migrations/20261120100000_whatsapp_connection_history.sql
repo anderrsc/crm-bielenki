@@ -23,10 +23,12 @@ create index if not exists whatsapp_conn_hist_channel_created_idx
 alter table public.whatsapp_connection_history enable row level security;
 drop policy if exists whatsapp_conn_hist_select on public.whatsapp_connection_history;
 
+drop policy if exists whatsapp_conn_hist_select on public.whatsapp_connection_history;
 create policy whatsapp_conn_hist_select on public.whatsapp_connection_history
   for select using (company_id = public.current_company_id());
 drop policy if exists whatsapp_conn_hist_insert on public.whatsapp_connection_history;
 
+drop policy if exists whatsapp_conn_hist_insert on public.whatsapp_connection_history;
 create policy whatsapp_conn_hist_insert on public.whatsapp_connection_history
   for insert with check (company_id = public.current_company_id());
 

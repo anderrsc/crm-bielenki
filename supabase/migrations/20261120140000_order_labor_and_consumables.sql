@@ -23,19 +23,15 @@ create index if not exists idx_order_labor_costs_profile on public.order_labor_c
 
 alter table public.order_labor_costs enable row level security;
 drop policy if exists order_labor_costs_select on public.order_labor_costs;
-drop policy if exists order_labor_costs_select on public.order_labor_costs;
 create policy order_labor_costs_select on public.order_labor_costs for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'select'));
-drop policy if exists order_labor_costs_insert on public.order_labor_costs;
 drop policy if exists order_labor_costs_insert on public.order_labor_costs;
 create policy order_labor_costs_insert on public.order_labor_costs for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
 drop policy if exists order_labor_costs_update on public.order_labor_costs;
-drop policy if exists order_labor_costs_update on public.order_labor_costs;
 create policy order_labor_costs_update on public.order_labor_costs for update to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'))
  with check (company_id = public.current_company_id());
-drop policy if exists order_labor_costs_delete on public.order_labor_costs;
 drop policy if exists order_labor_costs_delete on public.order_labor_costs;
 create policy order_labor_costs_delete on public.order_labor_costs for delete to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
@@ -66,19 +62,15 @@ create index if not exists idx_order_consumables_order on public.order_consumabl
 
 alter table public.order_consumables enable row level security;
 drop policy if exists order_consumables_select on public.order_consumables;
-drop policy if exists order_consumables_select on public.order_consumables;
 create policy order_consumables_select on public.order_consumables for select to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'select'));
-drop policy if exists order_consumables_insert on public.order_consumables;
 drop policy if exists order_consumables_insert on public.order_consumables;
 create policy order_consumables_insert on public.order_consumables for insert to authenticated
  with check (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
 drop policy if exists order_consumables_update on public.order_consumables;
-drop policy if exists order_consumables_update on public.order_consumables;
 create policy order_consumables_update on public.order_consumables for update to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'))
  with check (company_id = public.current_company_id());
-drop policy if exists order_consumables_delete on public.order_consumables;
 drop policy if exists order_consumables_delete on public.order_consumables;
 create policy order_consumables_delete on public.order_consumables for delete to authenticated
  using (company_id = public.current_company_id() and public.has_table_access('financial_entries', 'update'));
@@ -89,7 +81,10 @@ create or replace trigger order_consumables_touch_updated_at
  for each row execute function public.touch_updated_at();
 
 -- ─── Atualiza v_order_result para incluir mão de obra e insumos ──────────────
--- DROP necessário porque CREATE OR REPLACE VIEW não permite renomear colunas existentes
+-- Prepara o terreno dropando as views que dependem de v_order_result para evitar
+-- erros de "cannot drop columns from view" em ambientes com reaplicação de migrations.
+drop view if exists public.v_order_financial_report cascade;
+drop view if exists public.v_order_financials cascade;
 drop view if exists public.v_order_result cascade;
 create view public.v_order_result with (security_invoker=true) as
 with alloc as (
@@ -153,9 +148,10 @@ left join aluminum alu on alu.order_id=o.id;
 
 revoke all on public.v_order_result from public,anon;
 grant select on public.v_order_result to authenticated;
--- ─── Recria views dependentes para garantir consistência em replays ─────────
+
+-- Recriar views dependentes para evitar conflitos de schema em reaplicações
 drop view if exists public.v_order_financials cascade;
-create or replace view public.v_order_financials with (security_invoker=true) as
+create view public.v_order_financials with (security_invoker=true) as
 with alloc as (
   select a.order_id, a.company_id,
     sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_total,
@@ -184,12 +180,12 @@ join public.sales s on s.id=o.sale_id and s.company_id=o.company_id
 left join public.clients c on c.id=o.client_id and c.company_id=o.company_id
 left join alloc al on al.order_id=o.id and al.company_id=o.company_id
 left join direct d on d.order_id=o.id;
-
 revoke all on public.v_order_financials from public,anon;
 grant select on public.v_order_financials to authenticated;
 
+-- Recriar v_order_financial_report para manter consistência com as novas colunas
 drop view if exists public.v_order_financial_report cascade;
-create or replace view public.v_order_financial_report with (security_invoker=true) as
+create view public.v_order_financial_report with (security_invoker=true) as
 with alloc as (
   select a.order_id, a.company_id,
     sum(round(a.amount * e.total_amount / nullif(t.total,0), 2)) filter (where e.entry_type::text='pagar') as cost_total,
@@ -222,6 +218,5 @@ join public.sales s on s.id=o.sale_id and s.company_id=o.company_id
 left join public.clients c on c.id=o.client_id and c.company_id=o.company_id
 left join alloc al on al.order_id=o.id and al.company_id=o.company_id
 left join direct d on d.order_id=o.id;
-
 revoke all on public.v_order_financial_report from public,anon;
 grant select on public.v_order_financial_report to authenticated;
