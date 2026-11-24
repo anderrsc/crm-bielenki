@@ -96,7 +96,10 @@ Evite empilhar duas camadas com desfoque.
 | Detalhe do orçamento | `.quote-hero` + `.quote-actions` | Painel com número, cliente e status; ações em linha rolável no celular |
 | Cartão de ação com texto | `.wvetro-card` | Texto em largura inteira; botão abaixo no celular |
 | Configurações recolhíveis | `.ai-config` (`<details>`) | Operação primeiro; configurações críticas ficam recolhidas (Central de IA) |
-| Faixa de título dos editores | `AppShell` (`bandSub`) | `/orcamentos/calhas`, `/orcamentos/esquadrias`, `/novo`, `/nova`, `/editar` |
+| Faixa de título dos editores | `AppShell` (`bandSub`, `SUBPAGES`) | `/orcamentos/calhas`, `/orcamentos/esquadrias`, `/novo`, `/nova`, `/editar` e subpáginas de Configurações e Financeiro |
+| Abas de seção | `.tab-strip` + `.tab-pill` | Automações e Tributos; uma linha que rola de lado, sem quebrar palavras |
+| Rodapé de formulário | `.form-actions` | Cancelar + Salvar; no celular fica fixo acima da barra inferior enquanto o formulário rola |
+| Prévia de documento | `data-document-preview` | Folha A4 de templates mantém a fonte do documento; fora das regras da interface |
 
 ## Contraste
 

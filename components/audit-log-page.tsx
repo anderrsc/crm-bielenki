@@ -18,6 +18,22 @@ const TABLE_LABELS: Record<string, string> = {
   pricing_commercial_tables: "Tabelas comerciais",
   profiles: "Usuários",
   companies: "Empresa",
+  aluminum_cost_settings: "Custo do alumínio",
+  bank_statement_imports: "Extratos importados",
+  bank_statement_rows: "Linhas do extrato",
+  financial_categories: "Categorias financeiras",
+  financial_cost_centers: "Centros de custos",
+  financial_exports: "Exportações financeiras",
+  financial_recurrences: "Contas recorrentes",
+  order_aluminum_costs: "Custo do alumínio por pedido",
+  order_operations: "Etapas do pedido",
+  pricing_paints: "Preços de pintura",
+  pricing_services: "Preços de serviços",
+  pricing_special_parts: "Peças especiais",
+  purchase_orders: "Compras",
+  receiving_accounts: "Contas de recebimento",
+  service_orders: "Serviços",
+  work_planning: "Equipes e veículos",
 };
 
 type LogEntry = {
@@ -124,8 +140,9 @@ export async function AuditLogPage({
               </tr>
             )}
             {logs.map((log) => {
+              // Ações próprias do sistema vêm em código (ex.: DAY_SAVE): vira texto legível, sem alterar o registro.
               const act = ACTION_LABELS[log.action] ?? {
-                label: log.action,
+                label: log.action.toLowerCase().replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),
                 color: "bg-sand text-ink/60",
               };
               const changedFields =
@@ -156,7 +173,7 @@ export async function AuditLogPage({
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-lg px-2 py-0.5 text-xs font-semibold ${act.color}`}
+                      className={`inline-block max-w-[9rem] rounded-lg px-2 py-0.5 text-xs font-semibold [overflow-wrap:anywhere] ${act.color}`}
                     >
                       {act.label}
                     </span>

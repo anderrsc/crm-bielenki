@@ -63,7 +63,7 @@ export async function PendingCenter({ category }: { category?: string }) {
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
           <p className="text-sm font-semibold text-red-800">
-            {totalHigh} item{totalHigh !== 1 ? "s" : ""} urgente{totalHigh !== 1 ? "s" : ""} exige{totalHigh === 1 ? "" : "m"} ação imediata
+            {totalHigh} {totalHigh !== 1 ? "itens" : "item"} urgente{totalHigh !== 1 ? "s" : ""} exige{totalHigh === 1 ? "" : "m"} ação imediata
           </p>
         </div>
       )}

@@ -348,7 +348,7 @@ export async function ProductionFlowPage({
       {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p role="status" className={`mb-4 rounded-xl p-3 text-sm ${aviso === "sent" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>{notice}</p>}
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Em aberto</p><p className="mt-1 text-2xl font-semibold">{open.length}</p></div>
         <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Aguardando medidas ou corte</p><p className="mt-1 text-2xl font-semibold">{groups[0].items.length}</p></div>
         <div className="card p-4"><p className="text-xs font-semibold text-ink/45">Para instalar</p><p className="mt-1 text-2xl font-semibold">{groups[3].items.length + groups[4].items.length}</p></div>

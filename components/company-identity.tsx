@@ -112,7 +112,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {saved && <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700 flex items-center gap-2"><Check className="h-4 w-4" /> Configurações salvas com sucesso.</p>}
 
-      <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
 
         {/* ── Coluna esquerda: controles ── */}
         <div className="space-y-6">
@@ -240,17 +240,18 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
           </div>
 
           {/* A4 preview */}
-          <div className="overflow-hidden rounded-2xl border-2 border-sand shadow-xl" style={{ width: A4_W_PX + 4 }}>
+          <div className="overflow-x-auto rounded-2xl border-2 border-sand shadow-xl" style={{ width: A4_W_PX + 4, maxWidth: "100%" }}>
             {/* Header da prévia */}
             <div className="flex items-center gap-2 border-b bg-cream px-4 py-2">
               <Maximize2 className="h-3.5 w-3.5 text-ink/40" />
               <span className="text-xs font-semibold text-ink/40">
-                Pré-visualização A4 — {previewType === "orcamento" ? "Orçamento" : "Ficha de Medição"}
+                Pré-visualização A4 — {previewType === "orcamento" ? "Orçamento" : "Ficha de medição"}
               </span>
             </div>
 
-            {/* Folha A4 */}
+            {/* Folha A4: prévia do documento comercial; mantém a fonte do documento (fora do Design System da interface) */}
             <div
+              data-document-preview
               style={{
                 width: A4_W_PX,
                 minHeight: A4_H_PX,

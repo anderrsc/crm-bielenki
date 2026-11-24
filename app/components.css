@@ -71,3 +71,18 @@
 
 /* ===== Formulários: sem espaço morto quando o título virou faixa ===== */
 .app-content:has(> .shell-band) h1 + * { margin-top: 0; }
+
+/* Faixa de abas (Automações, Fiscal...): uma linha que rola de lado, sem quebrar palavras */
+.tab-strip, .app-content nav[aria-label="Abas"] { display: flex; gap: var(--sp-2); overflow-x: auto; margin-bottom: var(--sp-4); padding-bottom: 2px; scrollbar-width: none; }
+.tab-strip::-webkit-scrollbar { display: none; }
+.tab-strip > .tab-pill { flex: none; }
+.tab-pill svg { margin-right: var(--sp-1); }
+.tab-pill { gap: var(--sp-1); }
+
+/* Rodapé de ações dos formulários: Cancelar + Salvar; no celular fica fixo acima da barra inferior enquanto o formulário rola */
+.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.form-actions > .button, .form-actions > .button-ghost { min-height: var(--tap); }
+@media (max-width: 767px) {
+  .form-actions { position: sticky; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 5; margin: var(--sp-4) calc(var(--sp-2) * -1) 0; padding: var(--sp-2); border: 1px solid rgb(16 24 40 / .08); border-radius: var(--r-card); background: rgb(255 255 255 / .92); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow-sm); flex-wrap: nowrap; }
+  .form-actions > * { flex: 1 1 0; justify-content: center; text-align: center; }
+}

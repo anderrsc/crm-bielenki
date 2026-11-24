@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { launch, login, BASE } from "./helpers.mjs";
 
 const WIDTHS = [320, 375, 390, 402, 430, 440, 768, 1024, 1440, 1920];
-const ROUTES = ["/dashboard", "/orcamentos", "/agenda", "/atendimento", "/clientes", "/financeiro", "/central-ia", "/pipeline", "/configuracoes", "/orcamentos/calhas", "/orcamentos/esquadrias", "/clientes/novo", "/compras/nova", "/vendas/nova"];
+const ROUTES = ["/dashboard", "/orcamentos", "/agenda", "/atendimento", "/clientes", "/financeiro", "/central-ia", "/pipeline", "/configuracoes", "/orcamentos/calhas", "/orcamentos/esquadrias", "/clientes/novo", "/compras/nova", "/vendas/nova", "/automacoes", "/auditoria", "/fiscal", "/producao", "/pendencias", "/configuracoes/identidade", "/configuracoes/templates", "/financeiro/pagar/novo"];
 let browser, page;
 before(async () => {
   browser = await launch();
@@ -15,7 +15,7 @@ before(async () => {
 after(async () => { await browser?.close(); });
 
 function audit() {
-  const DOC = ".print-sheet, .quote-sheet, .measure-sheet";
+  const DOC = ".print-sheet, .quote-sheet, .measure-sheet, [data-document-preview]";
   const family = getComputedStyle(document.body).fontFamily.split(",")[0].trim();
   const bad = [];
   const label = (el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0, 3).join(".") : ""}`;
@@ -47,7 +47,7 @@ function audit() {
 }
 
 for (const width of WIDTHS) {
-  test(`design system a ${width}px: fonte única, pesos, tamanhos, capitalização, sem rolagem horizontal`, { timeout: 240000 }, async () => {
+  test(`design system a ${width}px: fonte única, pesos, tamanhos, capitalização, sem rolagem horizontal`, { timeout: 420000 }, async () => {
     await page.setViewport({ width, height: width >= 1024 ? 900 : 844, isMobile: width < 768, hasTouch: width < 768 });
     for (const route of ROUTES) {
       await page.goto(`${BASE}${route}`, { waitUntil: "networkidle0", timeout: 90000 });

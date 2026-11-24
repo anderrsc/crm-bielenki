@@ -121,10 +121,10 @@ export async function AutomationsHub({ tab = "fluxos", saved, error }: { tab?: s
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl bg-cream/5 p-1">
+      <div className="tab-strip mb-6">
         {tabs.map(t => (
           <Link key={t.key} href={`/automacoes?aba=${t.key}`}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === t.key ? "bg-surface shadow-sm text-ink" : "text-ink/50 hover:text-ink"}`}>
+            className="tab-pill" aria-current={tab === t.key ? "page" : undefined}>
             {t.icon}{t.label}
           </Link>
         ))}

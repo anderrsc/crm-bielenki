@@ -133,3 +133,7 @@
 .quote-actions .button-ghost { background: rgb(255 255 255 / .85); border: 1px solid rgb(255 255 255 / .95); color: var(--ink-strong); box-shadow: 0 3px 10px rgb(16 24 40 / .07), inset 0 1px 0 #fff; }
 .quote-actions .button-ghost.text-red-700 { color: var(--brand-strong); }
 .quote-actions .button { background: linear-gradient(180deg, #E31616, #D90E0E); color: #fff; border-color: rgb(255 255 255 / .35); box-shadow: 0 8px 18px rgb(217 14 14 / .22), inset 0 1px 0 rgb(255 255 255 / .45); }
+
+/* botões em pílula dentro de painéis de vidro: contorno cinza fino para aparecerem sobre o branco */
+.mh-pill:not(.is-primary) { border-color: rgb(16 24 40 / .12); }
+.detail-actions .button-ghost, .sale-hero-actions .button-ghost, .quote-actions .button-ghost { border-color: rgb(16 24 40 / .12); }

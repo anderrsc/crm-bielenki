@@ -53,7 +53,7 @@ export async function FinancialEntryForm({ type, error }: { type: "pagar" | "rec
           <span className="label">Observações (opcional)</span>
           <textarea className="field" name="notes" rows={3} maxLength={2000} />
         </label>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="form-actions">
           <Link className="button-ghost" href={back}>Cancelar</Link>
           <button type="submit" className="button">Salvar conta</button>
         </div>

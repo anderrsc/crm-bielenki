@@ -39,8 +39,8 @@ export function FiscalPage({ data }: { data: FiscalData }) {
         <h1 className="mt-2 text-3xl font-semibold">Tributos (calculadora)</h1>
         <p className="mt-1 text-sm text-ink/60">Simula CBS, IBS e Imposto Seletivo com o motor oficial da Receita Federal. É <b>simulação</b>: não emite nota, não muda preço e não lança nada no financeiro.</p>
       </div>
-      <nav className="flex flex-wrap gap-1 rounded-xl bg-cream/60 p-1 text-sm font-semibold" aria-label="Seções">
-        {ABAS.map(([k, label]) => <Link key={k} href={`/fiscal?aba=${k}`} aria-current={data.aba === k ? "page" : undefined} className={cn("rounded-lg px-3 py-1.5", data.aba === k ? "bg-surface shadow-sm" : "text-ink/60")}>{label}</Link>)}
+      <nav className="tab-strip" aria-label="Seções">
+        {ABAS.map(([k, label]) => <Link key={k} href={`/fiscal?aba=${k}`} aria-current={data.aba === k ? "page" : undefined} className="tab-pill">{label}</Link>)}
       </nav>
       {!data.settings?.enabled && data.aba !== "configuracao" && (
         <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />A calculadora está desligada. {data.podeEditar ? <Link href="/fiscal?aba=configuracao" className="font-semibold underline">Configure e ligue</Link> : "Peça ao financeiro para configurar."}</p>

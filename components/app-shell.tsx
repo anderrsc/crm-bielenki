@@ -39,6 +39,8 @@ const CREATE=[
  {label:"Nova venda",href:"/vendas/nova",base:"/vendas",icon:HandCoins,keywords:"venda manual"},
  {label:"Nova compra",href:"/compras/nova",base:"/compras",icon:HandCoins,keywords:"compra fornecedor nota material"},
 ] as const;
+// Subpáginas sem item próprio no menu: ganham a faixa de título da seção + o nome da subpágina.
+const SUBPAGES:Record<string,string>={identidade:"Identidade visual",templates:"Templates","origens-lead":"Origens de lead",fornecedores:"Fornecedores","tabela-calhas":"Tabela de preços",classificacoes:"Categorias e centros de custos",rateios:"Rateios",obras:"Resultado por obra",dre:"DRE gerencial",caixa:"Caixa e projeção"};
 const JARVIS_URL="https://jarvis-ai-crm-bielenki.vercel.app";
 export function AppShell({children,userName,companyName,roles=[],viewable=[],unreadChats=0}:{children:React.ReactNode;userName:string;companyName:string;roles?:string[];viewable?:string[];unreadChats?:number}){
  const pathname=usePathname(),[open,setOpen]=useState(false),[collapsed,setCollapsed]=useState(false),searchRef=useRef<HTMLInputElement>(null);
@@ -80,7 +82,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[],unr
  const shortcuts=favItems.length>0&&<div className="sidebar-section">{groupHeader("Favoritos",groupOpen("Favoritos"))}{groupOpen("Favoritos")&&favItems.map(shortcutLink)}</div>;
  const recentBlock=recentItems.length>0&&!compact&&<div className="sidebar-section">{groupHeader("Recentes",groupOpen("Recentes"))}{groupOpen("Recentes")&&recentItems.map(shortcutLink)}</div>;
  // Barra do celular: Início · WhatsApp · Agenda · Orçamentos · Mais. Só entra o que o cargo pode ver.
- const bandPath=pathname.replace(/\/$/,""),bandSub=/\/(novo|nova)$/.test(bandPath)?"Cadastrar":bandPath.endsWith("/calhas")?"Calhas":bandPath.endsWith("/esquadrias")?"Esquadrias":bandPath.endsWith("/editar")?"Editar":"",isForm=bandSub!=="";
+ const bandPath=pathname.replace(/\/$/,""),bandSub=/\/(novo|nova)$/.test(bandPath)?"Cadastrar":SUBPAGES[bandPath.split("/").pop()??""]&&bandPath.split("/").length>2?SUBPAGES[bandPath.split("/").pop()??""]:bandPath.endsWith("/calhas")?"Calhas":bandPath.endsWith("/esquadrias")?"Esquadrias":bandPath.endsWith("/editar")?"Editar":"",isForm=bandSub!=="";
  const mobileTabs=[
   {href:"/dashboard",label:"Início",Icon:House,show:true},
   {href:"/atendimento",label:"WhatsApp",Icon:MessageCircle,show:canSee("/atendimento")},
