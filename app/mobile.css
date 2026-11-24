@@ -323,7 +323,7 @@
 /* ===== Estilo "app": painel de destaque escuro, cartões bem arredondados e barra inferior flutuante ===== */
 @media screen and (max-width: 767px) {
  /* Painel de destaque do Início */
- .mh-hero { margin: -18px -16px 18px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; background: radial-gradient(130% 80% at 100% 0%, rgb(246 17 17 / .30) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .mh-hero { margin: -18px -16px 18px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; }
  .mh-hero .mh-greeting { font-size: 22px; line-height: 28px; font-weight: 600; color: #fff; }
  .mh-hero .mh-date { margin: 2px 0 16px; font-size: 14px; color: rgb(255 255 255 / .62); }
  .mh-hero-label { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
@@ -395,7 +395,7 @@
  .agenda-hero-note { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); text-align: center; }
 
  /* WhatsApp: cabeçalho da lista em painel */
- .mobile-inbox .wa-list-head { padding-bottom: 16px; border-radius: 0 0 28px 28px; color: #fff; background: radial-gradient(130% 80% at 100% 0%, rgb(246 17 17 / .26) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .mobile-inbox .wa-list-head { padding-bottom: 16px; border-radius: 0 0 28px 28px; color: #fff; }
  .mobile-inbox .wa-list-head .wa-title { color: #fff; }
  .mobile-inbox .wa-list-head .wa-subtitle { color: rgb(255 255 255 / .65); }
  .mobile-inbox .wa-list-head .wa-icon-btn { color: #fff; }
@@ -523,7 +523,7 @@
 
 /* Faixa de título (telas sem painel próprio), filtros recolhíveis e migalhas fora do celular */
 @media screen and (max-width: 767px) {
- .shell-band { display: flex; align-items: center; gap: 12px; margin: -18px -16px 16px; padding: 18px 16px 20px; border-radius: 0 0 28px 28px; color: #fff; font-size: 24px; line-height: 30px; font-weight: 600; letter-spacing: var(--tracking-heading); background: radial-gradient(130% 120% at 100% 0%, rgb(246 17 17 / .28) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .shell-band { display: flex; align-items: center; gap: 12px; margin: -18px -16px 16px; padding: 18px 16px 20px; border-radius: 0 0 28px 28px; color: #fff; font-size: 24px; line-height: 30px; font-weight: 600; letter-spacing: var(--tracking-heading); }
  .shell-band-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 15px; background: var(--brand); }
  .app-content:has(.mh-hero) > .shell-band, .app-content:has(.mobile-inbox) > .shell-band, .app-content:has(.mobile-agenda) > .shell-band { display: none; }
  .app-content:has(> .shell-band) > nav[aria-label="Você está em"] { display: none; }

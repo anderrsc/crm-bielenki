@@ -128,12 +128,14 @@ body {
   /* Alvos de toque */
   --tap: 44px;
   /* Vidro (consumido por app/glass.css) */
-  --glass-fill-strong: rgb(255 255 255 / .74);
-  --glass-fill-soft: rgb(255 255 255 / .38);
-  --glass-edge: rgb(255 255 255 / .85);
+  --glass-fill-strong: rgb(255 255 255 / .90);
+  --glass-fill-soft: rgb(255 255 255 / .64);
+  --glass-edge: rgb(255 255 255 / .96);
+  --glass-ring: 0 0 0 1px rgb(16 24 40 / .06);
+  --glass-tint: rgb(16 24 40 / .045); /* cinza muito leve para dar contraste ao vidro branco */
   --glass-blur-px: 22px;
   --glass-saturate: 175%;
-  --glass-shadow-md: 0 14px 34px rgb(16 24 40 / .10), 0 2px 6px rgb(16 24 40 / .04);
+  --glass-shadow-md: 0 12px 30px rgb(16 24 40 / .08), 0 1px 3px rgb(16 24 40 / .05);
   --glass-shadow-sm: 0 4px 12px rgb(16 24 40 / .08);
   --glass-fallback: rgb(255 255 255 / .94);
 }

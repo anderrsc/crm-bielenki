@@ -65,7 +65,11 @@ Raios: controle 12 · card 20 · painel 28 · pílula 999.
 
 ## Vidro (glassmorphism)
 
-Tokens em `brand-tokens.css`: `--glass-fill-strong`, `--glass-fill-soft`, `--glass-edge`, `--glass-blur-px` (22 px; 16 px no celular),
+Vidro **branco e neutro**: preenchimento de 90% → 64% de branco, borda branca e um anel cinza de 1 px (`--glass-ring`) para dar contraste.
+Sem tom de vermelho nas superfícies: o fundo da página é cinza muito claro e o único cinza do vidro é `--glass-tint` (4,5%).
+O vermelho fica só em ação principal, item ativo e contadores.
+
+Tokens em `brand-tokens.css`: `--glass-fill-strong`, `--glass-fill-soft`, `--glass-edge`, `--glass-ring`, `--glass-tint`, `--glass-blur-px` (22 px; 16 px no celular),
 `--glass-saturate`, `--glass-shadow-md/sm`, `--glass-fallback`.
 
 Onde usar: painéis de destaque (`.mh-hero`, `.shell-band`, `.module-hero`, `.detail-hero`, `.sale-hero`), barra do topo, menu lateral,

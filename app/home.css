@@ -46,7 +46,7 @@
 .mh-stages a[data-stage=done] { background: var(--success-soft); color: var(--success-text); border-color: transparent; }
 .mh-list > li, .mh-event { min-width: 0; max-width: 100%; }
 .mh-kpis > a, .mh-actions > a, .mh-stages > a { min-width: 0; }
-.mh-hero { margin: 0 0 4px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; background: radial-gradient(130% 80% at 100% 0%, rgb(246 17 17 / .30) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+.mh-hero { margin: 0 0 4px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; }
 .mh-hero .mh-greeting { font-size: 22px; line-height: 28px; font-weight: 600; color: #fff; }
 .mh-hero .mh-date { margin: 2px 0 16px; font-size: 14px; color: rgb(255 255 255 / .62); }
 .mh-hero-label { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
@@ -167,7 +167,7 @@
 
 /* Filtros recolhíveis: no PC o conteúdo aparece sempre */
 .mc-toggle { display: none; }
-.shell-band { display: flex; align-items: center; gap: 14px; margin: 0 0 20px; padding: 22px 28px; border-radius: 28px; color: #fff; font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: var(--tracking-heading); background: radial-gradient(130% 120% at 100% 0%, rgb(246 17 17 / .28) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+.shell-band { display: flex; align-items: center; gap: 14px; margin: 0 0 20px; padding: 22px 28px; border-radius: 28px; color: #fff; font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: var(--tracking-heading); }
 .shell-band-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 46px; height: 46px; border-radius: 16px; background: var(--brand); }
 .app-content:has(.mh-hero) > .shell-band, .app-content:has(.mobile-inbox) > .shell-band, .app-content:has(.mobile-agenda) > .shell-band, .app-content:has(.agenda-stack) > .shell-band { display: none; }
 @media (min-width: 768px) {
