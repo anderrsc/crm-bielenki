@@ -198,7 +198,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
-    try { return <><div className="mb-4"><OperationalIndicators /></div><OperationalPending /><AgendaPage initialEvents={await getAgendaEvents()} /></>; }
+    try { return <div className="agenda-stack"><div className="agenda-after mb-4"><OperationalIndicators /></div><div className="agenda-after"><OperationalPending /></div><AgendaPage initialEvents={await getAgendaEvents()} /></div>; }
     catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;

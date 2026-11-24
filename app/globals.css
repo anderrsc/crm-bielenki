@@ -565,3 +565,4 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .wa-inbox .wa-tab { padding: 10px 0; font-size: 14px; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .wa-inbox .wa-tab[aria-selected="true"] { color: var(--brand-text); border-bottom-color: var(--brand); font-weight: 700; }
 .wa-inbox .wa-info-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface); }
+.wa-inbox textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

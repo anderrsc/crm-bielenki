@@ -536,22 +536,22 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           className={cn("hidden items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold md:flex", c.aiPaused ? "wa-chip" : "wa-send")}
           title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
         >
-          <Bot className="h-4 w-4" /> <span className="hidden sm:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
+          <Bot className="h-4 w-4" /> <span className="hidden 2xl:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
         </button>
         <select value={c.status} disabled={mudandoStatus} aria-label="Status da conversa" onChange={(e) => mudarStatus(e.target.value as ConversationStatus)}
-          className="wa-chip hidden rounded-full px-2 py-1.5 text-xs font-bold lg:block">
+          className="wa-chip hidden rounded-full px-2 py-1.5 text-xs font-bold 2xl:block">
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <LabelMenu conversationId={c.id} current={labels} onChanged={onChanged} />
         {c.phone && !c.phone.includes("@") && <a href={`tel:+${c.phone.replace(/\D/g, "")}`} className="wa-row wa-muted rounded-full p-2" title="Ligar" aria-label={`Ligar para ${c.name}`}><Phone className="h-5 w-5" /></a>}
 <div className="hidden items-center gap-0.5 md:flex">
-        <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted rounded-full p-2" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
+        <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted hidden rounded-full p-2 2xl:block" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
         <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
-        <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
+        <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted hidden rounded-full p-2 2xl:block"><Mail className="h-4 w-4" /></button>
         <button
           disabled={arquivando}
           onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
-          className="wa-row wa-muted hidden rounded-full p-2 sm:block"
+          className="wa-row wa-muted hidden rounded-full p-2 2xl:block"
           title={c.archived ? "Desarquivar conversa" : "Arquivar conversa"} aria-label={c.archived ? "Desarquivar conversa" : "Arquivar conversa"}
         >
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
@@ -559,7 +559,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
         <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-row wa-muted rounded-full p-2"><PanelRightOpen className="h-4 w-4" /></button>
         </div>
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild><button aria-label="Mais ações da conversa" className="wa-row wa-muted rounded-full p-2 md:hidden"><MoreVertical className="h-5 w-5" /></button></DropdownMenu.Trigger>
+          <DropdownMenu.Trigger asChild><button aria-label="Mais ações da conversa" className="wa-row wa-muted rounded-full p-2 2xl:hidden"><MoreVertical className="h-5 w-5" /></button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
             <DropdownMenu.Item onSelect={onPanel} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><PanelRightOpen className="h-4 w-4" />Ficha do cliente</DropdownMenu.Item>
             {(aiActive || !c.aiPaused) && <DropdownMenu.Item onSelect={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Bot className="h-4 w-4" />{c.aiPaused ? "Devolver para a Lia" : "Assumir conversa"}</DropdownMenu.Item>}

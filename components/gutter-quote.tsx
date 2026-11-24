@@ -386,7 +386,7 @@ export function GutterQuote({
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div className="quote-editor-head mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Calculadora técnica</p>
           <h1 className="mt-2 text-3xl font-black">
@@ -593,14 +593,16 @@ export function GutterQuote({
                 onChange={e => setInstallationDeadline(e.target.value)}
                 placeholder="Ex: Até 15 dias após aprovação" />
             </div>
-            <div className="border-t pt-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total</p>
-              <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
-            </div>
             {saveProblem && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveProblem}</p>}
-            <SubmitButton disabled={!clientId || total <= 0 || !!saveProblem || (items.length === 0 && specialItems.length === 0)} className="button w-full">
-              <Save className="h-4 w-4" />Salvar orçamento
-            </SubmitButton>
+            <div className="quote-save-bar border-t pt-4">
+              <div className="quote-save-total">
+                <p className="text-xs font-bold uppercase tracking-wider text-ink/45">Total do orçamento</p>
+                <p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>
+              </div>
+              <SubmitButton disabled={!clientId || total <= 0 || !!saveProblem || (items.length === 0 && specialItems.length === 0)} className="button w-full">
+                <Save className="h-4 w-4" />Salvar orçamento
+              </SubmitButton>
+            </div>
           </div>
         </aside>
       </form>

@@ -140,7 +140,7 @@
  .mobile-agenda-summary small { color: var(--text-muted); font-size: 16px; font-weight: 500; margin-left: 3px; }
  .mobile-segmented { display: flex; padding: 5px; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 17px; margin-bottom: 16px; }
  .mobile-segmented > button { flex: 1; min-height: 42px; border-radius: 12px; font-size: 13px; font-weight: 650; color: var(--text-muted); }
- .mobile-segmented > button[aria-pressed=true] { background: var(--text); color: var(--surface); }
+ .mobile-segmented > button[aria-pressed=true] { background: var(--brand-strong); color: var(--on-brand); }
  .mobile-calendar { border-radius: 23px; border: 1px solid var(--border); background: var(--surface); padding: 10px 8px 7px; }
  .mobile-calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 8px; }
  .mobile-calendar-heading h2 { font-size: 16px; font-weight: 750; text-transform: capitalize; }
@@ -265,4 +265,57 @@
 @media screen and (max-width: 767px) {
  .mobile-quote-workspace > section { display: none; }
  .mobile-quote-workspace header .login-kicker { display: none; }
+}
+
+/* Agenda no celular: cabeçalho, segmentos, barra de data e cartões como nas referências. */
+@media screen and (max-width: 767px) {
+ .mobile-agenda-heading { margin-bottom: 14px; }
+ .mobile-agenda-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 22px; font-weight: 800; }
+ .mobile-agenda-heading h1 svg { color: var(--text-muted); }
+ .mobile-new-button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 12px; background: var(--brand-strong); color: var(--on-brand); font-size: 15px; font-weight: 700; }
+ .mobile-segmented { border-radius: 12px; margin-bottom: 12px; }
+ .mobile-segmented > button { border-radius: 9px; }
+ .mobile-segmented > button[aria-pressed=true] { background: var(--brand-strong); color: var(--on-brand); }
+ .mobile-date-nav { display: flex; align-items: center; justify-content: space-between; min-height: 52px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+ .mobile-date-nav > button { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; color: var(--text); }
+ .mobile-date-label { flex: 1; gap: 8px; font-size: 16px; font-weight: 700; text-transform: capitalize; }
+ .mobile-calendar { border-radius: 12px; margin-bottom: 12px; }
+ .mobile-day-heading { margin: 14px 0 8px; }
+ .mobile-agenda-filters button[aria-pressed=true] { background: var(--brand-strong); border-color: var(--brand-strong); color: var(--on-brand); }
+ .mobile-appointments { gap: 10px; }
+ .mobile-appointment { position: relative; display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+ .mobile-appointment::before { content: ''; width: 4px; flex-shrink: 0; background: var(--agenda-blue); }
+ .mobile-appointment[data-type=instalacao]::before { background: #27aa77; }
+ .mobile-appointment[data-type=reuniao]::before { background: #ab78e8; }
+ .mobile-appointment[data-type=producao]::before { background: #e8892a; }
+ .mobile-appointment[data-type=compra]::before { background: #d6a400; }
+ .mobile-appointment-open { display: flex; align-items: flex-start; gap: 14px; flex: 1; min-width: 0; padding: 14px 8px 14px 12px; text-align: left; }
+ .mobile-appointment-time { min-width: 52px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+ .mobile-appointment-info { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1; }
+ .mobile-appointment-info > strong { font-size: 17px; font-weight: 700; }
+ .mobile-appointment-info > span { display: flex; align-items: center; gap: 5px; font-size: 14px; color: var(--text-muted); }
+ .mobile-appointment-info > small { font-size: 13px; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+ .mobile-appointment-pin { display: inline-flex; align-items: center; justify-content: center; align-self: center; width: 44px; height: 44px; margin-right: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text-muted); flex-shrink: 0; }
+}
+@media screen and (max-width: 767px) {
+ .agenda-stack { display: flex; flex-direction: column; }
+ .agenda-stack > .agenda-after { order: 2; margin-top: 18px; }
+}
+
+/* Editor de orçamento no celular: cabeçalho enxuto e barra fixa com total e salvar (layout apenas; cálculo intacto). */
+@media screen and (max-width: 767px) {
+ .quote-editor-head { margin-bottom: 12px; gap: 0; }
+ .quote-editor-head p, .quote-editor-head > span { display: none; }
+ .quote-editor-head h1 { margin: 0; font-size: 24px; }
+ .quote-save-bar { position: fixed; left: 0; right: 0; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface); }
+ .quote-save-total { min-width: 0; }
+ .quote-save-total p:first-child { font-size: 11px; }
+ .quote-save-total p:last-child { margin: 0; font-size: 20px; line-height: 1.2; white-space: nowrap; }
+ .quote-save-bar > .button { width: auto; flex-shrink: 0; min-height: 46px; padding: 0 18px; }
+ .quote-save-bar { margin: 0; }
+ .app-content:has(.quote-save-bar) { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+}
+@media screen and (max-width: 767px) {
+ .mh-list > li, .mh-event { min-width: 0; max-width: 100%; }
+ .mh-kpis > a, .mh-actions > a, .mh-stages > a { min-width: 0; }
 }
