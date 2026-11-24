@@ -22,6 +22,24 @@ test('10013 e mensagem do fornecedor são substituídos por erro seguro, sem eco
  await expect(createTrackceoClient({account:'a',password:'pw',token:'t',expiresAt:new Date(now+7200000).toISOString(),fetchImpl:fetcher,now:()=>now}).sync()).rejects.toMatchObject({code:'permission'});
  expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+test('diagnóstico distingue as quatro recusas e a etapa, sem retransmitir dados do fornecedor',async()=>{
+ const reasons=new Map([[10007,'Permissão negada'],[10013,'não está autorizado'],[10016,'conta está bloqueada'],[20089,'rastreador está bloqueado']]);
+ for(const [code,reason] of reasons){
+  for(const stage of ['authorization','devices','positions'] as const){
+   const fetcher=vi.fn<typeof fetch>().mockImplementation(async input=>{
+    const path=new URL(String(input)).pathname;
+    const fail=stage==='authorization'||stage==='devices'&&path==='/api/device/list'||stage==='positions'&&path==='/api/track';
+    return fail?new Response(JSON.stringify({code,message:'senha=SEGREDO token=SEGREDO',record:{account:'NAO-EXIBIR'}})):path==='/api/device/list'?response([device]):response({access_token:'t',expires_in:7200});
+   });
+   const failure=await createTrackceoClient({account:'a',password:'p',fetchImpl:fetcher,now:()=>now}).sync().catch(e=>e as Error);
+   expect(failure).toBeInstanceOf(TrackingError);expect((failure as Error).message).toContain(String(code));expect((failure as Error).message).toContain(reason);
+   expect((failure as Error).message).toContain({authorization:'autenticação',devices:'lista de rastreadores',positions:'localização'}[stage]);
+   expect((failure as Error).message).not.toMatch(/SEGREDO|NAO-EXIBIR/);
+  }
+ }
+ expect(new TrackingError('permission',false,{providerCode:Infinity,stage:'authorization'}).message).not.toContain('Infinity');
+});
 test('limita consultas a 100 IMEIs por lote e nunca chama comandos',async()=>{
  const devices=Array.from({length:201},(_,i)=>({...device,imei:String(860000000000000+i)}));
  const fetcher=vi.fn<typeof fetch>().mockImplementation(async url=>new URL(String(url)).pathname==='/api/device/list'?response(devices):response([]));

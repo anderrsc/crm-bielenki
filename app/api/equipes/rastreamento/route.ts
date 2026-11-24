@@ -3,7 +3,7 @@ import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 import {createClient,getAuthUser} from '@/lib/supabase/server';
 import {syncTracking} from '@/lib/trackceo-service';
-import {TRACKING_ERRORS,TrackingError} from '@/lib/trackceo';
+import {TrackingError} from '@/lib/trackceo';
 
 export const maxDuration=60;
 const actions={
@@ -35,5 +35,5 @@ export async function POST(request:NextRequest){
    if(r.error)return bounce('erro',r.error.code==='23505'?'Veículo já vinculado a outro rastreador.':'Não foi possível vincular. Confira se o veículo está disponível nesta empresa.');
   }
   revalidatePath(back);revalidatePath('/equipes');return bounce('salvo','1');
- }catch(error){return bounce('erro',error instanceof TrackingError?TRACKING_ERRORS[error.code]:'Não foi possível concluir. As últimas posições foram preservadas.');}
+ }catch(error){return bounce('erro',error instanceof TrackingError?error.message:'Não foi possível concluir. As últimas posições foram preservadas.');}
 }

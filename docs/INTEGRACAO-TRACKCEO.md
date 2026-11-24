@@ -33,3 +33,9 @@ Testes `trackceo`, `trackceo-db`, `trackceo-service`, `trackceo-route` e `trackc
 Testes usam empresa/usuários fictícios e servidor local obrigatório; o navegador não recebe token nem chama diretamente a API TrackCEO. Tiles também são substituídos. O desvio de API exige simultaneamente `CRM_E2E_TEST_MODE=1`, Supabase fictício `http://localhost:54321` e `TRACKCEO_TEST_API_ORIGIN=http://127.0.0.1:54323`. URL arbitrária é ignorada. Não configurar essas variáveis em produção.
 
 A validação real depende do dono conectar a conta na tela protegida após publicar. A sessão do portal TrackCEO não foi copiada nem reutilizada como credencial permanente.
+
+## Diagnóstico de recusa
+
+A tela informa o código oficial e a etapa da falha, usando somente textos locais: 10007 = permissão negada, 10013 = rastreador não autorizado, 10016 = conta bloqueada, 20089 = rastreador bloqueado. O código 10007 sozinho não confirma bloqueio da API ou restrição por IP. A mensagem recebida do fornecedor nunca é mostrada. Sem novas tabelas ou permissões.
+
+Após o primeiro acesso recusado em 24/11, é necessário repetir a conexão na tela protegida: a tentativa antiga guardou apenas a categoria do erro, sem credenciais ou código original. O portal continua acessível, mas isso não identifica a causa da recusa na API. Não reutilizar tokens da sessão web nem mudar para endpoints internos como alternativa à autorização oficial.

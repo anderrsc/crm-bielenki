@@ -10,8 +10,23 @@ export const TRACKING_ERRORS:Record<TrackingErrorCode,string>={
  configuration:'Não foi possível abrir a conexão protegida. Avise o administrador.',
 };
 export class TrackingError extends Error{
- constructor(public code:TrackingErrorCode,public expired=false){super(TRACKING_ERRORS[code]);this.name='TrackingError';}
+ constructor(public code:TrackingErrorCode,public expired=false,diagnostic?:{providerCode:number;stage:TrackingStage}){
+  super(TRACKING_ERRORS[code]);this.name='TrackingError';
+  // Somente código numérico e rótulos locais; nunca a mensagem ou URL do fornecedor.
+  if(diagnostic&&Number.isInteger(diagnostic.providerCode)&&diagnostic.providerCode>=10000&&diagnostic.providerCode<=99999&&Object.hasOwn(TRACKING_STAGES,diagnostic.stage)){
+   const reason=PERMISSION_REASONS[diagnostic.providerCode]??TRACKING_ERRORS[code];
+   this.message=`TrackCEO ${diagnostic.providerCode} · ${TRACKING_STAGES[diagnostic.stage]}: ${reason}`;
+  }
+ }
 }
+const TRACKING_STAGES={authorization:'autenticação',devices:'lista de rastreadores',positions:'localização'};
+type TrackingStage=keyof typeof TRACKING_STAGES;
+const PERMISSION_REASONS:Record<number,string>={
+ 10007:'Permissão negada pelo TrackCEO. Esta resposta não informa se a restrição é da API ou da conta.',
+ 10013:'Um rastreador não está autorizado para esta conta no TrackCEO.',
+ 10016:'A conta está bloqueada no TrackCEO.',
+ 20089:'Um rastreador está bloqueado no TrackCEO.',
+};
 export type TrackingDevice={imei:string;name:string;model:string|null;plate:string|null;latitude:number|null;longitude:number|null;gps_at:string|null;heartbeat_at:string|null;speed:number|null;ignition:number|null;provider_status:number|null};
 export type StoredTrackceo={account:string;password_encrypted:string;token_encrypted:string|null;token_expires_at:string|null;lease_id:string;active:boolean};
 type ProviderRecord=Record<string,unknown>;
@@ -72,8 +87,10 @@ export function createTrackceoClient({account,password,token:cachedToken,expires
   catch(e){if(e instanceof TrackingError)throw e;throw new TrackingError('unavailable');}
   if(!object(body)||typeof body.code!=='number')throw new TrackingError('invalid_response');
   if(body.code!==0){
-   if([10002,10003,10010,10011,10012].includes(body.code))throw new TrackingError('credentials',true);
-   throw new TrackingError(body.code===20001?'credentials':[10007,10013,10016,20089].includes(body.code)?'permission':body.code===10009?'rate_limit':'unavailable');
+   const stage:TrackingStage=path==='/api/authorization'?'authorization':path==='/api/device/list'?'devices':'positions';
+   const diagnostic={providerCode:body.code,stage};
+   if([10002,10003,10010,10011,10012].includes(body.code))throw new TrackingError('credentials',true,diagnostic);
+   throw new TrackingError(body.code===20001?'credentials':[10007,10013,10016,20089].includes(body.code)?'permission':body.code===10009?'rate_limit':'unavailable',false,diagnostic);
   }
   return body.record;
  }
