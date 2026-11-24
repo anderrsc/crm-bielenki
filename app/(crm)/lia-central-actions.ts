@@ -42,12 +42,11 @@ export async function toggleLiaRule(ruleId: string, active: boolean): Promise<{ 
   try {
     const { db, user, profile } = await getProfileAndCompany();
     if (!isManager(profile.role)) return { error: "Somente gerente ou administrador pode alterar regras." };
-    const { error } = await db
-      .from("lia_rules")
-      .update({ is_active: active, updated_at: new Date().toISOString() })
-      .eq("id", ruleId)
-      .eq("company_id", profile.company_id);
+    let query = db.from("lia_rules").update({ is_active: active, updated_at: new Date().toISOString() }).eq("id", ruleId).eq("company_id", profile.company_id);
+    if (active) query = query.eq("validation_status", "validated");
+    const { data: changed, error } = await query.select("id").maybeSingle();
     if (error) return { error: error.message };
+    if (!changed) return { error: "A regra precisa existir e estar validada para ativação." };
     await db.from("lia_audit_events").insert({
       company_id: profile.company_id,
       event_type: active ? "rule_enabled" : "rule_disabled",
@@ -177,12 +176,13 @@ export async function decideActionRequest(
     const { db, user, profile } = await getProfileAndCompany();
     if (!isManager(profile.role)) return { error: "Somente gerente ou administrador pode aprovar ou rejeitar pedidos." };
     const now = new Date().toISOString();
-    const { error } = await db
+    const { data: changed, error } = await db
       .from("lia_action_requests")
       .update({ status: decision, approved_by: user.id, decided_at: now, rejection_reason: decision === "rejected" ? (rejectionReason ?? null) : null, updated_at: now })
       .eq("id", requestId)
       .eq("company_id", profile.company_id)
-      .eq("status", "pending");
+      .eq("status", "pending").select("id").maybeSingle();
+    if (!error && !changed) return { error: "Solicitação indisponível ou já decidida." };
     if (error) return { error: error.message };
     await db.from("lia_audit_events").insert({
       company_id: profile.company_id,
