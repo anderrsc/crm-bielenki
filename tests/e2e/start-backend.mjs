@@ -1,10 +1,12 @@
 // Sobe o fake Supabase e cria o usuario administrador de teste com empresa.
 // Uso: DATABASE_URL=... POSTGREST_URL=... node tests/e2e/start-backend.mjs
 import { startFakeSupabase, ANON_KEY, SERVICE_ROLE_KEY } from "./fake-supabase.mjs";
+import {startFakeTrackceo} from './fake-trackceo.mjs';
 
 export const ADMIN = { email: "admin@teste.local", password: "senha-de-teste-123", name: "Admin Teste" };
 
 export async function startBackend({ port = 54321 } = {}) {
+  if(process.env.CRM_E2E_TEST_MODE==='1')await startFakeTrackceo();
   const sb = await startFakeSupabase({
     port,
     databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres@localhost:5499/crm",
