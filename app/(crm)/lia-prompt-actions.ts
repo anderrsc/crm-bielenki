@@ -71,26 +71,10 @@ export async function savePromptDraft(content: string, changeNote?: string): Pro
 /** Publica uma versão do prompt como ativa (arquiva a anterior). Somente admin/gerente. */
 export async function publishPromptVersion(versionId: string): Promise<{ error?: string }> {
   try {
-    const { db, user, profile } = await getCtx();
+    const { db, profile } = await getCtx();
     if (!isManager(profile.role)) return { error: "Somente gerente ou administrador pode publicar o prompt." };
-    // Arquiva o ativo atual
-    await db.from("lia_prompt_versions").update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("company_id", profile.company_id).eq("status", "active");
-    // Publica a versão escolhida
-    const now = new Date().toISOString();
-    const { error } = await db.from("lia_prompt_versions")
-      .update({ status: "active", approved_by: user.id, published_at: now, updated_at: now })
-      .eq("id", versionId).eq("company_id", profile.company_id);
+    const { error } = await db.rpc("publish_lia_prompt", { p_version: versionId });
     if (error) return { error: error.message };
-    await db.from("lia_audit_events").insert({
-      company_id: profile.company_id,
-      event_type: "config_changed",
-      actor_id: user.id,
-      actor_role: profile.role,
-      target_type: "config",
-      outcome: "changed",
-      details: { action: "prompt_published", version_id: versionId },
-    });
     revalidatePath("/central-ia");
     return {};
   } catch (e) { return { error: String(e) }; }
