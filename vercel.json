@@ -6,5 +6,11 @@
       "main": true,
       "**": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/internal/operations",
+      "schedule": "* * * * *"
+    }
+  ]
 }
