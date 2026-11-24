@@ -17,7 +17,7 @@ export function AnaRules() {
   async function salvar() {
     setBusy(true); setStatus("Salvando…");
     const r = await saveAnaRules(rules);
-    setStatus(r.ok ? "Salvo. A Lia já usa nas próximas mensagens." : `Erro: ${r.error}`); setBusy(false);
+    setStatus(r.ok ? "Salvo. A LIA já usa nas próximas mensagens." : `Erro: ${r.error}`); setBusy(false);
   }
 
   async function aprender() {
@@ -47,7 +47,7 @@ export function AnaRules() {
 
   return (
     <section className="card p-4">
-      <h2 className="flex items-center gap-2 text-base font-black"><BookOpen className="h-5 w-5" /> Como a Lia atende</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold"><BookOpen className="h-5 w-5" /> Como a LIA atende</h2>
       <p className="mt-1 text-sm text-ink/70">
         Responda embaixo de cada pergunta (linha <b>R:</b>). O que ficar em branco ela ignora. Essas regras mandam mais que tudo.
         O botão <b>Aprender com as conversas</b> lê as últimas 1000 mensagens da equipe e anota como vocês atendem.
@@ -57,8 +57,8 @@ export function AnaRules() {
         className="mt-3 h-[28rem] w-full rounded-xl border border-sand/80 bg-cream p-3 font-mono text-xs leading-relaxed"
       />
       <div className="mt-2 flex flex-wrap gap-2">
-        <button onClick={salvar} disabled={busy || !loaded} className="flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" /> Salvar regras</button>
-        <button onClick={aprender} disabled={busy || !loaded} className="flex items-center gap-1 rounded-xl bg-cream px-3 py-2 text-xs font-bold disabled:opacity-60"><GraduationCap className="h-4 w-4" /> Aprender com as conversas</button>
+        <button onClick={salvar} disabled={busy || !loaded} className="flex items-center gap-1 rounded-xl bg-forest px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-4 w-4" /> Salvar regras</button>
+        <button onClick={aprender} disabled={busy || !loaded} className="flex items-center gap-1 rounded-xl bg-cream px-3 py-2 text-xs font-semibold disabled:opacity-60"><GraduationCap className="h-4 w-4" /> Aprender com as conversas</button>
       </div>
       {status && <p className="mt-2 text-xs text-ink/70">{status}</p>}
     </section>

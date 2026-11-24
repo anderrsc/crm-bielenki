@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { PriorityQueue } from "@/components/priority-queue";
 import { DashboardOverview } from "@/components/dashboard-overview";
 import { QuickClientDialog } from "@/components/quick-client-dialog";
+import { MobileHome } from "@/components/mobile-home";
 import Link from "next/link";
 import {
   AlertCircle, AlertTriangle, ArrowUpRight, BadgeCheck, BarChart3, Bell,
   CalendarClock, CircleDollarSign, ClipboardList, FileText, ShoppingCart,
   TrendingUp, Users, WalletCards,
 } from "lucide-react";
-import { getRequestClient } from "@/lib/supabase/server";
+import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate, todayISO } from "@/lib/utils";
 
 async function loadLeadSources() {
@@ -24,7 +25,7 @@ async function loadDashboard(aba: string) {
   const date = todayISO();
   const geral = aba === "geral";
   const none = Promise.resolve({ data: null });
-  const [summaryRes, execRes, actionsRes, alertsRes, reportRes, upcomingRes] = await Promise.all([
+  const [summaryRes, execRes, actionsRes, alertsRes, reportRes, upcomingRes, ordersCountRes, stagesRes] = await Promise.all([
     db.rpc("dashboard_summary"),
     db.rpc("dashboard_executivo"),
     // Acoes, alertas, relatorio do ano e agenda so aparecem na aba Geral.
@@ -32,6 +33,8 @@ async function loadDashboard(aba: string) {
     geral ? db.from("operational_alerts").select("*").eq("resolved",false).order("created_at",{ascending:false}).limit(5) : none,
     geral ? db.rpc("reporting_summary", {p_start: date.slice(0,4)+"-01-01", p_end:date}) : none,
     geral ? db.from("v_operational_agenda").select("id,title,starts_at,status,event_type,client_name,source").gte("starts_at",date).order("starts_at").limit(30) : none,
+    geral ? db.from("v_order_overview").select("id",{count:"exact",head:true}).not("operational_status","in","(finalizado,cancelado)") : none,
+    geral ? db.rpc("operational_indicators") : none,
   ]);
   return {
     ...(summaryRes.data as Record<string,unknown> ?? {}),
@@ -40,6 +43,8 @@ async function loadDashboard(aba: string) {
     alerts:  alertsRes.data,
     report: reportRes.data,
     upcoming: upcomingRes.data,
+    activeOrders: (ordersCountRes as { count?: number | null }).count ?? 0,
+    stagesData: stagesRes.data,
   };
 }
 
@@ -61,6 +66,31 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
   const despesas = d?.despesas_abertas  ?? d?.payable      ?? 0;
   const saldo    = receitas - despesas;
 
+  // Início no celular (referências): saudação, indicadores, agenda de hoje e etapas dos pedidos.
+  const authUser = aba === "geral" ? await getAuthUser(financialDb) : null;
+  const profileName = authUser ? ((await financialDb.from("profiles").select("full_name").eq("id", authUser.id).maybeSingle()).data?.full_name as string | undefined) : undefined;
+  const hour = Number(new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const dateRaw = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" });
+  const dateLabel = dateRaw.charAt(0).toUpperCase() + dateRaw.slice(1);
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const todayEvents = ((d?.upcoming ?? []) as { id: string; source?: string; title: string; starts_at: string; event_type: string; client_name?: string }[]).filter(e => new Date(e.starts_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) === todayKey);
+  const st = d?.stagesData as Record<string, number> | null | undefined;
+  const stages = st ? {
+    measure: (st.aguardando_decisao ?? 0) + (st.conferencias_sem_data ?? 0) + (st.aguardando_validacao ?? 0) + (st.aguardando_conferencia ?? 0),
+    production: (st.aguardando_corte ?? 0) + (st.em_producao ?? 0),
+    install: st.instalacoes_pendentes ?? 0,
+    done: st.servicos_concluidos_mes ?? 0,
+  } : null;
+  const overdueReceivable = Number(d?.overdue_receivable ?? 0);
+  // Barras dos últimos 6 meses com vendas registradas (dados reais do relatório; sem dados, o gráfico some).
+  const monthNames = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const heroBars = ((d?.report?.monthly_sales ?? []) as { mes?: string; month?: string; total: number }[])
+    .map(m => ({ key: String(m.mes || m.month || ""), value: Number(m.total) || 0 }))
+    .filter(m => m.key.length >= 7)
+    .slice(-6)
+    .map(m => ({ label: monthNames[Number(m.key.slice(5, 7)) - 1] ?? "", value: m.value, current: m.key.startsWith(new Date().toISOString().slice(0, 7)) }));
+
   const overdueBadges = [
     (d?.overdue_receivable ?? 0) > 0 && { label:`${money(d.overdue_receivable)} a receber vencido(s)`, href:"/financeiro/receber", color:"bg-red-50 border-red-200 text-red-800", icon:AlertCircle },
     (d?.overdue_payable    ?? 0) > 0 && { label:`${money(d.overdue_payable)} a pagar vencido(s)`,      href:"/financeiro/pagar",  color:"bg-orange-50 border-orange-200 text-orange-800", icon:AlertCircle },
@@ -69,7 +99,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
   ].filter(item => item && (canViewFinancial || !item.href.startsWith("/financeiro"))) as { label:string; href:string; color:string; icon:typeof AlertCircle }[];
 
   const ABAS = [
-    { key:"geral",      label:"Visão Geral" },
+    { key:"geral",      label:"Visão geral" },
     { key:"comercial",  label:"Comercial" },
     { key:"producao",   label:"Produção" },
     { key:"financeiro", label:"Financeiro" },
@@ -77,11 +107,22 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
   return (
     <div className="mx-auto max-w-[1500px]">
+      {aba === "geral" && <MobileHome
+        name={(profileName ?? "").split(" ")[0] || "equipe"} greeting={greeting} dateLabel={dateLabel}
+        hero={{
+          label: canViewFinancial ? "Vendas do mês" : "Orçamentos pendentes",
+          value: canViewFinancial ? money(vendas) : String(Number(d?.orcamentos_pendentes ?? d?.quotes_pending ?? 0)),
+          note: `${Number(d?.activeOrders ?? 0)} ${Number(d?.activeOrders ?? 0) === 1 ? "pedido" : "pedidos"} em andamento · ${todayEvents.length} ${todayEvents.length === 1 ? "compromisso" : "compromissos"} hoje`,
+          bars: canViewFinancial ? heroBars : [],
+        }}
+        kpis={{ quotes: Number(d?.orcamentos_pendentes ?? d?.quotes_pending ?? 0), orders: Number(d?.activeOrders ?? 0), today: todayEvents.length, leads: Number(d?.leads_novos ?? 0),
+          receivable: canViewFinancial ? money(receitas) : null, receivableNote: overdueReceivable > 0 ? `${money(overdueReceivable)} vencido` : "em aberto" }}
+        today={todayEvents as never} stages={stages} />}
       {/* Header */}
-      <div className="mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div className={"mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"+(aba==="geral"?" hidden":"")}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pulso da operação</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
+          <p className="text-xs font-semibold text-forest">Pulso da operação</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight lg:text-4xl">Visão geral</h1>
           <p className="mt-1 text-sm text-ink/50">Visão completa — do comercial à instalação.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -90,7 +131,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
             <ClipboardList className="h-4 w-4" /> Pendências
           </Link>
           <Link href="/orcamentos/calhas" className="button flex items-center gap-2">
-            Novo orçamento <ArrowUpRight className="h-4 w-4" />
+            <FileText className="h-4 w-4" /> Novo orçamento
           </Link>
         </div>
       </div>
@@ -99,7 +140,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
       {data && "error" in data && <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar o painel: {(data as Record<string,string>).error}</div>}
 
       {overdueBadges.length > 0 && (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="dash-alerts mb-5 flex flex-wrap gap-2">
           {overdueBadges.map(b => (
             <Link key={b.href} href={b.href} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition hover:opacity-80 ${b.color}`}>
               <b.icon className="h-3.5 w-3.5" />{b.label}
@@ -123,7 +164,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
       {/* ── ABA GERAL ─────────────────────────────────────────── */}
       {aba === "geral" && <>
-        <section className="mobile-kpis grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mobile-kpis desktop-only grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {([
             ["Vendas do mês",  money(vendas),   TrendingUp,       "text-emerald-700 bg-emerald-50"],
             ["A receber",      money(receitas), WalletCards,      "text-blue-700 bg-blue-50"],
@@ -135,22 +176,22 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
                 <p className="text-sm font-medium text-ink/55">{label}</p>
                 <span className={`rounded-xl p-2.5 ${color}`}><Icon className="h-5 w-5" /></span>
               </div>
-              <p className="mt-5 text-2xl font-black tracking-tight">{value}</p>
+              <p className="mt-5 text-2xl font-semibold tracking-tight">{value}</p>
             </div>
           ))}
         </section>
 
-        <DashboardOverview report={d?.report} upcoming={d?.upcoming ?? []} />
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
+        <div className="desktop-only"><DashboardOverview report={d?.report} upcoming={d?.upcoming ?? []} /></div>
+        <section className="desktop-only mt-5 grid gap-5 xl:grid-cols-[1.55fr_.8fr]">
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b p-5">
-              <div><h2 className="font-bold">Próximas ações</h2><p className="text-xs text-ink/45">Pedidos ativos por prazo</p></div>
-              <Link href="/pedidos" className="text-sm font-bold text-forest">Ver todos</Link>
+              <div><h2 className="font-semibold">Próximas ações</h2><p className="text-xs text-ink/45">Pedidos ativos por prazo</p></div>
+              <Link href="/pedidos" className="text-sm font-semibold text-forest">Ver todos</Link>
             </div>
             <div className="divide-y">
               {d?.actions?.length ? d.actions.map((x: Record<string,string>) => (
                 <Link href={`/pedidos/${x.id}`} key={x.id} className="grid gap-2 p-4 transition hover:bg-cream/50 sm:grid-cols-[1fr_1.5fr_auto] sm:items-center">
-                  <div><p className="text-xs text-ink/40">{x.order_number}</p><p className="font-bold">{x.client_name}</p></div>
+                  <div><p className="text-xs text-ink/40">{x.order_number}</p><p className="font-semibold">{x.client_name}</p></div>
                   <div><p className="text-xs text-ink/40">Próxima ação</p><p className="text-sm">{x.next_action || "Definir próxima ação"}</p></div>
                   <span className="text-xs font-semibold text-ink/55">{shortDate(x.next_action_date)}</span>
                 </Link>
@@ -160,7 +201,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
 
           <div className="space-y-5">
             <div className="card p-5">
-              <h2 className="mb-4 font-bold">Pontos de atenção</h2>
+              <h2 className="mb-4 font-semibold">Pontos de atenção</h2>
               <div className="space-y-3">
                 <Attn icon={AlertTriangle} label="Pedidos travados"   value={d?.blocked_orders ?? 0}     href="/pedidos"   color="text-red-600 bg-red-50" />
                 <Attn icon={ShoppingCart}  label="Compras atrasadas"  value={d?.compras_pendentes ?? d?.late_purchases ?? 0}  href="/compras"  color="text-orange-600 bg-orange-50" />
@@ -174,8 +215,8 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
               <div className="card overflow-hidden">
                 <div className="flex items-center gap-2 border-b p-4">
                   <Bell className="h-4 w-4 text-red-600" />
-                  <h2 className="text-sm font-bold">Alertas ativos</h2>
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">{d.alertas_ativos ?? d.alerts.length}</span>
+                  <h2 className="text-sm font-semibold">Alertas ativos</h2>
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{d.alertas_ativos ?? d.alerts.length}</span>
                 </div>
                 <div className="divide-y">
                   {d.alerts.map((a: Record<string,string>) => (
@@ -185,7 +226,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
                         <p className="truncate text-xs font-semibold">{a.title}</p>
                         {a.description && <p className="text-xs text-ink/50">{a.description}</p>}
                       </div>
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${ALERTA_COR[a.severity] ?? ALERTA_COR.medium}`}>{ALERTA_LABEL[a.severity] ?? "MÉDIO"}</span>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${ALERTA_COR[a.severity] ?? ALERTA_COR.medium}`}>{ALERTA_LABEL[a.severity] ?? "MÉDIO"}</span>
                     </div>
                   ))}
                 </div>
@@ -205,21 +246,21 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         </section>
         <section className="mt-5 grid gap-5 xl:grid-cols-2">
           <div className="card overflow-hidden">
-            <div className="border-b p-5"><h2 className="font-bold">Top vendedores do mês</h2></div>
+            <div className="border-b p-5"><h2 className="font-semibold">Top vendedores do mês</h2></div>
             <div className="divide-y">
               {(d?.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[] | null)?.length
                 ? (d.top_vendedores as { nome:string; qtd_vendas:number; total_vendido:number }[]).map((v, i) => (
                   <div key={v.nome} className="flex items-center gap-4 p-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-strong/10 text-sm font-black text-forest">{i+1}</span>
-                    <div className="flex-1"><p className="font-bold">{v.nome}</p><p className="text-xs text-ink/45">{v.qtd_vendas} venda{v.qtd_vendas !== 1 ? "s" : ""}</p></div>
-                    <p className="font-black text-emerald-700">{money(v.total_vendido)}</p>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-strong/10 text-sm font-semibold text-forest">{i+1}</span>
+                    <div className="flex-1"><p className="font-semibold">{v.nome}</p><p className="text-xs text-ink/45">{v.qtd_vendas} venda{v.qtd_vendas !== 1 ? "s" : ""}</p></div>
+                    <p className="font-semibold text-emerald-700">{money(v.total_vendido)}</p>
                   </div>
                 ))
                 : <div className="p-10 text-center text-sm text-ink/45">Nenhuma venda neste mês.</div>}
             </div>
           </div>
           <div className="card p-5">
-            <h2 className="mb-4 font-bold">Funil comercial</h2>
+            <h2 className="mb-4 font-semibold">Funil comercial</h2>
             <div className="space-y-3">
               <FunnelRow label="Leads gerados"      value={d?.leads_mes ?? 0}            total={d?.leads_mes ?? 1} color="bg-violet-500" />
               <FunnelRow label="Orçamentos enviados" value={d?.orcamentos_mes ?? 0}       total={d?.leads_mes ?? 1} color="bg-blue-500" />
@@ -244,15 +285,15 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         <section className="mt-5 grid gap-4 sm:grid-cols-3">
           <Link href="/producao" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50"><ClipboardList className="h-6 w-6 text-amber-700" /></span>
-            <div><p className="font-bold">Fluxo de Produção</p><p className="text-xs text-ink/45">Gerenciar etapas</p></div>
+            <div><p className="font-semibold">Fluxo de Produção</p><p className="text-xs text-ink/45">Gerenciar etapas</p></div>
           </Link>
           <Link href="/producao/materiais-do-pedido" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50"><ShoppingCart className="h-6 w-6 text-orange-700" /></span>
-            <div><p className="font-bold">Materiais do Pedido</p><p className="text-xs text-ink/45">Receber materiais</p></div>
+            <div><p className="font-semibold">Materiais do pedido</p><p className="text-xs text-ink/45">Receber materiais</p></div>
           </Link>
           <Link href="/instalacoes" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50"><BadgeCheck className="h-6 w-6 text-sky-700" /></span>
-            <div><p className="font-bold">Instalações</p><p className="text-xs text-ink/45">Checklists e status</p></div>
+            <div><p className="font-semibold">Instalações</p><p className="text-xs text-ink/45">Checklists e status</p></div>
           </Link>
         </section>
       </>}
@@ -268,21 +309,21 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
         <section className="mt-5 grid gap-4 sm:grid-cols-3">
           <Link href="/financeiro" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50"><WalletCards className="h-6 w-6 text-emerald-700" /></span>
-            <div><p className="font-bold">Financeiro</p><p className="text-xs text-ink/45">Visão geral</p></div>
+            <div><p className="font-semibold">Financeiro</p><p className="text-xs text-ink/45">Visão geral</p></div>
           </Link>
           <Link href="/financeiro/receber" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50"><TrendingUp className="h-6 w-6 text-blue-700" /></span>
-            <div><p className="font-bold">A Receber</p><p className="text-xs text-ink/45">Contas a receber</p></div>
+            <div><p className="font-semibold">A receber</p><p className="text-xs text-ink/45">Contas a receber</p></div>
           </Link>
           <Link href="/financeiro/pagar" className="card flex flex-col items-center gap-3 p-6 text-center hover:shadow-md transition hover:-translate-y-px">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50"><CircleDollarSign className="h-6 w-6 text-orange-700" /></span>
-            <div><p className="font-bold">A Pagar</p><p className="text-xs text-ink/45">Contas a pagar</p></div>
+            <div><p className="font-semibold">A pagar</p><p className="text-xs text-ink/45">Contas a pagar</p></div>
           </Link>
         </section>
         {(d?.overdue_receivable > 0 || d?.overdue_payable > 0) && (
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {d.overdue_receivable > 0 && <div className="card border-red-200 bg-red-50 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Recebimentos vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(d.overdue_receivable)}</p><Link href="/financeiro/receber" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-red-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
-            {d.overdue_payable > 0 && <div className="card border-orange-200 bg-orange-50 p-5"><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Pagamentos vencidos</p><p className="mt-2 text-2xl font-black text-orange-700">{money(d.overdue_payable)}</p><Link href="/financeiro/pagar" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
+            {d.overdue_receivable > 0 && <div className="card border-red-200 bg-red-50 p-5"><p className="text-xs font-semibold text-red-600">Recebimentos vencidos</p><p className="mt-2 text-2xl font-semibold text-red-700">{money(d.overdue_receivable)}</p><Link href="/financeiro/receber" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
+            {d.overdue_payable > 0 && <div className="card border-orange-200 bg-orange-50 p-5"><p className="text-xs font-semibold text-orange-600">Pagamentos vencidos</p><p className="mt-2 text-2xl font-semibold text-orange-700">{money(d.overdue_payable)}</p><Link href="/financeiro/pagar" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-orange-600">Ver detalhes <ArrowUpRight className="h-3 w-3" /></Link></div>}
           </div>
         )}
       </>}
@@ -307,7 +348,7 @@ function KpiCard({ label, value, sub, icon:Icon, color }: { label:string; value:
         <p className="text-sm font-medium text-ink/55">{label}</p>
         <span className={`rounded-xl p-2.5 ${color}`}><Icon className="h-5 w-5" /></span>
       </div>
-      <p className="mt-4 text-2xl font-black tracking-tight">{value}</p>
+      <p className="mt-4 text-2xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-ink/40">{sub}</p>
     </div>
   );
@@ -319,7 +360,7 @@ function FunnelRow({ label, value, total, color }: { label:string; value:number;
     <div>
       <div className="mb-1 flex items-center justify-between text-sm">
         <span className="font-medium">{label}</span>
-        <span className="font-black">{value} <span className="font-normal text-ink/40">({pct}%)</span></span>
+        <span className="font-semibold">{value} <span className="font-normal text-ink/40">({pct}%)</span></span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-cream/10">
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />

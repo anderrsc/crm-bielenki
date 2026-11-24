@@ -171,19 +171,19 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/automacoes" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55">
+      <Link href="/automacoes" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55">
         <ArrowLeft className="h-4 w-4" />Voltar para Automações
       </Link>
       <div className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Automações</p>
-        <h1 className="mt-2 text-3xl font-black">{workflow?.id ? "Editar fluxo" : "Novo fluxo"}</h1>
+        <p className="text-xs font-semibold text-forest">Automações</p>
+        <h1 className="mt-2 text-3xl font-semibold">{workflow?.id ? "Editar fluxo" : "Novo fluxo"}</h1>
       </div>
 
       {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
 
       {/* Identidade */}
       <div className="card mb-4 p-5">
-        <h2 className="mb-4 text-sm font-bold">Identificação</h2>
+        <h2 className="mb-4 text-sm font-semibold">Identificação</h2>
         <div className="space-y-3">
           <div>
             <label className="label">Nome do fluxo <span className="text-red-500">*</span></label>
@@ -199,8 +199,8 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
       {/* Gatilho */}
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-strong text-white text-xs font-black">G</div>
-          <h2 className="text-sm font-bold">Gatilho — quando executar?</h2>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-strong text-white text-xs font-semibold">G</div>
+          <h2 className="text-sm font-semibold">Gatilho — quando executar?</h2>
         </div>
         <select className="input" value={triggerType} onChange={e => setTriggerType(e.target.value)}>
           {Object.entries(
@@ -224,8 +224,8 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
       <div className="card mb-4 p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white text-xs font-black">C</div>
-            <h2 className="text-sm font-bold">Condições — filtrar quando executar</h2>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white text-xs font-semibold">C</div>
+            <h2 className="text-sm font-semibold">Condições — filtrar quando executar</h2>
           </div>
           <button onClick={addCondition} className="button-ghost flex items-center gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" /> Adicionar condição
@@ -236,8 +236,8 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
         )}
         {conditions.map((cond, i) => (
           <div key={cond.id} className="mb-2 flex items-center gap-2 rounded-lg bg-cream/[.03] p-3">
-            {i > 0 && <span className="shrink-0 text-xs font-bold text-violet-600 w-6 text-right">E</span>}
-            {i === 0 && <span className="shrink-0 text-xs font-bold text-ink/30 w-6 text-right">SE</span>}
+            {i > 0 && <span className="shrink-0 text-xs font-semibold text-violet-600 w-6 text-right">E</span>}
+            {i === 0 && <span className="shrink-0 text-xs font-semibold text-ink/30 w-6 text-right">SE</span>}
             <select className="input flex-1 text-xs" value={cond.field} onChange={e => updateCondition(cond.id, "field", e.target.value)}>
               {CONDITION_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
@@ -257,8 +257,8 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
       {/* Passos */}
       <div className="card mb-4 p-5">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-black">A</div>
-          <h2 className="text-sm font-bold">Ações — o que fazer?</h2>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-semibold">A</div>
+          <h2 className="text-sm font-semibold">Ações — o que fazer?</h2>
         </div>
 
         {steps.length === 0 && (
@@ -275,14 +275,14 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
                   <button onClick={() => moveStep(step.id, -1)} disabled={i === 0} className="button-ghost p-0.5 disabled:opacity-20">
                     <ChevronUp className="h-3.5 w-3.5" />
                   </button>
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-black text-white">{i + 1}</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-semibold text-white">{i + 1}</span>
                   <button onClick={() => moveStep(step.id, 1)} disabled={i === steps.length - 1} className="button-ghost p-0.5 disabled:opacity-20">
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-bold text-ink/40 uppercase tracking-wide">{STEP_TYPES.find(s => s.value === step.type)?.label ?? step.type}</span>
+                    <span className="text-xs font-semibold text-ink/40 ">{STEP_TYPES.find(s => s.value === step.type)?.label ?? step.type}</span>
                   </div>
                   <input
                     className="input mb-3 text-sm font-medium"
@@ -302,7 +302,7 @@ export function WorkflowBuilder({ workflow, templates }: Props) {
 
         {/* Add step */}
         <div>
-          <p className="mb-2 text-xs font-bold text-ink/40 uppercase tracking-wide">Adicionar passo</p>
+          <p className="mb-2 text-xs font-semibold text-ink/40 ">Adicionar passo</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {STEP_TYPES.map(st => (
               <button key={st.value} onClick={() => addStep(st.value)}

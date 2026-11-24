@@ -198,7 +198,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
-    try { return <><div className="mb-4"><OperationalIndicators /></div><OperationalPending /><AgendaPage initialEvents={await getAgendaEvents()} /></>; }
+    try { return <div className="agenda-stack"><div className="agenda-after mb-4"><OperationalIndicators /></div><div className="agenda-after"><OperationalPending /></div><AgendaPage initialEvents={await getAgendaEvents()} /></div>; }
     catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
@@ -329,4 +329,4 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   return <ModuleTable config={config} rows={rows} base={path[0]} query={search.q} error={error} page={page} hasMore={hasMore} />;
 }
 
-function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-bold uppercase tracking-widest text-forest">Marquinhos Calhas e Esquadrias</p><h1 className="mt-2 text-3xl font-black capitalize">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }
+function ComingSoon({ name }: { name: string }) { return <div className="card mx-auto max-w-3xl p-10"><p className="text-xs font-semibold text-forest">Marquinhos Calhas e Esquadrias</p><h1 className="mt-2 text-3xl font-semibold ">{name.replaceAll("-", " ")}</h1><p className="mt-3 text-ink/55">Este módulo usa a estrutura central de permissões, atividades e auditoria do sistema. Configure o Supabase para começar a operá-lo.</p></div> }

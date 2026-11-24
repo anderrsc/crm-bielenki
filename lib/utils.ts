@@ -49,3 +49,6 @@ export const localISODate = (date?: Date) => {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 };
+
+/** Primeira letra maiúscula (datas por extenso saem em minúsculas no Intl): padrão Sentence case da interface. */
+export const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : text);

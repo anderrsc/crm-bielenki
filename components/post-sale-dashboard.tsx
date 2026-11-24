@@ -42,38 +42,38 @@ export function PostSaleDashboard({ stats, back }: { stats: PostSaleDashboardSta
  <div className="card p-4">
  <div className="flex items-center gap-2 text-ink/55">
  <AlertTriangle size={16} />
- <span className="text-xs font-bold uppercase tracking-widest">Problemas abertos</span>
+ <span className="text-xs font-semibold ">Problemas abertos</span>
  </div>
- <p className="mt-2 text-3xl font-black text-red-600">{stats?.open_problems ?? 0}</p>
+ <p className="mt-2 text-3xl font-semibold text-red-600">{stats?.open_problems ?? 0}</p>
  </div>
  <div className="card p-4">
  <div className="flex items-center gap-2 text-ink/55">
  <Clock size={16} />
- <span className="text-xs font-bold uppercase tracking-widest">Em andamento</span>
+ <span className="text-xs font-semibold ">Em andamento</span>
  </div>
- <p className="mt-2 text-3xl font-black text-blue-600">{stats?.in_progress_count ?? 0}</p>
+ <p className="mt-2 text-3xl font-semibold text-blue-600">{stats?.in_progress_count ?? 0}</p>
  </div>
  <div className="card p-4">
  <div className="flex items-center gap-2 text-ink/55">
  <Star size={16} />
- <span className="text-xs font-bold uppercase tracking-widest">Avaliação média (90d)</span>
+ <span className="text-xs font-semibold ">Avaliação média (90d)</span>
  </div>
- <p className="mt-2 text-3xl font-black text-amber-500">
+ <p className="mt-2 text-3xl font-semibold text-amber-500">
  {stats?.avg_rating_90d != null ? stats.avg_rating_90d.toFixed(1) : "—"}
  </p>
  </div>
  <div className="card p-4">
  <div className="flex items-center gap-2 text-ink/55">
  <TrendingUp size={16} />
- <span className="text-xs font-bold uppercase tracking-widest">Resolvidos (30d)</span>
+ <span className="text-xs font-semibold ">Resolvidos (30d)</span>
  </div>
- <p className="mt-2 text-3xl font-black text-green-600">{stats?.resolved_last_30d ?? 0}</p>
+ <p className="mt-2 text-3xl font-semibold text-green-600">{stats?.resolved_last_30d ?? 0}</p>
  </div>
  </div>
 
  {/* Aviso de follow-ups atrasados */}
  {(stats?.overdue_followups ?? 0) > 0 && (
- <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-3 text-sm font-bold text-red-600">
+ <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-600">
  <AlertTriangle size={16} />
  {stats!.overdue_followups} follow-up(s) atrasado(s) — verifique a lista abaixo
  </div>
@@ -90,7 +90,7 @@ export function PostSaleDashboard({ stats, back }: { stats: PostSaleDashboardSta
  {showForm && (
  <div className="card space-y-4 p-5">
  <div className="flex items-center justify-between">
- <h3 className="text-lg font-black">Novo pós-venda</h3>
+ <h3 className="text-lg font-semibold">Novo pós-venda</h3>
  <button onClick={() => setShowForm(false)} className="text-sm text-ink/50 underline">Cancelar</button>
  </div>
  <form action={createPostSale} className="grid gap-3 sm:grid-cols-2">
@@ -131,14 +131,14 @@ export function PostSaleCard({ ps, canEdit, back }: { ps: { id: string; type: st
  <div className="flex items-start justify-between gap-3">
  <div className="min-w-0 flex-1">
  <div className="flex flex-wrap items-center gap-2">
- <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_COLORS[ps.status] ?? STATUS_COLORS.aberto}`}>{ps.status.replace("_", " ")}</span>
- <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold text-ink/60">{TYPE_LABELS[ps.type] ?? ps.type}</span>
- {ps.priority !== "normal" && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-600">{ps.priority}</span>}
- {ps.rating != null && <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-500"><Star size={12} fill="currentColor" /> {ps.rating}</span>}
+ <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_COLORS[ps.status] ?? STATUS_COLORS.aberto}`}>{ps.status.replace("_", " ")}</span>
+ <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-semibold text-ink/60">{TYPE_LABELS[ps.type] ?? ps.type}</span>
+ {ps.priority !== "normal" && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-600">{ps.priority}</span>}
+ {ps.rating != null && <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-amber-500"><Star size={12} fill="currentColor" /> {ps.rating}</span>}
  </div>
- <h3 className="mt-1 truncate font-bold">{ps.title}</h3>
+ <h3 className="mt-1 truncate font-semibold">{ps.title}</h3>
  {ps.description && <p className="mt-1 line-clamp-2 text-sm text-ink/60">{ps.description}</p>}
- <p className="mt-1 text-[10px] text-ink/40">Criado em {new Date(ps.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}{ps.resolved_at ? ` · Resolvido em ${new Date(ps.resolved_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}</p>
+ <p className="mt-1 text-[11px] text-ink/40">Criado em {new Date(ps.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}{ps.resolved_at ? ` · Resolvido em ${new Date(ps.resolved_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}</p>
  </div>
  </div>
 

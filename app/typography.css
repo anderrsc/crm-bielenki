@@ -1,0 +1,64 @@
+/* ===== Bielenki Design System — tipografia =====
+   Carregado por último: é a regra final de tamanho, peso e família da interface.
+   Documentos comerciais e de impressão (.print-sheet, .quote-sheet, .measure-sheet) ficam de fora. */
+
+html, body { font-family: var(--font-sans); }
+body {
+  font-size: var(--type-body); line-height: var(--lh-body); font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums; font-kerning: normal; text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+button, input, select, textarea, optgroup, option, kbd { font-family: inherit; }
+h1, h2, h3, h4, .display-font { font-family: var(--font-sans); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-heading); }
+b, strong, th { font-weight: var(--fw-semibold); }
+
+/* Pesos: 700 só de forma explícita; bold/extrabold/black do Tailwind valem 600 na interface */
+.font-bold:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *),
+.font-extrabold:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *),
+.font-black:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-weight: var(--fw-semibold); }
+.font-semibold:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-weight: var(--fw-semibold); }
+.font-medium:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-weight: var(--fw-medium); }
+
+/* Escala semântica (títulos). Classes text-* continuam válidas em casos locais, mas os títulos seguem a escala */
+.app-content h1:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-size: var(--type-page); line-height: var(--lh-page); }
+.app-content h2:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-size: var(--type-section); line-height: var(--lh-section); }
+.app-content h3:not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { font-size: var(--type-card); line-height: var(--lh-card); }
+.app-content .wa-inbox .wa-title { font-size: var(--type-section); line-height: var(--lh-section); }
+
+/* Indicadores principais */
+.mh-hero-value, .mh-hero-card .mh-hero-value, .mh-hero:not(:has(.mh-hero-card)) .mh-hero-value { font-size: var(--type-metric); line-height: var(--lh-metric); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-metric); }
+.mh-kpi-value strong, .mh-kpi-value strong.is-long { font-size: clamp(20px, 6.4vw, 28px); line-height: var(--lh-metric); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-metric); }
+.sale-money > p:last-child, .sale-money.is-total > p:last-child { font-weight: var(--fw-semibold); letter-spacing: var(--tracking-metric); }
+.sale-money.is-total > p:last-child { font-size: var(--type-metric); line-height: var(--lh-metric); }
+.sale-money > p:last-child { font-size: 20px; line-height: 1.3; }
+
+/* Botões e filtros */
+:where(.button, .button-ghost, .mh-pill, .mobile-new-button, .sidebar-link, .mc-toggle) { font-size: var(--type-button); line-height: var(--lh-button); }
+.button, .button-ghost, .mh-pill, .mobile-new-button, .mc-toggle, .detail-actions a, .detail-actions button, .sale-hero-actions a { font-weight: var(--fw-medium); }
+:where(.wa-chip, .mobile-segmented > button, .mobile-agenda-filters button, .mobile-quote-workspace nav[aria-label='Status do orçamento'] a) { font-size: var(--type-filter); line-height: var(--lh-filter); }
+.wa-chip, .mobile-segmented > button, .mobile-agenda-filters button, .mobile-quote-workspace nav[aria-label='Status do orçamento'] a { font-weight: var(--fw-medium); }
+
+/* Formulários */
+.field, .app-content input:not([type="checkbox"]):not([type="radio"]), .app-content select, .app-content textarea { font-size: var(--type-field); line-height: var(--lh-field); font-weight: var(--fw-regular); }
+.label { font-size: var(--type-secondary); line-height: var(--lh-secondary); font-weight: var(--fw-medium); letter-spacing: var(--tracking-normal); }
+
+/* Status, navegação e texto auxiliar */
+.status-badge { font-size: var(--type-status); line-height: var(--lh-status); font-weight: var(--fw-medium); }
+.mobile-bottom-bar a, .mobile-bottom-bar button { font-size: var(--type-nav); line-height: var(--lh-nav); font-weight: var(--fw-medium); }
+.sidebar-link { font-weight: var(--fw-medium); }
+.sidebar-link.is-active { font-weight: var(--fw-semibold); }
+.sidebar-group-toggle, .sidebar-section > p { font-size: var(--type-secondary); font-weight: var(--fw-medium); }
+
+/* Contadores e destaques excepcionais: único uso do peso 700 */
+.wa-badge-count, .wa-badge-float, .wa-chip-count, .mobile-tab-badge, .quote-filter-count, .mc-count, .pq-count, .detail-kind { font-weight: var(--fw-strong); }
+.detail-kind { font-size: var(--type-status); font-weight: var(--fw-medium); letter-spacing: var(--tracking-normal); }
+
+/* Valores monetários e horários: tabulares e sem estourar */
+.num, time, td, [class*="money"], .quote-row-total, .mh-event-time b { font-variant-numeric: tabular-nums; }
+.mh-kpi-value, .mh-hero-value, .sale-money > p, .quote-row-total { min-width: 0; overflow-wrap: anywhere; }
+
+/* Números que precisam caber inteiros (FitNumbers reduz a fonte só quando necessário) */
+.mh-kpi-value strong, .mh-hero-value, .sale-money > p:last-child, .quote-row-total, .num:is(.text-xl, .text-2xl, .text-3xl, .text-4xl), [data-fit] { display: block; white-space: nowrap; overflow: hidden; }
+.mh-kpi-value strong[data-fit-wrap], .mh-hero-value[data-fit-wrap], .sale-money > p:last-child[data-fit-wrap], .quote-row-total[data-fit-wrap], .num[data-fit-wrap], [data-fit][data-fit-wrap] { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
+.mh-kpi-value { display: block; }
+.mh-kpi-value em { display: block; }

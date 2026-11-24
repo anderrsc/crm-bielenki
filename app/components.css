@@ -1,0 +1,88 @@
+/* ===== Bielenki Design System — componentes compartilhados =====
+   Um componente por finalidade: todo módulo usa estas classes em vez de criar a própria versão. */
+
+/* Link/atalho em pílula (navegação secundária) */
+.pill-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r-pill); background: #fff; color: var(--text); font-size: var(--type-filter); font-weight: var(--fw-medium); white-space: nowrap; text-decoration: none; transition: border-color var(--dur-press) var(--ease-out), background var(--dur-press) var(--ease-out); }
+.pill-link:hover { border-color: var(--text-muted); background: var(--surface-2); }
+.pill-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+
+/* Aba em pílula (filtro de lista): selecionada em vermelho */
+.tab-pill { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-pill); background: #fff; color: #344054; font-size: var(--type-filter); font-weight: var(--fw-medium); white-space: nowrap; text-decoration: none; }
+.tab-pill[aria-current="page"], .tab-pill[aria-pressed="true"] { background: linear-gradient(180deg, #E31616, #D90E0E); border-color: transparent; color: #fff; }
+
+/* Barra de ferramentas da página: abas à esquerda, ação principal à direita */
+.fin-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.fin-tabs { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.fin-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* Ação secundária dentro de tabelas: o vermelho cheio fica para a ação principal da página */
+.app-content table .button { min-height: 36px; padding: 0 12px; background: #fff; color: var(--brand-strong); border: 1px solid var(--border); box-shadow: none; white-space: nowrap; }
+.app-content table .button:hover { background: var(--brand-soft); color: var(--brand-strong); border-color: rgb(217 14 14 / .35); }
+.app-content table .button-ghost { min-height: 36px; padding: 0 12px; white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .pill-row { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+  .pill-row::-webkit-scrollbar { display: none; }
+  .pill-link { flex: none; }
+  .fin-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .fin-actions .button { min-height: 48px; padding: 0 var(--sp-3); justify-content: center; font-size: var(--type-filter); white-space: normal; text-align: center; line-height: 1.25; }
+  .fin-actions .button:only-child { grid-column: 1 / -1; }
+}
+
+/* ===== Detalhe do orçamento: painel com número, cliente, status e ações ===== */
+.quote-hero { align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.quote-hero-back { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; margin-bottom: var(--sp-1); font-size: var(--type-filter); font-weight: var(--fw-medium); color: var(--ink-soft); }
+.quote-hero-client { margin-top: 2px; font-size: var(--type-body); color: var(--ink-soft); overflow-wrap: anywhere; }
+.quote-hero-status { margin-top: var(--sp-2); }
+.quote-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.quote-actions form { display: contents; }
+.quote-actions > *, .quote-actions form > * { flex: none; }
+.quote-actions .button, .quote-actions .button-ghost { min-height: 40px; padding: 0 14px; white-space: nowrap; font-size: var(--type-button); }
+@media (max-width: 767px) {
+  .quote-actions { flex-wrap: nowrap; overflow-x: auto; width: 100%; margin: var(--sp-3) calc(var(--gutter) * -1) 0; padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+  .quote-actions::-webkit-scrollbar { display: none; }
+  .quote-actions > *, .quote-actions form > * { flex: none; }
+  .quote-hero.mh-hero.is-simple { display: block; }
+}
+
+/* ===== Importar proposta do WVetro: texto em largura inteira, ação abaixo no celular ===== */
+.wvetro-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.wvetro-text { flex: 1 1 320px; min-width: 0; }
+.wvetro-card > .button { flex: 0 0 auto; }
+@media (max-width: 767px) { .wvetro-card > .button { width: 100%; justify-content: center; } }
+
+/* ===== Central de IA ===== */
+.ai-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.ai-toolbar-sub { margin-top: var(--sp-1); font-size: var(--type-secondary); color: var(--text-muted); }
+.ai-pause { background: #fff; color: var(--brand-strong); border: 1px solid var(--border); box-shadow: none; }
+.ai-pause:hover { background: var(--brand-soft); color: var(--brand-strong); }
+.ai-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.ai-stats .card { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-card); }
+.ai-stats .card p:first-child { font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ai-stats .card p:last-child { margin-top: 2px; font-size: var(--type-secondary); }
+@media (min-width: 768px) { .ai-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ai-config > summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.ai-config > summary::-webkit-details-marker { display: none; }
+.ai-config-summary span { font-size: var(--type-section); font-weight: var(--fw-semibold); }
+.ai-config-summary small { font-size: var(--type-secondary); color: var(--text-muted); }
+.ai-config > summary::after { content: "Abrir"; position: absolute; right: var(--sp-4); top: var(--sp-4); font-size: var(--type-filter); font-weight: var(--fw-medium); color: var(--brand-text); }
+.ai-config[open] > summary::after { content: "Fechar"; }
+.ai-config { position: relative; }
+
+/* ===== Formulários: sem espaço morto quando o título virou faixa ===== */
+.app-content:has(> .shell-band) h1 + * { margin-top: 0; }
+
+/* Faixa de abas (Automações, Fiscal...): uma linha que rola de lado, sem quebrar palavras */
+.tab-strip, .app-content nav[aria-label="Abas"] { display: flex; gap: var(--sp-2); overflow-x: auto; margin-bottom: var(--sp-4); padding-bottom: 2px; scrollbar-width: none; }
+.tab-strip::-webkit-scrollbar { display: none; }
+.tab-strip > .tab-pill { flex: none; }
+.tab-pill svg { margin-right: var(--sp-1); }
+.tab-pill { gap: var(--sp-1); }
+
+/* Rodapé de ações dos formulários: Cancelar + Salvar; no celular fica fixo acima da barra inferior enquanto o formulário rola */
+.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.form-actions > .button, .form-actions > .button-ghost { min-height: var(--tap); }
+@media (max-width: 767px) {
+  .form-actions { position: sticky; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 5; margin: var(--sp-4) calc(var(--sp-2) * -1) 0; padding: var(--sp-2); border: 1px solid rgb(16 24 40 / .08); border-radius: var(--r-card); background: rgb(255 255 255 / .92); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow-sm); flex-wrap: nowrap; }
+  .form-actions > * { flex: 1 1 0; justify-content: center; text-align: center; }
+}

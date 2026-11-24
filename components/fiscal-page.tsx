@@ -35,15 +35,15 @@ export function FiscalPage({ data }: { data: FiscalData }) {
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Reforma tributária</p>
-        <h1 className="mt-2 text-3xl font-black">Tributos (calculadora)</h1>
+        <p className="text-xs font-semibold text-forest">Reforma tributária</p>
+        <h1 className="mt-2 text-3xl font-semibold">Tributos (calculadora)</h1>
         <p className="mt-1 text-sm text-ink/60">Simula CBS, IBS e Imposto Seletivo com o motor oficial da Receita Federal. É <b>simulação</b>: não emite nota, não muda preço e não lança nada no financeiro.</p>
       </div>
-      <nav className="flex flex-wrap gap-1 rounded-xl bg-cream/60 p-1 text-sm font-bold" aria-label="Seções">
-        {ABAS.map(([k, label]) => <Link key={k} href={`/fiscal?aba=${k}`} aria-current={data.aba === k ? "page" : undefined} className={cn("rounded-lg px-3 py-1.5", data.aba === k ? "bg-surface shadow-sm" : "text-ink/60")}>{label}</Link>)}
+      <nav className="tab-strip" aria-label="Seções">
+        {ABAS.map(([k, label]) => <Link key={k} href={`/fiscal?aba=${k}`} aria-current={data.aba === k ? "page" : undefined} className="tab-pill">{label}</Link>)}
       </nav>
       {!data.settings?.enabled && data.aba !== "configuracao" && (
-        <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />A calculadora está desligada. {data.podeEditar ? <Link href="/fiscal?aba=configuracao" className="font-bold underline">Configure e ligue</Link> : "Peça ao financeiro para configurar."}</p>
+        <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />A calculadora está desligada. {data.podeEditar ? <Link href="/fiscal?aba=configuracao" className="font-semibold underline">Configure e ligue</Link> : "Peça ao financeiro para configurar."}</p>
       )}
       {data.aba === "calculadora" && <Calculadora data={data} />}
       {data.aba === "classificacoes" && <Classificacoes data={data} />}
@@ -89,17 +89,17 @@ function Resultado({ r }: { r: Simulacao }) {
   return (
     <section className="card space-y-4 p-5" aria-label="Resultado da simulação">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-black">Resultado {r.simulado && <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800">simulado</span>}</h2>
+        <h2 className="text-lg font-semibold">Resultado {r.simulado && <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">simulado</span>}</h2>
         <span className="text-xs text-ink/55">Motor oficial {r.versao}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[["Base de cálculo", r.totais.total_base], ["CBS", r.totais.total_cbs], ["IBS", r.totais.total_ibs], ["Imposto Seletivo", r.totais.total_is]].map(([l, v]) => (
-          <div key={String(l)} className="rounded-xl border border-sand p-3"><p className="text-xs font-bold uppercase tracking-wider text-ink/50">{l}</p><p className="text-xl font-black tabular-nums">{money(Number(v))}</p></div>
+          <div key={String(l)} className="rounded-xl border border-sand p-3"><p className="text-xs font-semibold text-ink/50">{l}</p><p className="text-xl font-semibold tabular-nums">{money(Number(v))}</p></div>
         ))}
       </div>
       {r.status !== "calculado" && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900">Alguns itens não foram calculados (veja abaixo). Os totais somam só os calculados.</p>}
       <div className="overflow-x-auto"><table className="w-full text-sm">
-        <thead><tr className="border-b text-left text-xs uppercase tracking-wider text-ink/50"><th className="py-2">Item</th><th>Situação</th><th className="text-right">Base</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th /></tr></thead>
+        <thead><tr className="border-b text-left text-xs text-ink/50"><th className="py-2">Item</th><th>Situação</th><th className="text-right">Base</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th /></tr></thead>
         <tbody>{r.itens.map((i) => <FragmentoItem key={i.numero} i={i} aberto={aberto === i.numero} onToggle={() => setAberto(aberto === i.numero ? null : i.numero)} />)}</tbody>
       </table></div>
       <p className="text-xs text-ink/50">Gravado no histórico. Valores de simulação: não substituem nota fiscal autorizada nem a apuração do contador.</p>
@@ -112,16 +112,16 @@ function FragmentoItem({ i, aberto, onToggle }: { i: Simulacao["itens"][number];
   return (<>
     <tr className="border-b align-top">
       <td className="py-2 pr-2 font-semibold">{i.produto}</td>
-      <td className="py-2 pr-2"><span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", cor)}>{rotulo}</span></td>
+      <td className="py-2 pr-2"><span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", cor)}>{rotulo}</span></td>
       <td className="py-2 text-right tabular-nums">{i.base != null ? money(i.base) : "—"}</td>
       <td className="py-2 text-right tabular-nums">{i.cbs != null ? money(i.cbs) : "—"}</td>
       <td className="py-2 text-right tabular-nums">{i.ibs != null ? money(i.ibs) : "—"}</td>
-      <td className="py-2 text-right"><button type="button" className="text-xs font-bold text-forest underline" onClick={onToggle}>{aberto ? "Fechar" : "Detalhes"}</button></td>
+      <td className="py-2 text-right"><button type="button" className="text-xs font-semibold text-forest underline" onClick={onToggle}>{aberto ? "Fechar" : "Detalhes"}</button></td>
     </tr>
     {aberto && <tr className="border-b bg-cream/40"><td colSpan={6} className="p-3 text-xs">
       {i.memoria && <p className="whitespace-pre-wrap"><b>Memória de cálculo:</b> {i.memoria}</p>}
       {i.erros.map((e, k) => <p key={k} className="text-red-700"><b>{e.codigo}</b> {e.titulo}{e.detalhe ? ` — ${e.detalhe}` : ""}</p>)}
-      {i.estado === "SEM_CLASSIFICACAO" && <Link href="/fiscal?aba=classificacoes" className="font-bold text-forest underline">Classificar este produto</Link>}
+      {i.estado === "SEM_CLASSIFICACAO" && <Link href="/fiscal?aba=classificacoes" className="font-semibold text-forest underline">Classificar este produto</Link>}
     </td></tr>}
   </>);
 }
@@ -141,7 +141,7 @@ function Classificacoes({ data }: { data: FiscalData }) {
   return (
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div><h2 className="text-lg font-black">Classificação fiscal dos produtos</h2>
+        <div><h2 className="text-lg font-semibold">Classificação fiscal dos produtos</h2>
           <p className="text-sm text-ink/60">{aprovadas} aprovada(s) · {data.classificacoes.length - aprovadas} em rascunho · {data.produtosSemClassificacao.length} sem classificação. Os códigos vêm do contador; só o financeiro, a gerência ou o administrador aprovam. Item sem classificação aprovada não é calculado.</p></div>
         <input className="field w-60" placeholder="Filtrar produto" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar produto" />
       </div>
@@ -183,16 +183,16 @@ function Historico({ data }: { data: FiscalData }) {
   return (
     <div className="space-y-4">
       <section className="card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-black">Simulações por mês</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Simulações por mês</h2>
           <a href="/api/fiscal/exportar" className="button-ghost"><Download className="h-4 w-4" />Exportar CSV (contador)</a></div>
         <p className="text-sm text-ink/60">Soma das simulações feitas (pode haver mais de uma por orçamento). São valores simulados: não são tributo devido nem pago.</p>
-        <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs uppercase tracking-wider text-ink/50"><th className="py-2">Mês</th><th className="text-right">Simulações</th><th className="text-right">Base</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th className="text-right">IS</th></tr></thead>
+        <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs text-ink/50"><th className="py-2">Mês</th><th className="text-right">Simulações</th><th className="text-right">Base</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th className="text-right">IS</th></tr></thead>
           <tbody>{meses.map(([k, v]) => <tr key={k} className="border-b"><td className="py-2">{k.slice(5)}/{k.slice(0, 4)}</td><td className="text-right">{v.n}</td><td className="text-right tabular-nums">{money(v.base)}</td><td className="text-right tabular-nums">{money(v.cbs)}</td><td className="text-right tabular-nums">{money(v.ibs)}</td><td className="text-right tabular-nums">{money(v.is)}</td></tr>)}
             {!meses.length && <tr><td colSpan={6} className="py-4 text-center text-ink/50">Nenhuma simulação ainda.</td></tr>}</tbody></table></div>
       </section>
       <section className="card p-5">
-        <h2 className="text-lg font-black">Últimas simulações</h2>
-        <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs uppercase tracking-wider text-ink/50"><th className="py-2">Quando</th><th>Documento</th><th>Data da operação</th><th>Situação</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th>Motor</th><th>Quem</th></tr></thead>
+        <h2 className="text-lg font-semibold">Últimas simulações</h2>
+        <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs text-ink/50"><th className="py-2">Quando</th><th>Documento</th><th>Data da operação</th><th>Situação</th><th className="text-right">CBS</th><th className="text-right">IBS</th><th>Motor</th><th>Quem</th></tr></thead>
           <tbody>{data.calculos.slice(0, 50).map((c) => <tr key={c.id} className="border-b"><td className="py-2">{shortDate(c.created_at)}</td><td>{c.quote?.quote_number ?? (c.origem === "avulso" ? "Avulso" : "—")}</td><td>{shortDate(c.data_fato_gerador)}</td>
             <td>{c.status === "calculado" ? "Calculado" : c.status === "parcial" ? "Parcial" : "Sem cálculo"}{c.simulado ? " · simulado" : ""}</td>
             <td className="text-right tabular-nums">{money(Number(c.total_cbs))}</td><td className="text-right tabular-nums">{money(Number(c.total_ibs))}</td><td className="text-xs text-ink/55">{c.versao_app ?? "—"}{c.versao_db ? ` · ${c.versao_db}` : ""}</td><td className="text-xs">{c.autor?.full_name ?? "—"}</td></tr>)}</tbody></table></div>
@@ -222,8 +222,8 @@ function Configuracao({ data }: { data: FiscalData }) {
   const dis = !data.podeEditar;
   return (
     <section className="card max-w-3xl space-y-4 p-5">
-      <h2 className="text-lg font-black">Configuração fiscal</h2>
-      <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={enabled} disabled={dis} onChange={(e) => setEnabled(e.target.checked)} />Calculadora ligada</label>
+      <h2 className="text-lg font-semibold">Configuração fiscal</h2>
+      <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={enabled} disabled={dis} onChange={(e) => setEnabled(e.target.checked)} />Calculadora ligada</label>
       <div className="grid gap-3 sm:grid-cols-3">
         <label><span className="label">Regime</span><select className="field w-full" value={regime} disabled={dis} onChange={(e) => setRegime(e.target.value as typeof regime)}>
           <option value="simples">Simples Nacional</option><option value="hibrido">Simples com IBS/CBS no regime regular (híbrido)</option><option value="regular">Regime regular</option></select></label>
@@ -232,7 +232,7 @@ function Configuracao({ data }: { data: FiscalData }) {
       </div>
       {regime === "simples" && <p className="rounded-lg bg-cream p-2 text-xs text-ink/70">No Simples Nacional puro, a CBS e o IBS vão no DAS e a alíquota efetiva vem do PGDAS-D. O motor do Simples ainda não está disponível para uso; esta calculadora usa o motor do regime regular, então trate o resultado como referência do regime híbrido (2027) e confirme com o contador.</p>}
       <div className="space-y-2">
-        <p className="text-sm font-bold">Alíquotas informadas (só para anos sem alíquota na base oficial, ex.: 2027)</p>
+        <p className="text-sm font-semibold">Alíquotas informadas (só para anos sem alíquota na base oficial, ex.: 2027)</p>
         <p className="text-xs text-ink/60">A base oficial tem as alíquotas de 2026 (teste). Para 2027 em diante, ainda não. Informe só com fonte (ex.: "estimativa do contador em 20/11/2026"); o resultado sai marcado como simulado.</p>
         {Object.entries(aliqs).sort().map(([ano, a]) => (
           <div key={ano} className="grid items-end gap-2 rounded-lg border border-sand p-2 text-sm sm:grid-cols-[60px_90px_90px_90px_1fr_auto]">

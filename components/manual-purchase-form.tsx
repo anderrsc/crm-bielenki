@@ -55,10 +55,10 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
   const update = (index: number, patch: Partial<Item>) => setItems((current) => current.map((x, i) => (i === index ? { ...x, ...patch } : x)));
 
   return <div className="mx-auto max-w-5xl">
-    <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
-    <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-black">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
+    <Link href="/compras" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink/55"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+    <div className="mb-7"><p className="text-xs font-semibold text-forest">Lançamento manual</p><h1 className="mt-2 text-3xl font-semibold">Nova compra</h1><p className="mt-1 text-sm text-ink/50">O que comprou, de quem, quanto custou e como pagou.</p></div>
     {error && <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-    {error?.startsWith("Compra parecida") && <label className="mb-5 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-900"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
+    {error?.startsWith("Compra parecida") && <label className="mb-5 flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
     <InvoiceUpload onRead={(r) => {
       setItems(r.items);
       if (r.supplierId) { setSupplierId(r.supplierId); setUseCredit(false); }
@@ -79,7 +79,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
           <select id="compra-fornecedor" aria-label="Fornecedor" className="field" value={supplierId} onChange={(e) => { setSupplierId(e.target.value); setUseCredit(false); }} required>
             <option value="">Selecione</option>{suppliers.map((x) => <option value={x.id} key={x.id}>{x.name}</option>)}
           </select>
-          {credit > 0 && <label className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-sm font-bold text-emerald-800"><input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />Usar crédito que o fornecedor tem ({money(credit)})</label>}
+          {credit > 0 && <label className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-sm font-semibold text-emerald-800"><input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />Usar crédito que o fornecedor tem ({money(credit)})</label>}
         </div>
         {items.map((item, index) => <div className="card p-5" key={index}>
           <div className="mb-3 flex items-center justify-between"><b>{items.length > 1 ? `Item ${index + 1}` : "O que está comprando"}</b>
@@ -90,13 +90,13 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
             <div><label className="label" htmlFor={`qtd-${index}`}>Quantidade</label><input id={`qtd-${index}`} aria-label="Quantidade" className="field" type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => update(index, { quantity: Number(e.target.value) })} required /></div>
             <div><label className="label" htmlFor={`val-${index}`}>Valor unitário</label><input id={`val-${index}`} aria-label="Valor unitário" className="field" type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => update(index, { unit_price: Number(e.target.value) })} required /></div>
           </div>
-          {items.length > 1 && <p className="mt-2 text-right text-sm font-black">{money(item.quantity * item.unit_price)}</p>}
+          {items.length > 1 && <p className="mt-2 text-right text-sm font-semibold">{money(item.quantity * item.unit_price)}</p>}
         </div>)}
         <button type="button" className="button-ghost w-full border-dashed" onClick={() => setItems((x) => [...x, blank()])}><Plus className="h-4 w-4" />Adicionar outro item</button>
         <div className="card grid gap-4 p-5 sm:grid-cols-2">
           <div><label className="label" htmlFor="compra-previsao">Previsão de entrega</label><input id="compra-previsao" className="field" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} /><p className="mt-1 text-xs text-ink/50">Deixe vazio se já chegou.</p></div>
           <fieldset><legend className="label">É para</legend>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-cream p-1 text-sm font-bold">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-cream p-1 text-sm font-semibold">
               {([["estoque", "Estoque"], ["pedido", "Um pedido"]] as const).map(([v, l]) => <button type="button" key={v} onClick={() => setDestino(v)} className={`rounded-lg px-2 py-2 ${destino === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
             </div>
             {destino === "pedido" && <select aria-label="Pedido" className="field mt-2" value={orderId} onChange={(e) => setOrderId(e.target.value)} required><option value="">Escolha o pedido</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>}
@@ -106,9 +106,9 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
       </div>
 
       <aside className="card h-fit space-y-4 p-5 lg:sticky lg:top-24">
-        <div><h2 className="font-black">Total da compra</h2><p className="mt-1 text-3xl font-black text-forest">{money(total)}</p>{creditUsed > 0 && <p className="text-sm text-emerald-700">− {money(creditUsed)} de crédito</p>}</div>
+        <div><h2 className="font-semibold">Total da compra</h2><p className="mt-1 text-3xl font-semibold text-forest">{money(total)}</p>{creditUsed > 0 && <p className="text-sm text-emerald-700">− {money(creditUsed)} de crédito</p>}</div>
         <fieldset><legend className="label">Pagou?</legend>
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1 text-sm font-bold">
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1 text-sm font-semibold">
             {([["total", "Pagou tudo"], ["parte", "Outro valor"], ["nao", "Não pagou"]] as [PaidMode, string][]).map(([v, l]) => <button type="button" key={v} onClick={() => { setMode(v); if (v === "parte") setPaid(round(total - creditUsed)); }} className={`rounded-lg px-2 py-2 ${mode === v ? "bg-surface shadow" : "text-ink/60"}`}>{l}</button>)}
           </div>
         </fieldset>
@@ -120,7 +120,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
           </div>
           <div><label className="label">Conta que pagou</label><ReceivingAccountSelect name="_conta" value={account} onChange={setAccount} className="field" /></div>
         </>}
-        {total > 0 && <div className={`rounded-xl p-3 text-sm font-bold ${balance > 0 ? "bg-amber-50 text-amber-800" : balance < 0 ? "bg-emerald-50 text-emerald-800" : "bg-cream text-ink/70"}`}>
+        {total > 0 && <div className={`rounded-xl p-3 text-sm font-semibold ${balance > 0 ? "bg-amber-50 text-amber-800" : balance < 0 ? "bg-emerald-50 text-emerald-800" : "bg-cream text-ink/70"}`}>
           {balance > 0 ? `Fica devendo ${money(balance)} ao fornecedor` : balance < 0 ? `Fica ${money(-balance)} de crédito com o fornecedor` : "Compra quitada"}
         </div>}
         {balance > 0 && <div><label className="label" htmlFor="compra-venc">Vencimento do que ficou devendo</label><input id="compra-venc" className="field" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}

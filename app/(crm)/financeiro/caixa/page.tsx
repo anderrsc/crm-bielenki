@@ -22,7 +22,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   // Cobranças Pix enviadas e ainda não confirmadas, por conta (não somam no saldo).
   const waiting = new Map<string, { n: number; total: number }>();
   for (const c of charges ?? []) { const w = waiting.get(c.receiving_account_id) ?? { n: 0, total: 0 }; w.n++; w.total += Number(c.amount); waiting.set(c.receiving_account_id, w); }
-  const back = <Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link>;
+  const back = <Link href="/financeiro" className="text-sm font-semibold text-forest underline">Voltar ao financeiro</Link>;
   if (error || !data) return <div className="mx-auto max-w-5xl space-y-4">{back}<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">Não foi possível carregar o caixa. Atualize a página.</p></div>;
   const overview = data as CashOverview;
   const balance = currentBalance(overview);
@@ -36,28 +36,28 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   return <div className="mx-auto max-w-6xl space-y-5">
     {back}
     <div>
-      <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Controle financeiro</p>
-      <h1 className="mt-2 text-3xl font-black">Caixa e projeção</h1>
+      <p className="text-xs font-semibold text-forest">Controle financeiro</p>
+      <h1 className="mt-2 text-3xl font-semibold">Caixa e projeção</h1>
       <p className="mt-1 text-sm text-ink/60">Saldo real das contas (saldo inicial mais as baixas registradas) e o que vence nos próximos dias. Venda ainda não recebida não conta como dinheiro em caixa.</p>
     </div>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{friendlyError(search.erro)?.slice(0, 250)}</p>}
     {search.salvo === "1" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Saldo inicial salvo.</p>}
-    {chosen.negativeOn && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 font-bold text-red-800">Risco de faltar caixa: no cenário {SCENARIOS[scenario].label.toLowerCase()} o saldo fica negativo em {shortDate(chosen.negativeOn)} (menor saldo {money(chosen.min)}).</p>}
+    {chosen.negativeOn && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 font-semibold text-red-800">Risco de faltar caixa: no cenário {SCENARIOS[scenario].label.toLowerCase()} o saldo fica negativo em {shortDate(chosen.negativeOn)} (menor saldo {money(chosen.min)}).</p>}
 
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="text-xl font-bold">Saldo das contas</h2><Link href="/financeiro/extrato" className="text-sm font-bold text-forest underline">Extrato por conta (imprimir)</Link></div>
-        <p className="text-right"><span className="block text-xs font-bold uppercase tracking-wider text-ink/45">Saldo hoje</span><span className={`text-2xl font-black ${tone(balance)}`}>{money(balance)}</span></p>
+        <div><h2 className="text-xl font-semibold">Saldo das contas</h2><Link href="/financeiro/extrato" className="text-sm font-semibold text-forest underline">Extrato por conta (imprimir)</Link></div>
+        <p className="text-right"><span className="block text-xs font-semibold text-ink/45">Saldo hoje</span><span className={`text-2xl font-semibold ${tone(balance)}`}>{money(balance)}</span></p>
       </div>
       {!overview.accounts.length && <p className="text-sm text-ink/60">Nenhuma conta cadastrada. Cadastre as contas de recebimento na tela do Financeiro para acompanhar o saldo de cada uma.</p>}
       <div className="space-y-2">
         {overview.accounts.map((a) => <div key={a.id} className="rounded-xl border border-sand p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-bold">{a.name}{a.active ? "" : " (inativa)"}</p>
-            <p className={`text-lg font-black ${tone(Number(a.balance))}`}>{money(a.balance)}</p>
+            <p className="font-semibold">{a.name}{a.active ? "" : " (inativa)"}</p>
+            <p className={`text-lg font-semibold ${tone(Number(a.balance))}`}>{money(a.balance)}</p>
           </div>
           <p className="mt-1 text-xs text-ink/60">Inicial {money(a.opening_balance)}{a.opening_date ? ` em ${shortDate(a.opening_date)}` : ""} · entradas {money(a.inflow)} · saídas {money(a.outflow)}</p>
-          {waiting.get(a.id) && <Link href={`/financeiro/extrato?conta=${a.id}`} className="mt-1 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">{waiting.get(a.id)!.n} cobrança{waiting.get(a.id)!.n === 1 ? "" : "s"} Pix aguardando: {money(waiting.get(a.id)!.total)} →</Link>}
+          {waiting.get(a.id) && <Link href={`/financeiro/extrato?conta=${a.id}`} className="mt-1 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{waiting.get(a.id)!.n} cobrança{waiting.get(a.id)!.n === 1 ? "" : "s"} Pix aguardando: {money(waiting.get(a.id)!.total)} →</Link>}
           {allowed === true && <form action={saveOpeningBalance} className="mt-3 flex flex-wrap items-end gap-2">
             <input type="hidden" name="account_id" value={a.id} />
             <label><span className="label">Saldo inicial</span><input className="field w-36" name="opening_balance" inputMode="decimal" defaultValue={Number(a.opening_balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} aria-label={`Saldo inicial de ${a.name}`} /></label>
@@ -72,15 +72,15 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
     </section>
 
     <section className="card space-y-4 p-5">
-      <h2 className="text-xl font-bold">Projeção</h2>
+      <h2 className="text-xl font-semibold">Projeção</h2>
       <div className="flex flex-wrap items-end gap-2 text-sm">
         {HORIZONS.map((d) => <Link key={d} href={href({ dias: d })} className={d === days ? "button" : "button-ghost"}>{d} dias</Link>)}
         <form method="get" className="flex items-end gap-2"><input type="hidden" name="cenario" value={scenario} /><label><span className="label">Outro período (dias)</span><input className="field w-28" type="number" name="dias" min={1} max={366} defaultValue={days} /></label><button className="button-ghost">Aplicar</button></form>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {results.map((r) => <Link key={r.key} href={href({ cenario: r.key })} className={`card block p-4 ${r.key === scenario ? "border-forest ring-1 ring-forest" : ""}`}>
-          <p className="text-xs font-bold uppercase tracking-wider text-ink/45">{SCENARIOS[r.key].label}</p>
-          <p className={`mt-1 text-2xl font-black ${tone(r.final)}`}>{money(r.final)}</p>
+          <p className="text-xs font-semibold text-ink/45">{SCENARIOS[r.key].label}</p>
+          <p className={`mt-1 text-2xl font-semibold ${tone(r.final)}`}>{money(r.final)}</p>
           <p className="text-xs text-ink/60">Saldo em {days} dias · menor saldo {money(r.min)} em {shortDate(r.minDate)}</p>
           <p className="mt-2 text-xs text-ink/55">{SCENARIOS[r.key].hint}</p>
         </Link>)}
@@ -88,12 +88,12 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       <p className="text-sm text-ink/65">Vencido a receber: <strong>{money(overview.overdue_receivable)}</strong> · vencido a pagar: <strong>{money(overview.overdue_payable)}</strong> (considerado pago hoje em todos os cenários){Number(overview.undated) > 0 ? ` · sem vencimento: ${money(overview.undated)} (fora da projeção)` : ""}.</p>
       <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
         <caption className="sr-only">Projeção semanal no cenário {SCENARIOS[scenario].label}</caption>
-        <thead><tr className="border-b text-left text-xs font-bold uppercase tracking-wider text-ink/45"><th className="px-3 py-2">Semana</th><th className="px-3 py-2 text-right">A receber</th><th className="px-3 py-2 text-right">A pagar</th><th className="px-3 py-2 text-right">Saldo ao fim</th></tr></thead>
+        <thead><tr className="border-b text-left text-xs font-semibold text-ink/45"><th className="px-3 py-2">Semana</th><th className="px-3 py-2 text-right">A receber</th><th className="px-3 py-2 text-right">A pagar</th><th className="px-3 py-2 text-right">Saldo ao fim</th></tr></thead>
         <tbody className="divide-y">{weeks.map((w) => <tr key={w.start}>
           <td className="px-3 py-2">{shortDate(w.start)} a {shortDate(w.end)}</td>
           <td className="px-3 py-2 text-right">{w.receivable ? money(w.receivable) : "—"}</td>
           <td className="px-3 py-2 text-right">{w.payable ? money(w.payable) : "—"}</td>
-          <td className={`px-3 py-2 text-right font-bold ${tone(w.balance)}`}>{money(w.balance)}</td>
+          <td className={`px-3 py-2 text-right font-semibold ${tone(w.balance)}`}>{money(w.balance)}</td>
         </tr>)}</tbody>
       </table></div>
       <p className="text-xs text-ink/55">A projeção usa contas em aberto e parcelas, programações recorrentes ainda não lançadas e compras confirmadas sem conta financeira. Gerar uma competência substitui sua previsão pela conta, sem duplicar valores. Folha agregada depende da permissão específica.</p>

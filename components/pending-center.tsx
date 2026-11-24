@@ -7,8 +7,8 @@ import { summarizePending, type PendingItem } from "@/lib/pending";
 
 const CAT_CONFIG: Record<string, { label: string; icon: typeof FileText; color: string }> = {
   orcamento:          { label: "Orçamento",    icon: FileText,      color: "text-blue-600 bg-blue-50 border-blue-200" },
-  financeiro_receber: { label: "A Receber",    icon: WalletCards,   color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  financeiro_pagar:   { label: "A Pagar",      icon: TrendingDown,  color: "text-orange-600 bg-orange-50 border-orange-200" },
+  financeiro_receber: { label: "A receber",    icon: WalletCards,   color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+  financeiro_pagar:   { label: "A pagar",      icon: TrendingDown,  color: "text-orange-600 bg-orange-50 border-orange-200" },
   producao:           { label: "Produção",      icon: ClipboardList, color: "text-violet-600 bg-violet-50 border-violet-200" },
   compra:             { label: "Compra",        icon: ShoppingCart,  color: "text-amber-600 bg-amber-50 border-amber-200" },
   instalacao:         { label: "Instalação",    icon: CalendarCheck, color: "text-sky-600 bg-sky-50 border-sky-200" },
@@ -48,8 +48,8 @@ export async function PendingCenter({ category }: { category?: string }) {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Gestão operacional</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight">Central de Pendências</h1>
+        <p className="text-xs font-semibold text-forest">Gestão operacional</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Central de pendências</h1>
         <p className="mt-1 text-sm text-ink/50">Tudo que precisa de ação imediata — em um só lugar.</p>
       </div>
 
@@ -62,8 +62,8 @@ export async function PendingCenter({ category }: { category?: string }) {
       {totalHigh > 0 && (
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
-          <p className="text-sm font-bold text-red-800">
-            {totalHigh} item{totalHigh !== 1 ? "s" : ""} urgente{totalHigh !== 1 ? "s" : ""} exige{totalHigh === 1 ? "" : "m"} ação imediata
+          <p className="text-sm font-semibold text-red-800">
+            {totalHigh} {totalHigh !== 1 ? "itens" : "item"} urgente{totalHigh !== 1 ? "s" : ""} exige{totalHigh === 1 ? "" : "m"} ação imediata
           </p>
         </div>
       )}
@@ -81,7 +81,7 @@ export async function PendingCenter({ category }: { category?: string }) {
           >
             {t.label}
             {t.count > 0 && (
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none
+              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none
                 ${(category ?? "") === t.key ? "bg-surface/20 text-white" : "bg-cream/10 text-ink"}`}>
                 {t.count}
               </span>
@@ -95,7 +95,7 @@ export async function PendingCenter({ category }: { category?: string }) {
         {filtered.length === 0 && !loadError && (
           <div className="card p-16 text-center">
             <p className="mb-3 text-4xl">✅</p>
-            <p className="text-lg font-bold">Tudo em dia!</p>
+            <p className="text-lg font-semibold">Tudo em dia!</p>
             <p className="mt-1 text-sm text-ink/50">Nenhuma pendência encontrada nesta categoria.</p>
           </div>
         )}
@@ -113,11 +113,11 @@ export async function PendingCenter({ category }: { category?: string }) {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-bold">{item.title}</p>
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-black ${PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low}`}>
+                  <p className="font-semibold">{item.title}</p>
+                  <span className={`rounded border px-1.5 py-0.5 text-[11px] font-semibold ${PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low}`}>
                     {PRIORITY_LABEL[item.priority] ?? "PENDENTE"}
                   </span>
-                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${cfg.color}`}>
+                  <span className={`rounded border px-1.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}>
                     {cfg.label}
                   </span>
                 </div>
@@ -126,7 +126,7 @@ export async function PendingCenter({ category }: { category?: string }) {
               </div>
               <div className="hidden shrink-0 text-right sm:block">
                 {item.amount != null && item.amount > 0 && (
-                  <p className="text-sm font-bold">{money(item.amount)}</p>
+                  <p className="text-sm font-semibold">{money(item.amount)}</p>
                 )}
                 {item.due_date && (
                   <p className={`text-xs font-medium ${item.days_late != null && item.days_late > 0 ? "text-red-600" : "text-ink/45"}`}>

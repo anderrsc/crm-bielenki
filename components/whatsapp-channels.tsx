@@ -28,29 +28,29 @@ export function HealthDashboard({ summary }: { summary: WhatsappHealthSummary })
   return (
     <div className="card space-y-3 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-black">Saúde do WhatsApp</h2>
-        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", totalErrors > 0 ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600")}>
+        <h2 className="text-lg font-semibold">Saúde do WhatsApp</h2>
+        <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", totalErrors > 0 ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600")}>
           {totalErrors > 0 ? `${totalErrors} erro(s) nas últimas 24h` : "Sem erros nas últimas 24h"}
         </span>
       </div>
       <div className="grid gap-2 text-xs sm:grid-cols-3">
         <div className="rounded-lg bg-cream px-3 py-2">
           <p className="text-ink/55">Canais ativos</p>
-          <p className="text-xl font-black">{summary.length - disconnected.length}/{summary.length}</p>
+          <p className="text-xl font-semibold">{summary.length - disconnected.length}/{summary.length}</p>
         </div>
         <div className="rounded-lg bg-cream px-3 py-2">
           <p className="text-ink/55">Eventos (24h)</p>
-          <p className="text-xl font-black">{totalEvents}</p>
+          <p className="text-xl font-semibold">{totalEvents}</p>
         </div>
         <div className={cn("rounded-lg px-3 py-2", totalErrors > 0 ? "bg-red-500/10" : "bg-cream")}>
           <p className={cn(totalErrors > 0 ? "text-red-500" : "text-ink/55")}>Erros (24h)</p>
-          <p className={cn("text-xl font-black", totalErrors > 0 ? "text-red-600" : "")}>{totalErrors}</p>
+          <p className={cn("text-xl font-semibold", totalErrors > 0 ? "text-red-600" : "")}>{totalErrors}</p>
         </div>
       </div>
       <ul className="space-y-1.5 text-xs" aria-label="Saúde por número">
         {summary.map((c) => (
           <li key={c.channel_id} className="rounded-lg border px-3 py-2">
-            <p className="font-bold">{c.channel_name}</p>
+            <p className="font-semibold">{c.channel_name}</p>
             <p className="text-ink/70">
               Teste de conexão: {c.probe ? <span className={c.probe.ok ? "text-green-600" : "text-red-600"}>{c.probe.ok ? "respondeu" : "não respondeu"} ({quando(c.probe.at)})</span> : "ainda não precisou (só testa depois de 20 min sem mensagens)"}
               {" · "}Configuração do webhook: {c.webhook ? <span className={c.webhook.ok ? "text-green-600" : "text-red-600"} title={c.webhook.problems ?? undefined}>{c.webhook.ok ? "ok" : `com problema (${c.webhook.problems ?? "ver servidor"})`} ({quando(c.webhook.at)})</span> : "ainda não conferida"}
@@ -63,7 +63,7 @@ export function HealthDashboard({ summary }: { summary: WhatsappHealthSummary })
       </ul>
       {disconnected.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-bold text-amber-600">Canais desconectados:</p>
+          <p className="text-xs font-semibold text-amber-600">Canais desconectados:</p>
           {disconnected.map((c) => (
             <p key={c.channel_id} className="text-xs text-ink/70">
               • <b>{c.channel_name}</b> — {c.current_status ?? "desconhecido"}
@@ -122,7 +122,7 @@ export function WhatsappChannels() {
   return (
     <div className="max-w-4xl space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-black"><Smartphone className="h-6 w-6" /> WhatsApp</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold"><Smartphone className="h-6 w-6" /> WhatsApp</h1>
         <p className="text-sm text-ink/60">Cada usuária conecta o próprio número lendo o QR no celular. As conversas de cada número ficam com quem conectou, com quem ela autorizar e com a gerência. Clientes, orçamentos e vendas continuam centralizados para todos.</p>
       </div>
 
@@ -133,32 +133,32 @@ export function WhatsappChannels() {
 
       {manager && (
         <details className="card p-4" open={!channels?.some((c) => c.isDefault && c.active && c.status === "open")}>
-          <summary className="cursor-pointer font-bold">Conexão do número principal (servidor da empresa)</summary>
+          <summary className="cursor-pointer font-semibold">Conexão do número principal (servidor da empresa)</summary>
           <p className="mt-1 text-xs text-ink/55">Servidor do WhatsApp (Evolution), chave e QR do número principal. Os outros números usam este mesmo servidor.</p>
           <div className="mt-3"><WhatsappConnect /></div>
         </details>
       )}
 
       <div className="card space-y-2 p-4">
-        <p className="font-bold">Adicionar meu número</p>
+        <p className="font-semibold">Adicionar meu número</p>
         <div className="flex gap-2">
           <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: WhatsApp Esquadrias" maxLength={60} className="field min-w-0 flex-1" />
-          <button disabled={pending || nome.trim().length < 2} className="inline-flex items-center gap-1 rounded-xl bg-forest px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          <button disabled={pending || nome.trim().length < 2} className="inline-flex items-center gap-1 rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             onClick={() => start(async () => {
               setMsg(null);
               const r = await addWhatsappChannel(nome);
               if ("id" in r) { setErro(null); setNome(""); setQr(null); setQrFor(r.id); await carregar(); } else setErro(r.error);
             })}><Plus className="h-4 w-4" /> Gerar QR</button>
         </div>
-        <p className="text-xs text-ink/55">No celular: WhatsApp → Aparelhos conectados → Conectar um aparelho → aponte para o QR. A Lia não responde nos números novos.</p>
+        <p className="text-xs text-ink/55">No celular: WhatsApp → Aparelhos conectados → Conectar um aparelho → aponte para o QR. A LIA não responde nos números novos.</p>
       </div>
 
       {qrFor && (
         <div className="card flex flex-col items-center gap-2 p-4 text-center">
-          <p className="font-bold">Leia o QR com o WhatsApp do número</p>
+          <p className="font-semibold">Leia o QR com o WhatsApp do número</p>
           {qr?.qr ? <img src={qr.qr.startsWith("data:") ? qr.qr : `data:image/png;base64,${qr.qr}`} alt="QR do WhatsApp" className="h-64 w-64 rounded-lg bg-white p-2" /> : <p className="text-sm text-ink/55">Gerando QR…</p>}
           {qr?.pairingCode && <p className="text-sm">Ou use o código: <b className="font-mono">{qr.pairingCode}</b></p>}
-          <button onClick={() => { setQrFor(null); setQr(null); }} className="text-xs font-bold text-ink/55 underline">Fechar</button>
+          <button onClick={() => { setQrFor(null); setQr(null); }} className="text-xs font-semibold text-ink/55 underline">Fechar</button>
         </div>
       )}
 
@@ -184,12 +184,12 @@ function Canal({ c, team, pending, run, onQr }: {
         {editando ? (
           <div className="flex flex-1 gap-2">
             <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} className="field min-w-0 flex-1" />
-            <button disabled={pending} className="rounded-lg bg-forest px-3 text-sm font-bold text-white" onClick={() => { run(() => renameWhatsappChannel(c.id, nome)); setEditando(false); }}>Salvar</button>
+            <button disabled={pending} className="rounded-lg bg-forest px-3 text-sm font-semibold text-white" onClick={() => { run(() => renameWhatsappChannel(c.id, nome)); setEditando(false); }}>Salvar</button>
           </div>
         ) : (
-          <p className="font-black">{c.name} {c.isDefault && <span className="ml-1 rounded bg-cream px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink/60">principal · Lia</span>}</p>
+          <p className="font-semibold">{c.name} {c.isDefault && <span className="ml-1 rounded bg-cream px-1.5 py-0.5 text-[11px] font-semibold text-ink/60">principal · LIA</span>}</p>
         )}
-        <span className={cn("flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold", conectado ? "bg-green-500/15 text-green-600" : "bg-amber-500/15 text-amber-600")}>
+        <span className={cn("flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold", conectado ? "bg-green-500/15 text-green-600" : "bg-amber-500/15 text-amber-600")}>
           {conectado ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} {STATUS[c.status ?? ""] ?? c.status ?? "—"}
         </span>
       </div>
@@ -200,7 +200,7 @@ function Canal({ c, team, pending, run, onQr }: {
       <Mensagens c={c} />
       {!c.isDefault && !c.shared && (
         <div className="space-y-1 text-sm">
-          <p className="text-xs font-bold text-ink/60">Quem mais pode ver as conversas deste número</p>
+          <p className="text-xs font-semibold text-ink/60">Quem mais pode ver as conversas deste número</p>
           <div className="flex flex-wrap gap-1">
             {c.members.length === 0 && <span className="text-xs text-ink/50">Só {c.mine ? "você" : c.ownerName} e a gerência.</span>}
             {c.members.map((m) => (
@@ -215,13 +215,13 @@ function Canal({ c, team, pending, run, onQr }: {
                 <option value="">Autorizar usuário…</option>
                 {outros.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <button disabled={pending || !quem} className="rounded-lg bg-forest px-3 text-sm font-bold text-white disabled:opacity-60" onClick={() => { const p = quem; setQuem(""); run(() => setWhatsappChannelAccess(c.id, p, true), "Acesso liberado."); }}>Autorizar</button>
+              <button disabled={pending || !quem} className="rounded-lg bg-forest px-3 text-sm font-semibold text-white disabled:opacity-60" onClick={() => { const p = quem; setQuem(""); run(() => setWhatsappChannelAccess(c.id, p, true), "Acesso liberado."); }}>Autorizar</button>
             </div>
           )}
         </div>
       )}
       {c.canManage && !c.isDefault && (
-        <div className="flex flex-wrap gap-2 pt-1 text-xs font-bold">
+        <div className="flex flex-wrap gap-2 pt-1 text-xs font-semibold">
           {!conectado && c.provider === "evolution" && <button onClick={onQr} className="rounded-lg bg-forest px-3 py-1.5 text-white">Ler QR</button>}
           <button onClick={() => setEditando((v) => !v)} className="rounded-lg bg-cream px-3 py-1.5">Renomear</button>
           {c.active && <button disabled={pending} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-red-600"
@@ -231,7 +231,7 @@ function Canal({ c, team, pending, run, onQr }: {
       {c.canManage && c.provider === "evolution" && c.active && (
         <div className="rounded-lg bg-cream/60 p-2 text-xs">
           <p className="text-ink/65">As mensagens pararam de entrar, mas o número aparece conectado? Reinicie a conexão: não desconecta e não pede QR. O CRM também faz isso sozinho quando fica 20 min sem receber nada no expediente.</p>
-          <button disabled={pending} className="mt-1.5 rounded-lg bg-forest px-3 py-1.5 font-bold text-white disabled:opacity-60"
+          <button disabled={pending} className="mt-1.5 rounded-lg bg-forest px-3 py-1.5 font-semibold text-white disabled:opacity-60"
             onClick={() => run(() => restartWhatsappChannel(c.id), "Conexão reiniciada. As mensagens que ficaram paradas entram em instantes; se o número não voltar como Conectado em 1 minuto, leia o QR de novo.")}>
             {pending ? "Reiniciando…" : "Reiniciar conexão"}
           </button>
@@ -254,7 +254,7 @@ function Saude({ c }: { c: ChannelRow }) {
   const item = "rounded-lg bg-cream px-2.5 py-1.5";
   return (
     <div className="grid gap-2 text-xs sm:grid-cols-2" aria-label={`Saúde de ${c.name}`}>
-      <p className={cn(item, "flex items-center gap-1.5 font-bold", servidor.ok ? "text-green-600" : "text-red-500")}>{servidor.ok ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}{servidor.t}</p>
+      <p className={cn(item, "flex items-center gap-1.5 font-semibold", servidor.ok ? "text-green-600" : "text-red-500")}>{servidor.ok ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}{servidor.t}</p>
       <p className={item}>Última mensagem recebida: <b>{tempo}</b></p>
       <p className={cn(item, c.failed24h > 0 && "text-red-500")}>Mensagens que falharam (24 h): <b>{c.failed24h}</b></p>
       <p className={cn(item, c.unconfirmed24h > 0 && "text-amber-600")}>Sem confirmação do WhatsApp (24 h): <b>{c.unconfirmed24h}</b></p>
@@ -277,7 +277,7 @@ function Mensagens({ c }: { c: ChannelRow }) {
   const STATUS: Record<string, string> = { lida: "lida", entregue: "entregue", enviada: "enviada", enviando: "enviando", falhou: "falhou", desconhecido: "sem confirmação" };
   return (
     <div className="text-sm">
-      <div className="flex flex-wrap gap-2 text-xs font-bold">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold">
         <button type="button" disabled={pending} onClick={() => { const v = !aberto; setAberto(v); if (v) carregar(); }} className="inline-flex items-center gap-1 rounded-lg bg-cream px-3 py-1.5">
           <MessagesSquare className="h-3.5 w-3.5" />{aberto ? "Fechar mensagens" : "Conferir últimas mensagens"}
         </button>

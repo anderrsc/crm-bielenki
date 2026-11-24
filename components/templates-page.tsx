@@ -58,8 +58,8 @@ export function TemplatesPage({ templates }: { templates: DocumentTemplate[] }) 
     <div className="mx-auto max-w-5xl space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Visual</p>
-          <h1 className="mt-1 text-3xl font-black">Templates do sistema</h1>
+          <p className="text-xs font-semibold text-forest">Visual</p>
+          <h1 className="mt-1 text-3xl font-semibold">Templates do sistema</h1>
           <p className="mt-1 text-sm text-ink/50">
             Gerencie os modelos de documentos usados em orçamentos, fichas e impressões.
           </p>
@@ -86,7 +86,7 @@ export function TemplatesPage({ templates }: { templates: DocumentTemplate[] }) 
         {byType.map(({ type, meta, items }) => (
           <section key={type}>
             <div className="mb-3 flex items-center gap-3">
-              <span className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-bold ${meta.color}`}>
+              <span className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-semibold ${meta.color}`}>
                 <meta.icon className="h-4 w-4" />
                 {meta.label}
               </span>
@@ -159,8 +159,8 @@ function TemplateCard({ template, type, printHref }: { template: DocumentTemplat
           {!isDefault && <Star className="mt-0.5 h-4 w-4 shrink-0 text-ink/15" />}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-bold">{template.name}</p>
-              <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${statusMeta.color}`}>
+              <p className="font-semibold">{template.name}</p>
+              <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${statusMeta.color}`}>
                 <statusMeta.icon className="h-3 w-3" /> {statusMeta.label}
               </span>
             </div>

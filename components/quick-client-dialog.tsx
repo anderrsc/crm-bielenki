@@ -28,7 +28,7 @@ export function QuickClientDialog({ sources = [] }: { sources?: { id: string; na
       <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-cream/70 p-4 sm:items-center" role="presentation" onMouseDown={() => setOpen(false)}>
         <section role="dialog" aria-modal="true" aria-labelledby="quick-client-title" className="my-auto w-full max-w-2xl rounded-2xl border border-sand bg-surface p-5 shadow-2xl sm:p-6" onMouseDown={event => event.stopPropagation()}>
           <div className="mb-5 flex items-center justify-between gap-3">
-            <div><h2 id="quick-client-title" className="text-xl font-black">Novo cliente</h2><p className="text-xs text-ink/50">Cadastro rápido. Digite o CEP para preencher o endereço.</p></div>
+            <div><h2 id="quick-client-title" className="text-xl font-semibold">Novo cliente</h2><p className="text-xs text-ink/50">Cadastro rápido. Digite o CEP para preencher o endereço.</p></div>
             <button type="button" aria-label="Fechar" onClick={() => setOpen(false)} className="button-ghost p-2"><X className="h-4 w-4" /></button>
           </div>
           <form action={createClientRecord} className="grid gap-4 sm:grid-cols-2">

@@ -69,11 +69,11 @@ export function PixCharge({ conversationId, clientId, clientName, contas, orcame
   }
 
   const list = <PixChargeList charges={charges} onChange={() => { reload(); onSent(); }} />;
-  if (!open) return <div className="space-y-2"><button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-bold text-white"><QrCode className="h-4 w-4" /> Cobrar via Pix</button>{list}</div>;
+  if (!open) return <div className="space-y-2"><button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest px-3 py-2 text-xs font-semibold text-white"><QrCode className="h-4 w-4" /> Cobrar via Pix</button>{list}</div>;
 
   return (
     <div className="space-y-2 rounded-xl border border-sand/80 bg-cream/50 p-2 text-xs">
-      <p className="font-black">Cobrar via Pix</p>
+      <p className="font-semibold">Cobrar via Pix</p>
       {accounts && accounts.length === 0 && <p className="text-amber-700">Cadastre a chave Pix em Financeiro → Contas de recebimento.</p>}
       <label className="block">Conta<select className="field w-full" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
         {(accounts ?? []).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.pix_key}</option>)}
@@ -83,20 +83,20 @@ export function PixCharge({ conversationId, clientId, clientName, contas, orcame
         {bases.length === 0 && <option value="">Sem orçamento/conta: use outro valor</option>}
       </select></label>
       <div className="flex gap-1.5">
-        {([50, 100] as const).map((p) => <button key={p} type="button" onClick={() => setPercent(p)} className={`flex-1 rounded-lg px-2 py-1.5 font-bold ${percent === p ? "bg-forest text-white" : "bg-surface"}`}>{p}%</button>)}
-        <button type="button" onClick={() => setPercent(null)} className={`flex-1 rounded-lg px-2 py-1.5 font-bold ${percent === null ? "bg-forest text-white" : "bg-surface"}`}>Outro</button>
+        {([50, 100] as const).map((p) => <button key={p} type="button" onClick={() => setPercent(p)} className={`flex-1 rounded-lg px-2 py-1.5 font-semibold ${percent === p ? "bg-forest text-white" : "bg-surface"}`}>{p}%</button>)}
+        <button type="button" onClick={() => setPercent(null)} className={`flex-1 rounded-lg px-2 py-1.5 font-semibold ${percent === null ? "bg-forest text-white" : "bg-surface"}`}>Outro</button>
       </div>
       {percent === null && <input inputMode="decimal" className="field w-full" placeholder="Valor (R$)" value={custom} onChange={(e) => setCustom(e.target.value)} />}
       {message && (
         <div className="space-y-1">
           <pre className="whitespace-pre-wrap rounded-lg bg-surface p-2 font-sans">{message}</pre>
-          <pre className="break-all whitespace-pre-wrap rounded-lg bg-surface p-2 font-mono text-[10px] text-ink/60">{code}</pre>
+          <pre className="break-all whitespace-pre-wrap rounded-lg bg-surface p-2 font-mono text-[11px] text-ink/60">{code}</pre>
         </div>
       )}
       {erro && <p className="text-red-500">{erro}</p>}
       <div className="flex gap-2">
-        <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold">Cancelar</button>
-        <button type="button" disabled={!message || pending} onClick={enviar} className="flex flex-[2] items-center justify-center gap-1 rounded-lg bg-green-600 px-2 py-1.5 font-bold text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" />{pending ? "Enviando…" : "Enviar no WhatsApp"}</button>
+        <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-semibold">Cancelar</button>
+        <button type="button" disabled={!message || pending} onClick={enviar} className="flex flex-[2] items-center justify-center gap-1 rounded-lg bg-green-600 px-2 py-1.5 font-semibold text-white disabled:opacity-50"><Send className="h-3.5 w-3.5" />{pending ? "Enviando…" : "Enviar no WhatsApp"}</button>
       </div>
     </div>
   );
@@ -121,15 +121,15 @@ export function PixChargeList({ charges, onChange, showAccount = true }: { charg
     if (!r.ok) setErro(r.error); else onChange();
   }
   return <div className="space-y-1.5 text-xs" aria-label="Cobranças Pix enviadas">
-    <p className="font-bold text-ink/60">Cobranças Pix enviadas</p>
+    <p className="font-semibold text-ink/60">Cobranças Pix enviadas</p>
     {charges.slice(0, 6).map((c) => <div key={c.id} className="rounded-lg border border-sand/80 bg-surface p-2">
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0"><b>{brl(c.amount)}</b>{showAccount && <> · {c.account_name}</>}<span className="block truncate text-ink/55">{c.description}</span></span>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${c.status === "recebida" ? "bg-emerald-50 text-emerald-700" : c.status === "cancelada" ? "bg-cream text-ink/50" : "bg-amber-50 text-amber-800"}`}>{STATUS[c.status]}</span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.status === "recebida" ? "bg-emerald-50 text-emerald-700" : c.status === "cancelada" ? "bg-cream text-ink/50" : "bg-amber-50 text-amber-800"}`}>{STATUS[c.status]}</span>
       </div>
       {c.status === "aguardando" && <div className="mt-1.5 flex gap-1.5">
-        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "ok")} className="flex flex-1 items-center justify-center gap-1 rounded-md bg-forest px-2 py-1 font-bold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" />Recebido</button>
-        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "cancel")} className="flex items-center justify-center gap-1 rounded-md px-2 py-1 font-bold text-ink/60 disabled:opacity-50"><X className="h-3.5 w-3.5" />Cancelar</button>
+        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "ok")} className="flex flex-1 items-center justify-center gap-1 rounded-md bg-forest px-2 py-1 font-semibold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" />Recebido</button>
+        <button type="button" disabled={busy === c.id} onClick={() => void act(c, "cancel")} className="flex items-center justify-center gap-1 rounded-md px-2 py-1 font-semibold text-ink/60 disabled:opacity-50"><X className="h-3.5 w-3.5" />Cancelar</button>
       </div>}
     </div>)}
     {erro && <p role="alert" className="rounded-md bg-red-50 p-2 text-red-700">{erro}</p>}

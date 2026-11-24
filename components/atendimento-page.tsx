@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { InboxAttachments } from "@/components/inbox-attachments";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, PanelRightOpen, ArrowDown, Reply } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Bot, StickyNote, Check, CheckCheck, RefreshCw, CircleAlert, Link2, Search, Send, UserPlus, Wallet, X, MoreVertical, Mail, MailOpen, MessageCircle, Clock, Phone, Plus, Pencil, Copy, MapPin, FileText, CalendarDays, Package, Coins, PanelRightOpen, ArrowDown, Reply, SlidersHorizontal } from "lucide-react";
 import {
   closeQuoteFromInbox, createClientFromConversation, linkConversationClient, loadConversation, loadInbox, loadOlderMessages, setConversationArchived,
   addInboxNote, approveLiaSuggestion, discardLiaSuggestion, listInboxTeam, searchInboxHistory, setConversationStatus, transferConversation, markInboxRead, markConversationRead, markConversationUnread, syncInboxContacts, receiveFromInbox, searchClientsForLink, sendInboxMessage, setConversationAi,
@@ -25,6 +25,9 @@ import { inboxClock, inboxDay, inboxDayLabel, inboxListTime } from "@/lib/whatsa
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hora = inboxListTime;
+/** Cor estável do avatar (iniciais) a partir do nome: 8 tons suaves definidos em globals.css. */
+const avatarTone = (name: string) => { let h = 0; for (const ch of name) h = (h * 31 + ch.codePointAt(0)!) >>> 0; return h % 8; };
+const initials = (name: string) => { const p = name.trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0] ?? "?") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase(); };
 const dataBr = (iso: string | null) => (iso ? new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("pt-BR") : "—");
 const hojeISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 
@@ -45,7 +48,7 @@ function Midia({ id, body }: { id: string; body: string }) {
     return <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={tipo} loading="lazy" onError={() => setErro(true)} className={cn("mb-1 rounded-xl", tipo === "foto" ? "max-h-72 w-auto" : "h-28 w-28")} /></a>;
   if (tipo === "áudio") return <audio controls preload="none" src={src} onError={() => setErro(true)} className="mb-1 w-64 max-w-full" />;
   if (tipo === "vídeo") return <video controls preload="metadata" src={src} onError={() => setErro(true)} className="mb-1 max-h-72 rounded-xl" />;
-  return <a href={src} target="_blank" rel="noreferrer" className="mb-1 inline-block rounded-lg bg-cream px-2 py-1 text-xs font-bold underline">Abrir {body.match(/^\[documento:\s*([^\]]+)\]/)?.[1] ?? "documento"}</a>;
+  return <a href={src} target="_blank" rel="noreferrer" className="mb-1 inline-block rounded-lg bg-cream px-2 py-1 text-xs font-semibold underline">Abrir {body.match(/^\[documento:\s*([^\]]+)\]/)?.[1] ?? "documento"}</a>;
 }
 
 function Formatado({ text }: { text: string }) {
@@ -83,6 +86,9 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const [numero, setNumero] = useState(initialNumero && /^[0-9a-f-]{36}$/i.test(initialNumero) ? initialNumero : "");
   const [etiqueta, setEtiqueta] = useState("");
   const [setor, setSetor] = useState("");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const press = useRef<{ t?: ReturnType<typeof setTimeout>; fired?: boolean }>({});
   const [historico, setHistorico] = useState<Array<{ conversationId: string; snippet: string; at: string }> | null>(null);
   const [buscandoHistorico, startHistorico] = useTransition();
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -93,6 +99,14 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const [aiActive, setAiActive] = useState(false);
   const [provider, setProvider] = useState<"meta" | "evolution">();
   const [connection, setConnection] = useState("Conectando…");
+  // Sem internet no aparelho: mostra desconectado na hora e volta a reconectar quando a rede volta.
+  useEffect(() => {
+    const off = () => setConnection("Desconectado · sem internet");
+    const on = () => setConnection("Reconectando · atualização a cada 15s");
+    if (typeof navigator !== "undefined" && navigator.onLine === false) off();
+    window.addEventListener("offline", off); window.addEventListener("online", on);
+    return () => { window.removeEventListener("offline", off); window.removeEventListener("online", on); };
+  }, []);
   const [syncing, setSyncing] = useState(false);
   const selected = useRef(openId);
   selected.current = openId;
@@ -221,7 +235,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
     let first = true;
     channel.subscribe(status => {
       live.current = status === "SUBSCRIBED";
-      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : "Reconectando · atualização a cada 15s");
+      setConnection(status === "SUBSCRIBED" ? "Em tempo real" : status === "CLOSED" ? "Desconectado · atualização a cada 15s" : "Reconectando · atualização a cada 15s");
       // Reconexao: pode ter perdido eventos, entao recarrega uma vez.
       if (status === "SUBSCRIBED") { if (!first) { listSoon(0); if (selected.current) detailSoon(selected.current); } first = false; }
     });
@@ -250,6 +264,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const etiquetas = useMemo(() => [...new Map(items.flatMap((c) => c.labels ?? []).map((l) => [l.id, l])).values()].sort((a, b) => a.name.localeCompare(b.name)), [items]);
   // Números de WhatsApp presentes na lista (só mostra o filtro quando há mais de um).
   const numeros = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, c.channelName ?? "WhatsApp"])).entries()], [items]);
+  const numeroCards = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, { name: c.channelName ?? "WhatsApp", phone: c.channelPhone ?? "" }])).entries()], [items]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -280,67 +295,112 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
     } finally { setOrganizing(null); }
   };
 
+  // Atalhos no computador: Esc fecha a ficha/conversa, ↑ ↓ trocam de conversa, / foca a busca.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('[role="menu"],[role="dialog"]')) return;
+      const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      const wide = window.matchMedia("(min-width: 768px)").matches;
+      if (e.key === "Escape") {
+        if (showPanel) { setShowPanel(false); return; }
+        if (!typing && wide && openId) setOpenId(null);
+        return;
+      }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey || !wide) return;
+      if (e.key === "/") { e.preventDefault(); document.querySelector<HTMLInputElement>(".wa-search input")?.focus(); return; }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const i = visiveis.findIndex((c) => c.id === openId);
+        const next = visiveis[Math.min(visiveis.length - 1, Math.max(0, i + (e.key === "ArrowDown" ? 1 : -1)))];
+        if (next && next.id !== openId) { e.preventDefault(); abrir(next.id); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showPanel, openId, visiveis, abrir]);
+
   return (
-    <div className="wa-inbox mobile-inbox flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
+    <div className="wa-inbox mobile-inbox relative flex h-[calc(100dvh-11.5rem)] min-h-[460px] lg:h-[calc(100dvh-7.5rem)] overflow-hidden rounded-2xl border">
       {/* Lista */}
-      <aside className={cn("wa-line flex w-full flex-col border-r md:w-[320px] md:shrink-0 xl:w-[360px]", openId && "hidden md:flex")}>
-        <div className="space-y-2 p-3">
-          <div className="flex items-center justify-between"><div><h1 className="text-[22px] font-bold tracking-tight">Conversas</h1><p className="wa-muted text-[11px]">Atendimento · WhatsApp</p></div>
-          <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
-            setSyncing(true);
-            try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
-            finally { setSyncing(false); }
-          }} className="wa-row rounded-full p-2"><RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} /></button></div>
-          <p className="wa-muted flex items-center justify-between text-[11px]"><span>{connection}</span><Link href="/atendimento/canais" className="font-bold underline">Números de WhatsApp</Link></p>
-          {!aiActive && <p className="rounded-lg bg-amber-500/10 p-2 text-xs font-bold text-amber-700">IA pausada · atendimento pela equipe</p>}
-          <div className="wa-search flex items-center gap-3 rounded-lg px-3 py-2">
-            <Search className="wa-muted h-4 w-4" />
-            <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
+      <aside className={cn("wa-list wa-line flex w-full flex-col border-r md:w-[300px] md:shrink-0 lg:w-[330px] xl:w-[380px]", openId && "hidden md:flex")}>
+        <div className="wa-list-head">
+          <div className="wa-head-row">
+            <span className="wa-logo" aria-hidden><MessageCircle className="h-5 w-5" /></span>
+            <div className="min-w-0 flex-1">
+              <h1 className="wa-title">WhatsApp</h1>
+              <p className="wa-subtitle" title={connection}><i className="wa-dot" data-state={connection === "Em tempo real" ? "ok" : connection.startsWith("Desconectado") ? "off" : "wait"} aria-hidden />{connection === "Em tempo real" ? "Em tempo real" : connection.startsWith("Desconectado") ? "Desconectado" : "Reconectando…"}{!aiActive && <span className="wa-pill-warn">IA pausada</span>}</p>
+            </div>
+            <button aria-label="Sincronizar mensagens e contatos" title="Sincronizar mensagens e contatos" disabled={syncing} onClick={async () => {
+              setSyncing(true);
+              try { const r = await syncInboxContacts(); await refreshList(); if (selected.current) await refreshDetail(selected.current); if (r.error) setListError(r.error); }
+              finally { setSyncing(false); }
+            }} className="wa-icon-btn"><RefreshCw className={cn("h-[18px] w-[18px]", syncing && "animate-spin")} /></button>
+          </div>
+          {numeroCards.length > 0 && (
+            <div className="wa-numbers" role="group" aria-label="Números de WhatsApp">
+              {numeroCards.map(([k, n]) => (
+                <button key={k} type="button" onClick={() => setNumero(numero === k ? "" : k)} aria-pressed={numero === k} className="wa-number">
+                  <span className="wa-number-name">{n.name}</span>
+                  <span className="wa-number-phone"><span className="truncate">{n.phone || "Conectado"}</span><i className="wa-dot" data-state="ok" aria-hidden /></span>
+                </button>
+              ))}
+              <Link href="/atendimento/canais" aria-label="Adicionar ou gerenciar números" title="Gerenciar números" className="wa-number wa-number-add"><Plus className="h-5 w-5" /></Link>
+            </div>
+          )}
+          <div className="wa-chips">
+            {([["todas", "Todas", items.filter((c) => !c.archived).length], ["naolidas", "Não lidas", totalNaoLidas], ["semresposta", "Sem resposta", totalSemResposta], ["ana", "LIA", 0], ["equipe", "Equipe", 0], ["lidas", "Lidas", 0]] as const).map(([k, l, n]) => (
+              <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip">{l}{n > 0 && " "}{n > 0 && <span className="wa-chip-count">{n}</span>}</button>
+            ))}
+          </div>
+          <div className="wa-search-row">
+            <label className="wa-search">
+              <Search className="h-[18px] w-[18px]" aria-hidden />
+              <input value={busca} onChange={(e) => { setBusca(e.target.value); setHistorico(null); }} placeholder="Buscar conversas…" aria-label="Pesquisar conversas" />
+            </label>
+            <button type="button" onClick={() => setFiltrosAbertos(v => !v)} aria-expanded={filtrosAbertos} aria-controls="wa-filtros" aria-label="Filtros" className="wa-icon-btn wa-icon-btn-box relative">
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
+              {[status, setor, etiqueta, numero].filter(Boolean).length > 0 && <span className="wa-badge wa-badge-float">{[status, setor, etiqueta, numero].filter(Boolean).length}</span>}
+            </button>
           </div>
           {busca.trim().length >= 3 && (
-            <button disabled={buscandoHistorico} onClick={() => startHistorico(async () => setHistorico((await searchInboxHistory(busca)).results))} className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>
+            <button disabled={buscandoHistorico} onClick={() => startHistorico(async () => setHistorico((await searchInboxHistory(busca)).results))} className="wa-link">
               {buscandoHistorico ? "Buscando nas mensagens…" : `Buscar "${busca.trim()}" no texto das mensagens`}
             </button>
           )}
-          <div className="flex gap-2">
-            <select value={status} onChange={(e) => setStatus(e.target.value as "" | ConversationStatus)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Status">
+          <div id="wa-filtros" className="wa-filters" data-open={filtrosAbertos ? "true" : "false"}>
+            <select value={status} onChange={(e) => setStatus(e.target.value as "" | ConversationStatus)} aria-label="Status">
               <option value="">Todos os status</option>
               {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
-            <select value={setor} onChange={(e) => setSetor(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Setor">
+            <select value={setor} onChange={(e) => setSetor(e.target.value)} aria-label="Setor">
               <option value="">Todos os setores</option>
               {SETORES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
             {etiquetas.length > 0 && (
-              <select value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Etiqueta">
+              <select value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} aria-label="Etiqueta">
                 <option value="">Todas as etiquetas</option>
                 {etiquetas.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             )}
             {(numeros.length > 1 || numero) && (
-              <select value={numero} onChange={(e) => setNumero(e.target.value)} className="wa-search min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" aria-label="Número">
+              <select value={numero} onChange={(e) => setNumero(e.target.value)} aria-label="Número">
                 <option value="">Todos os números</option>
                 {numeros.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             )}
-          </div>
-          <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
-            {([["todas", "Tudo"], ["naolidas", `Não lidas${totalNaoLidas ? ` ${totalNaoLidas}` : ""}`], ["lidas", "Lidas"], ["semresposta", `Sem resposta${totalSemResposta ? ` ${totalSemResposta}` : ""}`], ["ana", "Lia"], ["equipe", "Equipe"]] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip rounded-full px-3 py-1">{l}</button>
-            ))}
           </div>
         </div>
         {listError && <p className="m-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-500">{listError}</p>}
         <ul className="flex-1 overflow-y-auto">
           {historico && (
             <li className="wa-line border-b p-2">
-              <div className="flex items-center justify-between px-1"><p className="text-xs font-bold">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between px-1"><p className="text-xs font-semibold">Nas mensagens ({historico.length})</p><button onClick={() => setHistorico(null)} aria-label="Fechar busca"><X className="h-4 w-4" /></button></div>
               {historico.length === 0 && <p className="wa-muted p-2 text-xs">Nada encontrado no histórico.</p>}
               {historico.map(h => {
                 const conv = items.find(i => i.id === h.conversationId);
                 return (
                   <button key={h.conversationId} onClick={() => abrir(h.conversationId)} className="wa-row block w-full rounded-lg px-2 py-1.5 text-left">
-                    <p className="truncate text-sm font-bold">{conv?.name ?? "Conversa"} <span suppressHydrationWarning className="wa-muted text-[11px] font-normal">{hora(h.at, new Date(agora))}</span></p>
+                    <p className="truncate text-sm font-semibold">{conv?.name ?? "Conversa"} <span suppressHydrationWarning className="wa-muted text-[11px] font-normal">{hora(h.at, new Date(agora))}</span></p>
                     <p className="wa-muted truncate text-xs">{h.snippet}</p>
                   </button>
                 );
@@ -348,36 +408,50 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
             </li>
           )}
           {verArquivadas ? (
-            <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-bold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
+            <li><button onClick={() => setVerArquivadas(false)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left font-semibold"><ArrowLeft className="h-4 w-4" /> Arquivadas</button></li>
           ) : arquivadas.length > 0 && (
             <li><button onClick={() => setVerArquivadas(true)} className="wa-row flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center" style={{ color: "var(--wa-green)" }}><Archive className="h-5 w-5" /></span>
               <span className="flex-1 font-medium">Arquivadas</span>
-              <span className="text-xs font-bold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--wa-green)" }}>{arquivadas.reduce((n, c) => n + c.unread, 0) || arquivadas.length}</span>
             </button></li>
           )}
           {visiveis.length === 0 && !listError && <li className="wa-muted p-8 text-center text-sm">{busca ? "Nenhuma conversa encontrada." : verArquivadas ? "Nenhuma conversa arquivada." : filtro === "naolidas" ? "Você está em dia. Nenhuma conversa não lida." : filtro === "lidas" ? "Nenhuma conversa lida neste filtro." : filtro === "semresposta" ? "Nenhum cliente esperando resposta." : "Quando um cliente chamar no WhatsApp, a conversa aparece aqui."}</li>}
           {visiveis.map((c) => (
-            <li key={c.id} className="group relative">
-              <button onClick={() => abrir(c.id)} aria-current={openId === c.id} className="wa-row flex w-full items-center gap-3 px-3 text-left">
-                <div className="wa-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-medium">{c.name.slice(0, 1).toUpperCase()}</div>
-                <div className="wa-line min-w-0 flex-1 border-b py-3 pr-6">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={cn("truncate text-[15px]", c.unread > 0 ? "font-bold" : "font-medium")}>{c.name}</p>
-                    <span suppressHydrationWarning className={cn("shrink-0 text-xs", c.unread > 0 ? "wa-unread-time" : "wa-muted")}>{hora(c.lastAt, new Date(agora))}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="wa-muted truncate text-sm">{c.preview || "—"}</p>
-                    {(() => { const espera = !c.archived && c.status !== "resolvida" && c.waitingSince ? waitingLabel(c.waitingSince, agora) : null;
-                      return espera ? <span suppressHydrationWarning title="Cliente esperando resposta" className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", /h|dia/.test(espera) ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-600")}>{espera}</span> : null; })()}
-                    {c.unread > 0 && <span className="wa-badge flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{c.unread}</span>}
-                  </div>
-                  {(c.labels?.length ?? 0) > 0 && <div className="mt-0.5 flex flex-wrap gap-1">{c.labels!.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
-                  {(numeros.length > 1 && c.channelName) || (!c.aiPaused && aiActive && c.channelAi !== false) || c.assignedName || c.department || c.status !== "aberta" ? <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--wa-green)" }}>{[numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "Lia" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ")}</p> : null}
-                </div>
+            <li key={c.id} className="wa-li group relative">
+              <button
+                onClick={() => { if (press.current.fired) { press.current.fired = false; return; } abrir(c.id); }}
+                onContextMenu={(e) => { e.preventDefault(); setMenuId(c.id); }}
+                onTouchStart={() => { press.current.fired = false; press.current.t = setTimeout(() => { press.current.fired = true; setMenuId(c.id); try { navigator.vibrate?.(8); } catch {} }, 520); }}
+                onTouchEnd={() => clearTimeout(press.current.t)} onTouchMove={() => clearTimeout(press.current.t)} onTouchCancel={() => clearTimeout(press.current.t)}
+                aria-current={openId === c.id} data-unread={c.unread > 0 ? "true" : undefined} className="wa-row wa-conv"
+              >
+                <span className="wa-avatar wa-avatar-lg" data-tone={avatarTone(c.name)}>{initials(c.name)}</span>
+                <span className="wa-conv-body">
+                  <span className="wa-conv-top">
+                    <span className="wa-conv-name">{c.name}</span>
+                    <span suppressHydrationWarning className="wa-conv-time">{hora(c.lastAt, new Date(agora))}</span>
+                  </span>
+                  <span className="wa-conv-mid">
+                    <span className="wa-conv-preview">{c.preview || "—"}</span>
+                    {c.unread > 0 && <span className="wa-badge wa-badge-count">{c.unread}</span>}
+                  </span>
+                  {(() => {
+                    const espera = !c.archived && c.status !== "resolvida" && c.waitingSince ? waitingLabel(c.waitingSince, agora) : null;
+                    const partes = [numeros.length > 1 ? c.channelName : null, !c.aiPaused && aiActive && c.channelAi !== false ? "LIA" : c.assignedName, setorNome(c.department), c.status !== "aberta" ? STATUS_LABEL[c.status] : null].filter(Boolean).join(" · ");
+                    if (!espera && !partes && !(c.labels?.length)) return null;
+                    return (
+                      <span className="wa-conv-meta">
+                        {espera && <span suppressHydrationWarning title="Cliente esperando resposta" className="wa-wait" data-late={/h|dia/.test(espera) ? "true" : undefined}><Clock className="h-3 w-3" aria-hidden />{espera}</span>}
+                        {partes && <span className="wa-conv-tags">{partes}</span>}
+                        {(c.labels ?? []).map((l) => <LabelChip key={l.id} label={l} />)}
+                      </span>
+                    );
+                  })()}
+                </span>
               </button>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild><button aria-label={`Opções da conversa com ${c.name}`} disabled={organizing === c.id} className="wa-muted wa-row absolute right-1 top-6 rounded-full p-1.5 opacity-70 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 data-[state=open]:opacity-100"><MoreVertical className="h-4 w-4" /></button></DropdownMenu.Trigger>
+              <DropdownMenu.Root open={menuId === c.id} onOpenChange={(o) => setMenuId(o ? c.id : null)}>
+                <DropdownMenu.Trigger asChild><button aria-label={`Opções da conversa com ${c.name}`} disabled={organizing === c.id} className="wa-kebab"><MoreVertical className="h-4 w-4" /></button></DropdownMenu.Trigger>
                 <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-52 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
                   <DropdownMenu.Item onSelect={() => void organizar(c, c.unread === 0)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream">{c.unread > 0 ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}{c.unread > 0 ? "Marcar como lida" : "Marcar como não lida"}</DropdownMenu.Item>
                   <DropdownMenu.Item onSelect={() => void setConversationArchived(c.id, !c.archived).then(r => { if (r.error) setListError(r.error); else void refreshList(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Archive className="h-4 w-4" />{c.archived ? "Desarquivar conversa" : "Arquivar conversa"}</DropdownMenu.Item>
@@ -389,9 +463,9 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
       </aside>
 
       {/* Conversa */}
-      <section className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex", showPanel && "hidden xl:flex")}>
+      <section data-chat-open={openId ? "true" : undefined} className={cn("flex min-w-0 flex-1 flex-col", !openId && "hidden md:flex")}>
         {!openId ? (
-          <div className="wa-head m-auto flex h-full w-full flex-col items-center justify-center gap-4 border-b-4 px-6 text-center" style={{ borderColor: "var(--wa-green)" }}><span className="wa-avatar flex h-24 w-24 items-center justify-center rounded-full"><MessageCircle className="h-12 w-12" strokeWidth={1.25} /></span><p className="text-[28px] font-light">Atendimento Marquinhos</p><p className="wa-muted max-w-sm text-sm leading-6">Suas conversas do WhatsApp, organizadas em um só lugar. Escolha um contato para conversar ou acompanhar o atendimento.</p></div>
+          <div className="wa-empty"><span className="wa-empty-icon"><MessageCircle className="h-10 w-10" strokeWidth={1.5} /></span><p className="wa-empty-title">Atendimento Marquinhos</p><p className="wa-empty-text">Suas conversas do WhatsApp, organizadas em um só lugar. Escolha um contato para conversar ou acompanhar o atendimento.</p><p className="wa-empty-keys"><kbd>↑</kbd><kbd>↓</kbd> trocar de conversa <kbd>/</kbd> buscar <kbd>Esc</kbd> fechar</p></div>
         ) : !atual ? (
           <div className="m-auto text-sm text-ink/50">{detailError ?? "Carregando…"}</div>
         ) : (
@@ -401,10 +475,10 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
 
       {/* Ficha do cliente */}
       {atual && showPanel && (
-        <aside className="wa-line flex w-full flex-col overflow-y-auto border-l bg-surface text-ink xl:w-[320px] xl:shrink-0">
-          <div className="flex items-center gap-2 border-b border-sand/80 p-3">
-            <button aria-label="Fechar ficha do cliente" onClick={() => setShowPanel(false)} className="rounded-lg p-1 hover:bg-cream"><X className="h-5 w-5" /></button>
-            <p className="font-bold">Ficha do cliente</p>
+        <aside className="wa-panel-drawer" aria-label="Ficha do cliente">
+          <div className="wa-panel-head">
+            <button aria-label="Fechar ficha do cliente" onClick={() => setShowPanel(false)} className="wa-icon-btn"><X className="h-5 w-5" /></button>
+            <p>Ficha do cliente</p>
           </div>
           <Ficha detail={atual} onChanged={() => { refreshDetail(atual.conversation.id); refreshList(); }} />
         </aside>
@@ -445,6 +519,7 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
   const [mudandoIa, startIa] = useTransition();
   const [sugerindo, startSugestao] = useTransition();
   const [modoNota, setModoNota] = useState(false);
+  const [acaoMsg, setAcaoMsg] = useState<string | null>(null);
   // Mensagem que está sendo respondida (citação, como o "Responder" do WhatsApp).
   const [respondendo, setRespondendo] = useState<InboxMessage | null>(null);
   useEffect(() => { setRespondendo(null); }, [c.id]);
@@ -499,45 +574,60 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
 
   return (
     <>
-      <header className="wa-head flex items-center gap-1.5 px-2 py-2 sm:gap-3 sm:px-3">
-        <button onClick={onBack} className="wa-row rounded-full p-1 md:hidden" aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></button>
-        <button onClick={onPanel} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Ficha do cliente">
-          <span className="wa-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-medium">{c.name.slice(0, 1).toUpperCase()}</span>
+      <header className="wa-chat-head">
+        <button onClick={onBack} className="wa-icon-btn wa-hide-md-up" aria-label="Voltar"><ArrowLeft className="h-[22px] w-[22px]" /></button>
+        <button onClick={onPanel} className="wa-chat-id" title="Ficha do cliente">
+          <span className="wa-avatar wa-avatar-md" data-tone={avatarTone(c.name)}>{initials(c.name)}</span>
           <span className="min-w-0">
-            <span className="block truncate font-medium">{c.name}</span>
-            <span className="wa-muted block truncate text-xs">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · Lia respondendo"}</span>
+            <span className="wa-chat-name">{c.name}</span>
+            <span className="wa-chat-sub">{formatBrPhone(c.phone)}{!aiActive || c.aiPaused ? ` · com ${c.assignedName ?? "a equipe"}` : " · LIA respondendo"}</span>
           </span>
         </button>
         <button
           disabled={mudandoIa || (!aiActive && c.aiPaused)}
           onClick={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })}
-          className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold", c.aiPaused ? "wa-chip" : "wa-send")}
-          title={c.aiPaused ? "A Lia volta a responder este cliente" : "Você assume e a Lia para de responder"}
+          className={cn("wa-assume", c.aiPaused ? "is-paused" : "is-active")}
+          title={c.aiPaused ? "A LIA volta a responder este cliente" : "Você assume e a LIA para de responder"}
         >
-          <Bot className="h-4 w-4" /> <span className="hidden sm:inline">{c.aiPaused ? "Devolver p/ Lia" : "Assumir"}</span>
+          <Bot className="h-4 w-4" /> <span className="hidden xl:inline">{c.aiPaused ? "Devolver p/ LIA" : "Assumir"}</span>
         </button>
         <select value={c.status} disabled={mudandoStatus} aria-label="Status da conversa" onChange={(e) => mudarStatus(e.target.value as ConversationStatus)}
-          className="wa-chip hidden rounded-full px-2 py-1.5 text-xs font-bold lg:block">
+          className="wa-select-pill">
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <LabelMenu conversationId={c.id} current={labels} onChanged={onChanged} />
-        <button onClick={() => setTransferir(v => !v)} className="wa-row wa-muted rounded-full p-2" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
-        <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-row wa-muted rounded-full p-2"><Search className="h-4 w-4" /></button>
-        <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-row wa-muted rounded-full p-2"><Mail className="h-4 w-4" /></button>
+        {c.phone && !c.phone.includes("@") && <a href={`tel:+${c.phone.replace(/\D/g, "")}`} className="wa-icon-btn" title="Ligar" aria-label={`Ligar para ${c.name}`}><Phone className="h-5 w-5" /></a>}
+<div className="hidden items-center gap-0.5 md:flex">
+        <button onClick={() => setTransferir(v => !v)} className="wa-icon-btn wa-show-2xl-up" title="Transferir conversa" aria-label="Transferir conversa"><ArrowRightLeft className="h-4 w-4" /></button>
+        <button aria-label="Pesquisar nesta conversa" title="Pesquisar nesta conversa" onClick={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="wa-icon-btn wa-show-xl-up"><Search className="h-4 w-4" /></button>
+        <button aria-label="Marcar como não lida" title="Marcar como não lida" onClick={onUnread} className="wa-icon-btn wa-show-2xl-up"><Mail className="h-4 w-4" /></button>
         <button
           disabled={arquivando}
           onClick={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })}
-          className="wa-row wa-muted hidden rounded-full p-2 sm:block"
+          className="wa-icon-btn wa-show-2xl-up"
           title={c.archived ? "Desarquivar conversa" : "Arquivar conversa"} aria-label={c.archived ? "Desarquivar conversa" : "Arquivar conversa"}
         >
           {c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         </button>
-        <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-row wa-muted rounded-full p-2"><PanelRightOpen className="h-4 w-4" /></button>
+        <button onClick={onPanel} aria-label="Abrir ficha do cliente" title="Ficha do cliente" className="wa-icon-btn wa-show-xl-up"><PanelRightOpen className="h-4 w-4" /></button>
+        </div>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild><button aria-label="Mais ações da conversa" className="wa-icon-btn wa-hide-2xl-up"><MoreVertical className="h-5 w-5" /></button></DropdownMenu.Trigger>
+          <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-xl border border-sand bg-surface p-1.5 text-sm text-ink shadow-xl">
+            <DropdownMenu.Item onSelect={onPanel} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><PanelRightOpen className="h-4 w-4" />Ficha do cliente</DropdownMenu.Item>
+            {(aiActive || !c.aiPaused) && <DropdownMenu.Item onSelect={() => startIa(async () => { const r = await setConversationAi(c.id, c.aiPaused); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Bot className="h-4 w-4" />{c.aiPaused ? "Devolver para a LIA" : "Assumir conversa"}</DropdownMenu.Item>}
+            <DropdownMenu.Item onSelect={() => { setPesquisando(v => !v); setBuscaMensagem(""); }} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Search className="h-4 w-4" />Pesquisar na conversa</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => setModoNota(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><StickyNote className="h-4 w-4" />{modoNota ? "Voltar a escrever ao cliente" : "Escrever nota interna"}</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => setTransferir(v => !v)} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><ArrowRightLeft className="h-4 w-4" />Transferir conversa</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={onUnread} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream"><Mail className="h-4 w-4" />Marcar como não lida</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => startArquivo(async () => { const r = await setConversationArchived(c.id, !c.archived); setErro(r.error ?? null); onChanged(); })} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none focus:bg-cream">{c.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}{c.archived ? "Desarquivar conversa" : "Arquivar conversa"}</DropdownMenu.Item>
+          </DropdownMenu.Content></DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </header>
       {transferir && <Transferencia conversation={c} onStatus={mudarStatus} onDone={(error) => { setErro(error); if (!error) setTransferir(false); onChanged(); }} />}
       {pesquisando && <div className="wa-head wa-line flex items-center gap-2 border-t px-4 py-2"><Search className="wa-muted h-4 w-4" /><input aria-label="Buscar mensagens nesta conversa" autoFocus value={buscaMensagem} onChange={e => setBuscaMensagem(e.target.value)} placeholder="Pesquisar nesta conversa" className="wa-input min-w-0 flex-1 rounded-lg px-3 py-2 text-sm outline-none" /><span role="status" className="wa-muted text-xs">{termo ? `${exibidas.length} encontradas` : ""}</span><button aria-label="Fechar busca de mensagens" onClick={() => { setPesquisando(false); setBuscaMensagem(""); }} className="wa-muted rounded-full p-2"><X className="h-4 w-4" /></button></div>}
 
-      <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat flex-1 space-y-1.5 overflow-y-auto px-[5%] py-3">
+      <div ref={caixa} onScroll={e => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80); if (el.scrollTop < 150) void carregarAntigas(); }} className="wa-chat wa-messages">
         {temAntigas && <p className="wa-muted text-center text-xs">{carregandoAntigas ? "Carregando mensagens anteriores…" : <button onClick={() => void carregarAntigas()} className="underline">Mensagens anteriores</button>}</p>}
         {exibidas.length === 0 && <p className="wa-muted p-6 text-center text-sm">{termo ? "Nenhuma mensagem encontrada nas mensagens carregadas." : "Sem mensagens."}</p>}
         {exibidas.map((m, index) => {
@@ -550,22 +640,22 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
           return (
             <Fragment key={m.id}>
             {eventosAntes.map(ev => <Evento key={`e-${ev.id}`} e={ev} />)}
-            {novoDia && <div className="sticky top-1 z-10 flex justify-center py-3"><span suppressHydrationWarning className="wa-date rounded-lg px-3 py-1.5 text-xs shadow-sm">{inboxDayLabel(m.at)}</span></div>}
-            {!termo && primeiraNaoLida.current === m.id && <div role="separator" aria-label="Mensagens não lidas" className="wa-unread-divider -mx-[5%] my-4 flex justify-center py-2"><span className="wa-date rounded-full px-4 py-1.5 text-xs uppercase tracking-wide shadow-sm">Mensagens não lidas</span></div>}
-            <div className={cn("flex", saida ? "justify-end" : "justify-start", !mesmoGrupo && "pt-1.5")}>
-              <div className={cn("max-w-[88%] rounded-lg px-2.5 pb-1 pt-1.5 text-[14.2px] shadow-[0_1px_0.5px_rgba(11,20,26,.13)] sm:max-w-[78%]", saida ? "wa-out" : "wa-in", !mesmoGrupo && (saida ? "rounded-tr-none" : "rounded-tl-none"), m.failed && "ring-2 ring-red-400")}>
-                {nome && !mesmoGrupo && <p className={cn("mb-0.5 text-xs font-bold", m.author === "ana" ? "text-blue-400" : "wa-sender")}>{nome}</p>}
+            {novoDia && <div className="wa-day"><span suppressHydrationWarning className="wa-date-chip">{inboxDayLabel(m.at)}</span></div>}
+            {!termo && primeiraNaoLida.current === m.id && <div role="separator" aria-label="Mensagens não lidas" className="wa-unread-divider"><span>Mensagens não lidas</span></div>}
+            <div className={cn("wa-line-msg", saida ? "is-out" : "is-in", !mesmoGrupo && "is-first")}>
+              <div onClick={(e) => { if ((e.target as HTMLElement).closest("a,button,img,audio,video,input,select")) return; setAcaoMsg(v => v === m.id ? null : m.id); }} data-selected={acaoMsg === m.id ? "true" : undefined} className={cn("wa-bubble", saida ? "wa-out" : "wa-in", !mesmoGrupo && "is-first", m.failed && "ring-2 ring-red-400")}>
+                {nome && !mesmoGrupo && <p className={cn("wa-sender-name", m.author === "ana" ? "text-blue-500" : "wa-sender")}>{nome}</p>}
                 {m.quotedPreview && <p className="wa-quote mb-1 line-clamp-2 rounded border-l-4 border-[var(--wa-green)] bg-black/5 px-2 py-1 text-[12.5px] opacity-80" title="Respondendo a">{m.quotedPreview}</p>}
                 <Midia id={m.id} body={saida ? semAssinatura(m.body) : m.body} />
-                {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="whitespace-pre-wrap break-words"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
-                <p className="wa-muted -mt-0.5 flex items-center justify-end gap-1 text-[11px]">
-                  {!m.pending && !m.failed && <button type="button" aria-label="Responder esta mensagem" title="Responder citando esta mensagem" className="mr-auto rounded p-0.5 opacity-60 hover:opacity-100"
+                {(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "") && <p className="wa-text"><Formatado text={(saida ? semAssinatura(m.body) : m.body).replace(MIDIA, "")} /></p>}
+                <p className="wa-meta">
+                  {!m.pending && !m.failed && <button type="button" aria-label="Responder esta mensagem" title="Responder citando esta mensagem" className="wa-reply"
                     onClick={() => { setRespondendo(m); setModoNota(false); }}><Reply className="h-3.5 w-3.5" /></button>}
                   {inboxClock(m.at)} {m.pending && "Aguardando envio…"} {saida && !m.failed && !m.pending && m.deliveryStatus !== "desconhecido" && (m.deliveryStatus === "lida" || m.deliveryStatus === "entregue" ? <CheckCheck aria-label={m.deliveryStatus} className={cn("h-3.5 w-3.5", m.deliveryStatus === "lida" && "text-sky-400")} /> : <Check aria-label="Enviada" className="h-3.5 w-3.5" />)}
                 </p>
                 {m.failed && <p className="mt-1 flex items-start gap-1 text-[11px] text-red-500"><CircleAlert className="mt-0.5 h-3 w-3 shrink-0" /> Não enviada: {m.error}</p>}
                 {m.failed && saida && !MIDIA.test(m.body) && semAssinatura(m.body).trim() && (
-                  <button disabled={enviando} className="mt-1 text-[11px] font-bold text-red-500 underline disabled:opacity-50"
+                  <button disabled={enviando} className="mt-1 text-[11px] font-semibold text-red-500 underline disabled:opacity-50"
                     onClick={() => startEnvio(async () => {
                       // A original falhou de vez (não saiu): reenvia o mesmo texto como mensagem nova.
                       const r = await sendInboxMessage(c.id, semAssinatura(m.body), { clientRef: crypto.randomUUID() });
@@ -590,31 +680,30 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
         <div ref={fim} />
       </div>
 
-      {!atBottom && <button className="wa-head flex items-center justify-center gap-2 py-2 text-xs font-bold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}><ArrowDown className="h-4 w-4" />Ir para mensagens recentes ↓{c.unread > 0 && <span className="wa-badge rounded-full px-2 py-0.5">{c.unread}</span>}</button>}
-      <footer className="wa-head px-3 py-2">
+      {!atBottom && <button className="wa-head flex items-center justify-center gap-2 py-2 text-xs font-semibold" style={{ color: "var(--wa-green)" }} onClick={() => { setAtBottom(true); fim.current?.scrollIntoView({ block: "end" }); }}><ArrowDown className="h-4 w-4" />Ir para mensagens recentes ↓{c.unread > 0 && <span className="wa-badge rounded-full px-2 py-0.5">{c.unread}</span>}</button>}
+      <footer className="wa-composer">
         {officialWindow && !detail.windowOpen && <p className="mb-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">Passaram 24h da última mensagem do cliente: pelo WhatsApp oficial, a mensagem pode não sair até ele responder.</p>}
-        {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-bold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
-        {modoNota ? <p className="mb-2 text-xs font-bold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
-          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A Lia está respondendo. Ao enviar, você assume a conversa.</p>}
+        {readError && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600"><CircleAlert className="h-3.5 w-3.5 shrink-0" /><span>{readError}</span><button className="ml-auto shrink-0 font-semibold underline" onClick={() => { readKey.current = ""; setReadRetry(n => n + 1); }}>Tentar novamente</button></div>}
+        {modoNota ? <p className="mb-2 text-xs font-semibold text-amber-600">Nota interna: fica no histórico só para a equipe. Não vai para o cliente.</p>
+          : aiActive && !c.aiPaused && <p className="mb-2 text-xs text-ink/50">A LIA está respondendo. Ao enviar, você assume a conversa.</p>}
         {erro && <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
         {detail.suggestion && (
-          <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da Lia">
-            <p className="mb-1 flex items-center gap-1 text-xs font-black text-blue-400"><Bot className="h-3.5 w-3.5" /> Sugestão da Lia · aguarda aprovação</p>
+          <div className="mb-2 rounded-xl border border-blue-400/40 bg-blue-500/10 p-3" aria-label="Sugestão da LIA">
+            <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-blue-400"><Bot className="h-3.5 w-3.5" /> Sugestão da LIA · aguarda aprovação</p>
             <p className="whitespace-pre-wrap break-words text-sm">{detail.suggestion.text}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button disabled={sugerindo} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              <button disabled={sugerindo} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 onClick={() => startSugestao(async () => { const r = await approveLiaSuggestion(c.id, detail.suggestion!.at); setErro(r.error ?? r.warning ?? null); onChanged(); })}>
                 {sugerindo ? "Enviando…" : "Usar"}
               </button>
-              <button disabled={sugerindo} className="rounded-lg bg-surface px-3 py-1.5 text-xs font-bold"
+              <button disabled={sugerindo} className="rounded-lg bg-surface px-3 py-1.5 text-xs font-semibold"
                 title="Você edita e envia; a conversa passa para você"
                 onClick={() => startSugestao(async () => { setTexto(detail.suggestion!.text); await discardLiaSuggestion(c.id); onChanged(); })}>Editar</button>
-              <button disabled={sugerindo} className="rounded-lg px-3 py-1.5 text-xs font-bold text-ink/60"
+              <button disabled={sugerindo} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-ink/60"
                 onClick={() => startSugestao(async () => { const r = await discardLiaSuggestion(c.id); setErro(r.error ?? null); onChanged(); })}>Descartar</button>
             </div>
           </div>
         )}
-        <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
         {respondendo && !modoNota && (
           <div className="mb-2 flex items-start gap-2 rounded-lg border-l-4 border-[var(--wa-green)] bg-black/5 px-3 py-2 text-xs" role="status" aria-label="Respondendo a">
             <Reply className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -622,7 +711,8 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             <button type="button" aria-label="Cancelar resposta" onClick={() => setRespondendo(null)} className="rounded p-0.5"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
-        <div className="flex items-end gap-2">
+        <div className="wa-composer-row">
+          <InboxAttachments conversationId={c.id} quotes={detail.panel?.orcamentos??[]} onChanged={onChanged} onQuoteSent={()=>setTexto(fillQuickReply(QUOTE_MESSAGE, c.clientName || c.name))}/>
           <QuickReplies
             query={quickReplyQuery(texto)} open={atalhos} onOpen={() => setAtalhos(true)}
             onClose={() => { setAtalhos(false); if (quickReplyQuery(texto) !== null) setTexto(""); }}
@@ -633,15 +723,15 @@ function Conversa({ detail, aiActive, officialWindow, visible, labels, onBack, o
             onChange={(e) => { setTexto(e.target.value); try { sessionStorage.setItem(`inbox-draft:${c.id}`, e.target.value); } catch {} }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (quickReplyQuery(texto) === null) enviar(); } }}
             rows={Math.min(5, Math.max(1, texto.split("\n").length))}
-            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Mensagem"}
+            placeholder={modoNota ? "Nota interna: só a equipe vê" : "Digite uma mensagem…"}
             title="Digite / para respostas prontas"
-            className={cn("wa-input max-h-40 flex-1 resize-none rounded-lg px-3 py-2.5 text-[15px] outline-none", modoNota && "ring-1 ring-amber-500/60")}
+            className={cn("wa-input wa-textarea", modoNota && "ring-1 ring-amber-500/60")}
           />
           <button onClick={() => setModoNota(v => !v)} aria-pressed={modoNota} title={modoNota ? "Voltar a escrever para o cliente" : "Escrever nota interna (o cliente não vê)"}
-            className={cn("rounded-full p-3", modoNota ? "bg-amber-500 text-white" : "wa-row wa-muted")} aria-label="Nota interna">
+            className={cn("wa-icon-btn wa-show-md-up", modoNota && "!bg-amber-500 !text-white")} aria-label="Nota interna">
             <StickyNote className="h-5 w-5" />
           </button>
-          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("rounded-full p-3 disabled:opacity-50", modoNota ? "bg-amber-600 text-white" : "wa-send")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
+          <button onClick={enviar} disabled={enviando || !texto.trim()} className={cn("wa-send-btn", modoNota ? "!bg-amber-600 !text-white" : "wa-send")} aria-label={modoNota ? "Salvar nota" : "Enviar"}>
             <Send className="h-5 w-5" />
           </button>
         </div>
@@ -657,7 +747,7 @@ function Ficha({ detail, onChanged }: { detail: ConversationDetail; onChanged: (
       {panel ? <Cliente panel={panel} conversationId={c.id} onChanged={onChanged} /> : <SemCadastro conversationId={c.id} sugestao={c.name} onChanged={onChanged} />}
       {triage && (
         <div className="card p-3">
-          <p className="mb-1 flex items-center gap-1 text-xs font-black uppercase text-blue-400"><Bot className="h-4 w-4" /> Triagem da Lia</p>
+          <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-blue-400"><Bot className="h-4 w-4" /> Triagem da LIA</p>
           {triage.resumo && <p className="mb-2 whitespace-pre-wrap text-sm">{triage.resumo}</p>}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
             {Object.entries(triage.dados).slice(0, 14).map(([k, v]) => (
@@ -685,16 +775,16 @@ function SemCadastro({ conversationId, sugestao, onChanged }: { conversationId: 
   return (
     <div className="space-y-3">
       <div className="card space-y-2 p-3">
-        <p className="font-black">Contato sem cadastro</p>
+        <p className="font-semibold">Contato sem cadastro</p>
         <p className="text-xs text-ink/55">Cadastre para ver orçamentos e financeiro aqui. O cliente novo já entra no pipeline.</p>
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do cliente" className="field w-full" />
         <button disabled={pending} onClick={() => start(async () => { const r = await createClientFromConversation(conversationId, nome); if (r.error) setErro(r.error); else onChanged(); })}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-3 py-2 text-sm font-bold text-white disabled:opacity-60">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
           <UserPlus className="h-4 w-4" /> Cadastrar cliente
         </button>
       </div>
       <div className="card space-y-2 p-3">
-        <p className="flex items-center gap-1 text-sm font-bold"><Link2 className="h-4 w-4" /> Já é cliente? Vincular</p>
+        <p className="flex items-center gap-1 text-sm font-semibold"><Link2 className="h-4 w-4" /> Já é cliente? Vincular</p>
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone" className="field w-full" />
         {achados.map((a) => (
           <button key={a.id} disabled={pending} onClick={() => start(async () => { const r = await linkConversationClient(conversationId, a.id); if (r.error) setErro(r.error); else onChanged(); })}
@@ -713,43 +803,65 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
   const [receber, setReceber] = useState<string | null>(null);
   const [fechar, setFechar] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [aba, setAba] = useState<"resumo" | "orcamentos" | "financeiro">("resumo");
   const [pending, start] = useTransition();
   const abertas = panel.contas.filter((e) => e.aberto > 0);
 
   return (
     <div className="space-y-4">
-      <div className="card p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-black">{client.name}</p>
-            <p className="text-xs text-ink/55">{[client.phone, client.city].filter(Boolean).join(" · ")}</p>
-            {client.address && <p className="text-xs text-ink/55">{client.address}</p>}
+      <div className="wa-client-head">
+        <div className="flex items-start gap-3">
+          <span className="wa-avatar wa-avatar-xl" data-tone={avatarTone(client.name)}>{initials(client.name)}</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xl font-semibold leading-tight">{client.name}</p>
+            <span className="mt-1 inline-block rounded-md bg-[var(--success-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--success-text)]">Cliente</span>
           </div>
-          <Link href={`/clientes/${client.id}`} className="shrink-0 text-xs font-bold text-forest">Ficha →</Link>
+          <Link href={`/clientes/${client.id}`} className="wa-edit-button shrink-0"><Pencil className="h-3.5 w-3.5" />Editar</Link>
         </div>
-        {panel.pipeline && (
-          <p className="mt-2 rounded-lg bg-cream px-2 py-1 text-xs">
-            Pipeline: <b>{panel.pipeline.etapa ?? "—"}</b>
-            {panel.pipeline.valor ? ` · ${brl(Number(panel.pipeline.valor))}` : ""}
-            {panel.pipeline.proximaAcao ? ` · ${panel.pipeline.proximaAcao}${panel.pipeline.data ? ` (${dataBr(panel.pipeline.data)})` : ""}` : ""}
-          </p>
-        )}
-        {client.notes && <p className="mt-2 whitespace-pre-wrap text-xs text-ink/60">{client.notes}</p>}
+        <ul className="mt-3 space-y-1.5 text-sm">
+          {client.phone && <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-ink/50" /><span className="flex-1">{client.phone}</span><button type="button" aria-label="Copiar telefone" onClick={() => { try { void navigator.clipboard.writeText(client.phone ?? ""); } catch {} }} className="rounded p-1 text-ink/50 hover:bg-cream"><Copy className="h-4 w-4" /></button></li>}
+          {(client.city || client.address) && <li className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/50" /><span>{[client.address, client.city].filter(Boolean).join(" · ")}</span></li>}
+        </ul>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Mini label="Orçamentos" value={String(r.feitos)} />
-        <Mini label="Enviados" value={String(r.enviados)} />
-        <Mini label="Fechados" value={String(r.fechados)} />
-        <Mini label="Fechado" value={brl(r.valorFechado)} />
-        {panel.canViewFinancial === true && <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />}
-        {panel.canViewFinancial === true && <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />}
+      <div className="wa-client-actions grid grid-cols-4 gap-2">
+        <Link href="/orcamentos/calhas"><FileText className="h-6 w-6" />Orçamento</Link>
+        <Link href="/agenda"><CalendarDays className="h-6 w-6" />Agendar</Link>
+        <Link href="/pedidos"><Package className="h-6 w-6" />Pedido</Link>
+        {panel.canViewFinancial === true ? <button type="button" onClick={() => setAba("financeiro")}><Coins className="h-6 w-6" />Financeiro</button> : <Link href={`/clientes/${client.id}`}><UserPlus className="h-6 w-6" />Cadastro</Link>}
       </div>
+
+      <div role="tablist" aria-label="Seções do cliente" className="wa-client-tabs flex gap-5 border-b">
+        {([["resumo", "Resumo"], ["orcamentos", "Orçamentos"], ...(panel.canViewFinancial === true ? [["financeiro", "Financeiro"]] : [])] as [string, string][]).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={aba === k} onClick={() => setAba(k as typeof aba)} className="wa-tab">{l}</button>
+        ))}
+      </div>
+
+      {aba === "resumo" && <>
+        {panel.pipeline && (
+          <div className="wa-info-card">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm">
+              <dt className="text-ink/60">Etapa no CRM</dt><dd className="font-semibold">{panel.pipeline.etapa ?? "—"}</dd>
+              {panel.pipeline.valor ? <><dt className="text-ink/60">Valor</dt><dd className="font-semibold">{brl(Number(panel.pipeline.valor))}</dd></> : null}
+              {panel.pipeline.proximaAcao ? <><dt className="text-ink/60">Próxima ação</dt><dd className="font-semibold">{panel.pipeline.proximaAcao}{panel.pipeline.data ? ` (${dataBr(panel.pipeline.data)})` : ""}</dd></> : null}
+            </dl>
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <Mini label="Orçamentos" value={String(r.feitos)} />
+          <Mini label="Enviados" value={String(r.enviados)} />
+          <Mini label="Fechados" value={String(r.fechados)} />
+          <Mini label="Fechado" value={brl(r.valorFechado)} />
+          {panel.canViewFinancial === true && <Mini label="Recebido" value={brl(r.recebido)} tone="ok" />}
+          {panel.canViewFinancial === true && <Mini label={r.vencido > 0 ? "Vencido" : "A receber"} value={brl(r.vencido > 0 ? r.vencido : r.aReceber)} tone={r.vencido > 0 ? "bad" : r.aReceber > 0 ? "warn" : undefined} />}
+        </div>
+        {client.notes && <div className="wa-info-card"><p className="mb-1.5 flex items-center gap-2 font-semibold"><StickyNote className="h-4 w-4" />Anotações</p><p className="whitespace-pre-wrap text-sm text-ink/70">{client.notes}</p></div>}
+      </>}
 
       {erro && <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{erro}</p>}
 
-      {panel.canViewFinancial === true && <div className="card p-3">
-        <p className="mb-2 flex items-center gap-1 font-black"><Wallet className="h-4 w-4" /> Financeiro</p>
+      {aba === "financeiro" && panel.canViewFinancial === true && <div className="card p-3">
+        <p className="mb-2 flex items-center gap-1 font-semibold"><Wallet className="h-4 w-4" /> Financeiro</p>
         <div className="mb-2"><PixCharge conversationId={conversationId} clientId={client.id} clientName={client.name} contas={panel.contas} orcamentos={panel.orcamentos} onSent={onChanged} /></div>
         {abertas.length === 0 && <p className="text-xs text-ink/50">Nada em aberto.</p>}
         <ul className="space-y-2">
@@ -758,10 +870,10 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
               <div className="flex items-start justify-between gap-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{e.descricao}</p>
-                  <p className={cn("text-xs", e.vencida ? "font-bold text-red-600" : "text-ink/55")}>Vence {dataBr(e.vencimento)}{e.vencida && " · vencida"}</p>
+                  <p className={cn("text-xs", e.vencida ? "font-semibold text-red-600" : "text-ink/55")}>Vence {dataBr(e.vencimento)}{e.vencida && " · vencida"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-black">{brl(e.aberto)}</p>
+                  <p className="font-semibold">{brl(e.aberto)}</p>
                   {e.pago > 0 && <p className="text-[11px] text-ink/50">pago {brl(e.pago)} de {brl(e.total)}</p>}
                 </div>
               </div>
@@ -771,14 +883,14 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
                   if (res.error) setErro(res.error); else { setErro(null); setReceber(null); onChanged(); }
                 })} />
               ) : (
-                <button onClick={() => setReceber(e.id)} className="mt-2 w-full rounded-lg bg-brand-strong px-3 py-1.5 text-xs font-bold">Registrar pagamento</button>
+                <button onClick={() => setReceber(e.id)} className="mt-2 w-full rounded-lg bg-brand-strong px-3 py-1.5 text-xs font-semibold">Registrar pagamento</button>
               )}
             </li>
           ))}
         </ul>
         {panel.pagamentos.length > 0 && (
           <div className="mt-3">
-            <p className="mb-1 text-xs font-bold text-ink/55">Últimos pagamentos</p>
+            <p className="mb-1 text-xs font-semibold text-ink/55">Últimos pagamentos</p>
             <ul className="space-y-1 text-xs">
               {panel.pagamentos.slice(0, 6).map((p, i) => (
                 <li key={i} className="flex justify-between gap-2"><span className="truncate">{dataBr(p.data)} · {(p.forma ?? "").replaceAll("_", " ")}</span><b className="text-green-500">{brl(p.valor)}</b></li>
@@ -788,10 +900,10 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
         )}
       </div>}
 
-      <div className="card p-3">
+      {aba === "orcamentos" && <div className="card p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="font-black">Orçamentos</p>
-          <div className="flex gap-2 text-xs font-bold text-forest">
+          <p className="font-semibold">Orçamentos</p>
+          <div className="flex gap-2 text-xs font-semibold text-forest">
             <Link href="/orcamentos/calhas">+ Calhas</Link>
             <Link href="/orcamentos/esquadrias">+ Esquadrias</Link>
           </div>
@@ -801,7 +913,7 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
           {panel.orcamentos.map((q) => (
             <li key={q.id} className="rounded-xl border border-sand/80 bg-surface p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <Link href={`/orcamentos/${q.id}`} className="font-bold text-forest">{q.numero}</Link>
+                <Link href={`/orcamentos/${q.id}`} className="font-semibold text-forest">{q.numero}</Link>
                 <StatusBadge value={q.fechado ? "aprovado" : q.status} />
               </div>
               <div className="flex items-center justify-between text-xs text-ink/55">
@@ -814,13 +926,13 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
                     if (res.error) setErro(res.error); else { setErro(null); setFechar(null); onChanged(); }
                   })} />
                 ) : (
-                  <button onClick={() => setFechar(q.id)} className="mt-2 w-full rounded-lg bg-forest px-3 py-1.5 text-xs font-bold text-white">Fechar venda</button>
+                  <button onClick={() => setFechar(q.id)} className="mt-2 w-full rounded-lg bg-forest px-3 py-1.5 text-xs font-semibold text-white">Fechar venda</button>
                 )
               )}
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -828,8 +940,8 @@ function Cliente({ panel, conversationId, onChanged }: { panel: ClientPanel; con
 function Mini({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" | "bad" }) {
   return (
     <div className="rounded-xl border border-sand/80 bg-surface p-2">
-      <p className={cn("truncate text-sm font-black", tone === "ok" && "text-green-500", tone === "warn" && "text-amber-500", tone === "bad" && "text-red-600")}>{value}</p>
-      <p className="text-[10px] uppercase text-ink/45">{label}</p>
+      <p className={cn("truncate text-sm font-semibold", tone === "ok" && "text-green-500", tone === "warn" && "text-amber-500", tone === "bad" && "text-red-600")}>{value}</p>
+      <p className="text-[11px] text-ink/45">{label}</p>
     </div>
   );
 }
@@ -861,8 +973,8 @@ function ReceberForm({ aberto, pending, onSubmit, onCancel }: { aberto: number; 
       </div>
       <p className="text-ink/60">Saldo com desconto: <b>{brl(saldo)}</b>{num(valor) < saldo && ` · ficará em aberto ${brl(saldo - num(valor))}`}</p>
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold"><X className="mx-auto h-4 w-4" /></button>
-        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data, accountId: conta || undefined, notes: obs || undefined })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-bold text-white disabled:opacity-50">
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-semibold"><X className="mx-auto h-4 w-4" /></button>
+        <button type="button" disabled={pending || num(valor) <= 0} onClick={() => onSubmit({ amount: num(valor), discount: num(desconto), method: forma, paidAt: data, accountId: conta || undefined, notes: obs || undefined })} className="flex-[3] rounded-lg bg-green-600 px-2 py-1.5 font-semibold text-white disabled:opacity-50">
           {pending ? "Lançando…" : "Lançar no financeiro"}
         </button>
       </div>
@@ -877,8 +989,8 @@ function FecharForm({ pending, onSubmit, onCancel }: { pending: boolean; onCance
       <p>Gera a venda, o pedido e a conta a receber no financeiro.</p>
       <label className="block">Vencimento<input type="date" value={venc} onChange={(e) => setVenc(e.target.value)} className="field w-full" /></label>
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-bold">Cancelar</button>
-        <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-bold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-surface px-2 py-1.5 font-semibold">Cancelar</button>
+        <button type="button" disabled={pending} onClick={() => onSubmit(venc)} className="flex-[2] rounded-lg bg-forest px-2 py-1.5 font-semibold text-white disabled:opacity-50">{pending ? "Fechando…" : "Confirmar venda"}</button>
       </div>
     </div>
   );
@@ -893,9 +1005,9 @@ function Evento({ e }: { e: InboxEvent }) {
   const quem = e.byName ?? "Equipe";
   if (e.kind === "nota") return (
     <div className="mx-auto my-2 max-w-[90%] rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-      <p className="mb-0.5 flex items-center gap-1 text-xs font-bold text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
+      <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold text-amber-600"><StickyNote className="h-3 w-3" /> Nota interna · {quem}</p>
       <p className="whitespace-pre-wrap break-words">{e.body}</p>
-      <p className="wa-muted mt-1 text-right text-[10px]">{inboxClock(e.at)}</p>
+      <p className="wa-muted mt-1 text-right text-[11px]">{inboxClock(e.at)}</p>
     </div>
   );
   const texto = e.kind === "status"
@@ -925,11 +1037,11 @@ function Transferencia({ conversation: c, onStatus, onDone }: { conversation: In
       </div>
       <input value={obs} onChange={e => setObs(e.target.value)} maxLength={1000} placeholder="Observação para quem recebe (opcional)" className="wa-input w-full rounded-lg px-3 py-2" />
       <div className="flex flex-wrap items-center gap-2">
-        <button disabled={salvando || (!para && !setor)} className="wa-send rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+        <button disabled={salvando || (!para && !setor)} className="wa-send rounded-full px-4 py-2 text-xs font-semibold disabled:opacity-50"
           onClick={() => startSalvar(async () => { const r = await transferConversation(c.id, { toProfile: para || null, department: setor || null, note: obs }); onDone(r.error ?? null); })}>
           {salvando ? "Transferindo…" : "Transferir"}
         </button>
-        <span className="wa-muted text-xs">Com pessoa escolhida, a Lia para de responder e ela recebe um aviso.</span>
+        <span className="wa-muted text-xs">Com pessoa escolhida, a LIA para de responder e ela recebe um aviso.</span>
         <select value={c.status} onChange={e => onStatus(e.target.value as ConversationStatus)} className="wa-input ml-auto rounded-lg px-2 py-1.5 text-xs lg:hidden" aria-label="Status da conversa">
           {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>

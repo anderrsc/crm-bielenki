@@ -45,20 +45,20 @@ export function LiaModeSettings() {
     setErro(null); setOk(true); void carregar();
   });
 
-  if (!data) return <div className="card p-4 text-sm">{erro ?? "Carregando modo da Lia…"}</div>;
+  if (!data) return <div className="card p-4 text-sm">{erro ?? "Carregando modo da LIA…"}</div>;
   const editavel = data.canEdit;
 
   return (
     <div className="card space-y-4 p-4">
       <div>
-        <h2 className="font-bold">Modo de trabalho da Lia</h2>
-        <p className="text-xs text-ink/55">Quando a Lia não responde sozinha, a resposta aparece no Atendimento para a equipe usar, editar ou descartar.</p>
+        <h2 className="font-semibold">Modo de trabalho da LIA</h2>
+        <p className="text-xs text-ink/55">Quando a LIA não responde sozinha, a resposta aparece no Atendimento para a equipe usar, editar ou descartar.</p>
       </div>
-      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Modo da Lia">
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Modo da LIA">
         {LIA_MODES.map(m => (
           <button key={m.value} type="button" role="radio" aria-checked={mode === m.value} disabled={!editavel} onClick={() => setMode(m.value)}
             className={cn("rounded-xl border-2 p-3 text-left text-sm", mode === m.value ? "border-forest bg-forest/10" : "border-sand")}>
-            <p className="font-bold">{m.label}</p>
+            <p className="font-semibold">{m.label}</p>
             <p className="mt-1 text-xs text-ink/60">{m.detail}</p>
           </button>
         ))}
@@ -77,7 +77,7 @@ export function LiaModeSettings() {
               {DIAS.map((d, i) => (
                 <button key={d} type="button" disabled={!editavel} aria-pressed={dias.includes(i)}
                   onClick={() => setDias(v => v.includes(i) ? v.filter(x => x !== i) : [...v, i].sort())}
-                  className={cn("rounded-lg px-2 py-1 text-xs font-bold", dias.includes(i) ? "bg-forest text-white" : "bg-cream text-ink/60")}>{d}</button>
+                  className={cn("rounded-lg px-2 py-1 text-xs font-semibold", dias.includes(i) ? "bg-forest text-white" : "bg-cream text-ink/60")}>{d}</button>
               ))}
             </div>
           </>
@@ -89,21 +89,21 @@ export function LiaModeSettings() {
       </label>
       {editavel ? (
         <div className="flex items-center gap-3">
-          <button type="button" onClick={salvar} disabled={salvando} className="rounded-xl bg-forest px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{salvando ? "Salvando…" : "Salvar modo"}</button>
+          <button type="button" onClick={salvar} disabled={salvando} className="rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{salvando ? "Salvando…" : "Salvar modo"}</button>
           {ok && <span className="text-sm text-green-600">Salvo. Vale para a próxima mensagem.</span>}
         </div>
       ) : <p className="text-xs text-ink/55">Só administrador ou gerente muda o modo.</p>}
       {erro && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500">{erro}</p>}
 
       <div>
-        <h3 className="text-sm font-bold">Decisões recentes</h3>
+        <h3 className="text-sm font-semibold">Decisões recentes</h3>
         {data.decisions.length === 0 ? <p className="mt-1 text-sm text-ink/55">Nenhuma decisão registrada ainda.</p> : (
           <ul className="mt-2 divide-y divide-sand/70">
             {data.decisions.map(d => {
               const st = DECISAO[d.decisao] ?? { label: d.decisao, cls: "bg-ink/10" };
               return (
                 <li key={d.id} className="flex items-start gap-2 py-2 text-sm">
-                  <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-bold", st.cls)}>{st.label}</span>
+                  <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold", st.cls)}>{st.label}</span>
                   <div className="min-w-0 flex-1"><p className="truncate">{d.motivo}</p>{d.phone && <p className="text-xs text-ink/50">{formatBrPhone(d.phone)}</p>}</div>
                   <span className="shrink-0 text-xs text-ink/45">{when(d.at)}</span>
                 </li>

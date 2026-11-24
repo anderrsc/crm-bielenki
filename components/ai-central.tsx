@@ -3,13 +3,13 @@
 // que mostrava números e históricos fixos no código.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertTriangle, Bot, CheckCircle, MessageSquare, Pause, Play, Send, TestTube, UserPlus, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, MessageSquare, Pause, Play, Send, TestTube, UserPlus, XCircle } from "lucide-react";
 import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 const LiaFollowupSettings = dynamic(() => import("@/components/lia-followup-settings").then(module => module.LiaFollowupSettings), { loading: () => <p role="status">Carregando acompanhamento…</p> });
-const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da Lia…</p> });
+const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").then(module => module.LiaModeSettings), { loading: () => <p role="status">Carregando modo da LIA…</p> });
 const LiaLearnedRules = dynamic(() => import("@/components/lia-learned-rules").then(module => module.LiaLearnedRules), { loading: () => <p role="status">Carregando regras ensinadas…</p> });
 const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
 
@@ -25,7 +25,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-di
 function Stat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
   return (
     <div className="card p-4">
-      <p className={cn("text-2xl font-black", alert && value > 0 && "text-red-600")}>{value}</p>
+      <p className={cn("text-2xl font-semibold", alert && value > 0 && "text-red-600")}>{value}</p>
       <p className="text-xs text-ink/55">{label}</p>
     </div>
   );
@@ -41,31 +41,32 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
   const ready = pending.length === 0;
   const s = data.stats;
 
+  const agent = /^lia$/i.test(data.agentName) ? "LIA" : data.agentName;
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2"><Bot className="h-6 w-6 text-forest" /><h1 className="text-2xl font-black">Central de IA</h1>
-            {/* Estado verdadeiro, vindo da configuração e das checagens (sem animação contínua). */}
-            <span role="status" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold",
-              !ready ? "bg-amber-500/15 text-amber-600" : data.active ? "bg-green-500/15 text-green-600" : "bg-cream text-ink/60")}>
-              <span aria-hidden className={cn("h-2 w-2 rounded-full", !ready ? "bg-amber-500" : data.active ? "bg-green-500" : "bg-ink/40")} />
-              {!ready ? `Falta configurar (${pending.length})` : data.active ? `${data.agentName} pronta` : `${data.agentName} pausada`}
-            </span></div>
-          <p className="mt-1 text-sm text-ink/55">{data.agentName} · triagem pelo WhatsApp ({data.wppProvider === "meta" ? "Meta" : "Evolution"}) · últimos 30 dias</p>
+      <h1 className="sr-only">Central de IA</h1>
+      <div className="ai-toolbar">
+        <div className="min-w-0">
+          {/* Estado verdadeiro, vindo da configuração e das checagens (sem animação contínua). */}
+          <span role="status" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+            !ready ? "bg-amber-500/15 text-amber-700" : data.active ? "bg-green-500/15 text-green-700" : "bg-cream text-ink/70")}>
+            <span aria-hidden className={cn("h-2 w-2 rounded-full", !ready ? "bg-amber-500" : data.active ? "bg-green-500" : "bg-ink/40")} />
+            {!ready ? `Falta configurar (${pending.length})` : data.active ? `${agent} pronta` : `${agent} pausada`}
+          </span>
+          <p className="ai-toolbar-sub">Triagem pelo WhatsApp ({data.wppProvider === "meta" ? "Meta" : "Evolution"}) · últimos 30 dias</p>
         </div>
         <form action={setAiAgentActive}>
           <input type="hidden" name="active" value={data.active ? "0" : "1"} />
-          <button className={cn("flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold", data.active ? "bg-red-600 text-white" : "bg-brand-strong text-white")}>
-            {data.active ? <><Pause className="h-4 w-4" /> Pausar {data.agentName}</> : <><Play className="h-4 w-4" /> Ativar {data.agentName}</>}
+          <button className={cn("button", data.active && "ai-pause")}>
+            {data.active ? <><Pause className="h-4 w-4" /> Pausar {agent}</> : <><Play className="h-4 w-4" /> Ativar {agent}</>}
           </button>
         </form>
       </div>
 
       {error && <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>}
 
-      <div className={cn("rounded-2xl border-2 p-4", ready ? "border-green-500/40 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10")}>
-        <p className="font-bold">{ready ? `${data.agentName} está pronta para atender.` : `${data.agentName} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
+      <div className={cn("ai-checks rounded-2xl border p-4", ready ? "border-green-500/30 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10")}>
+        <p className="font-semibold">{ready ? `${agent} está pronta para atender.` : `${agent} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
         <ul className="mt-3 space-y-2">
           {data.checks.map((c) => (
             <li key={c.label} className="flex items-start gap-2 text-sm">
@@ -75,29 +76,15 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
           ))}
         </ul>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" disabled={testing} onClick={() => startTest(async () => setTest(await testAiAgent()))} className="flex items-center gap-2 rounded-xl bg-forest px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+          <button type="button" disabled={testing} onClick={() => startTest(async () => setTest(await testAiAgent()))} className="button disabled:opacity-60">
             <TestTube className="h-4 w-4" /> {testing ? "Testando…" : "Testar IA agora"}
           </button>
-          <Link href="/agente-ia?aba=configuracoes" className="rounded-xl border border-sand px-4 py-2 text-sm font-bold">Configurar</Link>
+          <Link href="/agente-ia?aba=configuracoes" className="button-ghost">Configurar</Link>
         </div>
-        {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `⚠️ ${test.error}` : `✅ ${test.reply}`}</p>}
+        {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `Erro: ${test.error}` : test.reply}</p>}
       </div>
 
-      <LiaModeSettings />
-      <LiaFollowupSettings />
-
-      {/* Números e conexão do WhatsApp ficam num lugar só: menu lateral → WhatsApp. */}
-      <div className="card flex flex-wrap items-center justify-between gap-2 p-4">
-        <div><p className="font-bold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
-        <Link href="/atendimento/canais" className="button-ghost">Abrir WhatsApp →</Link>
-      </div>
-      <LiaLearnedRules />
-      <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
-        <summary className="cursor-pointer font-bold">Regras de atendimento</summary>
-        {rulesOpen && <div className="mt-4"><AnaRules /></div>}
-      </details>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="ai-stats">
         <Stat label="Conversas no WhatsApp" value={s.conversas} />
         <Stat label="Triagens concluídas" value={s.concluidas} />
         <Stat label="Leads criados pela IA" value={s.leads} />
@@ -112,7 +99,7 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
       )}
 
       <div className="card p-4">
-        <h2 className="font-bold">Histórico real</h2>
+        <h2 className="font-semibold">Histórico real</h2>
         {data.events.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">Nada nos últimos 30 dias. Quando um cliente chamar no WhatsApp, aparece aqui.</p>
         ) : (
@@ -129,8 +116,28 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
             })}
           </ul>
         )}
-        <Link href="/agente-ia" className="mt-3 inline-block text-sm font-bold text-forest">Ver conversas completas →</Link>
+        <Link href="/agente-ia" className="mt-3 inline-block text-sm font-semibold text-forest">Ver conversas completas →</Link>
       </div>
+
+      <details className="card ai-config p-4">
+        <summary className="ai-config-summary"><span>Configurações da {agent}</span><small>Modo de trabalho, acompanhamento, regras e conexão</small></summary>
+        <div className="space-y-5 pt-4">
+        <LiaModeSettings />
+      <LiaFollowupSettings />
+
+      {/* Números e conexão do WhatsApp ficam num lugar só: menu lateral → WhatsApp. */}
+      <div className="card flex flex-wrap items-center justify-between gap-2 p-4">
+        <div><p className="font-semibold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
+        <Link href="/atendimento/canais" className="button-ghost">Abrir WhatsApp →</Link>
+      </div>
+      <LiaLearnedRules />
+      <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
+        <summary className="cursor-pointer font-semibold">Regras de atendimento</summary>
+        {rulesOpen && <div className="mt-4"><AnaRules /></div>}
+      </details>
+        </div>
+      </details>
+
     </div>
   );
 }

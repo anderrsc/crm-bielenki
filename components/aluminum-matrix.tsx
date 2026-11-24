@@ -95,8 +95,8 @@ export function AluminumMatrix({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-forest">Matéria-Prima</p>
-        <h2 className="text-xl font-black">Tabela de preços por corte e espessura</h2>
+        <p className="text-xs font-semibold text-forest">Matéria-Prima</p>
+        <h2 className="text-xl font-semibold">Tabela de preços por corte e espessura</h2>
         <p className="mt-0.5 text-sm text-ink/50">
           Preço/metro padrão para cada corte. Aplica-se a qualquer produto com o mesmo corte e espessura.
         </p>
@@ -110,8 +110,8 @@ export function AluminumMatrix({
               {/* Cabeçalho */}
               <div className="flex items-center justify-between border-b bg-cream/60 px-4 py-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">Alumínio</p>
-                  <p className="text-lg font-black text-forest">{th}</p>
+                  <p className="text-[11px] font-semibold text-ink/40">Alumínio</p>
+                  <p className="text-lg font-semibold text-forest">{th}</p>
                 </div>
                 {canManage && (
                   <button
@@ -134,13 +134,13 @@ export function AluminumMatrix({
                     {canManage ? (
                       <input
                         type="number"
-                        className="w-16 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm font-bold text-ink focus:border-forest focus:bg-surface focus:outline-none"
+                        className="w-16 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-sm font-semibold text-ink focus:border-forest focus:bg-surface focus:outline-none"
                         value={row.cut_mm || ""}
                         placeholder="mm"
                         onChange={(e) => handleChange(row.id, "cut_mm", Number(e.target.value))}
                       />
                     ) : (
-                      <span className="w-16 text-sm font-bold">{row.cut_mm}</span>
+                      <span className="w-16 text-sm font-semibold">{row.cut_mm}</span>
                     )}
                     <span className="text-xs text-ink/40">mm</span>
 
@@ -156,7 +156,7 @@ export function AluminumMatrix({
                           type="number"
                           step="0.01"
                           min="0"
-                          className={`w-full rounded-lg border border-transparent bg-transparent py-1 pr-1 focus:border-forest focus:bg-surface focus:outline-none ${row.price_per_meter > 0 ? "pl-7 text-sm font-black text-forest" : "px-1 text-xs text-ink placeholder:text-ink/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}`}
+                          className={`w-full rounded-lg border border-transparent bg-transparent py-1 pr-1 focus:border-forest focus:bg-surface focus:outline-none ${row.price_per_meter > 0 ? "pl-7 text-sm font-semibold text-forest" : "px-1 text-xs text-ink placeholder:text-ink/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}`}
                           aria-label={`Preço por metro para corte de ${row.cut_mm || "novo"} mm, espessura ${th}`}
                           value={row.price_per_meter || ""}
                           placeholder="Sem preço cadastrado"
@@ -166,7 +166,7 @@ export function AluminumMatrix({
                         />
                       </div>
                     ) : (
-                      <span className={`flex-1 text-right ${row.price_per_meter > 0 ? "text-sm font-black text-forest" : "text-xs text-ink/50"}`}>
+                      <span className={`flex-1 text-right ${row.price_per_meter > 0 ? "text-sm font-semibold text-forest" : "text-xs text-ink/50"}`}>
                         {row.price_per_meter > 0 ? `R$ ${money(row.price_per_meter)}/m` : "Sem preço cadastrado"}
                       </span>
                     )}
@@ -175,7 +175,7 @@ export function AluminumMatrix({
                     {canManage && (
                       <div className="flex items-center gap-1">
                         {saving[row.id] && (
-                          <span className="text-[10px] text-ink/40">...</span>
+                          <span className="text-[11px] text-ink/40">...</span>
                         )}
                         {saved[row.id] && (
                           <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -206,7 +206,7 @@ export function AluminumMatrix({
 
               {/* Rodapé */}
               {thRows.length > 0 && (
-                <div className="border-t bg-cream/40 px-4 py-2 text-[10px] text-ink/40">
+                <div className="border-t bg-cream/40 px-4 py-2 text-[11px] text-ink/40">
                   {thRows.length} corte{thRows.length !== 1 ? "s" : ""} · Tab ou Enter salva automaticamente
                 </div>
               )}

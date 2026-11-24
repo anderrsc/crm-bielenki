@@ -52,8 +52,8 @@ export async function saveLiaSettings(input: { mode: LiaMode; hours: LiaHours; d
     const { data, error } = await db.from("ai_agent_config")
       .update({ lia_mode: parsed.data.mode, lia_hours: hours, lia_daily_limit: parsed.data.dailyLimit, updated_at: new Date().toISOString() })
       .eq("company_id", companyId).select("id");
-    if (error) return { error: "Não foi possível salvar o modo da Lia." };
-    if (!data?.length) return { error: "Só administrador ou gerente pode mudar o modo da Lia." };
+    if (error) return { error: "Não foi possível salvar o modo da LIA." };
+    if (!data?.length) return { error: "Só administrador ou gerente pode mudar o modo da LIA." };
     revalidatePath("/central-ia");
     return { ok: true };
   } catch (error) {

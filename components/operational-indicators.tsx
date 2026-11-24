@@ -26,8 +26,8 @@ export async function OperationalIndicators() {
       const n = Number(values[item.key] ?? 0);
       const hot = item.alert && n > 0;
       return <Link key={item.key} href={item.href} className={`rounded-xl border p-3 transition hover:shadow-soft ${hot ? "border-red-200 bg-red-50/50" : "border-sand bg-surface"}`}>
-        <p className={`text-2xl font-black ${hot ? "text-red-700" : n === 0 ? "text-ink/35" : ""}`}>{n}</p>
-        <p className="text-xs font-bold text-ink/60">{item.label}</p>
+        <p className={`text-2xl font-semibold ${hot ? "text-red-700" : n === 0 ? "text-ink/35" : ""}`}>{n}</p>
+        <p className="text-xs font-semibold text-ink/60">{item.label}</p>
       </Link>;
     })}
   </section>;

@@ -40,7 +40,7 @@ export default async function ServicesPage({ searchParams }: { searchParams: Pro
 
   return <div className="mx-auto max-w-6xl space-y-5">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-forest">Operação</p><h1 className="mt-2 text-3xl font-black">Serviços</h1>
+      <div><p className="text-xs font-semibold text-forest">Operação</p><h1 className="mt-2 text-3xl font-semibold">Serviços</h1>
         <p className="mt-1 text-sm text-ink/55">Instalações avulsas, manutenções, reparos, garantias e visitas técnicas.</p></div>
       {canCreate === true && <Link href="/servicos/novo" className="button"><Plus className="h-4 w-4" /> Novo serviço</Link>}
     </div>
@@ -48,13 +48,13 @@ export default async function ServicesPage({ searchParams }: { searchParams: Pro
     {search.ok && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{search.ok.slice(0, 200)}</p>}
     <OperationalIndicators />
 
-    <div className="flex flex-wrap gap-2">{Object.entries(FILTERS).map(([k, v]) => <Link key={k} href={href({ filtro: k, pagina: "" })} className={`rounded-xl border px-4 py-2 text-sm font-bold ${filtro === k ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"}`}>{v}</Link>)}</div>
+    <div className="flex flex-wrap gap-2">{Object.entries(FILTERS).map(([k, v]) => <Link key={k} href={href({ filtro: k, pagina: "" })} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${filtro === k ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"}`}>{v}</Link>)}</div>
     <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
       <input type="hidden" name="filtro" value={filtro} />
       <label><span className="label">Buscar</span><input className="field" name="q" defaultValue={search.q ?? ""} placeholder="Cliente, número ou descrição" /></label>
       <label><span className="label">Tipo</span><select className="field" name="tipo" defaultValue={tipo}><option value="">Todos</option>{Object.entries(SERVICE_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
       <button className="button-ghost">Filtrar</button>
-      {(term || tipo) && <Link href={href({ q: "", tipo: "" })} className="pb-2 font-bold text-ink/55 underline">Limpar</Link>}
+      {(term || tipo) && <Link href={href({ q: "", tipo: "" })} className="pb-2 font-semibold text-ink/55 underline">Limpar</Link>}
     </form>
 
     {!rows.length && <div className="card p-10 text-center text-sm text-ink/45">Nenhum serviço encontrado.</div>}
@@ -63,13 +63,13 @@ export default async function ServicesPage({ searchParams }: { searchParams: Pro
         const late = serviceOpen(s.status) && !!s.expected_date && s.expected_date < today;
         return <Link key={s.id} href={`/servicos/${s.id}`} className={`card block p-4 transition hover:shadow-soft ${s.priority === "urgente" && serviceOpen(s.status) ? "border-red-300" : late ? "border-amber-300" : ""}`}>
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0"><p className="truncate text-base font-black">{s.client?.name ?? "Cliente"}</p><p className="text-xs text-ink/55">{s.service_number} · {SERVICE_KINDS[s.kind] ?? s.kind}</p></div>
-            <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${s.status === "concluido" ? "bg-emerald-50 text-emerald-700" : s.status === "cancelado" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-800"}`}>{SERVICE_STATUS[s.status] ?? s.status}</span>
+            <div className="min-w-0"><p className="truncate text-base font-semibold">{s.client?.name ?? "Cliente"}</p><p className="text-xs text-ink/55">{s.service_number} · {SERVICE_KINDS[s.kind] ?? s.kind}</p></div>
+            <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-semibold ${s.status === "concluido" ? "bg-emerald-50 text-emerald-700" : s.status === "cancelado" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-800"}`}>{SERVICE_STATUS[s.status] ?? s.status}</span>
           </div>
           <p className="mt-2 line-clamp-2 text-sm">{s.description}</p>
           <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/60">
-            {s.priority !== "normal" && <span className={s.priority === "urgente" ? "font-bold text-red-700" : "font-bold"}>Prioridade {SERVICE_PRIORITY[s.priority]?.toLowerCase()}</span>}
-            {s.scheduled_at ? <span>Visita {shortDate(s.scheduled_at)}</span> : s.expected_date ? <span className={late ? "font-bold text-red-700" : ""}>Previsto {shortDate(s.expected_date)}{late ? " · atrasado" : ""}</span> : <span>Sem data</span>}
+            {s.priority !== "normal" && <span className={s.priority === "urgente" ? "font-semibold text-red-700" : "font-semibold"}>Prioridade {SERVICE_PRIORITY[s.priority]?.toLowerCase()}</span>}
+            {s.scheduled_at ? <span>Visita {shortDate(s.scheduled_at)}</span> : s.expected_date ? <span className={late ? "font-semibold text-red-700" : ""}>Previsto {shortDate(s.expected_date)}{late ? " · atrasado" : ""}</span> : <span>Sem data</span>}
             {s.responsible?.full_name && <span>{s.responsible.full_name}</span>}
             <span>{s.billing === "gratuito" ? "Gratuito" : s.final_amount !== null ? money(s.final_amount) : s.expected_amount !== null ? `Previsto ${money(s.expected_amount)}` : "A cobrar"}</span>
           </p>

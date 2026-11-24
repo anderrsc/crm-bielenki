@@ -64,7 +64,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const PRIORIDADE_COLORS: Record<string, string> = {
-  maxima: "text-red-600 font-bold",
+  maxima: "text-red-600 font-semibold",
   alta: "text-orange-500 font-semibold",
   media: "text-yellow-600",
   baixa: "text-gray-400",
@@ -98,7 +98,7 @@ function SessionCard({ session, onClick }: { session: TriageSession; onClick: ()
             <span className="font-semibold text-sm">{session.nome || session.phone}</span>
             <span className={`rounded-full px-2 py-0.5 text-xs ${st.color}`}>{st.label}</span>
             {session.eh_manutencao && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">Pós-venda</span>}
-            {session.prioridade === "maxima" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 font-bold">⚡ MÁXIMA</span>}
+            {session.prioridade === "maxima" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 font-semibold">⚡ MÁXIMA</span>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/55">
             {session.produto && <span>📦 {session.produto}</span>}
@@ -132,7 +132,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
       <div className="w-full max-w-lg bg-paper shadow-2xl overflow-y-auto flex flex-col">
         <div className="sticky top-0 bg-paper border-b border-forest/10 px-5 py-4 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-base">{session.nome || session.phone}</h2>
+            <h2 className="font-semibold text-base">{session.nome || session.phone}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`rounded-full px-2 py-0.5 text-xs ${st.color}`}>{st.label}</span>
               <ScoreBar score={session.score} />
@@ -144,14 +144,14 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
         {/* Resumo executivo */}
         {session.resumo_executivo && (
           <div className="mx-5 mt-4 rounded-xl bg-brand-strong/5 border border-forest/15 p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-forest mb-2">Resumo Executivo</p>
+            <p className="text-xs font-semibold text-forest mb-2">Resumo executivo</p>
             <pre className="text-xs text-ink/80 whitespace-pre-wrap font-sans">{session.resumo_executivo}</pre>
           </div>
         )}
 
         {/* Dados coletados */}
         <div className="mx-5 mt-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-2">Dados Coletados</p>
+          <p className="text-xs font-semibold text-ink/40 mb-2">Dados coletados</p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             {[
               ["Telefone", session.phone],
@@ -175,7 +175,7 @@ function SessionDrawer({ session, onClose }: { session: TriageSession; onClose: 
 
         {/* Conversa */}
         <div className="mx-5 mt-5 mb-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Conversa ({session.messages.length} mensagens)</p>
+          <p className="text-xs font-semibold text-ink/40 mb-3">Conversa ({session.messages.length} mensagens)</p>
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
             {session.messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -215,9 +215,9 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-forest">GESTÃO</p>
-          <h1 className="mt-1 text-2xl font-black">Agente de IA — Triagem Comercial</h1>
-          <p className="mt-1 text-sm text-ink/55">Lia realiza a triagem completa dos leads via WhatsApp antes de enviar para orçamento.</p>
+          <p className="text-xs font-semibold text-forest">GESTÃO</p>
+          <h1 className="mt-1 text-2xl font-semibold">Agente de IA — Triagem Comercial</h1>
+          <p className="mt-1 text-sm text-ink/55">LIA realiza a triagem completa dos leads via WhatsApp antes de enviar para orçamento.</p>
         </div>
         <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${config?.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
           <span className={`h-2 w-2 rounded-full ${config?.active ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
@@ -238,7 +238,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
         ].map(({ icon, value, label }) => (
           <div key={label} className="card p-4 text-center">
             <div className="text-2xl">{icon}</div>
-            <div className="mt-1 text-2xl font-black">{value}</div>
+            <div className="mt-1 text-2xl font-semibold">{value}</div>
             <div className="text-xs text-ink/55">{label}</div>
           </div>
         ))}
@@ -268,7 +268,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
         <div className="space-y-4">
           {premium.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-red-600">⚡ Prioridade Máxima — Notificar Vendedor</p>
+              <p className="mb-2 text-xs font-semibold text-red-600">⚡ Prioridade Máxima — Notificar Vendedor</p>
               <div className="space-y-2">
                 {premium.map(s => <SessionCard key={s.id} session={s} onClick={() => setSelectedSession(s)} />)}
               </div>
@@ -277,7 +277,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {emAndamento.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600">Em Andamento</p>
+              <p className="mb-2 text-xs font-semibold text-blue-600">Em andamento</p>
               <div className="space-y-2">
                 {emAndamento.map(s => <SessionCard key={s.id} session={s} onClick={() => setSelectedSession(s)} />)}
               </div>
@@ -286,7 +286,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {concluidas.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-green-600">Concluídas — Prontas para Orçamento</p>
+              <p className="mb-2 text-xs font-semibold text-green-600">Concluídas — Prontas para Orçamento</p>
               <div className="space-y-2">
                 {concluidas.map(s => <SessionCard key={s.id} session={s} onClick={() => setSelectedSession(s)} />)}
               </div>
@@ -295,7 +295,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {posVenda.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-orange-600">Encaminhadas ao Pós-Venda</p>
+              <p className="mb-2 text-xs font-semibold text-orange-600">Encaminhadas ao Pós-Venda</p>
               <div className="space-y-2">
                 {posVenda.map(s => <SessionCard key={s.id} session={s} onClick={() => setSelectedSession(s)} />)}
               </div>
@@ -306,7 +306,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             <div className="card p-10 text-center text-ink/40">
               <p className="text-4xl mb-3">🤖</p>
               <p className="font-semibold">Nenhuma triagem ainda</p>
-              <p className="text-sm mt-1">Quando clientes enviarem mensagens no WhatsApp, a Lia iniciará a triagem automaticamente.</p>
+              <p className="text-sm mt-1">Quando clientes enviarem mensagens no WhatsApp, a LIA iniciará a triagem automaticamente.</p>
             </div>
           )}
         </div>
@@ -318,14 +318,14 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {/* Seção: Agente */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Agente</p>
+            <p className="text-xs font-semibold text-ink/40 mb-3">Agente</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Nome do Agente</label>
+                <label className="block text-xs font-semibold text-ink/50 mb-1">Nome do agente</label>
                 <input name="agent_name" defaultValue={config?.agent_name ?? "Lia"} className="input w-full" placeholder="Lia" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Temperatura</label>
+                <label className="block text-xs font-semibold text-ink/50 mb-1">Temperatura</label>
                 <input name="temperature" type="range" min="0" max="1" step="0.1" defaultValue={config?.temperature ?? 0.3} className="w-full mt-2" />
                 <div className="flex justify-between text-xs text-ink/40 mt-0.5">
                   <span>Direto (0)</span><span>Criativo (1)</span>
@@ -336,7 +336,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {/* Seção: Provedor de IA */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Provedor de IA</p>
+            <p className="text-xs font-semibold text-ink/40 mb-3">Provedor de IA</p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
               {[
                 { value: "ollama", label: "🦙 Ollama Cloud", badge: "MODELOS ABERTOS", desc: "GLM e outros modelos abertos · chave no servidor" },
@@ -349,7 +349,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{opt.label}</span>
-                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "openai" ? "bg-red-100 text-red-700" : opt.value === "anthropic" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"}`}>{opt.badge}</span>
+                      <span className={`text-xs rounded px-1.5 py-0.5 font-semibold ${opt.value === "openai" ? "bg-red-100 text-red-700" : opt.value === "anthropic" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"}`}>{opt.badge}</span>
                     </div>
                     <p className="text-xs text-ink/50 mt-0.5">{opt.desc}</p>
                   </div>
@@ -365,7 +365,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                     : <>⚠️ Falta a chave da Ollama. Crie em <a href="https://ollama.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline">ollama.com/settings/keys</a> e cadastre como <code>OLLAMA_API_KEY</code> nas variáveis de ambiente da Vercel.</>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Modelo</label>
                   <input name="openai_model" list="ollama-models" defaultValue={config?.ai_provider === "ollama" && config.openai_model ? config.openai_model : "glm-5.3-flash"} className="input w-full font-mono" />
                   <datalist id="ollama-models"><option value="glm-5.3-flash" /></datalist>
                   <p className="mt-1 text-xs text-ink/40">Nomes disponíveis em ollama.com/api/tags.</p>
@@ -376,11 +376,11 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             {aiProvider === "groq" && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Groq API <a href="https://console.groq.com/keys" target="_blank" className="text-forest underline ml-1">Criar grátis →</a></label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Chave Groq API <a href="https://console.groq.com/keys" target="_blank" className="text-forest underline ml-1">Criar grátis →</a></label>
                   <input name="groq_api_key" type="password" defaultValue={config?.groq_api_key ?? ""} className="input w-full font-mono" placeholder="gsk_..." onFocus={() => setShowKeyWarning(true)} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Modelo</label>
 <input name="openai_model" list="groq-models" defaultValue={config?.ai_provider === "groq" && config.openai_model && !config.openai_model.startsWith("llama-") ? config.openai_model : "openai/gpt-oss-120b"} className="input w-full font-mono" />
                   <datalist id="groq-models">
                     <option value="openai/gpt-oss-120b">GPT OSS 120B (recomendado)</option>
@@ -394,12 +394,12 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             {aiProvider === "anthropic" && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Anthropic (Claude)</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Chave Anthropic (Claude)</label>
                   <input name="anthropic_api_key" type="password" defaultValue={config?.anthropic_api_key ?? ""} className="input w-full font-mono" placeholder="sk-ant-..." onFocus={() => setShowKeyWarning(true)} />
                   <p className="mt-1 text-xs text-ink/50">Crie em console.anthropic.com → API Keys. A mesma chave também lê as notas fiscais na Nova compra (Claude Haiku 5.5, o mais barato).</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo da Lia</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Modelo da LIA</label>
                   <select name="openai_model" defaultValue={config?.ai_provider === "anthropic" && config.openai_model?.startsWith("claude-") ? config.openai_model : "claude-sonnet-5-5"} className="input w-full">
                     <option value="claude-sonnet-5-5">Claude Sonnet 5.5 — mais inteligente (recomendado)</option>
                     <option value="claude-haiku-5-5">Claude Haiku 5.5 — mais barato e rápido</option>
@@ -411,11 +411,11 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             {aiProvider === "openai" && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave OpenAI API</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Chave OpenAI API</label>
                   <input name="openai_api_key" type="password" defaultValue={config?.openai_api_key ?? ""} className="input w-full font-mono" placeholder="sk-..." onFocus={() => setShowKeyWarning(true)} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Modelo</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Modelo</label>
                   <select name="openai_model" defaultValue={config?.openai_model ?? "gpt-4o"} className="input w-full">
                     <option value="gpt-4o">GPT-4o</option>
                     <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -425,7 +425,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             )}
 
             <div className="mt-4 rounded-xl border border-sand p-3">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Chave Google Gemini (leitura de notas fiscais)</label>
+              <label className="block text-xs font-semibold text-ink/50 mb-1">Chave Google Gemini (leitura de notas fiscais)</label>
               <input name="gemini_api_key" type="password" defaultValue={config?.gemini_api_key ?? ""} className="input w-full font-mono" placeholder="AIza..." onFocus={() => setShowKeyWarning(true)} />
               <p className="mt-1 text-xs text-ink/50">Opcional e mais barata que a OpenAI para ler PDF/foto de nota na Nova compra. Gere grátis em aistudio.google.com → Get API key.</p>
             </div>
@@ -448,7 +448,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
           {/* Seção: WhatsApp */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Provedor WhatsApp</p>
+            <p className="text-xs font-semibold text-ink/40 mb-3">Provedor WhatsApp</p>
             <div className="grid gap-3 sm:grid-cols-2 mb-4">
               {[
                 { value: "evolution", label: "📱 Evolution API", badge: "GRÁTIS", desc: "QR code · Sem aprovação Meta · Open source" },
@@ -459,7 +459,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{opt.label}</span>
-                      <span className={`text-xs rounded px-1.5 py-0.5 font-bold ${opt.value === "evolution" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{opt.badge}</span>
+                      <span className={`text-xs rounded px-1.5 py-0.5 font-semibold ${opt.value === "evolution" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{opt.badge}</span>
                     </div>
                     <p className="text-xs text-ink/50 mt-0.5">{opt.desc}</p>
                   </div>
@@ -469,14 +469,14 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
 
             {wppProvider === "evolution" && (
               <div className="space-y-3 rounded-xl bg-green-50 border border-green-200 p-4">
-                <p className="text-xs font-bold text-green-800">Evolution API — Configuração</p>
+                <p className="text-xs font-semibold text-green-800">Evolution API — Configuração</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-ink/50 mb-1">URL da Evolution API</label>
                     <input name="evolution_api_url" defaultValue={config?.evolution_api_url ?? ""} className="input w-full font-mono text-sm" placeholder="https://sua-instancia.railway.app" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-ink/50 mb-1">Nome da Instância</label>
+                    <label className="block text-xs font-semibold text-ink/50 mb-1">Nome da instância</label>
                     <input name="evolution_instance" defaultValue={config?.evolution_instance ?? ""} className="input w-full font-mono text-sm" placeholder="marquinhos" />
                   </div>
                 </div>
@@ -491,11 +491,11 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             {wppProvider === "meta" && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Phone Number ID</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Phone Number ID</label>
                   <input name="whatsapp_number_id" defaultValue={config?.whatsapp_number_id ?? ""} className="input w-full font-mono" placeholder="1234567890" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">Access Token</label>
+                  <label className="block text-xs font-semibold text-ink/50 mb-1">Access Token</label>
                   <input name="whatsapp_token" type="password" defaultValue={config?.whatsapp_token ?? ""} className="input w-full font-mono" placeholder="EAABxx..." />
                 </div>
               </div>
@@ -534,7 +534,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
       {activeTab === "webhook" && (
         <div className="card p-6 space-y-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-forest mb-1">URL do Webhook</p>
+            <p className="text-xs font-semibold text-forest mb-1">URL do Webhook</p>
             <p className="text-sm text-ink/60 mb-3">Configure esta URL no Meta for Developers para receber mensagens do WhatsApp:</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 rounded-xl bg-gray-50 border border-forest/10 px-4 py-3 text-sm font-mono break-all">
@@ -543,7 +543,7 @@ export function AiTriagePage({ config, sessions, tab, saved, error, ollamaReady 
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-forest mb-1">Verify Token</p>
+            <p className="text-xs font-semibold text-forest mb-1">Verify Token</p>
             <code className="rounded-xl bg-gray-50 border border-forest/10 px-4 py-2 text-sm font-mono block">
               marquinhos-crm-verify
             </code>

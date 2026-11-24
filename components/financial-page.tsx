@@ -1,3 +1,4 @@
+import { MobileCollapse } from "./mobile-collapse";
 import { PaymentReversals } from "@/components/payment-reversals";
 import { SupplierCredits } from "@/components/supplier-credits";
 import { getRequestClient } from "@/lib/supabase/server";
@@ -39,8 +40,8 @@ const STATUS: Record<string, { label: string; color: string; Icon: typeof Clock 
 
 const TABS = [
   { href: "/financeiro",         label: "Todos",      key: "" },
-  { href: "/financeiro/receber", label: "A Receber",  key: "receber" },
-  { href: "/financeiro/pagar",   label: "A Pagar",    key: "pagar" },
+  { href: "/financeiro/receber", label: "A receber",  key: "receber" },
+  { href: "/financeiro/pagar",   label: "A pagar",    key: "pagar" },
 ];
 
 const PAGE_SIZE = 60;
@@ -102,38 +103,31 @@ export async function FinancialPage({ filter, error, received, created, notice, 
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Controle financeiro</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
-            {filter === "receber" ? "Contas a Receber" : filter === "pagar" ? "Contas a Pagar" : "Financeiro"}
-          </h1>
-        </div>
-        <nav className="flex gap-2">
+      <h1 className="sr-only">{filter === "receber" ? "Contas a receber" : filter === "pagar" ? "Contas a pagar" : "Financeiro"}</h1>
+      <div className="fin-toolbar">
+        <nav className="fin-tabs" aria-label="Tipo de conta">
           {TABS.map(t => (
-            <Link key={t.key} href={t.href}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold border transition ${(filter ?? "") === t.key ? "bg-brand-strong text-white border-forest" : "bg-surface border-sand hover:bg-cream"}`}>
-              {t.label}
-            </Link>
+            <Link key={t.key} href={t.href} className="tab-pill" aria-current={(filter ?? "") === t.key ? "page" : undefined}>{t.label}</Link>
           ))}
         </nav>
+        {canCreate === true && (
+          <div className="fin-actions">
+            {(!filter || filter === "pagar") && <Link className="button" href="/financeiro/pagar/novo"><Plus className="h-4 w-4" /> Nova conta a pagar</Link>}
+            {(!filter || filter === "receber") && <Link className="button" href="/financeiro/receber/novo"><Plus className="h-4 w-4" /> Nova conta a receber</Link>}
+          </div>
+        )}
       </div>
-
-      {canCreate === true && (
-        <div className="mb-5 flex flex-wrap gap-2">
-          {(!filter || filter === "pagar") && <Link className="button" href="/financeiro/pagar/novo"><Plus className="h-4 w-4" /> Nova conta a pagar</Link>}
-          {(!filter || filter === "receber") && <Link className="button" href="/financeiro/receber/novo"><Plus className="h-4 w-4" /> Nova conta a receber</Link>}
-        </div>
-      )}
-      {canReconcile === true && <Link href="/financeiro/conciliacao" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Conciliação bancária</Link>}
-      {canRecur === true && <Link href="/financeiro/recorrencias" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Contas recorrentes</Link>}
-      {canExport === true && <Link href="/financeiro/relatorios" className="mb-5 mr-4 inline-block text-sm font-bold text-forest underline">Relatórios financeiros</Link>}
+      <nav className="pill-row" aria-label="Atalhos do financeiro">
+        {canReconcile === true && <Link href="/financeiro/conciliacao" className="pill-link">Conciliação bancária</Link>}
+        {canRecur === true && <Link href="/financeiro/recorrencias" className="pill-link">Contas recorrentes</Link>}
+        {canExport === true && <Link href="/financeiro/relatorios" className="pill-link">Relatórios financeiros</Link>}
+        <Link href="/financeiro/classificacoes" className="pill-link">Categorias e centros de custos</Link>
+        <Link href="/financeiro/rateios" className="pill-link">Rateios</Link>
+        <Link href="/financeiro/obras" className="pill-link">Resultado por obra</Link>
+        <Link href="/financeiro/dre" className="pill-link">DRE gerencial</Link>
+        <Link href="/financeiro/caixa" className="pill-link">Caixa e projeção</Link>
+      </nav>
       {filter !== "pagar" && <ReceivingAccountsManager />}
-      <Link href="/financeiro/classificacoes" className="mb-5 inline-block text-sm font-bold text-forest underline">Categorias e centros de custos</Link>
-      <Link href="/financeiro/rateios" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Rateios</Link>
-      <Link href="/financeiro/obras" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Resultado por obra</Link>
-      <Link href="/financeiro/dre" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">DRE gerencial</Link>
-      <Link href="/financeiro/caixa" className="mb-5 ml-4 inline-block text-sm font-bold text-forest underline">Caixa e projeção</Link>
       {created && <div role="status" className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">Conta cadastrada com sucesso.</div>}
       {(received || notice) && <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-medium">{notice ? `${notice.slice(0, 80)}.` : "Pagamento registrado com sucesso."}</div>}
       {error && <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{error}</div>}
@@ -143,14 +137,16 @@ export async function FinancialPage({ filter, error, received, created, notice, 
         {!t && <p>Totais indisponíveis. Nenhum valor parcial será apresentado como total.</p>}
         {saleTypesError && <p>Não foi possível carregar os serviços do filtro.</p>}
       </div>}
+      <MobileCollapse>
       <form method="get" action={base} className="mb-5 grid gap-2 rounded-2xl border border-sand bg-surface p-3 text-sm sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
         <div><label className="label">Buscar</label><input className="field" name="q" defaultValue={term} placeholder="Cliente, fornecedor ou descrição" /></div>
         <div><label className="label">Vencimento de</label><input className="field" type="date" name="de" defaultValue={isDate(filters.de) ? filters.de : ""} /></div>
         <div><label className="label">até</label><input className="field" type="date" name="ate" defaultValue={isDate(filters.ate) ? filters.ate : ""} /></div>
         <div><label className="label">Situação</label><select className="field" name="situacao" defaultValue={situacao ?? ""}><option value="">Todas</option>{Object.entries(SITUACOES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
         <div><label className="label">Serviço</label><select className="field" name="servico" defaultValue={servico ?? ""}><option value="">Todos</option>{(saleTypes ?? []).map((x: { id: string; name: string }) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
-        <div className="flex items-end gap-2"><button className="button">Filtrar</button>{hasFilters && <Link href={base} className="pb-2 font-bold text-ink/55 underline">Limpar</Link>}</div>
+        <div className="flex items-end gap-2"><button className="button">Filtrar</button>{hasFilters && <Link href={base} className="pb-2 font-semibold text-ink/55 underline">Limpar</Link>}</div>
       </form>
+      </MobileCollapse>
 
       {(overdueCount > 0 || todayCount > 0) && (
         <div className="mb-5 flex flex-wrap gap-3">
@@ -160,16 +156,16 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       )}
 
       {t && <div className="mobile-financial-summary mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="card p-5"><p className="text-xs font-bold uppercase tracking-wider text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-black">{money(totalPending)}</p><p className="text-xs text-ink/45">{pendingCount} lançamento(s)</p></div>
-        <div className="card border-red-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-red-600">Vencidos</p><p className="mt-2 text-2xl font-black text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdueCount} lançamento(s)</p></div>
-        <div className="card border-emerald-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-black text-emerald-700">{doneCount}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
+        <div className="card p-5"><p className="text-xs font-semibold text-ink/45">Em aberto</p><p className="mt-2 text-2xl font-semibold">{money(totalPending)}</p><p className="text-xs text-ink/45">{pendingCount} lançamento(s)</p></div>
+        <div className="card border-red-200 p-5"><p className="text-xs font-semibold text-red-600">Vencidos</p><p className="mt-2 text-2xl font-semibold text-red-700">{money(totalOverdue)}</p><p className="text-xs text-red-500">{overdueCount} lançamento(s)</p></div>
+        <div className="card border-emerald-200 p-5"><p className="text-xs font-semibold text-emerald-600">Quitados</p><p className="mt-2 text-2xl font-semibold text-emerald-700">{doneCount}</p><p className="text-xs text-emerald-500">lançamentos concluídos</p></div>
       </div>}
       {t && <details className="card mb-6 p-4">
-        <summary className="cursor-pointer font-bold">Previsão de recebimentos e pagamentos</summary>
+        <summary className="cursor-pointer font-semibold">Previsão de recebimentos e pagamentos</summary>
         <p className="mt-3 text-sm text-ink/60">Lançamentos em aberto dos filtros atuais. Prazos acumulados de hoje até a data indicada; vencidos e contas sem vencimento ficam fora da projeção.</p>
         <div className="my-3 flex flex-wrap gap-4 text-sm"><span>A receber: <strong>{money(t.receivable_total)}</strong></span><span>A pagar: <strong>{money(t.payable_total)}</strong></span></div>
         {t.undated_count > 0 && <p className="mb-3 text-sm text-amber-800">{t.undated_count} lançamento(s) em aberto sem vencimento precisam de uma data.</p>}
-        <div className="overflow-x-auto"><table className="w-full min-w-[380px] text-sm"><caption className="sr-only">Projeção financeira acumulada por prazo</caption><thead><tr className="text-left"><th className="py-2">Prazo</th><th className="text-right">A receber</th><th className="text-right">A pagar</th><th className="text-right">Variação prevista</th></tr></thead><tbody>{t.projection.map(h => <tr key={h.days} className="border-t border-sand"><th className="py-3 text-left font-medium">{h.days} dias</th><td className="text-right">{money(h.receivable)}</td><td className="text-right">{money(h.payable)}</td><td className="text-right font-bold">{money(h.receivable - h.payable)}</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[380px] text-sm"><caption className="sr-only">Projeção financeira acumulada por prazo</caption><thead><tr className="text-left"><th className="py-2">Prazo</th><th className="text-right">A receber</th><th className="text-right">A pagar</th><th className="text-right">Variação prevista</th></tr></thead><tbody>{t.projection.map(h => <tr key={h.days} className="border-t border-sand"><th className="py-3 text-left font-medium">{h.days} dias</th><td className="text-right">{money(h.receivable)}</td><td className="text-right">{money(h.payable)}</td><td className="text-right font-semibold">{money(h.receivable - h.payable)}</td></tr>)}</tbody></table></div>
         <p className="mt-3 text-xs text-ink/60">A variação prevista depende da liquidação das contas. O saldo bancário inicial e os custos não registrados não estão incluídos.</p>
       </details>}
 
@@ -195,7 +191,7 @@ export async function FinancialPage({ filter, error, received, created, notice, 
       <div className="card overflow-x-auto">
         <table className="mobile-record-table w-full min-w-[700px] text-sm">
           <thead>
-            <tr className="border-b bg-cream text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+            <tr className="border-b bg-cream text-left text-xs font-semibold text-ink/40">
               <th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Parte</th>
               <th className="px-4 py-3 text-right">Total</th><th className="px-4 py-3 text-right">Em aberto</th>
               <th className="px-4 py-3">Vencimento</th><th className="px-4 py-3">Status</th><th className="px-4 py-3" />
@@ -210,15 +206,15 @@ export async function FinancialPage({ filter, error, received, created, notice, 
               return (
                 <tr key={e.id} className={`hover:bg-cream/50 transition ${isOverdue ? "bg-red-50/30" : ""}`}>
                   <td data-label="Descrição" className="px-4 py-3 font-medium max-w-[200px]"><Link href={`/financeiro/lancamento/${e.id}`} className="block truncate hover:text-forest hover:underline">{e.description}</Link><p className="mt-1 text-xs font-normal text-ink/60">{e.category_name || "Sem categoria"} · {e.cost_center_name || "Sem centro de custos"}</p></td>
-                  <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
+                  <td data-label="Tipo" className="px-4 py-3"><span className={`rounded-lg px-2 py-0.5 text-xs font-semibold border ${e.entry_type === "receber" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-orange-700 bg-orange-50 border-orange-200"}`}>{e.entry_type === "receber" ? "Receber" : "Pagar"}</span></td>
                   <td data-label="Cliente / fornecedor" className="px-4 py-3 text-ink/60">{e.client_name || e.supplier_name || "—"}</td>
                   <td data-label="Total" className="px-4 py-3 text-right font-semibold">{money(e.total_amount)}</td>
-                  <td data-label="Em aberto" className={`px-4 py-3 text-right font-bold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
-                  <td data-label="Vencimento" className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-bold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
-                  <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-bold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
+                  <td data-label="Em aberto" className={`px-4 py-3 text-right font-semibold ${e.open_amount > 0 ? (isOverdue ? "text-red-700" : "text-ink") : "text-emerald-600"}`}>{money(e.open_amount)}</td>
+                  <td data-label="Vencimento" className={`px-4 py-3 text-sm ${isOverdue ? "text-red-600 font-semibold" : "text-ink/60"}`}>{e.due_date ? shortDate(e.due_date) : "—"}</td>
+                  <td data-label="Status" className="px-4 py-3"><span className={`flex w-fit items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-semibold ${s.color}`}><Icon className="h-3 w-3" />{s.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-bold hover:border-forest hover:text-forest" href={`/financeiro/lancamento/${e.id}`}>Abrir</Link>
+                      <Link className="rounded-lg border border-sand px-2 py-1 text-xs font-semibold hover:border-forest hover:text-forest" href={`/financeiro/lancamento/${e.id}`}>Abrir</Link>
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <PaymentDialog canOverpay={e.entry_type === "pagar" && !!e.supplier_id} supplierCredit={e.entry_type === "pagar" && e.supplier_id ? creditOf.get(e.supplier_id) ?? 0 : 0} entryType={e.entry_type} entryId={e.id} openAmount={e.open_amount} interestAmount={e.interest_amount} discountAmount={e.discount_amount} installmentCount={e.installment_count} firstDueDate={e.first_installment_due_date} />}
                       {e.open_amount > 0 && e.display_status !== "cancelado" && <RescheduleDialog entryId={e.id} currentDueDate={e.due_date} />}
                     </div>

@@ -26,19 +26,19 @@ export default async function FinancialClassificationPage({ searchParams }: { se
     entry = result.data;
   }
   return <div className="mx-auto max-w-5xl space-y-5">
-    <Link href="/financeiro" className="text-sm font-bold text-forest underline">Voltar ao financeiro</Link>
-    <h1 className="text-3xl font-black">{entry ? "Classificar conta" : "Categorias e centros de custos"}</h1>
+    <Link href="/financeiro" className="text-sm font-semibold text-forest underline">Voltar ao financeiro</Link>
+    <h1 className="text-3xl font-semibold">{entry ? "Classificar conta" : "Categorias e centros de custos"}</h1>
     {search.erro && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{search.erro.slice(0, 250)}</p>}
     {search.salvo === "1" && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-emerald-800">Classificação salva.</p>}
     {entry ? <section className="card space-y-4 p-5">
-      <h2 className="text-xl font-bold">{entry.description}</h2><p>Conta a {entry.entry_type} · {money(entry.total_amount)}</p>
+      <h2 className="text-xl font-semibold">{entry.description}</h2><p>Conta a {entry.entry_type} · {money(entry.total_amount)}</p>
       {allowed === true ? <form action={classifyFinancialEntry} className="space-y-4"><input type="hidden" name="id" value={entry.id} /><FinancialClassificationFields {...definitions} type={entry.entry_type} categoryId={entry.category_id} centerId={entry.cost_center_id} /><label className="block max-w-xs"><span className="label">Competência (mês a que a conta pertence)</span><input type="date" name="competence_date" className="field" defaultValue={entry.competence_date ?? ""} /><span className="mt-1 block text-xs text-ink/55">Em branco, a DRE usa a data de cadastro ({shortDate(entry.created_at)}).</span></label><button className="button">Salvar classificação</button></form> : <p>Você tem acesso de consulta. Não pode alterar esta conta.</p>}
-      <Link href="/financeiro/classificacoes" className="inline-block text-sm font-bold text-forest underline">Gerenciar categorias e centros de custos</Link>
+      <Link href="/financeiro/classificacoes" className="inline-block text-sm font-semibold text-forest underline">Gerenciar categorias e centros de custos</Link>
     </section> : <>
       <p className="text-sm text-ink/65">Desative os cadastros que deixarem de ser usados. Contas já classificadas mantêm o vínculo e o histórico.</p>
       {allowed === true && <form action={seedFinancialDefinitions}><button className="button-ghost">Cadastrar sugestões iniciais</button><p className="mt-2 text-xs text-ink/60">Adiciona categorias de receitas/despesas e centros de custos. Cadastros existentes são preservados.</p></form>}
       {(["category", "center"] as const).map(kind => <section key={kind} className="card space-y-4 p-5">
-        <h2 className="text-xl font-bold">{kind === "category" ? "Categorias financeiras" : "Centros de custos"}</h2>
+        <h2 className="text-xl font-semibold">{kind === "category" ? "Categorias financeiras" : "Centros de custos"}</h2>
         {allowed === true && <DefinitionForm kind={kind} />}
         {(kind === "category" ? categories : centers).length === 0 && <p className="text-sm text-ink/60">Nenhum cadastro. {allowed === true ? "Cadastre acima ou use as sugestões iniciais." : "Solicite o cadastro ao responsável pelo financeiro."}</p>}
         {(kind === "category" ? categories : centers).map(item => allowed === true ? <DefinitionForm key={item.id} kind={kind} item={item} /> : <p key={item.id}>{item.name}{"entry_type" in item ? ` · ${item.entry_type === "pagar" ? "Despesa" : "Receita"}` : ""}{item.active ? "" : " · Inativo"}</p>)}

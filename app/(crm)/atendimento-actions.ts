@@ -24,7 +24,7 @@ export type InboxItem = {
   preview: string; lastAt: string | null; unread: number; aiPaused: boolean; assignedName: string | null; archived: boolean;
   status: ConversationStatus; department: string | null; assignedTo: string | null;
   /** Número de WhatsApp da conversa (calha, esquadrias…). */
-  channelId?: string | null; channelName?: string | null;
+  channelId?: string | null; channelName?: string | null; channelPhone?: string | null;
   labels?: Array<{ id: string; name: string; color: string }>;
   /** false = número sem Lia (só o principal tem IA por enquanto). */
   channelAi?: boolean;
@@ -66,10 +66,10 @@ type ConvRow = {
   ai_paused: boolean | null; assigned_to: string | null; last_inbound_at?: string | null; ai_generation_id?: string | null; archived_at?: string | null;
   status?: string | null; department?: string | null;
   clients?: { name: string } | null; profiles?: { full_name: string } | null;
-  channel_id?: string | null; wchan?: { name: string; is_default: boolean } | null;
+  channel_id?: string | null; wchan?: { name: string; is_default: boolean; phone_display?: string | null } | null;
   labels?: Array<{ label: { id: string; name: string; color: string } | null }> | null;
 };
-const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,channel_id,clients(name),profiles:assigned_to(full_name),wchan:whatsapp_channels(name,is_default)";
+const CONV_COLUMNS = "id,contact_name,phone,external_id,client_id,last_message_preview,last_message_at,last_inbound_at,ai_generation_id,archived_at,status,department,created_at,unread_count,ai_paused,assigned_to,channel_id,clients(name),profiles:assigned_to(full_name),wchan:whatsapp_channels(name,is_default,phone_display)";
 // Etiquetas vêm junto; se o banco ainda não tem a tabela, a lista abre sem elas (nunca fica em branco).
 const LABEL_COLUMNS = ",labels:conversation_label_links(label:conversation_labels(id,name,color))";
 
@@ -92,6 +92,7 @@ function toItem(c: ConvRow): InboxItem {
     assignedTo: c.assigned_to,
     channelId: c.channel_id ?? null,
     channelName: c.wchan?.name ?? null,
+    channelPhone: c.wchan?.phone_display ?? null,
     labels: (c.labels ?? []).map((l) => l.label).filter((l): l is { id: string; name: string; color: string } => !!l),
     channelAi: c.wchan ? c.wchan.is_default : true,
     waitingSince: waitingSince(c.last_inbound_at, c.last_message_at),

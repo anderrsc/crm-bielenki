@@ -46,8 +46,8 @@ export function QuickReplies({ query, open, onOpen, onClose, contactName, onPick
       {visible && (
         <div className="absolute bottom-14 left-0 z-20 max-h-[60vh] w-[min(26rem,85vw)] overflow-y-auto rounded-2xl border border-sand/80 bg-surface p-2 shadow-xl">
           <div className="mb-1 flex items-center justify-between px-2 pt-1">
-            <p className="text-xs font-black uppercase text-ink/50">Respostas prontas</p>
-            <button type="button" onClick={() => setEditando({ shortcut: "", body: "" })} className="flex items-center gap-1 text-xs font-bold text-forest"><Plus className="h-3.5 w-3.5" /> Nova</button>
+            <p className="text-xs font-semibold text-ink/50">Respostas prontas</p>
+            <button type="button" onClick={() => setEditando({ shortcut: "", body: "" })} className="flex items-center gap-1 text-xs font-semibold text-forest"><Plus className="h-3.5 w-3.5" /> Nova</button>
           </div>
           {erro && <p className="m-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{erro}</p>}
           {!replies && !erro && <p className="p-3 text-xs text-ink/50">Carregando…</p>}
@@ -56,15 +56,15 @@ export function QuickReplies({ query, open, onOpen, onClose, contactName, onPick
               <input value={editando.shortcut} onChange={(e) => setEditando({ ...editando, shortcut: e.target.value })} placeholder="atalho (ex.: pix)" className="field w-full p-2 text-sm" />
               <textarea value={editando.body} onChange={(e) => setEditando({ ...editando, body: e.target.value })} rows={4} placeholder="Mensagem. Use {nome} para o nome do cliente." className="field w-full p-2 text-sm" />
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setEditando(null)} className="px-2 text-xs font-bold text-ink/60">Cancelar</button>
-                <button type="button" onClick={salvar} className="rounded-lg bg-forest px-3 py-1.5 text-xs font-bold text-white">Salvar</button>
+                <button type="button" onClick={() => setEditando(null)} className="px-2 text-xs font-semibold text-ink/60">Cancelar</button>
+                <button type="button" onClick={salvar} className="rounded-lg bg-forest px-3 py-1.5 text-xs font-semibold text-white">Salvar</button>
               </div>
             </div>
           )}
           {filtered.map((r) => (
             <div key={r.id} className="group flex items-start gap-1 rounded-xl hover:bg-cream">
               <button type="button" onClick={() => { onPick(fillQuickReply(r.body, contactName)); onClose(); }} className="min-w-0 flex-1 p-2 text-left">
-                <p className="text-xs font-black text-forest">/{r.shortcut}</p>
+                <p className="text-xs font-semibold text-forest">/{r.shortcut}</p>
                 <p className="line-clamp-2 text-xs text-ink/70">{r.body}</p>
               </button>
               <button type="button" onClick={() => setEditando({ id: r.id, shortcut: r.shortcut, body: r.body })} className="p-2 text-ink/40 hover:text-ink" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></button>

@@ -4,7 +4,7 @@ import { getRequestClient } from "@/lib/supabase/server";
 import { waitingLabel, waitingSince } from "@/lib/inbox-waiting";
 import { cn } from "@/lib/utils";
 
-type Item = { key: string; icon: typeof MessageCircle; title: string; detail: string; href: string; urgent?: boolean };
+type Item = { key: string; icon: typeof MessageCircle; title: string; detail: string; href: string; urgent?: boolean; n: number; short: string };
 
 /**
  * "O que preciso fazer agora": poucas ações reais, cada uma com contagem e link direto.
@@ -32,32 +32,33 @@ export async function PriorityQueue() {
     .map((c) => waitingSince(c.last_inbound_at, c.last_message_at)).filter((w): w is string => !!w).sort();
   if (waiting.length) {
     const oldest = waitingLabel(waiting[0]);
-    items.push({ key: "chat", icon: MessageCircle, title: `${waiting.length} cliente(s) esperando resposta`, detail: oldest ? `O mais antigo espera há ${oldest}` : "Responda para não perder a venda", href: "/atendimento", urgent: !!oldest && /h|dia/.test(oldest) });
+    items.push({ key: "chat", icon: MessageCircle, n: waiting.length, short: "Sem resposta", title: `${waiting.length} cliente(s) esperando resposta`, detail: oldest ? `O mais antigo espera há ${oldest}` : "Responda para não perder a venda", href: "/atendimento", urgent: !!oldest && /h|dia/.test(oldest) });
   }
-  if (!pending.error && (pending.count ?? 0) > 0) items.push({ key: "med", icon: ClipboardList, title: `${pending.count} pendência(s) de pedidos fechados`, detail: "Conferir medidas, agendar visita ou liberar corte", href: "/agenda" });
-  if (!quotes.error && (quotes.count ?? 0) > 0) items.push({ key: "orc", icon: FileText, title: `${quotes.count} orçamento(s) sem retorno há 3 dias ou mais`, detail: "Consulte o cliente para esclarecer dúvidas", href: "/orcamentos" });
+  if (!pending.error && (pending.count ?? 0) > 0) items.push({ key: "med", icon: ClipboardList, n: pending.count ?? 0, short: "Pendências", title: `${pending.count} pendência(s) de pedidos fechados`, detail: "Conferir medidas, agendar visita ou liberar corte", href: "/agenda" });
+  if (!quotes.error && (quotes.count ?? 0) > 0) items.push({ key: "orc", icon: FileText, n: quotes.count ?? 0, short: "Sem retorno", title: `${quotes.count} orçamento(s) sem retorno há 3 dias ou mais`, detail: "Consulte o cliente para esclarecer dúvidas", href: "/orcamentos" });
 
-  if (!measurements.error && (measurements.count ?? 0) > 0) items.push({ key: "hoje-med", icon: Ruler, title: `${measurements.count} medição(ões) marcada(s) para hoje`, detail: "Confira endereço e horário antes de sair", href: "/medicoes" });
-  if (!installs.error && (installs.count ?? 0) > 0) items.push({ key: "hoje-inst", icon: Wrench, title: `${installs.count} instalação(ões) marcada(s) para hoje`, detail: "Veja checklist, fotos e endereço", href: "/instalacoes" });
-  if (!production.error && (production.count ?? 0) > 0) items.push({ key: "prod", icon: Factory, title: `${production.count} ordem(ns) de produção aguardando material`, detail: "Receber o material libera o corte", href: "/producao" });
+  if (!measurements.error && (measurements.count ?? 0) > 0) items.push({ key: "hoje-med", icon: Ruler, n: measurements.count ?? 0, short: "Medições hoje", title: `${measurements.count} medição(ões) marcada(s) para hoje`, detail: "Confira endereço e horário antes de sair", href: "/medicoes" });
+  if (!installs.error && (installs.count ?? 0) > 0) items.push({ key: "hoje-inst", icon: Wrench, n: installs.count ?? 0, short: "Instalações hoje", title: `${installs.count} instalação(ões) marcada(s) para hoje`, detail: "Veja checklist, fotos e endereço", href: "/instalacoes" });
+  if (!production.error && (production.count ?? 0) > 0) items.push({ key: "prod", icon: Factory, n: production.count ?? 0, short: "Falta material", title: `${production.count} ordem(ns) de produção aguardando material`, detail: "Receber o material libera o corte", href: "/producao" });
   // Contas vencidas já aparecem nos avisos logo acima do painel: não repetir aqui.
   // Itens do dia e atrasos antes das demais pendências.
   const order = ["chat", "hoje-med", "hoje-inst", "prod", "med", "orc"];
   items.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   return (
-    <section aria-label="O que fazer agora" className="card mb-6 p-5">
-      <h2 className="font-black">O que fazer agora</h2>
+    <section aria-label="O que fazer agora" className="pq card mb-6 p-5">
+      <h2 className="pq-heading font-semibold">O que fazer agora</h2>
       {items.length === 0 ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-ink/60"><CheckCircle2 className="h-4 w-4 text-green-600" /> Nada urgente no momento. Pendências novas aparecem aqui.</p>
       ) : (
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="pq-list mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((i) => (
             <li key={i.key}>
-              <Link href={i.href} className={cn("flex h-full items-start gap-3 rounded-xl border p-3 hover:bg-cream", i.urgent ? "border-red-500/40" : "border-sand")}>
-                <i.icon className={cn("mt-0.5 h-5 w-5 shrink-0", i.urgent ? "text-red-500" : "text-forest")} />
-                <span className="min-w-0 flex-1"><b className="block text-sm">{i.title}</b><span className="text-xs text-ink/60">{i.detail}</span></span>
-                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-ink/40" />
+              <Link href={i.href} className={cn("pq-item flex h-full items-start gap-3 rounded-xl border p-3 hover:bg-cream", i.urgent ? "border-red-500/40" : "border-sand")} data-urgent={i.urgent ? "true" : undefined}>
+                <i.icon className={cn("pq-icon mt-0.5 h-5 w-5 shrink-0", i.urgent ? "text-red-500" : "text-forest")} />
+                <span className="pq-text min-w-0 flex-1"><b className="pq-title block text-sm">{i.title}</b><span className="pq-detail text-xs text-ink/60">{i.detail}</span><b className="pq-short">{i.short}</b></span>
+                <span className="pq-count" aria-hidden>{i.n}</span>
+                <ArrowRight className="pq-arrow mt-1 h-4 w-4 shrink-0 text-ink/40" />
               </Link>
             </li>
           ))}

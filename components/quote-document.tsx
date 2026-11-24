@@ -304,14 +304,14 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
   return (
     <div className={printOnly ? undefined : "mx-auto max-w-5xl"}>
-      {!printOnly && <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link href="/orcamentos" className="inline-flex items-center gap-2 text-sm font-bold text-ink/55">
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Link>
-          <StatusBadge value={String(quote.status)} />
+      {!printOnly && <div className="no-print mh-hero is-simple quote-hero detail-hero">
+        <div className="mh-hero-main">
+          <Link href="/orcamentos" className="quote-hero-back"><ArrowLeft className="h-4 w-4" /> Orçamentos</Link>
+          <h1 className="mh-greeting">{String(quote.quote_number)}</h1>
+          <p className="quote-hero-client">{String(client?.name ?? "Cliente")}</p>
+          <div className="quote-hero-status"><StatusBadge value={String(quote.status)} /></div>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="detail-actions quote-actions">
           {/* Rascunhos da Ana têm conferência própria de peças e preços. */}
           {(isGutter && quote.status !== "aprovado" || quote.triage_session_id && quote.status === "rascunho") && (
             <Link href={`/orcamentos/${id}/editar`} className="button-ghost">Editar</Link>

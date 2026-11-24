@@ -30,7 +30,7 @@ export function Breadcrumbs({ pathname, sectionLabel }: { pathname: string; sect
       {trail.map((t, i) => (
         <span key={`${t.label}-${i}`} className="inline-flex items-center gap-1">
           {i > 0 && <ChevronRight className="h-3 w-3" aria-hidden />}
-          {t.href ? <Link href={t.href} className="hover:text-ink hover:underline">{t.label}</Link> : <span aria-current="page" className="font-bold text-ink/80">{t.label}</span>}
+          {t.href ? <Link href={t.href} className="hover:text-ink hover:underline">{t.label}</Link> : <span aria-current="page" className="font-semibold text-ink/80">{t.label}</span>}
         </span>
       ))}
     </nav>

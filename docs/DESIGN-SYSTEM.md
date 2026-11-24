@@ -1,7 +1,9 @@
 # Design System Bielenki — movimento, foco e retorno visual
 
+> Tipografia, espaçamento, vidro e componentes: ver **`DESIGN_SYSTEM.md`** na raiz do repositório.
+
 Base: tokens em `app/brand-tokens.css`, componentes em `app/marquinhos.css` e `components/ui-feedback/`.
-Ícones: somente **Lucide** (`lucide-react`), traço padrão. Sem emojis, gradientes ou brilhos decorativos.
+Ícones: somente **Lucide** (`lucide-react`), traço padrão. Sem emojis. Gradientes e brilhos só nas superfícies de vidro e nos botões principais (ver `DESIGN_SYSTEM.md`).
 
 ## Movimento
 | Token | Valor | Uso |

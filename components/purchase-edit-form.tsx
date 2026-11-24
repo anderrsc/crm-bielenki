@@ -25,7 +25,7 @@ export function PurchaseEditForm({ id, supplierId, suppliers, expectedAt, notes,
       <div><label className="label" htmlFor="pe-prev">Previsão de entrega</label><input id="pe-prev" className="field" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} /></div>
       <div><label className="label" htmlFor="pe-ped">É para</label><select id="pe-ped" className="field" value={order} onChange={(e) => setOrder(e.target.value)}><option value="">Estoque</option>{orders.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div>
     </div>
-    {locked && <p className="rounded-lg bg-amber-50 p-2 text-xs font-bold text-amber-800">Material já recebido: quantidade e valor dos itens não mudam.</p>}
+    {locked && <p className="rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-800">Material já recebido: quantidade e valor dos itens não mudam.</p>}
     {items.map((it, i) => <div key={it.id} className="grid gap-2 rounded-xl border border-sand p-3 sm:grid-cols-[1fr_1.4fr_90px_110px]">
       <select aria-label="Tipo" className="field" value={it.category} onChange={(e) => set(i, { category: e.target.value })}>{[...new Set([it.category, ...PURCHASE_TYPES])].filter(Boolean).map((t) => <option key={t}>{t}</option>)}</select>
       <input aria-label="Descrição" className="field" value={it.description} onChange={(e) => set(i, { description: e.target.value })} required />

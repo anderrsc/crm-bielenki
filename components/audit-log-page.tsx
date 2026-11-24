@@ -18,6 +18,22 @@ const TABLE_LABELS: Record<string, string> = {
   pricing_commercial_tables: "Tabelas comerciais",
   profiles: "Usuários",
   companies: "Empresa",
+  aluminum_cost_settings: "Custo do alumínio",
+  bank_statement_imports: "Extratos importados",
+  bank_statement_rows: "Linhas do extrato",
+  financial_categories: "Categorias financeiras",
+  financial_cost_centers: "Centros de custos",
+  financial_exports: "Exportações financeiras",
+  financial_recurrences: "Contas recorrentes",
+  order_aluminum_costs: "Custo do alumínio por pedido",
+  order_operations: "Etapas do pedido",
+  pricing_paints: "Preços de pintura",
+  pricing_services: "Preços de serviços",
+  pricing_special_parts: "Peças especiais",
+  purchase_orders: "Compras",
+  receiving_accounts: "Contas de recebimento",
+  service_orders: "Serviços",
+  work_planning: "Equipes e veículos",
 };
 
 type LogEntry = {
@@ -54,8 +70,8 @@ export async function AuditLogPage({
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <p className="text-xs font-bold uppercase tracking-widest text-forest">Gestão</p>
-        <h1 className="mt-2 text-3xl font-black">Log de Auditoria</h1>
+        <p className="text-xs font-semibold text-forest">Gestão</p>
+        <h1 className="mt-2 text-3xl font-semibold">Log de auditoria</h1>
         <p className="mt-1 text-sm text-ink/50">
           Todas as alterações registradas no sistema.
         </p>
@@ -71,7 +87,7 @@ export async function AuditLogPage({
       <div className="mb-4 flex flex-wrap gap-2">
         <a
           href="/auditoria"
-          className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+          className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
             !tableFilter
               ? "border-forest bg-brand-strong text-white"
               : "border-sand hover:bg-sand/50"
@@ -83,7 +99,7 @@ export async function AuditLogPage({
           <a
             key={t}
             href={`/auditoria?tabela=${t}`}
-            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+            className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
               tableFilter === t
                 ? "border-forest bg-brand-strong text-white"
                 : "border-sand hover:bg-sand/50"
@@ -98,19 +114,19 @@ export async function AuditLogPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-cream/50">
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Data/Hora
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Usuário
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Módulo
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Ação
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink/40">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-ink/40">
                 Detalhe
               </th>
             </tr>
@@ -124,8 +140,9 @@ export async function AuditLogPage({
               </tr>
             )}
             {logs.map((log) => {
+              // Ações próprias do sistema vêm em código (ex.: DAY_SAVE): vira texto legível, sem alterar o registro.
               const act = ACTION_LABELS[log.action] ?? {
-                label: log.action,
+                label: log.action.toLowerCase().replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),
                 color: "bg-sand text-ink/60",
               };
               const changedFields =
@@ -156,7 +173,7 @@ export async function AuditLogPage({
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-lg px-2 py-0.5 text-xs font-bold ${act.color}`}
+                      className={`inline-block max-w-[9rem] rounded-lg px-2 py-0.5 text-xs font-semibold [overflow-wrap:anywhere] ${act.color}`}
                     >
                       {act.label}
                     </span>

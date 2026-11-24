@@ -104,22 +104,22 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Identidade Visual</p>
-        <h1 className="mt-1 text-3xl font-black">Logo e Templates</h1>
+        <p className="text-xs font-semibold text-forest">Identidade visual</p>
+        <h1 className="mt-1 text-3xl font-semibold">Logo e templates</h1>
         <p className="mt-1 text-sm text-ink/50">Configure a logo, posição e aparência nos documentos.</p>
       </div>
 
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {saved && <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700 flex items-center gap-2"><Check className="h-4 w-4" /> Configurações salvas com sucesso.</p>}
 
-      <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
 
         {/* ── Coluna esquerda: controles ── */}
         <div className="space-y-6">
 
           {/* Upload da logo */}
           <div className="card p-6 space-y-4">
-            <h2 className="font-black text-lg">Logo da empresa</h2>
+            <h2 className="font-semibold text-lg">Logo da empresa</h2>
 
             {/* Preview da logo */}
             <div
@@ -164,12 +164,12 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
 
           {/* Controles de posição e tamanho */}
           <div className="card p-6 space-y-5">
-            <h2 className="font-black text-lg">Posição e tamanho</h2>
+            <h2 className="font-semibold text-lg">Posição e tamanho</h2>
 
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <label className="label mb-0">Largura da logo</label>
-                <span className="text-sm font-bold text-forest">{width} mm</span>
+                <span className="text-sm font-semibold text-forest">{width} mm</span>
               </div>
               <input type="range" min={15} max={80} value={width} onChange={e => setWidth(Number(e.target.value))}
                 className="w-full accent-forest" />
@@ -179,7 +179,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <label className="label mb-0">Altura máxima</label>
-                <span className="text-sm font-bold text-forest">{maxHeight} mm</span>
+                <span className="text-sm font-semibold text-forest">{maxHeight} mm</span>
               </div>
               <input type="range" min={10} max={60} value={maxHeight} onChange={e => setMaxHeight(Number(e.target.value))}
                 className="w-full accent-forest" />
@@ -227,7 +227,7 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
         <div className="space-y-4">
           {/* Seletor de preview */}
           <div className="flex gap-2">
-            <p className="flex items-center gap-2 text-sm font-bold text-ink/50 mr-2"><Eye className="h-4 w-4" /> Prévia:</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink/50 mr-2"><Eye className="h-4 w-4" /> Prévia:</p>
             {([
               { v: "orcamento", label: "Orçamento" },
               { v: "ficha",     label: "Ficha de Medição" },
@@ -240,17 +240,18 @@ export function CompanyIdentityEditor({ company }: { company: LogoConfig }) {
           </div>
 
           {/* A4 preview */}
-          <div className="overflow-hidden rounded-2xl border-2 border-sand shadow-xl" style={{ width: A4_W_PX + 4 }}>
+          <div className="overflow-x-auto rounded-2xl border-2 border-sand shadow-xl" style={{ width: A4_W_PX + 4, maxWidth: "100%" }}>
             {/* Header da prévia */}
             <div className="flex items-center gap-2 border-b bg-cream px-4 py-2">
               <Maximize2 className="h-3.5 w-3.5 text-ink/40" />
-              <span className="text-xs font-bold text-ink/40">
-                Pré-visualização A4 — {previewType === "orcamento" ? "Orçamento" : "Ficha de Medição"}
+              <span className="text-xs font-semibold text-ink/40">
+                Pré-visualização A4 — {previewType === "orcamento" ? "Orçamento" : "Ficha de medição"}
               </span>
             </div>
 
-            {/* Folha A4 */}
+            {/* Folha A4: prévia do documento comercial; mantém a fonte do documento (fora do Design System da interface) */}
             <div
+              data-document-preview
               style={{
                 width: A4_W_PX,
                 minHeight: A4_H_PX,
@@ -338,7 +339,7 @@ function OrcamentoPreview({ tradeName, company, a4Scale, red }: { tradeName: str
 
       {/* Cliente */}
       <div style={{ background: "#f8f8f8", borderRadius: s(1.5), padding: `${s(2)}px ${s(3)}px`, marginBottom: s(3) }}>
-        <p style={{ fontWeight: 700, color: "#888", fontSize: fs(6.5), letterSpacing: "0.1em", textTransform: "uppercase", margin: `0 0 ${s(1)}px` }}>CLIENTE</p>
+        <p style={{ fontWeight: 700, color: "#888", fontSize: fs(6.5), letterSpacing: "0.1em", textTransform: "", margin: `0 0 ${s(1)}px` }}>CLIENTE</p>
         <p style={{ fontWeight: 700, fontSize: fs(9), margin: 0 }}>João da Silva</p>
         <p style={{ color: "#666", fontSize: fs(7), margin: 0 }}>Bairro Centro — Passo Fundo / RS</p>
       </div>
@@ -395,7 +396,7 @@ function FichaPreview({ tradeName, company, a4Scale, red }: { tradeName: string;
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: s(2), marginBottom: s(2) }}>
         {["CLIENTE","TELEFONE","BAIRRO","CIDADE"].map(l => (
           <div key={l} style={{ background: "#f7f7f7", borderRadius: s(1.5), padding: `${s(2)}px ${s(2)}px`, minHeight: s(8) }}>
-            <p style={{ fontSize: fs(5.5), fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", margin: `0 0 ${s(0.8)}px` }}>{l}</p>
+            <p style={{ fontSize: fs(5.5), fontWeight: 700, color: "#888", textTransform: "", letterSpacing: "0.1em", margin: `0 0 ${s(0.8)}px` }}>{l}</p>
             <div style={{ borderBottom: "1px solid #ccc", height: s(3) }} />
           </div>
         ))}
@@ -404,7 +405,7 @@ function FichaPreview({ tradeName, company, a4Scale, red }: { tradeName: string;
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: s(2), marginBottom: s(3) }}>
         {["ENDEREÇO","DISPONIBILIDADE","MEDIDOR"].map(l => (
           <div key={l} style={{ background: "#f7f7f7", borderRadius: s(1.5), padding: `${s(2)}px ${s(2)}px`, minHeight: s(8) }}>
-            <p style={{ fontSize: fs(5.5), fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", margin: `0 0 ${s(0.8)}px` }}>{l}</p>
+            <p style={{ fontSize: fs(5.5), fontWeight: 700, color: "#888", textTransform: "", letterSpacing: "0.1em", margin: `0 0 ${s(0.8)}px` }}>{l}</p>
             <div style={{ borderBottom: "1px solid #ccc", height: s(3) }} />
           </div>
         ))}

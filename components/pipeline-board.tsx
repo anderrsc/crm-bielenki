@@ -63,8 +63,8 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
 
     <div className="pipeline-filters mb-4 flex flex-wrap items-center gap-3">
       <div className="relative min-w-[220px] flex-1 sm:max-w-sm"><Search className="absolute left-3 top-3 h-4 w-4 text-ink/40"/><input className="field pl-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome, telefone, orçamento, bairro..." aria-label="Buscar oportunidade"/></div>
-      <nav className="flex flex-wrap gap-2" aria-label="Filtros do pipeline">{filters.map(([value,label,count])=><button type="button" key={value} onClick={()=>setFilter(value)} aria-pressed={filter===value} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${filter===value?"border-forest bg-forest text-white":"bg-surface hover:border-forest/40"}`}>{label}{count!==null&&<span className={`ml-1.5 rounded-full px-1.5 ${filter===value?"bg-white/20":"bg-cream"}`}>{count}</span>}</button>)}</nav>
-      <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-bold text-ink/60"><input type="checkbox" checked={showLost} onChange={e=>setShowLost(e.target.checked)}/>Mostrar perdidas</label>
+      <nav className="flex flex-wrap gap-2" aria-label="Filtros do pipeline">{filters.map(([value,label,count])=><button type="button" key={value} onClick={()=>setFilter(value)} aria-pressed={filter===value} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${filter===value?"border-forest bg-forest text-white":"bg-surface hover:border-forest/40"}`}>{label}{count!==null&&<span className={`ml-1.5 rounded-full px-1.5 ${filter===value?"bg-white/20":"bg-cream"}`}>{count}</span>}</button>)}</nav>
+      <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs font-semibold text-ink/60"><input type="checkbox" checked={showLost} onChange={e=>setShowLost(e.target.checked)}/>Mostrar perdidas</label>
     </div>
 
     <p className="mb-3 text-xs text-ink/50">{visible.length} oportunidades · {stages.length} etapas visíveis</p>
@@ -73,8 +73,8 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
       return <section key={stage.id} aria-label={stage.name} className={`pipeline-stage flex min-w-0 flex-col rounded-2xl border bg-cream/40 transition ${over===stage.id?"border-forest ring-2 ring-forest/20":"border-transparent"}`}
         onDragOver={e=>{e.preventDefault();setOver(stage.id)}} onDragLeave={()=>setOver(o=>o===stage.id?null:o)} onDrop={e=>{setOver(null);move(e.dataTransfer.getData("lead-id"),stage.id)}}>
         <header className="pipeline-stage-heading rounded-t-2xl border-t-4 px-3 pb-3 pt-3" style={{borderTopColor:color}}>
-          <div className="flex items-center justify-between gap-2"><h2 className="flex items-center gap-2 font-black">{stage.is_won?<Trophy className="h-4 w-4" style={{color}}/>:<span className="h-2.5 w-2.5 rounded-full" style={{backgroundColor:color}}/>}{stage.name}</h2><span className="rounded-full bg-surface px-2 py-0.5 text-xs font-bold">{items.length}</span></div>
-          <p className="mt-1 text-xs font-bold text-ink/50">{money(total)}</p>
+          <div className="flex items-center justify-between gap-2"><h2 className="flex items-center gap-2 font-semibold">{stage.is_won?<Trophy className="h-4 w-4" style={{color}}/>:<span className="h-2.5 w-2.5 rounded-full" style={{backgroundColor:color}}/>}{stage.name}</h2><span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">{items.length}</span></div>
+          <p className="mt-1 text-xs font-semibold text-ink/50">{money(total)}</p>
         </header>
         <div className="pipeline-stage-cards min-h-28 flex-1 space-y-3 px-2 pb-3">{items.map(lead=><LeadCard key={lead.id} lead={lead} stage={stage} stages={initialStages} nowMs={nowMs} today={today} onMove={move}/>)}{!items.length&&<div className="rounded-xl border border-dashed p-6 text-center text-xs text-ink/35">{query||filter!=="todos"?"Nada com esse filtro":"Arraste uma oportunidade para cá"}</div>}</div>
       </section>})}</div></div>
@@ -82,7 +82,7 @@ export function PipelineBoard({initialStages,initialLeads,currentUserId,nowIso,t
 }
 
 function Kpi({icon:Icon,label,value,hint,highlight,danger}:{icon:typeof Wallet;label:string;value:string;hint:string;highlight?:boolean;danger?:boolean}){
-  return <div className={`card p-4 ${highlight?"kpi-highlight":""}`}><div className="flex items-center justify-between"><p className="text-xs font-bold text-ink/55">{label}</p><Icon className={`h-4 w-4 ${danger?"text-red-600":"text-forest"}`}/></div><p className={`display-font mt-2 text-2xl font-extrabold num ${danger?"text-red-600":""}`}>{value}</p><p className="mt-1 text-[11px] text-ink/50">{hint}</p></div>;
+  return <div className={`card p-4 ${highlight?"kpi-highlight":""}`}><div className="flex items-center justify-between"><p className="text-xs font-semibold text-ink/55">{label}</p><Icon className={`h-4 w-4 ${danger?"text-red-600":"text-forest"}`}/></div><p className={`display-font mt-2 text-2xl font-semibold num ${danger?"text-red-600":""}`}>{value}</p><p className="mt-1 text-[11px] text-ink/50">{hint}</p></div>;
 }
 
 function LeadCard({lead,stage,stages,nowMs,today,onMove}:{lead:Lead;stage:Stage;stages:Stage[];nowMs:number;today:string;onMove:(id:string,stage:string)=>void}){
@@ -93,19 +93,19 @@ function LeadCard({lead,stage,stages,nowMs,today,onMove}:{lead:Lead;stage:Stage;
   const place=[lead.client?.neighborhood,lead.client?.city].filter(Boolean).join(" · ");
   return <article draggable onDragStart={e=>e.dataTransfer.setData("lead-id",lead.id)} className="pipeline-lead-card card min-w-0 cursor-grab border-l-4 p-3 active:cursor-grabbing" style={{borderLeftColor:color}}>
     <div className="flex min-w-0 items-start gap-2">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black text-white" style={{backgroundColor:color}}>{initials(lead.name)}</span>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-white" style={{backgroundColor:color}}>{initials(lead.name)}</span>
       <div className="min-w-0 flex-1">
-        {lead.client_id?<Link href={`/clientes/${lead.client_id}`} className="pipeline-lead-name font-black hover:underline" title={lead.name}>{lead.name}</Link>:<h3 className="pipeline-lead-name font-black">{lead.name}</h3>}
+        {lead.client_id?<Link href={`/clientes/${lead.client_id}`} className="pipeline-lead-name font-semibold hover:underline" title={lead.name}>{lead.name}</Link>:<h3 className="pipeline-lead-name font-semibold">{lead.name}</h3>}
         {place&&<p className="mt-1 break-words text-[11px] text-ink/45">{place}</p>}
       </div>
 
     </div>
-    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-base font-black text-forest num">{money(lead.estimated_value)}</p>{!closed&&days>=7&&<span title={`Nesta etapa há ${days} dias`} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${days>=14?"bg-red-500/10 text-red-600":"bg-amber-500/15 text-amber-600"}`}><Flame className="h-3 w-3"/>{days}d</span>}</div>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-base font-semibold text-forest num">{money(lead.estimated_value)}</p>{!closed&&days>=7&&<span title={`Nesta etapa há ${days} dias`} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${days>=14?"bg-red-500/10 text-red-600":"bg-amber-500/15 text-amber-600"}`}><Flame className="h-3 w-3"/>{days}d</span>}</div>
     <div className="mt-2 min-w-0 space-y-2 break-words text-xs text-ink/55">
-      {lead.quote&&<Link href={`/orcamentos/${lead.quote.id}`} className="flex min-w-0 items-start gap-1.5 font-bold text-forest hover:underline"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span className="break-words">Orçamento {lead.quote.quote_number}</span></Link>}
-      {lead.next_action&&<p className={`flex items-start gap-2 ${late?"font-bold text-red-600":isToday?"font-bold text-amber-600":""}`}><CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span>{lead.next_action}{due&&<> · {late?"atrasado desde ":isToday?"hoje · ":""}{shortDate(due)}</>}</span></p>}
+      {lead.quote&&<Link href={`/orcamentos/${lead.quote.id}`} className="flex min-w-0 items-start gap-1.5 font-semibold text-forest hover:underline"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span className="break-words">Orçamento {lead.quote.quote_number}</span></Link>}
+      {lead.next_action&&<p className={`flex items-start gap-2 ${late?"font-semibold text-red-600":isToday?"font-semibold text-amber-600":""}`}><CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span>{lead.next_action}{due&&<> · {late?"atrasado desde ":isToday?"hoje · ":""}{shortDate(due)}</>}</span></p>}
       {stage.is_lost&&lead.lost_reason&&<p className="rounded-lg bg-red-50 px-2 py-1 text-red-700">Motivo: {lead.lost_reason}</p>}
-      <div className="flex flex-wrap items-start gap-2"><p className="flex min-w-0 flex-1 items-start gap-1.5"><UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span className="break-words">{lead.owner?.full_name||"Sem responsável"}</span></p>{lead.source&&<span className="max-w-full rounded-lg bg-cream px-2 py-0.5 text-[10px] font-bold">{lead.source}</span>}</div>
+      <div className="flex flex-wrap items-start gap-2"><p className="flex min-w-0 flex-1 items-start gap-1.5"><UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span className="break-words">{lead.owner?.full_name||"Sem responsável"}</span></p>{lead.source&&<span className="max-w-full rounded-lg bg-cream px-2 py-0.5 text-[11px] font-semibold">{lead.source}</span>}</div>
     </div>
     <div className="pipeline-card-actions mt-3 flex flex-wrap items-center gap-2">
       {wa&&<a href={wa} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp de ${lead.name}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"><MessageCircle className="h-4 w-4"/></a>}
