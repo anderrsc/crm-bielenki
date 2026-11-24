@@ -3,7 +3,8 @@
 // que mostrava números e históricos fixos no código.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle, MessageSquare, Pause, Play, Send, TestTube, UserPlus, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Headset, History, MessageSquare, Pause, Play, Send, Settings2, TestTube, UserPlus, XCircle } from "lucide-react";
+import { FormBlock, Note } from "@/components/form-blocks";
 import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import { cn } from "@/lib/utils";
@@ -13,20 +14,21 @@ const LiaModeSettings = dynamic(() => import("@/components/lia-mode-settings").t
 const LiaLearnedRules = dynamic(() => import("@/components/lia-learned-rules").then(module => module.LiaLearnedRules), { loading: () => <p role="status">Carregando regras ensinadas…</p> });
 const AnaRules = dynamic(() => import("@/components/ana-rules").then(module => module.AnaRules), { loading: () => <p role="status">Carregando regras…</p> });
 
-const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType; cls: string }> = {
-  triagem: { icon: MessageSquare, cls: "text-blue-600" },
-  lead: { icon: UserPlus, cls: "text-green-600" },
-  envio: { icon: Send, cls: "text-ink/50" },
-  falha: { icon: AlertTriangle, cls: "text-red-600" },
+const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType }> = {
+  triagem: { icon: MessageSquare },
+  lead: { icon: UserPlus },
+  envio: { icon: Send },
+  falha: { icon: AlertTriangle },
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
-function Stat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
+function Stat({ label, value, alert, icon: Icon }: { label: string; value: number; alert?: boolean; icon: React.ElementType }) {
+  const hot = !!alert && value > 0;
   return (
-    <div className="card p-4">
-      <p className={cn("text-2xl font-semibold", alert && value > 0 && "text-red-600")}>{value}</p>
-      <p className="text-xs text-ink/55">{label}</p>
+    <div className="lia-stat" data-alert={hot}>
+      <div className="lia-stat-top"><span className="lia-stat-ico" aria-hidden><Icon className="h-4 w-4" /></span></div>
+      <div><p className="lia-stat-value">{value}</p><p className="lia-stat-label">{label}</p></div>
     </div>
   );
 }
@@ -63,75 +65,74 @@ export function AiCentral({ data, error }: { data: CentralData | null; error?: s
         </form>
       </div>
 
-      {error && <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>}
+      {error && <Note tone="error" role="alert">{error}</Note>}
 
-      <div className={cn("ai-checks rounded-2xl border p-4", ready ? "border-green-500/30 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10")}>
-        <p className="font-semibold">{ready ? `${agent} está pronta para atender.` : `${agent} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
-        <ul className="mt-3 space-y-2">
+      <div className="ai-checks lia-ready" data-ready={ready}>
+        <p className="lia-ready-title">{ready ? `${agent} está pronta para atender.` : `${agent} ainda não atende: ${pending.length} item(ns) pendente(s).`}</p>
+        <ul className="lia-checks">
           {data.checks.map((c) => (
-            <li key={c.label} className="flex items-start gap-2 text-sm">
-              {c.ok ? <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />}
+            <li key={c.label} className="lia-check">
+              {c.ok ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-red-600" />}
               <span><b>{c.label}:</b> {c.detail}</span>
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="lia-actions">
           <button type="button" disabled={testing} onClick={() => startTest(async () => setTest(await testAiAgent()))} className="button disabled:opacity-60">
             <TestTube className="h-4 w-4" /> {testing ? "Testando…" : "Testar IA agora"}
           </button>
           <Link href="/agente-ia?aba=configuracoes" className="button-ghost">Configurar</Link>
         </div>
-        {test && <p className={cn("mt-3 text-sm", test.error ? "text-red-500" : "text-green-500")}>{test.error ? `Erro: ${test.error}` : test.reply}</p>}
+        {test && <Note tone={test.error ? "error" : "ok"} className="lia-test" role="status">{test.error ? `Erro: ${test.error}` : test.reply}</Note>}
       </div>
 
       <div className="ai-stats">
-        <Stat label="Conversas no WhatsApp" value={s.conversas} />
-        <Stat label="Triagens concluídas" value={s.concluidas} />
-        <Stat label="Leads criados pela IA" value={s.leads} />
-        <Stat label="Vezes que a IA falhou" value={s.falhasIa} alert />
-        <Stat label="Em andamento" value={s.emAndamento} />
-        <Stat label="Pós-venda encaminhado" value={s.posVenda} />
-        <Stat label="Mensagens automáticas enviadas" value={s.enviadas} />
-        <Stat label="Envios com erro" value={s.falhasEnvio} alert />
+        <Stat icon={MessageSquare} label="Conversas no WhatsApp" value={s.conversas} />
+        <Stat icon={CheckCircle} label="Triagens concluídas" value={s.concluidas} />
+        <Stat icon={UserPlus} label="Leads criados pela IA" value={s.leads} />
+        <Stat icon={AlertTriangle} label="Vezes que a IA falhou" value={s.falhasIa} alert />
+        <Stat icon={Clock} label="Em andamento" value={s.emAndamento} />
+        <Stat icon={Headset} label="Pós-venda encaminhado" value={s.posVenda} />
+        <Stat icon={Send} label="Mensagens automáticas enviadas" value={s.enviadas} />
+        <Stat icon={XCircle} label="Envios com erro" value={s.falhasEnvio} alert />
       </div>
       {(s.workflowsOk > 0 || s.workflowsFalha > 0 || s.pendentes > 0) && (
         <p className="text-sm text-ink/60">Automações: {s.workflowsOk} execuções ok · {s.workflowsFalha} com falha · {s.pendentes} mensagem(ns) na fila.</p>
       )}
 
-      <div className="card p-4">
-        <h2 className="font-semibold">Histórico real</h2>
+      <FormBlock icon={History} title="Histórico real" hint="Últimos 30 dias">
         {data.events.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">Nada nos últimos 30 dias. Quando um cliente chamar no WhatsApp, aparece aqui.</p>
+          <p className="text-sm text-ink/55">Nada nos últimos 30 dias. Quando um cliente chamar no WhatsApp, aparece aqui.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-sand/70">
+          <ul>
             {data.events.map((e, i) => {
-              const { icon: Icon, cls } = EVENT_STYLE[e.kind];
+              const { icon: Icon } = EVENT_STYLE[e.kind];
               return (
-                <li key={i} className="flex items-start gap-3 py-2 text-sm">
-                  <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", cls)} />
-                  <div className="min-w-0 flex-1"><p className="font-semibold">{e.title}</p><p className="truncate text-ink/55">{e.detail}</p></div>
-                  <span className="shrink-0 text-xs text-ink/45">{when(e.at)}</span>
+                <li key={i} className="lia-event">
+                  <span className="lia-event-ico" data-kind={e.kind} aria-hidden><Icon className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1"><p className="lia-event-title">{e.title}</p><p className="lia-event-detail truncate">{e.detail}</p></div>
+                  <span className="lia-event-time">{when(e.at)}</span>
                 </li>
               );
             })}
           </ul>
         )}
         <Link href="/agente-ia" className="mt-3 inline-block text-sm font-semibold text-forest">Ver conversas completas →</Link>
-      </div>
+      </FormBlock>
 
-      <details className="card ai-config p-4">
-        <summary className="ai-config-summary"><span>Configurações da {agent}</span><small>Modo de trabalho, acompanhamento, regras e conexão</small></summary>
+      <details className="fx-block ai-config">
+        <summary className="ai-config-summary"><span className="inline-flex items-center gap-2"><Settings2 className="h-[18px] w-[18px]" aria-hidden />Configurações da {agent}</span><small>Modo de trabalho, acompanhamento, regras e conexão</small></summary>
         <div className="space-y-5 pt-4">
         <LiaModeSettings />
       <LiaFollowupSettings />
 
       {/* Números e conexão do WhatsApp ficam num lugar só: menu lateral → WhatsApp. */}
-      <div className="card flex flex-wrap items-center justify-between gap-2 p-4">
+      <div className="fx-block flex flex-wrap items-center justify-between gap-2">
         <div><p className="font-semibold">Conexão do WhatsApp</p><p className="text-xs text-ink/55">Números, QR, servidor e conferência de mensagens.</p></div>
         <Link href="/atendimento/canais" className="button-ghost">Abrir WhatsApp →</Link>
       </div>
       <LiaLearnedRules />
-      <details className="card p-4" onToggle={event => setRulesOpen(event.currentTarget.open)}>
+      <details className="fx-block" onToggle={event => setRulesOpen(event.currentTarget.open)}>
         <summary className="cursor-pointer font-semibold">Regras de atendimento</summary>
         {rulesOpen && <div className="mt-4"><AnaRules /></div>}
       </details>

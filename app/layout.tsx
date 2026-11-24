@@ -8,6 +8,7 @@ import "./quote-paper.css";
 import "./home.css";
 import "./mobile.css";
 import "./components.css";
+import "./forms.css";
 import "./glass.css";
 import "./typography.css";
 
