@@ -137,3 +137,16 @@
 /* botões em pílula dentro de painéis de vidro: contorno cinza fino para aparecerem sobre o branco */
 .mh-pill:not(.is-primary) { border-color: rgb(16 24 40 / .12); }
 .detail-actions .button-ghost, .sale-hero-actions .button-ghost, .quote-actions .button-ghost { border-color: rgb(16 24 40 / .12); }
+
+/* ---------- cartão vermelho de destaque (Orçamentos pendentes): vidro vermelho, sem listras ---------- */
+.mh-kpis > .mh-kpi:first-child {
+  position: relative; overflow: hidden; isolation: isolate; color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / .26) 0%, transparent 56%),
+    linear-gradient(180deg, rgb(255 255 255 / .10) 0%, transparent 42%),
+    linear-gradient(135deg, rgb(214 16 16 / .96) 0%, rgb(176 10 10 / .94) 100%);
+  border: 1px solid rgb(255 255 255 / .42);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  box-shadow: 0 14px 30px rgb(190 14 14 / .26), 0 2px 6px rgb(190 14 14 / .18), inset 0 1px 0 rgb(255 255 255 / .55), inset 0 -1px 0 rgb(110 0 0 / .20);
+}
+.mh-kpis > .mh-kpi:first-child .mh-kpi-value strong { color: #fff; }

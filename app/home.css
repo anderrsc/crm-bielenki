@@ -95,7 +95,7 @@
 .mh-kpi-value strong { font-size: clamp(24px, 7vw, 30px); font-weight: 600; letter-spacing: var(--tracking-heading); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .mh-kpi-value strong.is-long { font-size: clamp(18px, 5.4vw, 22px); }
 .mh-kpi-value em { font-style: normal; font-size: 12px; color: #667085; }
-.mh-kpis > .mh-kpi:first-child { background: repeating-radial-gradient(circle at 100% 100%, transparent 0 15px, rgb(255 255 255 / .14) 15px 16px), linear-gradient(135deg, #E31616 0%, #B30B0B 100%); }
+.mh-kpis > .mh-kpi:first-child { }
 .mh-kpis > .mh-kpi:first-child .mh-kpi-top, .mh-kpis > .mh-kpi:first-child .mh-kpi-top small, .mh-kpis > .mh-kpi:first-child .mh-kpi-top small svg, .mh-kpis > .mh-kpi:first-child .mh-kpi-value em { color: rgb(255 255 255 / .9); }
 .mh-event { gap: 12px; padding: 12px; border-radius: 22px; }
 .mh-event-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: 14px; background: #151517; color: #fff; }
