@@ -39,3 +39,15 @@ test("teste ativo: conexão que responde não é reiniciada só pelo silêncio (
   expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T13:50:00Z", now, probe: "ok" })).toBe(true);
   expect(shouldRestart({ ...base, lastMessageEventAt: "2026-11-23T13:50:00Z", lastRestartAt: "2026-11-23T15:00:00Z", now, probe: "ok" })).toBe(false);
 });
+
+test("número principal (movimentado): conexão que responde ao teste mas não recebe é reiniciada em 30 min", () => {
+  // Caso real de 24/11: principal sem receber das 08:12 às 10:56 com o painel "Conectado".
+  const now = at("2026-11-24T12:00:00Z"); // ter 09:00 BR
+  const principal = { ...base, now, probe: "ok" as const, quietFallbackMinutes: 30 };
+  expect(shouldRestart({ ...principal, lastMessageEventAt: "2026-11-24T11:45:00Z" })).toBe(false); // só 15 min de silêncio
+  expect(shouldRestart({ ...principal, lastMessageEventAt: "2026-11-24T11:20:00Z" })).toBe(true);  // 40 min
+  // Respeita o intervalo mínimo entre reinícios (45 min): não reinicia em laço.
+  expect(shouldRestart({ ...principal, lastMessageEventAt: "2026-11-24T11:20:00Z", lastRestartAt: "2026-11-24T11:30:00Z" })).toBe(false);
+  // O número de pouco movimento continua com a reserva de 2 h.
+  expect(shouldRestart({ ...base, now, probe: "ok", lastMessageEventAt: "2026-11-24T11:20:00Z" })).toBe(false);
+});
