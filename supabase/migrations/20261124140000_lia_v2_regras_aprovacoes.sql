@@ -46,11 +46,11 @@ create policy lia_rules_select on public.lia_rules for select to authenticated
   using (company_id = (select public.current_company_id()));
 drop policy if exists lia_rules_insert on public.lia_rules;
 create policy lia_rules_insert on public.lia_rules for insert to authenticated
-  with check (company_id = (select public.current_company_id()) and public.has_role(array['administrador','gerente']::public.app_role[]));
+  with check (company_id = (select public.current_company_id()) and (select public.has_role(array['administrador','gerente']::public.app_role[])));
 drop policy if exists lia_rules_update on public.lia_rules;
 create policy lia_rules_update on public.lia_rules for update to authenticated
-  using (company_id = (select public.current_company_id()) and public.has_role(array['administrador','gerente']::public.app_role[]))
-  with check (company_id = (select public.current_company_id()) and public.has_role(array['administrador','gerente']::public.app_role[]));
+  using (company_id = (select public.current_company_id()) and (select public.has_role(array['administrador','gerente']::public.app_role[])))
+  with check (company_id = (select public.current_company_id()) and (select public.has_role(array['administrador','gerente']::public.app_role[])));
 revoke all on public.lia_rules from anon;
 revoke delete on public.lia_rules from authenticated;  -- regra não se apaga: desativa (is_active = false) e fica no histórico
 grant select, insert, update on public.lia_rules to authenticated;
@@ -106,14 +106,14 @@ alter table public.lia_approvals enable row level security;
 drop policy if exists lia_approvals_select on public.lia_approvals;
 create policy lia_approvals_select on public.lia_approvals for select to authenticated
   using (company_id = (select public.current_company_id())
-         and (requested_by = (select auth.uid()) or public.has_role(array['administrador','gerente']::public.app_role[])));
+         and (requested_by = (select auth.uid()) or (select public.has_role(array['administrador','gerente']::public.app_role[]))));
 drop policy if exists lia_approvals_insert on public.lia_approvals;
 create policy lia_approvals_insert on public.lia_approvals for insert to authenticated
   with check (company_id = (select public.current_company_id()) and requested_by = (select auth.uid()));
 drop policy if exists lia_approvals_update on public.lia_approvals;
 create policy lia_approvals_update on public.lia_approvals for update to authenticated
-  using (company_id = (select public.current_company_id()) and public.has_role(array['administrador','gerente']::public.app_role[]))
-  with check (company_id = (select public.current_company_id()) and public.has_role(array['administrador','gerente']::public.app_role[]));
+  using (company_id = (select public.current_company_id()) and (select public.has_role(array['administrador','gerente']::public.app_role[])))
+  with check (company_id = (select public.current_company_id()) and (select public.has_role(array['administrador','gerente']::public.app_role[])));
 revoke all on public.lia_approvals from anon;
 revoke delete on public.lia_approvals from authenticated;
 grant select, insert, update on public.lia_approvals to authenticated;
