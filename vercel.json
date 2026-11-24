@@ -10,7 +10,7 @@
   "crons": [
     {
       "path": "/api/internal/operations",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

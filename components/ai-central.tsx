@@ -92,7 +92,7 @@ export function AiCentral({ data, error, v2, promptVersions }: { data: CentralDa
               {t.label}
               {t.badge != null && t.badge > 0 && (
                 <span className={cn(
-                  "inline-flex items-center justify-center rounded-full text-[10px] font-bold w-4 h-4",
+                  "inline-flex items-center justify-center rounded-full text-[11px] font-semibold w-4 h-4",
                   active ? "bg-white/30 text-white" : "bg-amber-500 text-white",
                 )}>
                   {t.badge > 99 ? "99+" : t.badge}
