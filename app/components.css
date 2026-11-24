@@ -28,3 +28,46 @@
   .fin-actions .button { min-height: 48px; padding: 0 var(--sp-3); justify-content: center; font-size: var(--type-filter); white-space: normal; text-align: center; line-height: 1.25; }
   .fin-actions .button:only-child { grid-column: 1 / -1; }
 }
+
+/* ===== Detalhe do orçamento: painel com número, cliente, status e ações ===== */
+.quote-hero { align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.quote-hero-back { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; margin-bottom: var(--sp-1); font-size: var(--type-filter); font-weight: var(--fw-medium); color: var(--ink-soft); }
+.quote-hero-client { margin-top: 2px; font-size: var(--type-body); color: var(--ink-soft); overflow-wrap: anywhere; }
+.quote-hero-status { margin-top: var(--sp-2); }
+.quote-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.quote-actions form { display: contents; }
+.quote-actions > *, .quote-actions form > * { flex: none; }
+.quote-actions .button, .quote-actions .button-ghost { min-height: 40px; padding: 0 14px; white-space: nowrap; font-size: var(--type-button); }
+@media (max-width: 767px) {
+  .quote-actions { flex-wrap: nowrap; overflow-x: auto; width: 100%; margin: var(--sp-3) calc(var(--gutter) * -1) 0; padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+  .quote-actions::-webkit-scrollbar { display: none; }
+  .quote-actions > *, .quote-actions form > * { flex: none; }
+  .quote-hero.mh-hero.is-simple { display: block; }
+}
+
+/* ===== Importar proposta do WVetro: texto em largura inteira, ação abaixo no celular ===== */
+.wvetro-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.wvetro-text { flex: 1 1 320px; min-width: 0; }
+.wvetro-card > .button { flex: 0 0 auto; }
+@media (max-width: 767px) { .wvetro-card > .button { width: 100%; justify-content: center; } }
+
+/* ===== Central de IA ===== */
+.ai-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.ai-toolbar-sub { margin-top: var(--sp-1); font-size: var(--type-secondary); color: var(--text-muted); }
+.ai-pause { background: #fff; color: var(--brand-strong); border: 1px solid var(--border); box-shadow: none; }
+.ai-pause:hover { background: var(--brand-soft); color: var(--brand-strong); }
+.ai-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.ai-stats .card { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-card); }
+.ai-stats .card p:first-child { font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ai-stats .card p:last-child { margin-top: 2px; font-size: var(--type-secondary); }
+@media (min-width: 768px) { .ai-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ai-config > summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.ai-config > summary::-webkit-details-marker { display: none; }
+.ai-config-summary span { font-size: var(--type-section); font-weight: var(--fw-semibold); }
+.ai-config-summary small { font-size: var(--type-secondary); color: var(--text-muted); }
+.ai-config > summary::after { content: "Abrir"; position: absolute; right: var(--sp-4); top: var(--sp-4); font-size: var(--type-filter); font-weight: var(--fw-medium); color: var(--brand-text); }
+.ai-config[open] > summary::after { content: "Fechar"; }
+.ai-config { position: relative; }
+
+/* ===== Formulários: sem espaço morto quando o título virou faixa ===== */
+.app-content:has(> .shell-band) h1 + * { margin-top: 0; }

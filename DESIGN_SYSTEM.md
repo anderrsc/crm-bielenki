@@ -93,6 +93,10 @@ Evite empilhar duas camadas com desfoque.
 | Filtros recolhíveis | `MobileCollapse` | Botão no celular; sempre visível no PC |
 | Status | `StatusBadge` | Cor + texto (nunca só cor) |
 | Valor monetário | `.num`, `data-fit` | Tabular; `FitNumbers` evita corte |
+| Detalhe do orçamento | `.quote-hero` + `.quote-actions` | Painel com número, cliente e status; ações em linha rolável no celular |
+| Cartão de ação com texto | `.wvetro-card` | Texto em largura inteira; botão abaixo no celular |
+| Configurações recolhíveis | `.ai-config` (`<details>`) | Operação primeiro; configurações críticas ficam recolhidas (Central de IA) |
+| Faixa de título dos editores | `AppShell` (`bandSub`) | `/orcamentos/calhas`, `/orcamentos/esquadrias`, `/novo`, `/nova`, `/editar` |
 
 ## Contraste
 

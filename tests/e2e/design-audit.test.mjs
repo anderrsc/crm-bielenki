@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { launch, login, BASE } from "./helpers.mjs";
 
 const WIDTHS = [320, 375, 390, 402, 430, 440, 768, 1024, 1440, 1920];
-const ROUTES = ["/dashboard", "/orcamentos", "/agenda", "/atendimento", "/clientes", "/financeiro", "/central-ia", "/pipeline", "/configuracoes"];
+const ROUTES = ["/dashboard", "/orcamentos", "/agenda", "/atendimento", "/clientes", "/financeiro", "/central-ia", "/pipeline", "/configuracoes", "/orcamentos/calhas", "/orcamentos/esquadrias", "/clientes/novo", "/compras/nova", "/vendas/nova"];
 let browser, page;
 before(async () => {
   browser = await launch();
