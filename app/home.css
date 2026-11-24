@@ -218,3 +218,7 @@
 .agenda-stack > .agenda-after { order: 2; margin-top: 20px; }
 /* Títulos redundantes: o nome da seção já aparece no menu e na faixa/painel da tela */
 .app-content p:has(+ h1):not(:is(.print-sheet, .quote-sheet, .measure-sheet) *) { display: none; }
+
+/* Cartão do painel sem gráfico: valor, resumo e uma divisória antes dos atalhos */
+.mh-hero-card .mh-hero-note { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid rgb(16 24 40 / .08); }
+.mh-hero-card .mh-circles { padding-top: 0; }

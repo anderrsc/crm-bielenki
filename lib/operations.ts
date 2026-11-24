@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
 import { evolutionOwnerPhone, evolutionProbe, evolutionRestart, evolutionState, evolutionWebhookConfig, webhookConfigProblems } from '@/lib/whatsapp/evolution';
-import { looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
+import { BUSY_QUIET_FALLBACK_MINUTES, looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
 import { runLiaFollowups } from '@/lib/lia-followups';
@@ -83,12 +83,12 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
         p_event_type: probe === 'ok' ? 'probe_ok' : 'probe_failed', p_status: state,
       }).then(() => undefined, () => undefined);
     }
-    if (shouldRestart({ ...watch, probe })) {
+    if (shouldRestart({ ...watch, probe, quietFallbackMinutes: ch.is_default ? BUSY_QUIET_FALLBACK_MINUTES : undefined })) {
       try {
         await evolutionRestart(c.evolutionUrl, c.evolutionKey, c.evolutionInstance);
         const at = new Date().toISOString();
         await db.from('whatsapp_channels').update({ last_restart_at: at, restart_count: (row.restart_count ?? 0) + 1 }).eq('id', ch.id);
-        const motivo = probe === 'failed' ? 'sem mensagens há 20 min e a conexão não respondeu ao teste' : probe === 'ok' ? 'sem nenhum evento há 2 h (reserva)' : 'sem mensagens há 20 min com a conexão aberta';
+        const motivo = probe === 'failed' ? 'sem mensagens há 20 min e a conexão não respondeu ao teste' : probe === 'ok' ? `sem nenhum evento há ${ch.is_default ? BUSY_QUIET_FALLBACK_MINUTES + ' min' : '2 h'} (reserva)` : 'sem mensagens há 20 min com a conexão aberta';
         await db.from('audit_logs').insert({ company_id: ch.company_id, table_name: 'whatsapp_channels', record_id: ch.id, action: 'AUTO_RESTART', new_data: { name: ch.name, motivo } });
         await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-restart:${ch.id}:${at.slice(0, 16)}`, p_title: 'WhatsApp reiniciado', p_body: `O número ${ch.name} parou de receber mensagens e a conexão foi reiniciada sozinha. As mensagens paradas entram em seguida.`, p_link: '/atendimento/canais' }).then(() => undefined, () => undefined);
       } catch (e) { console.error('Reiniciar WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
