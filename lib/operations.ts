@@ -6,6 +6,7 @@ import { evolutionOwnerPhone, evolutionProbe, evolutionRestart, evolutionSetWebh
 import { BUSY_QUIET_FALLBACK_MINUTES, looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
+import { decryptSecret } from '@/lib/encrypt';
 import { runLiaFollowups } from '@/lib/lia-followups';
 
 export function operationsDb() {
@@ -178,7 +179,7 @@ async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: Whats
   if (problems.length) {
     // Tenta corrigir automaticamente se tiver o segredo do canal e a URL do CRM configurada.
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const secret = ch.webhook_secret;
+    const secret = ch.webhook_secret ? decryptSecret(ch.webhook_secret) : null;
     if (siteUrl && secret) {
       try {
         await evolutionSetWebhook(c.evolutionUrl, c.evolutionKey, c.evolutionInstance, `${siteUrl}/api/whatsapp/webhook`, secret);

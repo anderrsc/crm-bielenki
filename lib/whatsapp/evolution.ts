@@ -88,7 +88,6 @@ export async function evolutionSetWebhook(base: string, apiKey: string, instance
   await call(base, apiKey, `/webhook/set/${encodeURIComponent(instance)}`, { method: "POST", body: { webhook } });
 }
 
-/** Cria a instância (se não existir) e aponta o webhook para o CRM com o segredo no cabeçalho. */
 export async function ensureEvolutionInstance(base: string, apiKey: string, instance: string, webhookUrl: string, webhookSecret: string) {
   const webhook = { enabled: true, url: webhookUrl, byEvents: false, base64: false, headers: { "x-webhook-secret": webhookSecret }, events: WEBHOOK_EVENTS };
   const list = await call<Array<{ name?: string; instance?: { instanceName?: string } }>>(base, apiKey, "/instance/fetchInstances").catch(() => []);
