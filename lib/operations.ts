@@ -167,9 +167,10 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
 }
 
 async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: WhatsappChannel, c: { evolutionUrl: string; evolutionKey: string; evolutionInstance: string }) {
-  const { data: last } = await db.from('whatsapp_connection_history').select('created_at').eq('channel_id', ch.id)
+  const { data: last } = await db.from('whatsapp_connection_history').select('created_at,event_type').eq('channel_id', ch.id)
     .in('event_type', ['webhook_ok', 'webhook_invalid', 'webhook_check_failed']).order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (last?.created_at && Date.now() - Date.parse(last.created_at) < 60 * 60_000) return;
+  // Só pula a verificação se o último resultado foi OK há menos de 1h; se foi inválido ou falhou, tenta de novo.
+  if (last?.created_at && last.event_type === 'webhook_ok' && Date.now() - Date.parse(last.created_at) < 60 * 60_000) return;
   let problems: string[];
   try { problems = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance)); }
   catch (e) {
