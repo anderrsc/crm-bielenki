@@ -10,10 +10,9 @@ import {TrackingPortal} from '@/components/tracking-portal';
 beforeEach(()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','http://localhost:54321');rpc.mockReset();loadTracking.mockReset();});
 afterEach(()=>vi.unstubAllEnvs());
 
-test('portal usa origem fixa sem credenciais e mantém isolamento e alternativa em nova guia',()=>{
+test('painel abre o portal normal sem quadro ou credenciais e mantém alternativa segura',()=>{
  const html=renderToStaticMarkup(<TrackingPortal/>);
- expect(html).toContain('src="https://gps.trackceo.com/"');expect(html).toContain('title="Painel TrackCEO"');expect(html).toContain('referrerPolicy="no-referrer"');
- expect(html).toContain('allow-same-origin');expect(html).not.toContain('allow-top-navigation');expect(html).toContain('noopener noreferrer');
+ expect(html).toContain('href="https://gps.trackceo.com/V2/index.jsp"');expect(html).not.toContain('<iframe');expect(html).toContain('noopener noreferrer');
  expect(html).not.toMatch(/token=|account=|password=|postMessage/);expect(html).toContain('não são sincronizados');
 });
 
@@ -28,5 +27,5 @@ test('painel exige a mesma autorização de gerência antes de renderizar o site
 test('gerência abre o portal sem consultar GPS, obter segredos ou depender da API TrackCEO',async()=>{
  rpc.mockResolvedValue({error:null,data:{company_id:'company',active:false}});
  const html=renderToStaticMarkup(await Page({searchParams:Promise.resolve({painel:'1'})}));
- expect(html).toContain('<iframe');expect(loadTracking).not.toHaveBeenCalled();expect(rpc).toHaveBeenCalledTimes(1);
+ expect(html).toContain('Rastreamento em janela própria');expect(loadTracking).not.toHaveBeenCalled();expect(rpc).toHaveBeenCalledTimes(1);
 });

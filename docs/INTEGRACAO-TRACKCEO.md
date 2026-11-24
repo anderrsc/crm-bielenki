@@ -1,10 +1,12 @@
 # TrackCEO no CRM — 24/11/2026
 
-## Painel do portal dentro do CRM
+## Painel e janela do rastreamento
 
-Em Rastreamento, clicar em **Abrir painel TrackCEO** abre `/equipes/rastreamento?painel=1`. O próprio portal aparece dentro da página e pede seu login normal. A mesma autorização de gerência protege a entrada. O CRM não lê nem salva a senha, os tokens ou os dados exibidos nessa modalidade; não há sincronização com os cadastros. O painel pode ser usado mesmo com a API desconectada.
+Em Rastreamento, clicar em **Abrir painel TrackCEO** abre `/equipes/rastreamento?painel=1`, restrito à gerência. **Abrir rastreamento** abre uma janela própria do navegador em `https://gps.trackceo.com/V2/index.jsp`. O dono entra diretamente no TrackCEO. Um novo clique localiza a janela enquanto ela continua aberta; se fechada, abre outra. O CRM não lê nem salva a senha, os tokens ou os dados exibidos; não há sincronização com os cadastros. O painel pode ser usado mesmo com a API desconectada.
 
-Mantenha essa página aberta para acompanhar; ao navegar para outro módulo, o quadro é fechado. A sessão depende do navegador e pode pedir login novamente. Use **Abrir em nova guia** caso o portal ou os cookies não funcionem dentro do quadro. Não alterar políticas de cookies ou copiar tokens para contornar restrições. E2E e varredura de links substituem o portal por HTML fictício; a verificação real de exibição carregou apenas o login público dentro de uma página local.
+A janela continua aberta ao navegar pelos módulos do CRM. Ela é desligada do `opener` antes de carregar o fornecedor, mantendo apenas uma referência local para foco/fechamento, sem ler sua URL, cookies ou conteúdo. Se o navegador bloquear a janela, **Abrir TrackCEO em nova guia** oferece a navegação normal. O painel informa somente a abertura da janela, nunca que o login foi concluído. A sessão depende do próprio TrackCEO e pode expirar.
+
+**Correção após o PR #149:** o quadro incorporado abriu o login público, mas o login real voltava para a entrada. Foi removido, sem alterar cookies do fornecedor, proteções do navegador ou copiar tokens. Na sessão normal já autenticada, foram conferidos seis veículos. E2E passa pelo login do portal fictício em janela própria, cookie `SameSite=Lax`, recarregamento, foco/reabertura e `window.opener=null`. O portal fictício exige as três variáveis do ambiente E2E local; URL arbitrária é ignorada. Nenhum teste usa credenciais ou veículos reais.
 
 Modelo aprovado pelo dono: conexão protegida, vínculo dos rastreadores à frota e mapa da última localização. Começa desligado e sem credenciais. Dados reais entram somente depois de um gerente conectar a conta.
 

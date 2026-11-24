@@ -28,14 +28,21 @@ before(async()=>{
  await login(page,email,password);
 },{timeout:60000});
 after(async()=>{await browser?.close();await db?.end();});
-test('celular: painel do fornecedor abre dentro do CRM sem consultar a API',async()=>{
+test('celular: janela mantém login com cookie Lax, não acessa o CRM e é reutilizada',async()=>{
  await page.goto(`${BASE}/equipes/rastreamento`,{waitUntil:'networkidle0'});
  await submit('a[href="/equipes/rastreamento?painel=1"]');
- const iframe=await page.waitForSelector('iframe[title="Painel TrackCEO"]');const frame=await iframe.contentFrame();await frame.waitForSelector('[data-testid="fake-portal"]');
- assert.equal(await iframe.evaluate(el=>el.src),'https://gps.trackceo.com/');
+ assert.equal(await page.$('iframe'),null);
+ const popupPromise=new Promise(resolve=>page.once('popup',resolve));await page.click('[data-testid="tracking-open-window"]');const popup=await popupPromise;
+ await popup.waitForSelector('input[name="account"]');assert.deepEqual(await popup.evaluate(()=>({top:window.top===window,detached:window.opener===null})),{top:true,detached:true});
+ await popup.type('input[name="account"]','frota-teste');await popup.type('input[name="password"]','senha-gps-teste');
+ await Promise.all([popup.waitForNavigation({waitUntil:'networkidle0'}),popup.click('button')]);await popup.waitForSelector('[data-testid="fake-portal-connected"]');
+ await popup.reload({waitUntil:'networkidle0'});await popup.waitForSelector('[data-testid="fake-portal-connected"]');
+ const tabs=browser.targets().length;await page.click('[data-testid="tracking-open-window"]');assert.equal(browser.targets().length,tabs,'segundo clique deve reutilizar a janela');
+ await popup.close();const reopened=new Promise(resolve=>page.once('popup',resolve));await page.click('[data-testid="tracking-open-window"]');const next=await reopened;
+ await next.waitForSelector('[data-testid="fake-portal-connected"]');await next.close();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'painel precisa caber em 375 px');assert.equal(remote.length,0);
  const out=path.join(process.env.TEST_WORK_DIR??'.test-work','mobile');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'trackceo-painel-375.png'),fullPage:true});
- await submit('a[href="/equipes/rastreamento"]');assert.equal(await page.$('iframe[title="Painel TrackCEO"]'),null);
+ await submit('a[href="/equipes/rastreamento"]');
 });
 test('celular: conexão protegida, vínculo, mapa, atualização e desconexão preservando a frota',{timeout:120000},async()=>{
  await page.goto(`${BASE}/equipes/rastreamento`,{waitUntil:'networkidle0'});assert.equal(await pageProblem(page),null);
