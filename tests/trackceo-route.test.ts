@@ -21,7 +21,7 @@ test('origem externa, sessão ausente e usuário sem gerência não chegam ao fo
  user.mockResolvedValue({id:actor});rpc.mockResolvedValue({error:{code:'42501'},data:null});expect((await POST(request({action:'sync'}))).status).toBe(403);expect(sync).not.toHaveBeenCalled();
 });
 test('validação rejeita comando, URL de servidor arbitrária e vínculo UUID inválido',async()=>{
- const cases:Record<string,string>[]=[{action:'command',command:'RELAY,1'},{action:'connect',account:'a',password:''},{action:'link',device:'bad',vehicle:''}];
+ const cases:Record<string,string>[]=[{action:'command',command:'RELAY,1'},{action:'__proto__'},{action:'constructor'},{action:'connect',account:'a',password:''},{action:'link',device:'bad',vehicle:''}];
  for(const values of cases){
   const r=await POST(request(values));expect(r.status).toBe(303);expect(r.headers.get('location')).toContain('erro=');
  }

@@ -20,7 +20,7 @@ export async function POST(request:NextRequest){
  const back='/equipes/rastreamento';
  const bounce=(key:string,value:string)=>NextResponse.redirect(new URL(`${back}?${key}=${encodeURIComponent(value)}`,request.url),303);
  const form=await request.formData(),raw=Object.fromEntries(form.entries());const action=String(raw.action??'');
- const parsed=actions[action as keyof typeof actions]?.safeParse(raw);
+ const parsed=Object.hasOwn(actions,action)?actions[action as keyof typeof actions].safeParse(raw):undefined;
  if(!parsed?.success)return bounce('erro','Confira os campos da conexão.');
  try{
   if(action==='connect'){
