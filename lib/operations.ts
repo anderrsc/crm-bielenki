@@ -92,6 +92,16 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
         await db.from('audit_logs').insert({ company_id: ch.company_id, table_name: 'whatsapp_channels', record_id: ch.id, action: 'AUTO_RESTART', new_data: { name: ch.name, motivo } });
         await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-restart:${ch.id}:${at.slice(0, 16)}`, p_title: 'WhatsApp reiniciado', p_body: `O número ${ch.name} parou de receber mensagens e a conexão foi reiniciada sozinha. As mensagens paradas entram em seguida.`, p_link: '/atendimento/canais' }).then(() => undefined, () => undefined);
       } catch (e) { console.error('Reiniciar WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
+      // Pós-reinício: recupera mensagens que ficaram paradas enquanto o webhook estava falho.
+      // Sem isso o cron pula a reconciliação neste ciclo e as mensagens do gap só chegam
+      // quando o webhook retoma entrega (que pode não ocorrer para mensagens antigas).
+      try {
+        const r = await syncRecentEvolutionMessages(db, ch.company_id, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 20 });
+        const now = new Date().toISOString();
+        await db.from('whatsapp_channels').update({ last_sync_at: now }).eq('id', ch.id);
+        if (ch.is_default) await db.from('ai_agent_config').update({ inbox_reconciled_at: now }).eq('company_id', ch.company_id);
+        reconciled += r.inserted;
+      } catch (e) { console.error('Reconciliação pós-reinício WhatsApp:', ch.id, e instanceof Error ? e.message : e); }
       continue;
     }
     // A cada hora: o webhook da instância ainda aponta para o CRM, ligado e com os eventos certos?
