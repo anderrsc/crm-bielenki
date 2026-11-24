@@ -1,5 +1,11 @@
 # TrackCEO no CRM — 24/11/2026
 
+## Painel do portal dentro do CRM
+
+Em Rastreamento, clicar em **Abrir painel TrackCEO** abre `/equipes/rastreamento?painel=1`. O próprio portal aparece dentro da página e pede seu login normal. A mesma autorização de gerência protege a entrada. O CRM não lê nem salva a senha, os tokens ou os dados exibidos nessa modalidade; não há sincronização com os cadastros. O painel pode ser usado mesmo com a API desconectada.
+
+Mantenha essa página aberta para acompanhar; ao navegar para outro módulo, o quadro é fechado. A sessão depende do navegador e pode pedir login novamente. Use **Abrir em nova guia** caso o portal ou os cookies não funcionem dentro do quadro. Não alterar políticas de cookies ou copiar tokens para contornar restrições. E2E e varredura de links substituem o portal por HTML fictício; a verificação real de exibição carregou apenas o login público dentro de uma página local.
+
 Modelo aprovado pelo dono: conexão protegida, vínculo dos rastreadores à frota e mapa da última localização. Começa desligado e sem credenciais. Dados reais entram somente depois de um gerente conectar a conta.
 
 ## Uso

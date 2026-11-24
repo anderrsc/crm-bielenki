@@ -21,12 +21,22 @@ before(async()=>{
  browser=await launch();page=await browser.newPage();await page.setViewport({width:375,height:812,isMobile:true,hasTouch:true});
  await page.setRequestInterception(true);page.on('request',req=>{
   const url=req.url();if(url.includes('api.trackceo.com')||url.includes('54323'))remote.push(url);
+  if(new URL(url).origin==='https://gps.trackceo.com')return req.respond({status:200,contentType:'text/html',body:'<!doctype html><html lang="pt-BR"><h1 data-testid="fake-portal">Portal TrackCEO fictício</h1><label>Conta <input></label><label>Senha <input type="password"></label></html>'});
   if(url.startsWith('https://tile.openstreetmap.org/'))return req.respond({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNJkAAAAASUVORK5CYII=','base64')});
   return req.continue();
  });
  await login(page,email,password);
 },{timeout:60000});
 after(async()=>{await browser?.close();await db?.end();});
+test('celular: painel do fornecedor abre dentro do CRM sem consultar a API',async()=>{
+ await page.goto(`${BASE}/equipes/rastreamento`,{waitUntil:'networkidle0'});
+ await submit('a[href="/equipes/rastreamento?painel=1"]');
+ const iframe=await page.waitForSelector('iframe[title="Painel TrackCEO"]');const frame=await iframe.contentFrame();await frame.waitForSelector('[data-testid="fake-portal"]');
+ assert.equal(await iframe.evaluate(el=>el.src),'https://gps.trackceo.com/');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'painel precisa caber em 375 px');assert.equal(remote.length,0);
+ const out=path.join(process.env.TEST_WORK_DIR??'.test-work','mobile');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'trackceo-painel-375.png'),fullPage:true});
+ await submit('a[href="/equipes/rastreamento"]');assert.equal(await page.$('iframe[title="Painel TrackCEO"]'),null);
+});
 test('celular: conexão protegida, vínculo, mapa, atualização e desconexão preservando a frota',{timeout:120000},async()=>{
  await page.goto(`${BASE}/equipes/rastreamento`,{waitUntil:'networkidle0'});assert.equal(await pageProblem(page),null);
  await page.type('[data-testid="tracking-connect"] input[name="account"]','frota-teste');await page.type('[data-testid="tracking-connect"] input[name="password"]','senha-gps-teste');
