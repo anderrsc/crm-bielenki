@@ -8,9 +8,12 @@ async function getProfileAndCompany() {
   const db = await getRequestClient();
   const user = await getAuthUser();
   if (!user) throw new Error("Não autenticado");
-  const { data: profile } = await db.from("profiles").select("company_id,role").eq("id", user.id).single();
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
   if (!profile?.company_id) throw new Error("Empresa não encontrada");
-  return { db, user, profile };
+  const { data: roles, error } = await db.rpc("current_user_roles");
+  if (error) throw new Error("Falha ao consultar permissões");
+  const role = Array.isArray(roles) ? roles.find(value => value === "administrador") ?? roles.find(value => value === "gerente") ?? null : null;
+  return { db, user, profile: { ...profile, role } };
 }
 
 function isManager(role: string | null) {
