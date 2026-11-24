@@ -127,7 +127,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <Link href={`/equipes?dia=${ymd(cursor)}`} className="mb-4 inline-block text-sm font-bold underline">Equipes, veículos e carregamento</Link>
+      <Link href={`/equipes?dia=${ymd(cursor)}`} className="agenda-equipes-link mb-4 inline-block text-sm font-bold underline">Equipes, veículos e carregamento</Link>
       {mobile ? <><MobileAgenda cursor={cursor} view={mobileView} events={events} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
         {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-bold text-ink/50">Carregando agenda…</p>}
       {/* ── Header ── */}

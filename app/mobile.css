@@ -323,9 +323,9 @@
 /* ===== Estilo "app": painel de destaque escuro, cartões bem arredondados e barra inferior flutuante ===== */
 @media screen and (max-width: 767px) {
  /* Painel de destaque do Início */
- .mh-hero { margin: -18px -16px 18px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; background: linear-gradient(180deg, #2a2b2e 0%, #151517 100%); }
- .mobile-home .mh-hero .mh-greeting { font-size: 22px; line-height: 28px; font-weight: 700; color: #fff; }
- .mobile-home .mh-hero .mh-date { margin: 2px 0 16px; font-size: 14px; color: rgb(255 255 255 / .62); }
+ .mh-hero { margin: -18px -16px 18px; padding: 20px 16px 16px; border-radius: 0 0 28px 28px; color: #fff; background: radial-gradient(130% 80% at 100% 0%, rgb(246 17 17 / .30) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .mh-hero .mh-greeting { font-size: 22px; line-height: 28px; font-weight: 700; color: #fff; }
+ .mh-hero .mh-date { margin: 2px 0 16px; font-size: 14px; color: rgb(255 255 255 / .62); }
  .mh-hero-label { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
  .mh-hero-value { margin-top: 2px; font-size: 34px; line-height: 40px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
  .mh-hero-note { margin-top: 4px; font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); }
@@ -371,3 +371,55 @@
  .mh-pill svg { display: none; }
  .mh-hero-value { font-size: 30px; }
 }
+
+/* Marquinhos: grafite + vermelho no lugar do verde-limão das referências */
+@media screen and (max-width: 767px) {
+ .mh-hero h1.mh-greeting { margin: 0; font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing: -.02em; }
+ .mh-hero .mh-hero-label { margin-top: 14px; }
+ /* cartão de destaque (um por tela), como o cartão em lima da referência */
+ .mh-kpis > .mh-kpi:first-child { background: linear-gradient(135deg, #F61111 0%, #B30B0B 100%); border-color: transparent; color: #fff; box-shadow: 0 8px 20px rgb(179 11 11 / .28); }
+ .mh-kpis > .mh-kpi:first-child .mh-kpi-text small, .mh-kpis > .mh-kpi:first-child .mh-kpi-text strong, .mh-kpis > .mh-kpi:first-child .mh-kpi-text em { color: #fff; }
+ .mh-kpis > .mh-kpi:first-child .mh-kpi-icon { background: rgb(255 255 255 / .2); color: #fff; }
+
+ /* Agenda dentro do painel */
+ .agenda-hero { padding-bottom: 14px; }
+ .agenda-hero .mobile-agenda-heading { margin-bottom: 12px; }
+ .agenda-hero .mobile-agenda-heading h1 { color: #fff; font-size: 24px; }
+ .agenda-hero .mobile-agenda-heading h1 svg { color: rgb(255 255 255 / .7); }
+ .agenda-hero .mobile-icon-button { background: rgb(255 255 255 / .12); border-color: transparent; color: #fff; }
+ .agenda-hero .mobile-segmented { background: rgb(255 255 255 / .1); border-color: transparent; }
+ .agenda-hero .mobile-segmented > button { color: rgb(255 255 255 / .75); }
+ .agenda-hero .mobile-segmented > button[aria-pressed=true] { background: #fff; color: #151517; }
+ .agenda-hero .mobile-date-nav { background: rgb(255 255 255 / .1); border-color: transparent; margin-bottom: 8px; }
+ .agenda-hero .mobile-date-nav > button { color: #fff; }
+ .agenda-hero-note { font-size: 13px; line-height: 18px; color: rgb(255 255 255 / .62); text-align: center; }
+
+ /* WhatsApp: cabeçalho da lista em painel */
+ .mobile-inbox .wa-list-head { padding-bottom: 16px; border-radius: 0 0 28px 28px; color: #fff; background: radial-gradient(130% 80% at 100% 0%, rgb(246 17 17 / .26) 0%, transparent 58%), linear-gradient(180deg, #2c2c2f 0%, #141416 100%); }
+ .mobile-inbox .wa-list-head .wa-title { color: #fff; }
+ .mobile-inbox .wa-list-head .wa-subtitle { color: rgb(255 255 255 / .65); }
+ .mobile-inbox .wa-list-head .wa-icon-btn { color: #fff; }
+ .mobile-inbox .wa-list-head .wa-icon-btn:hover { background: rgb(255 255 255 / .12); }
+ .mobile-inbox .wa-list-head .wa-icon-btn-box { background: rgb(255 255 255 / .12); color: #fff; }
+ .mobile-inbox .wa-list-head .wa-number { background: rgb(255 255 255 / .08); border-color: rgb(255 255 255 / .16); }
+ .mobile-inbox .wa-list-head .wa-number[aria-pressed="true"] { background: rgb(255 255 255 / .18); border-color: #fff; }
+ .mobile-inbox .wa-list-head .wa-number-name { color: #fff; }
+ .mobile-inbox .wa-list-head .wa-number-phone, .mobile-inbox .wa-list-head .wa-number-add { color: rgb(255 255 255 / .65); }
+ .mobile-inbox .wa-list-head .wa-chip { background: rgb(255 255 255 / .12); color: rgb(255 255 255 / .85); }
+ .mobile-inbox .wa-list-head .wa-chip[aria-pressed="true"] { background: #fff; color: #151517; }
+ .mobile-inbox .wa-list-head .wa-chip-count { background: rgb(255 255 255 / .18); }
+ .mobile-inbox .wa-list-head .wa-chip[aria-pressed="true"] .wa-chip-count { background: rgb(21 21 23 / .1); }
+ .mobile-inbox .wa-list-head .wa-search { background: rgb(255 255 255 / .12); color: rgb(255 255 255 / .7); }
+ .mobile-inbox .wa-list-head .wa-search:focus-within { background: rgb(255 255 255 / .2); border-color: transparent; }
+ .mobile-inbox .wa-list-head .wa-search input { color: #fff; }
+ .mobile-inbox .wa-list-head .wa-search input::placeholder { color: rgb(255 255 255 / .6); }
+ .mobile-inbox .wa-list-head .wa-link { color: #fff; text-decoration: underline; }
+ .mobile-inbox .wa-list-head .wa-pill-warn { background: rgb(254 243 199 / .95); }
+ .mobile-inbox .wa-list .wa-conv:first-child { padding-top: 8px; }
+}
+@media screen and (max-width: 767px) {
+ .agenda-equipes-link { display: none; }
+ .mobile-date-label { text-transform: none; }
+ .mobile-date-label::first-letter { text-transform: uppercase; }
+}
+@media screen and (max-width: 767px) { .mobile-day-heading .mobile-inline-button { display: none; } }
