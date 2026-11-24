@@ -15,6 +15,7 @@
     "/pedidos",
     "/agenda",
     "/equipes",
+    "/equipes/rastreamento",
     "/medicoes",
     "/medicoes/ficha-em-branco",
     "/compras",
