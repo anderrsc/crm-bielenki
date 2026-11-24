@@ -472,3 +472,52 @@
  .app-content :is(.button, .button-ghost) { border-radius: 999px; }
  .app-content .card { border-radius: 22px; }
 }
+
+/* ===== Menos letra, mais ícone (estilo Instagram/TikTok): textos de apoio saem do celular ===== */
+@media screen and (max-width: 767px) {
+ .app-content h1 + p, .app-content [class*="tracking-[.22em]"], .app-content .login-kicker { display: none; }
+ .mh-story-link small { font-size: 12px; }
+ .mh-stories { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+ .mh-event-text small { display: none; }
+ .mh-event-text strong { font-size: 16px; }
+ .mh-empty { padding: 12px; font-size: 13px; }
+ .mh-kpi-top small { font-size: 13px; }
+ .mh-kpi-value em { display: none; }
+ .mh-kpi-value strong::after { content: attr(data-unit); }
+ /* fila "o que fazer agora": só ícone, rótulo curto e contagem */
+ .pq.card { padding: 14px; margin-bottom: 14px; }
+ .pq-heading { font-size: 16px; }
+ .pq-list { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
+ .pq-item { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "icon count" "text text"; align-items: center; gap: 6px 8px; padding: 12px; border-radius: 20px; }
+ .pq-icon { grid-area: icon; width: 24px; height: 24px; }
+ .pq-count { grid-area: count; display: flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; background: #151517; color: #fff; font-size: 14px; font-weight: 700; }
+ .pq-item[data-urgent="true"] .pq-count { background: var(--brand); }
+ .pq-text { grid-area: text; }
+ .pq-title, .pq-detail, .pq-arrow { display: none; }
+ .pq-short { display: block; font-size: 14px; font-weight: 600; line-height: 1.2; }
+ /* avisos de contas: uma linha rolável */
+ .dash-alerts { flex-wrap: nowrap; overflow-x: auto; margin-inline: -16px; padding: 0 16px 2px; scrollbar-width: none; }
+ .dash-alerts > a { flex: none; white-space: nowrap; border-radius: 999px; }
+}
+
+/* Listas em cartões enxutos: título, status e dados em uma linha, cartão inteiro clicável */
+@media screen and (max-width: 767px) {
+ .mobile-record-table > tbody > tr { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 14px 16px; border-radius: 20px; }
+ .mobile-record-table > tbody > tr > td:first-child { flex: 1 1 55%; min-width: 0; order: 0; font-size: 16px; font-weight: 700; }
+ .mobile-record-table > tbody > tr > td:has(.status-badge) { order: 1; margin-left: auto; flex: none; }
+ .mobile-record-table > tbody > tr > td:not(:first-child):not(:last-child):not(:has(.status-badge)) { order: 3; flex: 0 1 auto; font-size: 13px; color: var(--text-muted); }
+ .mobile-record-table > tbody > tr > td:not(:first-child):not(:last-child):not(:has(.status-badge))::before { display: none; }
+ .mobile-record-table > tbody > tr > td:not(:first-child):not(:last-child):not(:has(.status-badge)):empty { display: none; }
+ .mobile-record-table > tbody > tr > td:last-child:has(> a:only-child) { position: absolute; inset: 0; padding: 0; border-radius: 20px; }
+ .mobile-record-table td:last-child:has(> a:only-child) > a { position: absolute; inset: 0; width: auto; min-height: 0; border: 0; border-radius: 20px; background: transparent; font-size: 0; }
+ .mobile-record-table td:last-child:has(> a:only-child) > a::before { content: none; }
+ .mobile-record-table td:last-child:has(> a:only-child) > a > * { display: none; }
+ /* links sublinhados viram pílulas */
+ .app-content a.underline { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; }
+}
+@media screen and (max-width: 767px) { .mobile-record-table > tbody > tr > td:has(.status-badge)::before { display: none; } }
+@media screen and (max-width: 767px) {
+ .mh-hero.is-simple, .module-hero { margin: -18px -16px 16px; padding: 20px 16px 18px; border-radius: 0 0 28px 28px; display: block; }
+ .module-hero-main { margin-bottom: 0; }
+ .mh-hero.is-simple .mh-hero-actions { margin-top: 14px; }
+}

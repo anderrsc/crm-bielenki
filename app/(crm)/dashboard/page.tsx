@@ -119,7 +119,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
           receivable: canViewFinancial ? money(receitas) : null, receivableNote: overdueReceivable > 0 ? `${money(overdueReceivable)} vencido` : "em aberto" }}
         today={todayEvents as never} stages={stages} />}
       {/* Header */}
-      <div className={"mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"+(aba==="geral"?" desktop-only":"")}>
+      <div className={"mobile-dashboard-header mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"+(aba==="geral"?" hidden":"")}>
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-forest">Pulso da operação</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight lg:text-4xl">Visão geral</h1>
@@ -140,7 +140,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
       {data && "error" in data && <div className="mb-6 rounded-2xl bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar o painel: {(data as Record<string,string>).error}</div>}
 
       {overdueBadges.length > 0 && (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="dash-alerts mb-5 flex flex-wrap gap-2">
           {overdueBadges.map(b => (
             <Link key={b.href} href={b.href} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition hover:opacity-80 ${b.color}`}>
               <b.icon className="h-3.5 w-3.5" />{b.label}

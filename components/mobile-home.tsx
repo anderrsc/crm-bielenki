@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AgendaEventLink } from "@/components/agenda-event-link";
+import { QuickLinks } from "@/components/quick-links";
 import type { AgendaSource } from "@/lib/agenda";
 import { ArrowUpRight, CalendarCheck, CalendarPlus, ChevronRight, CircleDollarSign, FileText, Layers, Plus, Ruler, ShoppingCart, Users, Wrench } from "lucide-react";
 
@@ -38,7 +39,7 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
     { label: "Cliente", href: "/clientes/novo", Icon: Users },
   ];
   return (
-    <div className="mobile-only mobile-home">
+    <div className="mobile-home">
       <section className="mh-hero" aria-label="Resumo do mês">
         <h1 className="mh-greeting">{greeting}, {name}</h1>
         <p className="mh-date">{dateLabel}</p>
@@ -62,6 +63,8 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
         </div>
       </section>
 
+      <QuickLinks />
+
       <div className="mh-kpis">
         {tiles.map(({ label, value, note, Icon, tone, href }) => (
           <Link key={label} href={href} className="mh-kpi" data-tone={tone}>
@@ -71,6 +74,8 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
         ))}
       </div>
 
+      <div className="mh-two">
+      <section className="mh-col">
       <div className="mh-section-head"><h2 className="mh-title"><CalendarCheck size={20} />Agenda de hoje</h2><Link href="/agenda">Ver agenda <ChevronRight size={15} /></Link></div>
       {today.length ? (
         <ul className="mh-list">
@@ -86,7 +91,8 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
         </ul>
       ) : <p className="mh-empty">Nenhum compromisso para hoje.</p>}
 
-      {stages && <>
+      </section>
+      {stages && <section className="mh-col">
         <div className="mh-section-head"><h2 className="mh-title"><Layers size={20} />Pedidos em andamento</h2><Link href="/pedidos">Ver todos <ChevronRight size={15} /></Link></div>
         <div className="mh-stages">
           <Link href="/medicoes" data-stage="measure"><strong>{stages.measure}</strong><span>Medição</span></Link>
@@ -94,7 +100,8 @@ export function MobileHome({ name, greeting, dateLabel, hero, kpis, today, stage
           <Link href="/instalacoes" data-stage="install"><strong>{stages.install}</strong><span>Instalação</span></Link>
           <Link href="/servicos" data-stage="done" title="Serviços concluídos no mês"><strong>{stages.done}</strong><span>Concluídos</span></Link>
         </div>
-      </>}
+      </section>}
+      </div>
     </div>
   );
 }

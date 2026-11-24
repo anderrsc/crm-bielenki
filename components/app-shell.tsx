@@ -18,6 +18,7 @@ import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
 import { LogoutButton } from "./logout-button";
+import { AccessContext } from "./access-context";
 import { AuthorSignature,BrandLogo } from "./brand-logo";
 // Menu por área. Todo grupo abre/fecha no título; o da tela atual abre sozinho. Principal começa aberto.
 const groups=[
@@ -85,7 +86,7 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[],unr
   {href:"/orcamentos",label:"Orçamentos",Icon:FileText,show:canSee("/orcamentos")},
  ].filter(t=>t.show);
  if(mobileTabs.length<4)mobileTabs.splice(1,0,{href:"/pendencias",label:"Pendências",Icon:AlertCircle,show:true});
- return <div className="app-shell-root">
+ return <AccessContext.Provider value={canSee}><div className="app-shell-root">
   {open&&<button aria-label="Fechar menu" className="sidebar-overlay" onClick={()=>setOpen(false)}/>}
   <aside className={"app-sidebar"+(open?" is-open":"")+(compact?" is-collapsed":"")}>
    <div className="sidebar-brand"><Link href="/dashboard" aria-label="Marquinhos Calhas e Esquadrias — início"><BrandLogo compact={compact}/></Link><button className="sidebar-close" aria-label="Fechar navegação" onClick={()=>setOpen(false)}><X size={18}/></button></div>
@@ -105,5 +106,5 @@ export function AppShell({children,userName,companyName,roles=[],viewable=[],unr
    {mobileTabs.map(({href,label,Icon})=>{const active=href==="/dashboard"?pathname===href:pathname===href||pathname.startsWith(href+"/");return <Link key={href} href={href} aria-current={active?"page":undefined}><span className="mobile-tab-icon"><Icon size={22} strokeWidth={active?2.2:1.8}/>{href==="/atendimento"&&unreadChats>0&&<b className="mobile-tab-badge" aria-label={`${unreadChats} não lidas`}>{unreadChats>99?"99+":unreadChats}</b>}</span><span>{label}</span></Link>})}
    <button type="button" onClick={()=>setOpen(true)} aria-expanded={open}><LayoutGrid size={22} strokeWidth={1.8}/><span>Mais</span></button>
   </nav>
- </div>;
+ </div></AccessContext.Provider>;
 }
