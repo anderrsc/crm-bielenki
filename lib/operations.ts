@@ -2,10 +2,11 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
-import { evolutionOwnerPhone, evolutionProbe, evolutionRestart, evolutionState, evolutionWebhookConfig, webhookConfigProblems } from '@/lib/whatsapp/evolution';
+import { evolutionOwnerPhone, evolutionProbe, evolutionRestart, evolutionSetWebhook, evolutionState, evolutionWebhookConfig, webhookConfigProblems } from '@/lib/whatsapp/evolution';
 import { BUSY_QUIET_FALLBACK_MINUTES, looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
+import { decryptSecret } from '@/lib/encrypt';
 import { runLiaFollowups } from '@/lib/lia-followups';
 
 export function operationsDb() {
@@ -165,9 +166,28 @@ async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: Whats
     await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_check_failed', p_status: 'error', p_error_message: (e instanceof Error ? e.message : String(e)).slice(0, 300) });
     return;
   }
-  await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: problems.length ? 'webhook_invalid' : 'webhook_ok', p_status: problems.length ? 'error' : 'ok', p_error_message: problems.join('; ') || null });
   if (problems.length) {
+    // Tenta corrigir automaticamente se tiver o segredo do canal e a URL do CRM configurada.
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const secret = ch.webhook_secret ? decryptSecret(ch.webhook_secret) : null;
+    if (siteUrl && secret) {
+      try {
+        await evolutionSetWebhook(c.evolutionUrl, c.evolutionKey, c.evolutionInstance, `${siteUrl}/api/whatsapp/webhook`, secret);
+        // Verifica de novo após a correção.
+        const after = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance));
+        if (!after.length) {
+          await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_ok', p_status: 'ok', p_error_message: null });
+          await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-webhook-fixed:${ch.id}:${new Date().toISOString().slice(0, 10)}`, p_title: 'WhatsApp: webhook reconfigurado automaticamente',
+            p_body: `O webhook do número ${ch.name} estava com problema (${problems.join('; ')}) e foi reconfigurado. Mensagens em tempo real retomadas.`, p_link: '/atendimento/canais' }).then(() => undefined, () => undefined);
+          return;
+        }
+        problems = after;
+      } catch (e) { console.error('Reconfiguração automática do webhook:', ch.id, e instanceof Error ? e.message : e); }
+    }
+    await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_invalid', p_status: 'error', p_error_message: problems.join('; ') || null });
     await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-webhook:${ch.id}:${new Date().toISOString().slice(0, 10)}`, p_title: 'WhatsApp: configuração do servidor com problema',
       p_body: `O número ${ch.name} pode não estar entregando mensagens na hora (${problems.join('; ')}). As mensagens continuam chegando pela verificação de 1 minuto. Conecte o número de novo em WhatsApp > Números.`, p_link: '/atendimento/canais' }).then(() => undefined, () => undefined);
+  } else {
+    await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_ok', p_status: 'ok', p_error_message: null });
   }
 }
