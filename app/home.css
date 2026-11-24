@@ -178,3 +178,19 @@
 /* Links de navegação interna viram pílulas também no PC */
 .app-content a.underline { display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; }
 .app-content a.underline:hover { border-color: var(--text-muted); }
+
+/* Página de detalhe (cliente, pedido, venda): painel com título e ações em pílula + grade de dados */
+.detail-hero { margin-bottom: 16px; flex-wrap: wrap; }
+.detail-kind { margin-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(255 255 255 / .6); }
+.detail-hero .mh-greeting { overflow-wrap: anywhere; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.detail-actions .button, .detail-actions .button-ghost { min-height: 42px; padding: 0 16px; background: rgb(255 255 255 / .12); border: 0; color: #fff; font-weight: 600; }
+.detail-actions .button { background: var(--brand); }
+.detail-actions .button-ghost.text-red-700 { color: #ffb4b4; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.detail-tile { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 20px; background: #fff; }
+.detail-wide { grid-column: 1 / -1; }
+.detail-label { font-size: 12px; line-height: 16px; color: var(--text-muted); }
+.detail-value { margin-top: 4px; font-size: 16px; line-height: 22px; font-weight: 700; overflow-wrap: anywhere; }
+@media (min-width: 1024px) { .detail-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .detail-hero { padding: 24px 28px; } }
+@media (max-width: 767px) { .detail-actions { justify-content: flex-start; margin-top: 14px; } }

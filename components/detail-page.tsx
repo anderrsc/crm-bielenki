@@ -30,14 +30,12 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
   return <div className="mx-auto max-w-6xl">
     <Link href={`/${base ?? config.title.toLowerCase()}`} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-ink/55"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
     {actionError && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
-    <div className="card p-6 lg:p-8">
-      {config.table === "clients" && <div className="no-print mb-5 flex flex-wrap justify-end gap-2"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deleteClientRecord} message="Apagar este cliente de vez? Esta ação não pode ser desfeita. Clientes com orçamento, venda ou lançamento no financeiro não podem ser apagados (use Desativar)." className="button-ghost text-red-700">Apagar cliente</ConfirmButton></form></div>}
-      <p className="text-xs font-bold uppercase tracking-widest text-forest">{config.singular}</p><h1 className="mt-2 text-3xl font-black">{title}</h1>
-      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{config.columns.slice(0, 8).map((column) => <div className="rounded-xl bg-cream/70 p-4" key={column.key}><p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">{column.label}</p><p className="mt-1 font-bold">{format(get(record, column.key), column.kind)}</p></div>)}</div>
-      {clientAddress && <div className="mt-4 rounded-xl bg-cream/70 p-4">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-ink/40">Endereço</p>
-        <p className="mt-1 font-bold">{clientAddress}</p>
-      </div>}
+    <div className="mh-hero is-simple detail-hero">
+      <div className="mh-hero-main"><p className="detail-kind">{config.singular}</p><h1 className="mh-greeting">{title}</h1></div>
+      {config.table === "clients" && <div className="no-print detail-actions"><Link href={`/clientes/${id}/editar`} className="button-ghost">Editar cliente</Link><Link href={`/clientes/${id}/ficha-visita`} className="button"><ClipboardPenLine className="h-4 w-4" /> Emitir ficha de visita</Link><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deactivateClient} message="Desativar este cliente?" className="button-ghost text-red-700">Desativar</ConfirmButton></form><form><input type="hidden" name="id" value={id}/><ConfirmButton formAction={deleteClientRecord} message="Apagar este cliente de vez? Esta ação não pode ser desfeita. Clientes com orçamento, venda ou lançamento no financeiro não podem ser apagados (use Desativar)." className="button-ghost text-red-700">Apagar cliente</ConfirmButton></form></div>}
+    </div>
+    <div className="detail-grid">{config.columns.slice(0, 8).map((column) => <div className="detail-tile" key={column.key}><p className="detail-label">{column.label}</p><p className="detail-value">{format(get(record, column.key), column.kind)}</p></div>)}
+      {clientAddress && <div className="detail-tile detail-wide"><p className="detail-label">Endereço</p><p className="detail-value">{clientAddress}</p></div>}
     </div>
     {config.table === "v_order_overview" && <OrderAluminumCost orderId={id} />}
     {config.table === "v_order_overview" && <OrderProductionPhotos orderId={id} />}
