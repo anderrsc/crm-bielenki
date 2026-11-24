@@ -208,6 +208,7 @@ const specialItemSchema = z.object({
 });
 
 const gutterQuotePayloadSchema = z.object({
+  installation_duration_minutes:z.number().int().min(1).max(14400).nullable().optional(),
   client_id: z.string().uuid(),
   discount: z.number().nonnegative(),
   freight: z.number().nonnegative(),
@@ -444,7 +445,7 @@ export async function createManualPurchase(formData:FormData) {
 export async function createWindowQuote(formData:FormData){
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
-  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),hide_unit_prices:z.boolean().optional(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
+  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),installation_duration_minutes:z.number().int().min(1).max(14400).nullable().optional(),hide_unit_prices:z.boolean().optional(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
   const {hide_unit_prices:hideUnitPrices,...windowPayload}=parsed.data;
   const {data,error}=await db.rpc("create_window_quote",{p_payload:windowPayload});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);

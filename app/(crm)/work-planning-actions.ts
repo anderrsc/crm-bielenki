@@ -7,6 +7,8 @@ import {friendlyError} from '@/lib/friendly-error';
 const uuid=z.uuid(),optionalId=uuid.optional(),text=z.string().trim().min(1).max(80);
 const optionalPositive=z.string().refine(v=>v===''||(/^\d+(\.\d+)?$/.test(v)&&Number(v)>0&&Number.isFinite(Number(v))));
 const schemas={
+ day_time:z.object({id:uuid,work_minutes:z.coerce.number().int().min(1).max(1440),reserved_minutes:z.coerce.number().int().min(0).max(1440)}).refine(p=>p.reserved_minutes<=p.work_minutes),
+ job_time:z.object({id:uuid,duration_minutes:z.coerce.number().int().min(1).max(14400)}),
  team:z.object({id:optionalId,name:text,leader_id:uuid,active:z.boolean()}),
  member:z.object({team_id:uuid,profile_id:uuid,duty:z.string().max(80),end:z.boolean()}),
  vehicle:z.object({id:optionalId,name:text,plate:z.string().max(15),vehicle_type:text,capacity_kg:optionalPositive,useful_length_m:optionalPositive,status:z.enum(['disponivel','manutencao','inativo'])}),
@@ -23,16 +25,18 @@ const schemas={
 export async function saveWorkPlanning(form:FormData){
  const action=String(form.get('action')??'');
  const raw:Record<string,unknown>=Object.fromEntries(form.entries());
+ if(action==='day_time'&&raw.work_hours!==undefined)raw.work_minutes=Math.round(Number(raw.work_hours)*60);
+ if(action==='job_time'&&raw.duration_hours!==undefined)raw.duration_minutes=Math.round(Number(raw.duration_hours)*60);
  if(action==='job'){const [source,source_id]=String(form.get('source_choice')??'').split(':');raw.source=source;raw.source_id=source_id;}
  for(const key of ['id','material_id'])if(!raw[key])delete raw[key];
  raw.active=raw.active!=='false';raw.end=raw.end==='true';
  raw.members=form.getAll('members').map(String);raw.notes=raw.notes??'';
  raw.returned_quantity=raw.returned_quantity??'';
  const candidate=safeBack(form.get('_back'),'/equipes');const back=candidate.startsWith('/equipes')?candidate:'/equipes';
- const schema=schemas[action as keyof typeof schemas];const parsed=schema?.safeParse(raw);
+ const schema=Object.hasOwn(schemas,action)?schemas[action as keyof typeof schemas]:undefined;const parsed=schema?.safeParse(raw);
  if(!parsed?.success)return `${q(back)}erro=Confira+os+campos+do+planejamento`;
  const db=await createClient();
- const {error}=await db.rpc('work_manage',{p_action:action,p_payload:parsed.data});
+ const {error}=await db.rpc(action==='day_time'||action==='job_time'?'work_planning_time':'work_manage',{p_action:action,p_payload:parsed.data});
  if(error){
   const msg=error.code==='23505'?'Pessoa, equipe, veículo, visita ou posição já reservados. Atualize a lista.':friendlyError(error.message)??'Não foi possível salvar o planejamento.';
   return `${q(back)}erro=${encodeURIComponent(msg)}`;
