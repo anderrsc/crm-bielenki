@@ -71,8 +71,8 @@ export function LiaAuditLog({ initialEvents }: { initialEvents: LiaAuditRow[] })
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{EVENT_LABEL[e.event_type] ?? e.event_type}</p>
                 <p className="text-xs text-ink/50">
-                  {e.target_type && <span className="capitalize">{e.target_type}</span>}
-                  {e.actor_role && <> · <span className="capitalize">{e.actor_role}</span></>}
+                  {e.target_type && <span>{e.target_type.charAt(0).toUpperCase() + e.target_type.slice(1)}</span>}
+                  {e.actor_role && <> · <span>{e.actor_role.charAt(0).toUpperCase() + e.actor_role.slice(1)}</span></>}
                   {e.outcome && <> · <span className={OUTCOME_COLOR[e.outcome] ?? ""}>{e.outcome}</span></>}
                 </p>
               </div>

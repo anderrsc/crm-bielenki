@@ -132,7 +132,7 @@ export function LiaApprovalsQueue({ initialRequests }: { initialRequests: LiaAct
               <Clock className="h-4 w-4 text-amber-600" />
               Fila de Aprovações
               {pendingCount > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold w-5 h-5">{pendingCount}</span>
+                <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-semibold w-5 h-5">{pendingCount}</span>
               )}
             </p>
             <p className="text-xs text-ink/55">Pedidos que precisam de aprovação do gerente ou administrador.</p>
