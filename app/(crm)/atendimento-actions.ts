@@ -112,7 +112,7 @@ async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"
     if (cfg?.wpp_provider !== "evolution") return 0;
     const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
     if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
-    try { return (await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm", null, { maxPages: 3 })).inserted; }
+    try { return (await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm", null, { maxPages: 10 })).inserted; }
     catch (e) { throw new Error(evolutionErrorMessage(e)); }
   }
   let inserted = 0; const errors: string[] = [];
@@ -120,7 +120,7 @@ async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"
     const c = channelCredentials(cfg, ch);
     if (!c.evolutionUrl || !c.evolutionKey || !c.evolutionInstance) { errors.push(`${ch.name}: configure a conexão na Central de IA.`); continue; }
     try {
-      inserted += (await syncRecentEvolutionMessages(admin, companyId, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 3 })).inserted;
+      inserted += (await syncRecentEvolutionMessages(admin, companyId, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 10 })).inserted;
       await admin.from("whatsapp_channels").update({ last_sync_at: new Date().toISOString() }).eq("id", ch.id);
     } catch (e) { errors.push(`${ch.name}: ${evolutionErrorMessage(e)}`); }
   }

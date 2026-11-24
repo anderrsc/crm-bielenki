@@ -20,6 +20,7 @@ import { wantsNoMessages } from "@/lib/ai/lia-rules";
 import { transcribeAudio, type Transcription } from "@/lib/ai/transcribe";
 import { evolutionMediaBase64 } from "@/lib/whatsapp/evolution";
 import { liaDecision, parseLiaHours, parseLiaMode, startOfBrasiliaDay } from "@/lib/ai/lia-mode";
+import { evaluatePolicy, classifyMessage } from "@/lib/ai/lia-policy";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -729,6 +730,32 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     }
 
     const resposta = guardCustomerGreeting(aiResult.mensagem || "Como posso ajudar?", updatedMessages);
+
+    // LIA V2 — auditoria de políticas (modo passivo: classifica e registra, nunca bloqueia o atendimento)
+    (async () => {
+      try {
+        const policyCategory = classifyMessage(clientText);
+        const policyDecision = await evaluatePolicy(supabase, company.id, policyCategory);
+        await supabase.from("lia_audit_events").insert({
+          company_id: company.id,
+          event_type: "lia_action",
+          actor_id: null,
+          actor_role: "system",
+          target_type: "system",
+          outcome: "allowed",
+          details: {
+            mode: "audit",
+            message_preview: clientText.slice(0, 200),
+            category: policyCategory,
+            policy_level: policyDecision.level,
+            policy_allowed: policyDecision.allowed,
+            policy_message: policyDecision.message,
+            rule_id: policyDecision.rule?.id ?? null,
+            rule_title: policyDecision.rule?.title ?? null,
+          },
+        });
+      } catch { /* auditoria nunca trava o atendimento */ }
+    })();
 
     // Adiciona resposta da IA ao histórico
     const finalMessages = [
