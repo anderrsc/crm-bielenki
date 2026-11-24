@@ -3,11 +3,12 @@
 // que mostrava números e históricos fixos no código.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertTriangle, BookOpen, CheckCircle, Clock, Headset, History, MessageSquare, Pause, Play, Send, Settings2, Shield, TestTube, UserPlus, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle, Clock, FileText, Headset, History, MessageSquare, Pause, Play, Send, Settings2, Shield, TestTube, UserPlus, XCircle, Zap } from "lucide-react";
 import { FormBlock, Note } from "@/components/form-blocks";
 import { setAiAgentActive, testAiAgent } from "@/app/(crm)/actions";
 import type { CentralData, CentralEvent } from "@/lib/ai/central-data";
 import type { LiaV2Data } from "@/lib/ai/lia-v2-data";
+import type { PromptVersionRow } from "@/app/(crm)/lia-prompt-actions";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 const LiaFollowupSettings = dynamic(() => import("@/components/lia-followup-settings").then(module => module.LiaFollowupSettings), { loading: () => <p role="status">Carregando acompanhamento…</p> });
@@ -18,8 +19,10 @@ const LiaRulesManager = dynamic(() => import("@/components/lia-rules-manager").t
 const LiaKnowledgePanel = dynamic(() => import("@/components/lia-knowledge-panel").then(m => m.LiaKnowledgePanel), { loading: () => <p role="status">Carregando base de conhecimento…</p> });
 const LiaApprovalsQueue = dynamic(() => import("@/components/lia-approvals-queue").then(m => m.LiaApprovalsQueue), { loading: () => <p role="status">Carregando aprovações…</p> });
 const LiaAuditLog = dynamic(() => import("@/components/lia-audit-log").then(m => m.LiaAuditLog), { loading: () => <p role="status">Carregando auditoria…</p> });
+const LiaPromptEditor = dynamic(() => import("@/components/lia-prompt-editor").then(m => m.LiaPromptEditor), { loading: () => <p role="status">Carregando prompt…</p> });
+const LiaSimulator = dynamic(() => import("@/components/lia-simulator").then(m => m.LiaSimulator), { loading: () => <p role="status">Carregando simulador…</p> });
 
-type Tab = "central" | "regras" | "conhecimento" | "aprovacoes" | "auditoria";
+type Tab = "central" | "regras" | "conhecimento" | "aprovacoes" | "auditoria" | "prompt" | "simulador";
 
 const EVENT_STYLE: Record<CentralEvent["kind"], { icon: React.ElementType }> = {
   triagem: { icon: MessageSquare },
@@ -40,7 +43,7 @@ function Stat({ label, value, alert, icon: Icon }: { label: string; value: numbe
   );
 }
 
-export function AiCentral({ data, error, v2 }: { data: CentralData | null; error?: string; v2?: LiaV2Data | null }) {
+export function AiCentral({ data, error, v2, promptVersions }: { data: CentralData | null; error?: string; v2?: LiaV2Data | null; promptVersions?: PromptVersionRow[] }) {
   const [test, setTest] = useState<{ reply?: string; error?: string } | null>(null);
   const [testing, startTest] = useTransition();
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -60,6 +63,8 @@ export function AiCentral({ data, error, v2 }: { data: CentralData | null; error
     { id: "regras",       label: "Regras",        icon: Shield,    badge: v2stats ? v2stats.total : undefined },
     { id: "conhecimento", label: "Conhecimento",  icon: BookOpen,  badge: v2stats?.blocks },
     { id: "aprovacoes",   label: "Aprovações",    icon: Clock,     badge: pendingApprovals > 0 ? pendingApprovals : undefined },
+    { id: "prompt",       label: "Prompt",        icon: FileText },
+    { id: "simulador",    label: "Simulador",     icon: TestTube },
     { id: "auditoria",    label: "Auditoria",     icon: History },
   ];
 
@@ -218,6 +223,16 @@ export function AiCentral({ data, error, v2 }: { data: CentralData | null; error
       {/* ── Tab: Aprovações ──────────────────────────────────────────────── */}
       {tab === "aprovacoes" && (
         <LiaApprovalsQueue initialRequests={v2?.requests ?? []} />
+      )}
+
+      {/* ── Tab: Prompt ──────────────────────────────────────────────────── */}
+      {tab === "prompt" && (
+        <LiaPromptEditor initialVersions={promptVersions ?? []} />
+      )}
+
+      {/* ── Tab: Simulador ───────────────────────────────────────────────── */}
+      {tab === "simulador" && (
+        <LiaSimulator />
       )}
 
       {/* ── Tab: Auditoria ──────────────────────────────────────────────── */}
