@@ -485,8 +485,8 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
 
           {/* ── Tabela de itens ── */}
           <table className="quote-table">
-            <colgroup><col style={{width:'5%'}}/><col style={{width:hideUnitPrices?(hasPieceMedia?'61%':'79%'):(hasPieceMedia?'40%':'58%')}}/>{hasPieceMedia&&<col style={{width:'18%'}}/>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<><col style={{width:'10%'}}/><col style={{width:'11%'}}/></>}</colgroup>
-            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<><th>UNIT.</th><th>TOTAL</th></>}</tr></thead>
+            <colgroup><col style={{width:'5%'}}/><col style={{width:hideUnitPrices?(hasPieceMedia?'50%':'68%'):(hasPieceMedia?'40%':'58%')}}/>{hasPieceMedia&&<col style={{width:'18%'}}/>}<col style={{width:'8%'}}/><col style={{width:'8%'}}/>{!hideUnitPrices&&<col style={{width:'10%'}}/>}<col style={{width:'11%'}}/></colgroup>
+            <thead><tr><th>ITEM</th><th className="quote-th-desc">DESCRIÇÃO</th>{hasPieceMedia&&<th>PEÇA 3D</th>}<th>TIPO</th><th>QTD.</th>{!hideUnitPrices&&<th>UNIT.</th>}<th>TOTAL</th></tr></thead>
             <tbody>{items.map((item,i)=>{
               const {tipo,quantidade}=buildTipoQuantidade(item,isGutter), media=itemMedia[i];
               const dil=diluted?.[i];
@@ -497,7 +497,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                 <td className="quote-td-item">{String(i+1).padStart(2,'0')}</td>
                 <td className="quote-td-desc">{buildDescription(item,isGutter)}</td>
                 {hasPieceMedia&&<td className="quote-piece-cell">{media?<a href={media.url} target="_blank" rel="noopener noreferrer" className="quote-piece-link"><img src={media.image} alt={media.piece.name} className="quote-piece-image"/><img src={media.qr} alt={'QR code do modelo 3D: '+media.piece.name} className="quote-piece-qr"/><span>Peça {media.piece.code} · Ver em 3D</span></a>:<span className="quote-piece-unavailable">—</span>}</td>}
-                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<><td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td><td className="quote-td-total">{hiddenTravel?'Incluso':money(lineTotal)}</td></>}
+                <td>{tipo}</td><td>{quantidade}</td>{!hideUnitPrices&&<td className="quote-unit-value">{hiddenTravel?'Incluso':unitPriceDisplay}</td>}<td className="quote-td-total">{hiddenTravel?'Incluso':money(lineTotal)}</td>
               </tr>;
             })}</tbody>
           </table>
