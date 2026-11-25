@@ -1,5 +1,6 @@
 import { isManagement, moduleResources } from "@/lib/module-access";
 import { AppShell } from "@/components/app-shell";
+import { LiaInterna } from "@/components/lia-interna/lia-chat";
 import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -21,7 +22,12 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const company = profile?.companies as unknown as { name?: string } | null;
   // Selo de não lidas na barra do celular: só quem enxerga o Atendimento recebe linhas (RLS), então a soma não vaza.
   const unreadChats = await unreadConversations(supabase);
-  return <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "Marquinhos Calhas e Esquadrias"} roles={roles} viewable={viewable} unreadChats={unreadChats}>{children}</AppShell>;
+  return (
+    <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "Marquinhos Calhas e Esquadrias"} roles={roles} viewable={viewable} unreadChats={unreadChats}>
+      {children}
+      <LiaInterna />
+    </AppShell>
+  );
 }
 
 async function viewableModules(supabase: Awaited<ReturnType<typeof getRequestClient>>): Promise<string[]> {
