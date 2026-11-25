@@ -21,6 +21,7 @@ import { transcribeAudio, type Transcription } from "@/lib/ai/transcribe";
 import { evolutionMediaBase64 } from "@/lib/whatsapp/evolution";
 import { liaDecision, parseLiaHours, parseLiaMode, startOfBrasiliaDay } from "@/lib/ai/lia-mode";
 import { evaluatePolicy, classifyMessage } from "@/lib/ai/lia-policy";
+import { commandSender, handleLiaCommand } from "@/lib/lia-comandos/handler";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -534,6 +535,30 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       await supabase.from("conversations").update({ ai_opt_out: true }).eq("id", conversation.id).eq("company_id", company.id).then(() => undefined, () => undefined);
     }
     if (!timing.live || !eventId) return NextResponse.json({ status: "history_only" });
+    // Comandos da Lia (/entrada, /baixa...): só dos números liberados (Anderson e financeiro).
+    // Vale com ou sem a Lia de atendimento ligada e mesmo com a conversa assumida pela equipe.
+    const sender = conversation ? await commandSender(supabase, company.id, from).catch(() => null) : null;
+    if (sender && conversation) {
+      const cmdCredentials = channel ? channelCredentials(agentConfig, channel) : whatsappCredentials(agentConfig, { provider: isEvolution ? "evolution" : "meta", phoneNumberId });
+      const cmdProvider = parseAiProvider(agentConfig?.ai_provider);
+      const cmdKey = aiProviderKey(cmdProvider, agentConfig);
+      const cmdConversation = conversation;
+      const say = async (to: string, text: string, record: boolean) => {
+        let externalId: string | null = null; let failure: string | null = null;
+        try { externalId = await sendWhatsAppText(cmdCredentials, to, text); }
+        catch (error) { failure = error instanceof Error ? error.message : String(error); console.error("Lia comandos: falha ao enviar:", failure); }
+        if (record) await recordOutbound(supabase, { companyId: company.id, conversationId: cmdConversation.id, body: text, author: "ana", senderName: "Lia", externalId,
+          deliveryStatus: failure ? "falhou" : "enviada", error: failure }).catch(() => undefined);
+        if (failure) throw new Error(failure);
+      };
+      const handled = await handleLiaCommand({
+        db: supabase, companyId: company.id, phone: from, text: clientText,
+        reply: (text) => say(from, text, true),
+        sendTo: (to, text) => say(to, text, false),
+        ai: aiKeyAvailable(cmdProvider, cmdKey) ? { provider: cmdProvider, apiKey: secretValue(cmdKey), model: agentConfig?.openai_model as string | null } : null,
+      }, sender).catch((error) => { console.error("Lia comandos:", error); return true; });
+      if (handled) return NextResponse.json({ status: "lia_command" });
+    }
     // Alguém da equipe assumiu a conversa: a Ana fica quieta.
     if (conversation?.ai_paused) return NextResponse.json({ status: "human_handling" });
     // A Ana só atende contato novo: quem já é cliente fala com a equipe.
