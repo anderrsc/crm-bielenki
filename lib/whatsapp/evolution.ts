@@ -400,9 +400,9 @@ export async function evolutionOwnerPhone(base: string, apiKey: string, instance
 }
 
 /** Baixa o arquivo (áudio, foto, PDF) de uma mensagem recebida, já em base64. */
-export async function evolutionMediaBase64(base: string, apiKey: string, instance: string, messageId: string): Promise<{ base64: string; mimetype: string | null }> {
+export async function evolutionMediaBase64(base: string, apiKey: string, instance: string, messageId: string, opts: { convertToMp4?: boolean } = {}): Promise<{ base64: string; mimetype: string | null }> {
   const data = await call<{ base64?: string; mimetype?: string; media?: string }>(base, apiKey, `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`, {
-    method: "POST", body: { message: { key: { id: messageId } }, convertToMp4: false },
+    method: "POST", body: { message: { key: { id: messageId } }, convertToMp4: opts.convertToMp4 ?? false },
   });
   const raw = data?.base64 ?? data?.media ?? "";
   if (!raw) throw new EvolutionError("A Evolution não devolveu o arquivo da mensagem.");
