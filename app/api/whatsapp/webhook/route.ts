@@ -491,7 +491,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: messageChannelId });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
       await saveQuote(supabase, company.id, eventId, quote,messageChannelId);
-      // Armazena áudio no Storage após responder para que o player funcione mesmo após a Evolution expirar o cache.
+      // Armazena áudio no Storage e transcreve após responder para que o player e o texto funcionem indefinidamente.
       if (isEvolution && mediaInfo === "audio" && eventId && timing.live) {
         const cacheCId = company.id, cacheEId = eventId;
         const cacheCreds = channel
@@ -499,19 +499,29 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
           : whatsappCredentials(agentConfig, { provider: "evolution", phoneNumberId });
         if (cacheCreds.evolutionUrl && cacheCreds.evolutionKey && cacheCreds.evolutionInstance) {
           const eu = cacheCreds.evolutionUrl, ek = cacheCreds.evolutionKey, ei = cacheCreds.evolutionInstance;
+          const cacheGeminiKey = agentConfig?.gemini_api_key ? decryptSecret(agentConfig.gemini_api_key) : null;
           try {
             after(async () => {
               try {
                 const db = getSupabase();
-                const { data: m } = await db.from("messages").select("id,conversation_id,media_url")
+                const { data: m } = await db.from("messages").select("id,conversation_id,media_url,body")
                   .eq("company_id", cacheCId).eq("external_id", cacheEId).eq("direction", "inbound").maybeSingle();
-                if (!m || m.media_url) return;
+                if (!m) return;
+                const needCache = !m.media_url;
+                const needTranscription = !!cacheGeminiKey && m.body === "[áudio]";
+                if (!needCache && !needTranscription) return;
                 const { base64 } = await evolutionMediaBase64(eu, ek, ei, cacheEId, { convertToMp4: true });
-                const bytes = Buffer.from(base64, "base64");
-                const storagePath = `${cacheCId}/${m.conversation_id}/${m.id}`;
-                const { error: upErr } = await db.storage.from("atendimento-files").upload(storagePath, bytes, { contentType: "audio/mp4", upsert: false });
-                if (!upErr) await db.from("messages").update({ media_url: storagePath, media_type: "audio/mp4" }).eq("id", m.id).is("media_url", null);
-              } catch (e) { console.error("Áudio: falha ao armazenar mídia:", e); }
+                if (needCache) {
+                  const bytes = Buffer.from(base64, "base64");
+                  const storagePath = `${cacheCId}/${m.conversation_id}/${m.id}`;
+                  const { error: upErr } = await db.storage.from("atendimento-files").upload(storagePath, bytes, { contentType: "audio/mp4", upsert: false });
+                  if (!upErr) await db.from("messages").update({ media_url: storagePath, media_type: "audio/mp4" }).eq("id", m.id).is("media_url", null);
+                }
+                if (needTranscription) {
+                  const tr = await transcribeAudio({ base64, mimetype: "audio/mp4" }, cacheGeminiKey);
+                  if (tr.ok) await db.from("messages").update({ body: `[áudio] ${tr.text}` }).eq("id", m.id).eq("body", "[áudio]");
+                }
+              } catch (e) { console.error("Áudio: falha ao armazenar/transcrever mídia:", e); }
             });
           } catch { /* fora de requisição (testes) */ }
         }
