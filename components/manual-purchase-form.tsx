@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 type Supplier = { id: string; name: string; credit?: number };
 type Material = { id: string; name: string; unit: string };
 type Order = { id: string; label: string };
-type Item = { category: string; description: string; quantity: number; unit_price: number };
+type Item = { category: string; description: string; quantity: number; unit_price: number; code?: string };
 type PaidMode = "total" | "parte" | "nao";
 
 // Tipos do que se compra na Marquinhos; "Outro" pede para digitar.
@@ -48,10 +48,13 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
   const balance = round(total - creditUsed - payNow); // >0 devendo, <0 credito
   const invalidItem = items.some((x) => (x.category === "Outro" && !x.description.trim()) || x.quantity <= 0 || x.unit_price < 0 || !Number.isFinite(x.quantity * x.unit_price));
   const [allowDuplicate, setAllowDuplicate] = useState(false);
+  // Arquivo da nota/orçamento lido pela IA: fica anexado na compra ao salvar.
+  const [attachment, setAttachment] = useState<{ path: string; name: string; type: string } | null>(null);
   const payload = JSON.stringify({
     supplier_id: supplierId, paid_amount: payNow, paid_at: paidAt, payment_method: method, receiving_account_id: payNow > 0 ? account : "",
     allow_duplicate: allowDuplicate, use_credit: creditUsed, due_date: balance > 0 ? due : "", notes, expected_at: expected, order_id: destino === "pedido" ? orderId : "",
-    items: items.map((x) => ({ category: x.category, description: x.description.trim() || x.category, unit: "un", quantity: x.quantity, unit_price: x.unit_price, notes: "" })),
+    items: items.map((x) => ({ category: x.category, description: x.description.trim() || x.category, unit: "un", quantity: x.quantity, unit_price: x.unit_price, notes: "", code: x.code?.trim() || undefined })),
+    attachment,
   });
   const update = (index: number, patch: Partial<Item>) => setItems((current) => current.map((x, i) => (i === index ? { ...x, ...patch } : x)));
 
@@ -62,6 +65,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
     {error?.startsWith("Compra parecida") && <label className="fx-note fx-note-warn mb-5"><input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} />É outra compra, não é duplicada (marque e salve de novo)</label>}
     <InvoiceUpload onRead={(r) => {
       setItems(r.items);
+      setAttachment(r.attachment ?? null);
       if (r.supplierId) { setSupplierId(r.supplierId); setUseCredit(false); }
       if (r.dueDate && r.dueDate > todayISO()) { setMode("nao"); setDue(r.dueDate); }
       const parcelas = r.installments.filter((x) => x.data).map((x) => `${x.data!.split("-").reverse().join("/")}${x.valor ? ` ${money(x.valor)}` : ""}`).join(", ");
@@ -88,6 +92,7 @@ export function ManualPurchaseForm({ suppliers, orders = [], error }: { supplier
             {items.length > 1 && <button type="button" aria-label="Remover item" className="fx-remove" onClick={() => setItems((x) => x.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></button>}</div>
           <div className="fx-chips" role="group" aria-label="Tipo do que comprou">{PURCHASE_TYPES.map((t) => <button type="button" key={t} aria-pressed={item.category === t} onClick={() => update(index, { category: t })} className="fx-chip">{t}</button>)}</div>
           <div className="fx-grid fx-grid-pair fx-grid-item">
+            <div><label className="label" htmlFor={`cod-${index}`}>Código</label><input id={`cod-${index}`} aria-label="Código do produto" className="field" value={item.code ?? ""} onChange={(e) => update(index, { code: e.target.value })} placeholder="Ex.: PSU001-PT" /></div>
             <div className="fx-wide"><label className="label" htmlFor={`desc-${index}`}>Descrição do material</label><input id={`desc-${index}`} aria-label="Descrição do material" className="field" value={item.description} onChange={(e) => update(index, { description: e.target.value })} required={item.category === "Outro"} placeholder={item.category === "Outro" ? "Digite o que está comprando" : `${item.category} (opcional: detalhe)`} /></div>
             <div><label className="label" htmlFor={`qtd-${index}`}>Quantidade</label><input id={`qtd-${index}`} aria-label="Quantidade" className="field" type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => update(index, { quantity: Number(e.target.value) })} required /></div>
             <div><label className="label" htmlFor={`val-${index}`}>Valor unitário</label><input id={`val-${index}`} aria-label="Valor unitário" className="field" type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => update(index, { unit_price: Number(e.target.value) })} required /></div>

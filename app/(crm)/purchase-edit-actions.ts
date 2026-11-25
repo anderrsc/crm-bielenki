@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { q } from "@/lib/back-url";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 
 function refresh(back: string) {
   for (const r of ["/compras", "/financeiro", "/financeiro/pagar", "/fornecedores", back]) revalidatePath(r);
@@ -63,4 +65,30 @@ export async function receivePurchaseAll(form: FormData) {
   for (const r of ["/compras", "/estoque", "/producao", "/producao/materiais-do-pedido"]) revalidatePath(r);
   const r = (data ?? {}) as { received?: number; skipped?: number };
   refresh(back); redirect(`${q(back)}ok=${encodeURIComponent(`${r.received ?? 0} item(ns) recebido(s)${r.skipped ? `, ${r.skipped} sem material cadastrado` : ""}`)}`);
+}
+
+const ATTACH_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+
+/** Anexa (ou troca) o PDF/foto da nota ou do orçamento do fornecedor na compra. */
+export async function uploadPurchaseAttachment(form: FormData) {
+  const id = String(form.get("purchase_id") ?? "");
+  const back = `/compras/${z.uuid().safeParse(id).success ? id : ""}`;
+  const file = form.get("file");
+  if (!z.uuid().safeParse(id).success || !(file instanceof File) || file.size === 0) redirect(`${q(back)}erro=${encodeURIComponent("Escolha o arquivo")}`);
+  if (!ATTACH_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) redirect(`${q(back)}erro=${encodeURIComponent("Envie PDF, JPG, PNG ou WEBP de até 10 MB")}`);
+  const db = await createClient();
+  // Só quem pode alterar a compra (o RLS decide): sem isso, nada é gravado.
+  const { data: po } = await db.from("purchase_orders").select("id,company_id").eq("id", id).maybeSingle();
+  const { data: canEdit } = await db.rpc("has_table_access", { resource: "purchase_orders", action: "update" });
+  if (!po || canEdit !== true) redirect(`${q(back)}erro=${encodeURIComponent("Sem permissão para anexar nesta compra")}`);
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) redirect(`${q(back)}erro=${encodeURIComponent("Servidor sem configuração de arquivos")}`);
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const name = file.name.replace(/[^\p{L}\p{N}_. -]/gu, "_").slice(0, 120) || "arquivo";
+  const path = `${po!.company_id}/${randomUUID()}-${name}`;
+  const { error: upErr } = await admin.storage.from("compras").upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false });
+  if (upErr) redirect(`${q(back)}erro=${encodeURIComponent("Não foi possível guardar o arquivo")}`);
+  const { error } = await db.from("purchase_orders").update({ attachment_path: path, attachment_name: name, attachment_type: file.type }).eq("id", id);
+  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
+  refresh(back);
+  redirect(back);
 }

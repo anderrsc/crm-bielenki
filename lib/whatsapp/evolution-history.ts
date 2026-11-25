@@ -156,7 +156,8 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     if (pendingError) throw new Error(`Envios sem confirmação não consultados: ${pendingError.message}`);
     const open = [...(pending ?? [])] as Array<{ id: string; body: string; sent_at: string }>;
     for (const echo of echoes) {
-      const i = open.findIndex((m) => m.body === echo.body && Math.abs(Date.parse(m.sent_at) - Date.parse(echo.sent_at)) <= 15 * 60_000);
+      // O eco chega com a assinatura separada; o envio pendente guarda o texto assinado: compara sem assinatura.
+      const i = open.findIndex((m) => extractSignature(m.body).body.trim() === extractSignature(echo.body).body.trim() && Math.abs(Date.parse(m.sent_at) - Date.parse(echo.sent_at)) <= 15 * 60_000);
       if (i < 0) continue;
       const [match] = open.splice(i, 1);
       const { error: confirmError } = await db.from("messages").update({ external_id: echo.external_id, delivery_status: "enviada", error_message: null })

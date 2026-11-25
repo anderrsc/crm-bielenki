@@ -8,22 +8,22 @@ import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate } from "@/lib/utils";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PurchaseEditForm } from "@/components/purchase-edit-form";
-import { cancelPurchase, receivePurchaseAll, registerPurchaseReturn } from "@/app/(crm)/purchase-edit-actions";
+import { cancelPurchase, receivePurchaseAll, registerPurchaseReturn, uploadPurchaseAttachment } from "@/app/(crm)/purchase-edit-actions";
 import { undoStockReceipt, undoStockReceipts } from "@/app/(crm)/undo-actions";
 
-type Po = { id: string; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
-type Item = { id: string; description: string; category: string | null; unit: string; purchased_quantity: number; received_quantity: number; pending_quantity: number; unit_price: number; total: number };
+type Po = { id: string; attachment_path?: string | null; attachment_name?: string | null; order_number: string; status: string; total: number; paid_amount: number; open_amount: number; ordered_at: string | null; expected_at: string | null; received_at: string | null; notes: string | null; supplier_id: string; order_id: string | null; supplier: { name: string } | null; order: { id: string; order_number: string; client: { name: string } | null } | null };
+type Item = { id: string; code?: string | null; description: string; category: string | null; unit: string; purchased_quantity: number; received_quantity: number; pending_quantity: number; unit_price: number; total: number };
 
 export default async function PurchasePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; ok?: string; aviso?: string }> }) {
   const { id } = await params;
   const search = await searchParams;
   if (!z.uuid().safeParse(id).success) notFound();
   const db = await getRequestClient();
-  const { data } = await db.from("purchase_orders").select("id,order_number,status,total,paid_amount,open_amount,ordered_at,expected_at,received_at,notes,supplier_id,order_id,supplier:suppliers(name),order:orders(id,order_number,client:clients(name))").eq("id", id).maybeSingle();
+  const { data } = await db.from("purchase_orders").select("id,attachment_path,attachment_name,order_number,status,total,paid_amount,open_amount,ordered_at,expected_at,received_at,notes,supplier_id,order_id,supplier:suppliers(name),order:orders(id,order_number,client:clients(name))").eq("id", id).maybeSingle();
   if (!data) notFound();
   const po = data as unknown as Po;
   const [items, entry, canEdit, suppliers, orders, moves, returns, locations] = await Promise.all([
-    db.from("purchase_order_items").select("id,description,category,unit,purchased_quantity,received_quantity,pending_quantity,unit_price,total").eq("purchase_order_id", id).order("id"),
+    db.from("purchase_order_items").select("id,code,description,category,unit,purchased_quantity,received_quantity,pending_quantity,unit_price,total").eq("purchase_order_id", id).order("id"),
     db.from("financial_entries").select("id,open_amount,paid_amount,due_date,status").eq("purchase_order_id", id).maybeSingle(),
     db.rpc("has_table_access", { resource: "purchase_orders", action: "update" }),
     db.from("suppliers").select("id,name").is("deleted_at", null).order("name"),
@@ -64,12 +64,18 @@ export default async function PurchasePage({ params, searchParams }: { params: P
       </dl>
       {po.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-cream p-3 text-sm">{po.notes}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
+        {po.attachment_path ? <a className="button-ghost" href={`/api/compras/anexo/${po.id}`} target="_blank" rel="noopener">📎 {po.attachment_name ?? "Ver arquivo"}</a> : null}
+        <form action={uploadPurchaseAttachment} className="flex items-center gap-2">
+          <input type="hidden" name="purchase_id" value={po.id} />
+          <input type="file" name="file" accept="application/pdf,image/jpeg,image/png,image/webp" aria-label="Arquivo da compra" className="text-xs" required />
+          <button className="button-ghost">{po.attachment_path ? "Trocar arquivo" : "Anexar arquivo"}</button>
+        </form>
         {fe && <Link className="button" href={`/financeiro/lancamento/${fe.id}`}>{Number(fe.open_amount) > 0 && !cancelled ? "Pagar / ver conta" : "Ver conta"}</Link>}
       </div>
     </section>
     <section className="card p-5"><h2 className="mb-3 font-semibold">Itens</h2>
-      <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="text-left text-xs text-ink/50"><th className="py-1">Material</th><th>Tipo</th><th className="text-right">Qtd</th><th className="text-right">Recebido</th><th className="text-right">Unit.</th><th className="text-right">Total</th></tr></thead><tbody>
-        {list.map((i) => <tr key={i.id} className="border-t border-sand"><td className="py-2">{i.description}</td><td>{i.category ?? "—"}</td><td className="text-right">{Number(i.purchased_quantity)} {i.unit}</td><td className="text-right">{Number(i.received_quantity)}</td><td className="text-right">{money(i.unit_price)}</td><td className="text-right font-semibold">{money(i.total)}</td></tr>)}
+      <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="text-left text-xs text-ink/50"><th className="py-1">Código</th><th>Material</th><th>Tipo</th><th className="text-right">Qtd</th><th className="text-right">Recebido</th><th className="text-right">Unit.</th><th className="text-right">Total</th></tr></thead><tbody>
+        {list.map((i) => <tr key={i.id} className="border-t border-sand"><td className="py-2 pr-2 font-mono text-xs text-ink/70">{i.code ?? "—"}</td><td className="py-2">{i.description}</td><td>{i.category ?? "—"}</td><td className="text-right">{Number(i.purchased_quantity)} {i.unit}</td><td className="text-right">{Number(i.received_quantity)}</td><td className="text-right">{money(i.unit_price)}</td><td className="text-right font-semibold">{money(i.total)}</td></tr>)}
       </tbody></table></div>
     </section>
     {pending && !cancelled && canEdit.data === true && <section className="card p-5">

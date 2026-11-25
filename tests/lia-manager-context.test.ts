@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 test.each([0, 1])('ação %i consulta perfil ativo e recusa vendedor mesmo com metadados de administrador', async i => {
   expect(await actions[i]()).toHaveProperty('error'); expect(writes).toEqual([]);
-  expect(queries[0]).toEqual({ table: 'profiles', columns: 'company_id', filters: [['id', 'owner'], ['active', true]] });
+  expect(queries[0]).toEqual({ table: 'profiles', columns: 'company_id', filters: [['id', 'owner'], ['status', 'ativo']] });
   expect(rpc).toHaveBeenCalledWith('current_user_roles');
 });
 test.each([[0, 'gerente'], [0, 'administrador'], [1, 'gerente'], [1, 'administrador']] as const)('ação %i permite %s pelo papel verificado no banco', async (i, role) => {

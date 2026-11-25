@@ -1,15 +1,28 @@
 "use server";
 // Ler nota fiscal (PDF/foto) com IA para pré-preencher a Nova compra.
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdmin } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import { decryptSecret } from "@/lib/encrypt";
 import { consumeAiQuota } from "@/lib/ai/rate-limit";
 import { invoiceItems, onlyDigits, readInvoiceWithAi, readInvoiceWithClaude, readInvoiceWithGemini, type InvoiceItem } from "@/lib/ai/invoice-reader";
 
 export type InvoiceResult =
-  | { ok: true; items: InvoiceItem[]; supplierId: string | null; supplierName: string | null; supplierCnpj: string | null; number: string | null; total: number | null; dueDate: string | null; installments: { data: string | null; valor: number | null }[] }
+  | { ok: true; attachment: PurchaseAttachment | null; items: InvoiceItem[]; supplierId: string | null; supplierName: string | null; supplierCnpj: string | null; number: string | null; total: number | null; dueDate: string | null; installments: { data: string | null; valor: number | null }[] }
   | { ok: false; error: string };
 
 const TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+export type PurchaseAttachment = { path: string; name: string; type: string };
+
+/** Guarda o arquivo da nota/orçamento (privado) para ficar anexado na compra. */
+async function storeAttachment(companyId: string, file: File, bytes: Buffer): Promise<PurchaseAttachment | null> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const name = file.name.replace(/[^\p{L}\p{N}_. -]/gu, "_").slice(0, 120) || "arquivo";
+  const path = `${companyId}/${randomUUID()}-${name}`;
+  const { error } = await admin.storage.from("compras").upload(path, bytes, { contentType: file.type, upsert: false });
+  return error ? null : { path, name, type: file.type };
+}
 
 export async function readInvoice(form: FormData): Promise<InvoiceResult> {
   try {
@@ -28,7 +41,8 @@ export async function readInvoice(form: FormData): Promise<InvoiceResult> {
     const openai = cfg?.openai_api_key as string | null | undefined;
     if (!claude && !gemini && !openai) return { ok: false, error: "Leitura de nota indisponível: cadastre a chave da Anthropic (Claude), do Google Gemini ou da OpenAI na Central de IA." };
     consumeAiQuota(`nota:${user.id}`);
-    const payload = { name: file.name, type: file.type, base64: Buffer.from(await file.arrayBuffer()).toString("base64") };
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const payload = { name: file.name, type: file.type, base64: bytes.toString("base64") };
     const model = cfg?.ai_provider === "openai" && cfg?.openai_model && !String(cfg.openai_model).includes("/") ? String(cfg.openai_model) : "gpt-4o";
     const data = claude ? await readInvoiceWithClaude(payload, decryptSecret(claude)) : gemini ? await readInvoiceWithGemini(payload, decryptSecret(gemini)) : await readInvoiceWithAi(payload, decryptSecret(openai!), model);
     const items = invoiceItems(data);
@@ -43,7 +57,9 @@ export async function readInvoice(form: FormData): Promise<InvoiceResult> {
       supplierId = list.find((s) => s.name.toLowerCase().startsWith(n))?.id ?? null;
     }
     const due = data.vencimentos.map((v) => v.data).filter(Boolean).sort()[0] ?? null;
-    return { ok: true, items, supplierId, supplierName: data.fornecedor.nome, supplierCnpj: data.fornecedor.cnpj, number: data.numero_nota, total: data.valor_total, dueDate: due, installments: data.vencimentos };
+    const { data: me } = await db.from("profiles").select("company_id").eq("id", user.id).maybeSingle();
+    const attachment = me?.company_id ? await storeAttachment(me.company_id as string, file, bytes).catch(() => null) : null;
+    return { ok: true, attachment, items, supplierId, supplierName: data.fornecedor.nome, supplierCnpj: data.fornecedor.cnpj, number: data.numero_nota, total: data.valor_total, dueDate: due, installments: data.vencimentos };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Não foi possível ler a nota." };
   }
