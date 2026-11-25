@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const { data: profile } = await db.from("profiles").select("company_id").single();
+    const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).single();
     if (!profile?.company_id) {
       return NextResponse.json({ error: "Empresa não identificada." }, { status: 403 });
     }
