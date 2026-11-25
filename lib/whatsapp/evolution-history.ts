@@ -4,11 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/safe-url";
 import { getOrCreateConversation } from "@/lib/whatsapp/inbox-store";
 import { cleanContactName, phoneKey } from "@/lib/whatsapp/phone";
-import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction, extractSignature } from "@/lib/whatsapp/message-text";
 import { resolveMessageChannel, scopeMessages } from './message-scope';
 
 export const HISTORY_PAGE_SIZE = 400;
-const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
 
 type EvoRecord = { key?: Record<string, unknown>; pushName?: string | null; message?: Record<string, unknown> | null; messageTimestamp?: number | string; contextInfo?: unknown };
 type EvoPage = { messages?: { total?: number; pages?: number; currentPage?: number; records?: EvoRecord[] } };
@@ -25,7 +24,7 @@ export async function fetchEvolutionMessages(base: string, apiKey: string, insta
   return response.json();
 }
 
-const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " ").trim().slice(0, 120);
+const preview = (body: string) => extractSignature(body).body.replace(/\s+/g, " ").trim().slice(0, 120);
 
 /** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
 export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string, channelId?: string | null, opts: { maxPages?: number } = {}) {
@@ -82,11 +81,14 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     const ts = Number(r.messageTimestamp);
     if (!phone || !id || !text || !Number.isFinite(ts) || ts <= 0) continue;
     const fromMe = r.key?.fromMe === true;
+    const sig = fromMe ? extractSignature(text) : null;
+    const body = sig ? sig.body : text;
+    const senderName = fromMe ? (sig!.name ?? "Equipe (celular)") : cleanContactName(r.pushName);
     rows.push({
-      phone, external_id: id, body: text, sent_at: new Date(ts * 1000).toISOString(),
+      phone, external_id: id, body, sent_at: new Date(ts * 1000).toISOString(),
       direction: fromMe ? "outbound" : "inbound",
       author: fromMe ? "equipe" : "cliente",
-      sender_name: fromMe ? (text.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)") : cleanContactName(r.pushName),
+      sender_name: senderName,
       contact: fromMe ? null : cleanContactName(r.pushName),
       ...(() => { const q = evolutionQuote(r.message, r.contextInfo); return { quoted_external_id: q?.id ?? null, quoted_preview: q?.preview || null }; })(),
     });
