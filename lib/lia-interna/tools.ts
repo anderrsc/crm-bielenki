@@ -4,6 +4,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
+import { extractSignature } from "@/lib/whatsapp/message-text";
 import { todayISO } from "@/lib/utils";
 import type { ToolResult } from "./types";
 
@@ -153,6 +154,18 @@ export const TOOL_DECLARATIONS = [
     name: "desfazer_ultima_acao",
     description: "Tenta desfazer a última ação de escrita feita pela Lia nesta sessão. Requer confirmação.",
     parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "corrigir_corpo_mensagem",
+    description: "Corrige o corpo de uma mensagem enviada onde o nome do operador apareceu por engano no meio ou no final. Remove a assinatura do texto e preserva o nome no campo correto. Requer confirmação.",
+    parameters: {
+      type: "object",
+      properties: {
+        message_id: { type: "string", description: "UUID da mensagem a corrigir (opcional se informar o telefone)" },
+        conversation_phone: { type: "string", description: "Telefone da conversa para buscar a última mensagem enviada com problema (usar se não souber o message_id)" },
+      },
+      required: [],
+    },
   },
 ];
 
@@ -414,6 +427,61 @@ export async function executeTool(
       };
     }
 
+    case "corrigir_corpo_mensagem": {
+      const message_id = String(args.message_id ?? "").trim();
+      const conversation_phone = String(args.conversation_phone ?? "").replace(/\D/g, "");
+
+      if (!message_id && !conversation_phone) {
+        return { type: "error", message: "Informe o ID da mensagem ou o telefone da conversa." };
+      }
+
+      let msgRow: { id: string; body: string; sender_name: string | null } | null = null;
+
+      if (message_id && /^[0-9a-f-]{36}$/i.test(message_id)) {
+        const { data, error } = await db.from("messages")
+          .select("id,body,sender_name")
+          .eq("id", message_id)
+          .eq("company_id", context.companyId)
+          .eq("direction", "outbound")
+          .maybeSingle();
+        if (error) return { type: "error", message: error.message };
+        msgRow = data;
+      } else if (conversation_phone) {
+        const { data: conv } = await db.from("conversations")
+          .select("id")
+          .eq("company_id", context.companyId)
+          .or(`phone.eq.${conversation_phone},phone.eq.55${conversation_phone}`)
+          .maybeSingle();
+        if (!conv) return { type: "error", message: "Conversa não encontrada para este número." };
+        const { data, error } = await db.from("messages")
+          .select("id,body,sender_name")
+          .eq("conversation_id", conv.id)
+          .eq("company_id", context.companyId)
+          .eq("direction", "outbound")
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) return { type: "error", message: error.message };
+        msgRow = data;
+      }
+
+      if (!msgRow) return { type: "error", message: "Mensagem não encontrada." };
+
+      const sig = extractSignature(msgRow.body);
+      if (!sig.name) {
+        return { type: "error", message: "Nenhuma assinatura encontrada no corpo desta mensagem. O texto já está correto." };
+      }
+
+      const beforePreview = msgRow.body.length > 200 ? msgRow.body.slice(0, 200) + "…" : msgRow.body;
+      const afterPreview = sig.body.length > 200 ? sig.body.slice(0, 200) + "…" : sig.body;
+
+      return {
+        type: "needs_confirmation",
+        preview: `Corrigir mensagem — remover assinatura do corpo:\n\n**Antes:** "${beforePreview}"\n\n**Depois:** "${afterPreview}"\n\nNome do operador: **${sig.name}** (preservado no remetente)`,
+        params: { tool: "corrigir_corpo_mensagem", message_id: msgRow.id, clean_body: sig.body, sender_name: sig.name },
+      };
+    }
+
     default:
       return { type: "error", message: `Ferramenta desconhecida: ${name}` };
   }
@@ -622,6 +690,36 @@ export async function executeConfirmedAction(
 
       await db.from("lia_actions").update({ reversed_at: new Date().toISOString(), reversed_by: context.userId }).eq("id", action_id);
       return { ok: true, message: undoMessage };
+    }
+
+    case "corrigir_corpo_mensagem": {
+      const message_id = String(params.message_id ?? "");
+      const clean_body = String(params.clean_body ?? "").trim();
+      const sender_name = params.sender_name ? String(params.sender_name) : null;
+
+      if (!message_id || !clean_body) return { ok: false, error: "Parâmetros inválidos." };
+
+      const updateData: Record<string, unknown> = { body: clean_body };
+      if (sender_name) updateData.sender_name = sender_name;
+
+      const { error } = await db.from("messages")
+        .update(updateData)
+        .eq("id", message_id)
+        .eq("company_id", context.companyId)
+        .eq("direction", "outbound");
+
+      if (error) return { ok: false, error: error.message };
+
+      const { data: action } = await db.from("lia_actions").insert({
+        session_id: context.sessionId,
+        company_id: context.companyId,
+        user_id: context.userId,
+        tool: "corrigir_corpo_mensagem",
+        params,
+        result: { message_id },
+      }).select("id").single();
+
+      return { ok: true, message: `Mensagem corrigida. Nome "${sender_name}" preservado como remetente.`, action_id: action?.id };
     }
 
     default:
