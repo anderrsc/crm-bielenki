@@ -8,7 +8,7 @@ async function getProfileAndCompany() {
   const db = await getRequestClient();
   const user = await getAuthUser();
   if (!user) throw new Error("Não autenticado");
-  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).eq("active", true).single();
+  const { data: profile } = await db.from("profiles").select("company_id").eq("id", user.id).eq("status", "ativo").single();
   if (!profile?.company_id) throw new Error("Empresa não encontrada");
   const { data: roles, error } = await db.rpc("current_user_roles");
   if (error) throw new Error("Não foi possível verificar as permissões");

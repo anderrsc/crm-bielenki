@@ -48,20 +48,22 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   if(process.env.CATALOG_PREVIEW_DIR){mkdirSync(process.env.CATALOG_PREVIEW_DIR,{recursive:true});writeFileSync(path.join(process.env.CATALOG_PREVIEW_DIR,`quote-${count}.html`),html);}
 });
 
-test.each([true,false])("somente total geral: flag ou proposta WVetro antiga (flag %s)", async hidePrices => {
+test.each([true,false])("sem unitário, com total por item: flag ou proposta WVetro antiga (flag %s)", async hidePrices => {
   fixture.count=2;
   fixture.hidePrices=hidePrices;
   fixture.notes=hidePrices?'':'Referente à proposta nº 1768 de 19/08/2026.';
   try {
     const html=renderToStaticMarkup(await QuoteDocument({id:'00000000-0000-4000-8000-000000000123',printOnly:true}));
     expect(html).not.toContain('quote-unit-value');
-    expect(html).not.toContain('quote-td-total');
+    // Decisão de 25/11 (commit 4605b35): o total por item continua; só o unitário some.
+    expect(html).toContain('quote-td-total');
     expect(html).not.toContain('quote-fin-row');
     expect(html).toContain('TOTAL GERAL');
     expect(html).toContain('200,00');
     expect(html).toContain('DESCRIÇÃO');
     expect(html).toContain('QTD.');
-    expect(html).not.toContain('100,00');
+    // 100,00 aparece como total de cada item (o unitário segue escondido: sem 'quote-unit-value').
+    expect(html).toContain('100,00');
   } finally {fixture.hidePrices=false;fixture.notes='';}
 });
 
