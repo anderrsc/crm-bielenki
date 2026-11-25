@@ -102,12 +102,12 @@ describe('importa o histórico', () => {
     expect(t.messages.find(m=>m.channel_id==='canal-2')?.reaction_customer).toBe('👍');
   });
 
-  test('eco de envio sem confirmação confirma a mensagem do CRM em vez de duplicar', async () => {
+  test.each(['*Rose:*\nJá envio', 'Já envio\n*Rose:*'])('eco de envio sem confirmação reconcilia %j sem duplicar', async (signedBody) => {
     const { t, db } = fakeDb();
     await importHistoryPage(db as never, 'c1', [rec('in1', 1700000000, 'Bom dia')]);
     const conv = t.conversations[0].id;
-    t.messages.push({ id: 'pend', company_id: 'c1', conversation_id: conv, direction: 'outbound', author: 'equipe', body: '*Rose:*\nJá envio', external_id: null, delivery_status: 'desconhecido', sent_at: new Date(1700000290000).toISOString() });
-    expect(await importHistoryPage(db as never, 'c1', [rec('echo1', 1700000300, '*Rose:*\nJá envio', true)])).toMatchObject({ inserted: 0 });
+    t.messages.push({ id: 'pend', company_id: 'c1', conversation_id: conv, direction: 'outbound', author: 'equipe', body: signedBody, external_id: null, delivery_status: 'desconhecido', sent_at: new Date(1700000290000).toISOString() });
+    expect(await importHistoryPage(db as never, 'c1', [rec('echo1', 1700000300, signedBody, true)])).toMatchObject({ inserted: 0 });
     expect(t.messages.filter(m => m.direction === 'outbound')).toHaveLength(1);
     expect(t.messages.find(m => m.id === 'pend')).toMatchObject({ external_id: 'echo1', delivery_status: 'enviada', error_message: null });
     // Texto diferente não é confundido com o envio pendente.

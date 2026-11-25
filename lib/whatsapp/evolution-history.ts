@@ -58,7 +58,7 @@ export function evolutionErrorMessage(e: unknown): string {
 /** Grava uma página de mensagens. Devolve quantas eram novas e quantas conversas tocou. */
 export async function importHistoryPage(db: SupabaseClient, companyId: string, records: EvoRecord[], channelId?: string | null) {
   channelId=await resolveMessageChannel(db,companyId,channelId);
-  type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; sent_at: string; contact: string | null; quoted_external_id: string | null; quoted_preview: string | null };
+  type Row = { phone: string; external_id: string; direction: "inbound" | "outbound"; author: string; sender_name: string | null; body: string; originalBody: string; sent_at: string; contact: string | null; quoted_external_id: string | null; quoted_preview: string | null };
   const rows: Row[] = [];
   // Reações (👍) que o webhook pode ter perdido: aplicadas na mensagem reagida, na ordem em que vieram.
   const reactions: Array<{ targetId: string; emoji: string; fromMe: boolean; ts: number }> = [];
@@ -85,7 +85,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     const body = sig ? sig.body : text;
     const senderName = fromMe ? (sig!.name ?? "Equipe (celular)") : cleanContactName(r.pushName);
     rows.push({
-      phone, external_id: id, body, sent_at: new Date(ts * 1000).toISOString(),
+      phone, external_id: id, body, originalBody: text, sent_at: new Date(ts * 1000).toISOString(),
       direction: fromMe ? "outbound" : "inbound",
       author: fromMe ? "equipe" : "cliente",
       sender_name: senderName,
@@ -146,6 +146,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
 
   // Envio do CRM/Lia que ficou sem confirmação (tempo esgotado): o eco que a reconciliação traz
   // confirma aquela mensagem, em vez de entrar como uma segunda igual na tela.
+  // A mensagem pendente guarda o texto enviado, inclusive a assinatura.
   const confirmed = new Set<string>();
   for (const [phone, convId] of convByPhone) {
     const echoes = fresh.filter((r) => r.phone === phone && r.direction === "outbound");
@@ -156,7 +157,7 @@ export async function importHistoryPage(db: SupabaseClient, companyId: string, r
     if (pendingError) throw new Error(`Envios sem confirmação não consultados: ${pendingError.message}`);
     const open = [...(pending ?? [])] as Array<{ id: string; body: string; sent_at: string }>;
     for (const echo of echoes) {
-      const i = open.findIndex((m) => m.body === echo.body && Math.abs(Date.parse(m.sent_at) - Date.parse(echo.sent_at)) <= 15 * 60_000);
+      const i = open.findIndex((m) => m.body === echo.originalBody && Math.abs(Date.parse(m.sent_at) - Date.parse(echo.sent_at)) <= 15 * 60_000);
       if (i < 0) continue;
       const [match] = open.splice(i, 1);
       const { error: confirmError } = await db.from("messages").update({ external_id: echo.external_id, delivery_status: "enviada", error_message: null })

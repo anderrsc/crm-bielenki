@@ -57,8 +57,9 @@ export async function receivePurchaseAll(form: FormData) {
   const p = z.object({ po_id: z.uuid(), location_id: z.uuid() }).safeParse(raw);
   if (!p.success) redirect(`${q(back)}erro=${encodeURIComponent("Escolha o local do estoque")}`);
   const only = form.getAll("item_ids").map(String).filter((v) => z.uuid().safeParse(v).success);
+  if (!only.length) redirect(`${q(back)}erro=${encodeURIComponent("Marque ao menos um item para receber.")}`);
   const db = await createClient();
-  const { data, error } = await db.rpc("receive_purchase_all", { p_po: p.data.po_id, p_location_id: p.data.location_id, p_item_ids: only.length ? only : null });
+  const { data, error } = await db.rpc("receive_purchase_all", { p_po: p.data.po_id, p_location_id: p.data.location_id, p_item_ids: only });
   if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   for (const r of ["/compras", "/estoque", "/producao", "/producao/materiais-do-pedido"]) revalidatePath(r);
   const r = (data ?? {}) as { received?: number; skipped?: number };

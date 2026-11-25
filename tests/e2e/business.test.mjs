@@ -152,10 +152,10 @@ test("venda avulsa com pagamento parcial", async () => {
   state.saleEntry = fe.find((r) => Number(r.open_amount) > 0).id;
 });
 
-test("compra avulsa e recebimento do material", async () => {
+async function createUnpaidPurchase(description) {
   await page.goto(`${BASE}/compras/nova`, { waitUntil: "networkidle0" });
   await setByLabel(page, "Fornecedor", state.supplier.name);
-  await setByLabel(page, "Descrição do material", `Bobina aluminio ${RUN}`);
+  await setByLabel(page, "Descrição do material", description);
   await setByLabel(page, "Quantidade", 2);
   await setByLabel(page, "Valor unitário", 300);
   // Ainda não pagou: fica tudo em aberto no contas a pagar.
@@ -164,21 +164,34 @@ test("compra avulsa e recebimento do material", async () => {
   await noProblem("compra avulsa");
   const poId = page.url().match(/compras\/([0-9a-f-]{36})/)?.[1];
   assert.ok(poId, `nao abriu a compra: ${page.url()}`);
+  return poId;
+}
+
+test("compra avulsa e recebimento do material", async () => {
+  const poId = await createUnpaidPurchase(`Bobina aluminio ${RUN}`);
   const po = (await db.query("select total from purchase_orders where id=$1", [poId])).rows[0];
   assert.equal(Number(po.total), 600);
-  const pay = (await db.query("select sum(open_amount) open from financial_entries where purchase_order_id=$1 and entry_type='pagar'", [poId])).rows[0];
-  assert.equal(Number(pay.open), 600, "conta a pagar da compra");
-  // Receber o item na tela da compra (se a tela oferecer o recebimento).
-  await page.goto(`${BASE}/compras/${poId}`, { waitUntil: "networkidle0" });
-  await noProblem("detalhe da compra");
-  const hasReceive = await page.$$eval("button", (bs) => bs.some((b) => /receber/i.test(b.innerText)));
-  if (hasReceive) {
-    await clickAndWait(page, "Receber");
-    await noProblem("receber item");
-    const st = (await db.query("select status from purchase_orders where id=$1", [poId])).rows[0].status;
-    assert.notEqual(st, "solicitacao_criada");
-  }
-  state.poId = poId;
+  const balance = async () => Number((await db.query(
+    "select sum(open_amount) open from financial_entries where purchase_order_id=$1 and entry_type='pagar'", [poId],
+  )).rows[0].open);
+  assert.equal(await balance(), 600, "conta a pagar da compra");
+
+  await setByLabel(page, "Entra em qual local do estoque", "Estoque principal");
+  await page.click('input[name="item_ids"]');
+  await clickAndWait(page, "Receber selecionados");
+  assert.match(new URL(page.url()).searchParams.get("erro") ?? "", /Marque ao menos um item/);
+  const received = async () => Number((await db.query(
+    "select sum(received_quantity) as quantity from purchase_order_items where purchase_order_id=$1", [poId],
+  )).rows[0].quantity);
+  assert.equal(await received(), 0, "seleção vazia não recebe itens");
+
+  await setByLabel(page, "Entra em qual local do estoque", "Estoque principal");
+  const selected = await page.$eval('input[name="item_ids"]', (input) => input.checked);
+  if (!selected) await page.click('input[name="item_ids"]');
+  await clickAndWait(page, "Receber selecionados");
+  await noProblem("receber item");
+  assert.equal(await received(), 2, "os itens selecionados entram no estoque");
+  assert.equal(await balance(), 600, "receber material não paga a compra");
 });
 
 test("orcamento de esquadrias", async () => {
@@ -240,17 +253,19 @@ test("financeiro: baixa parcial e renegociacao de vencimento", async () => {
 });
 
 test("receber material da compra no estoque (Materiais do pedido)", async () => {
+  const description = `Bobina materiais do pedido ${RUN}`;
+  const poId = await createUnpaidPurchase(description);
   await page.goto(`${BASE}/producao/materiais-do-pedido`, { waitUntil: "networkidle0" });
   await noProblem("materiais do pedido");
-  const card = await page.evaluateHandle((name) => [...document.querySelectorAll("article")].find((a) => a.innerText.includes(name)), `Bobina aluminio ${RUN}`);
+  const card = await page.evaluateHandle((name) => [...document.querySelectorAll("article")].find((a) => a.innerText.includes(name)), description);
   assert.ok(card.asElement(), "material da compra avulsa nao aparece em Materiais do pedido");
   await card.asElement().$eval("summary", (s) => s.click());
   const btn = await card.asElement().$("form button");
   await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), btn.click()]);
   await noProblem("receber material");
-  const st = (await db.query("select status from purchase_orders where id=$1", [state.poId])).rows[0].status;
+  const st = (await db.query("select status from purchase_orders where id=$1", [poId])).rows[0].status;
   assert.equal(st, "recebido_completo");
-  const mov = (await db.query("select count(*)::int n from stock_movements m join purchase_order_items i on i.id=m.purchase_order_item_id where i.purchase_order_id=$1", [state.poId])).rows[0].n;
+  const mov = (await db.query("select count(*)::int n from stock_movements m join purchase_order_items i on i.id=m.purchase_order_item_id where i.purchase_order_id=$1", [poId])).rows[0].n;
   assert.ok(mov >= 1, "entrada no estoque nao registrada");
 });
 
