@@ -441,7 +441,27 @@ export async function createManualSale(formData:FormData) {
 export async function createManualPurchase(formData:FormData) {
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/compras/nova?erro=Dados da compra inválidos");}
-  const {data,error}=await db.rpc("create_manual_purchase",{p_payload:payload});if(error)redirect(`/compras/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/compras");revalidatePath("/financeiro");redirect(`/compras/${data}`);
+  const {data,error}=await db.rpc("create_manual_purchase",{p_payload:payload});if(error)redirect(`/compras/nova?erro=${encodeURIComponent(error.message)}`);
+  await savePurchaseCodesAndAttachment(db,String(data),payload);
+  revalidatePath("/compras");revalidatePath("/financeiro");redirect(`/compras/${data}`);
+}
+
+/** Códigos dos itens (nota/orçamento do fornecedor) e o arquivo lido pela IA ficam na compra. Falha aqui não desfaz a compra. */
+async function savePurchaseCodesAndAttachment(db:Awaited<ReturnType<typeof createClient>>,purchaseId:string,payload:unknown){
+  const p=(payload??{}) as {items?:Array<{description?:string;category?:string;code?:string}>;attachment?:{path?:string;name?:string;type?:string}|null};
+  const {data:me}=await selectOwnProfile<{company_id:string|null}>(db,"company_id");
+  const company=me?.company_id;if(!company)return;
+  const {data:rows}=await db.from("purchase_order_items").select("id,description,material_id").eq("purchase_order_id",purchaseId).order("id");
+  for(const item of p.items??[]){
+    const code=String(item.code??"").trim().slice(0,60);if(!code)continue;
+    const name=(String(item.description??"").trim()||String(item.category??"")).toLowerCase();
+    const row=(rows??[]).find(r=>String(r.description).trim().toLowerCase()===name);if(!row)continue;
+    await db.from("purchase_order_items").update({code}).eq("id",row.id).is("code",null);
+    if(row.material_id)await db.from("materials").update({sku:code}).eq("id",row.material_id).is("sku",null).then(()=>undefined,()=>undefined);
+  }
+  const a=p.attachment;
+  if(a?.path&&a.path.startsWith(`${company}/`)&&!a.path.includes(".."))
+    await db.from("purchase_orders").update({attachment_path:a.path,attachment_name:String(a.name??"arquivo").slice(0,120),attachment_type:String(a.type??"")}).eq("id",purchaseId);
 }
 
 export async function createWindowQuote(formData:FormData){

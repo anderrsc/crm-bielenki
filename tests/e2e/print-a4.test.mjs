@@ -180,12 +180,13 @@ test("deslocamento oculto: aparece como Incluso, valor diluido e soma das linhas
   assert.deepEqual(r.rows.filter((x) => x !== travel).map((x) => x.total.replace(/\s/g, "")), ["R$365,63", "R$121,87"]);
 });
 
-test("ocultar valores: somente itens e total geral, inclusive no PDF A4", { timeout: 120000 }, async () => {
+test("ocultar valores: sem unitário, com total por item e total geral, inclusive no PDF A4", { timeout: 120000 }, async () => {
   await checkPdf("sem-unitario", { pages: 1 });
   await page.goto(`${BASE}/orcamentos/${quotes["sem-unitario"]}/impressao`, { waitUntil: "networkidle0" });
   const heads = await page.$$eval(".quote-table thead th", (ths) => ths.map((t) => t.innerText.trim()));
   assert.ok(!heads.includes("UNIT."), `coluna UNIT. apareceu: ${heads}`);
-  assert.ok(!heads.includes("TOTAL"), `total por linha apareceu: ${heads}`);
-  assert.equal(await page.$(".quote-unit-value, .quote-td-total, .quote-fin-row"), null);
+  // 25/11: o total por item continua visível; só o unitário some.
+  assert.ok(heads.includes("TOTAL"), `total por item sumiu: ${heads}`);
+  assert.equal(await page.$(".quote-unit-value, .quote-fin-row"), null);
   assert.match(await page.$eval(".quote-fin-total", el => el.innerText), /TOTAL GERAL/);
 });

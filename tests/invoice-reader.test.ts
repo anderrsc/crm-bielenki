@@ -63,3 +63,13 @@ test("Claude Haiku lê PDF como documento e devolve os itens", async () => {
   expect(body.model).toBe("claude-haiku-5-5");
   expect(body.messages[0].content[0].type).toBe("document");
 });
+
+test("código do produto do fornecedor vem junto do item (quando a nota/orçamento traz)", () => {
+  const data = invoiceSchema.parse({ itens: [
+    { codigo: " PSU001-PT ", descricao: "MARCO SUPERIOR 2 TRILHOS SUPREMA PRETO", quantidade: 1, valor_unitario: 174.19, tipo: "Perfil" },
+    { codigo: null, descricao: "Parafuso", quantidade: 10, valor_unitario: 0.5, tipo: "Acessório" },
+  ] });
+  const items = invoiceItems(data);
+  expect(items[0].code).toBe("PSU001-PT");
+  expect(items[1]).not.toHaveProperty("code");
+});

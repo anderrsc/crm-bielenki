@@ -19,6 +19,7 @@ export const invoiceSchema = z.object({
   numero_nota: z.string().nullable().catch(null),
   data_emissao: date,
   itens: z.array(z.object({
+    codigo: z.string().nullable().catch(null).optional(),
     descricao: z.string().catch(""),
     quantidade: num.catch(null),
     unidade: z.string().nullable().catch(null),
@@ -31,7 +32,7 @@ export const invoiceSchema = z.object({
 });
 export type InvoiceData = z.infer<typeof invoiceSchema>;
 
-export type InvoiceItem = { category: string; description: string; quantity: number; unit_price: number };
+export type InvoiceItem = { category: string; description: string; quantity: number; unit_price: number; code?: string };
 
 /** Itens prontos para o formulário: tipo válido, quantidade e unitário coerentes. */
 export function invoiceItems(data: InvoiceData): InvoiceItem[] {
@@ -39,7 +40,8 @@ export function invoiceItems(data: InvoiceData): InvoiceItem[] {
     const qty = i.quantidade && i.quantidade > 0 ? i.quantidade : 1;
     const unit = i.valor_unitario && i.valor_unitario >= 0 ? i.valor_unitario : i.valor_total ? i.valor_total / qty : 0;
     const tipo = (INVOICE_TYPES as readonly string[]).includes(i.tipo ?? "") ? i.tipo! : guessType(i.descricao);
-    return { category: tipo, description: i.descricao.trim().slice(0, 300), quantity: Math.round(qty * 1000) / 1000, unit_price: Math.round(unit * 10000) / 10000 };
+    const code = String(i.codigo ?? "").trim().slice(0, 60);
+    return { category: tipo, description: i.descricao.trim().slice(0, 300), quantity: Math.round(qty * 1000) / 1000, unit_price: Math.round(unit * 10000) / 10000, ...(code ? { code } : {}) };
   });
 }
 
@@ -60,9 +62,9 @@ export const onlyDigits = (s?: string | null) => (s ?? "").replace(/\D/g, "");
 const PROMPT = `Você lê notas fiscais brasileiras (DANFE/NF-e) de compras de uma fábrica de calhas e esquadrias de alumínio.
 Extraia os dados e responda SOMENTE um JSON neste formato:
 {"fornecedor":{"nome":string|null,"cnpj":string|null},"numero_nota":string|null,"data_emissao":"AAAA-MM-DD"|null,
-"itens":[{"descricao":string,"quantidade":number,"unidade":string|null,"valor_unitario":number,"valor_total":number,"tipo":string}],
+"itens":[{"codigo":string|null,"descricao":string,"quantidade":number,"unidade":string|null,"valor_unitario":number,"valor_total":number,"tipo":string}],
 "valor_total":number|null,"vencimentos":[{"data":"AAAA-MM-DD","valor":number}]}
-Regras: o fornecedor é o EMITENTE da nota (não o destinatário). Use ponto como separador decimal. Liste TODOS os itens da tabela de produtos, na ordem.
+Regras: o fornecedor é o EMITENTE da nota (não o destinatário). Use ponto como separador decimal. Liste TODOS os itens da tabela de produtos, na ordem. "codigo" é o código do produto do fornecedor (coluna Código/Cód. Prod.), null se não houver.
 "tipo" deve ser exatamente um de: ${INVOICE_TYPES.join(", ")}. "vencimentos" vem das duplicatas/fatura (vazio se não houver).
 Se algo não estiver legível, use null. Não invente itens.`;
 

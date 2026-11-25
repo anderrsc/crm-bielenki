@@ -171,13 +171,9 @@ test("compra avulsa e recebimento do material", async () => {
   // Receber o item na tela da compra (se a tela oferecer o recebimento).
   await page.goto(`${BASE}/compras/${poId}`, { waitUntil: "networkidle0" });
   await noProblem("detalhe da compra");
-  const hasReceive = await page.$$eval("button", (bs) => bs.some((b) => /receber/i.test(b.innerText)));
-  if (hasReceive) {
-    await clickAndWait(page, "Receber");
-    await noProblem("receber item");
-    const st = (await db.query("select status from purchase_orders where id=$1", [poId])).rows[0].status;
-    assert.notEqual(st, "solicitacao_criada");
-  }
+  // A tela da compra oferece o recebimento (com confirmação); a entrada no estoque é feita no
+  // teste seguinte, por Materiais do pedido.
+  assert.ok((await page.content()).includes("Receber material desta compra"), "seção de recebimento não aparece na compra");
   state.poId = poId;
 });
 
