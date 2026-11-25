@@ -109,6 +109,7 @@ test("criar orcamento de calhas com preco automatico da tabela", async () => {
   await selectByText(page, "select.field", CLIENT);
   assert.equal(Number(await readNumberByLabel("R$/metro")), 95, "preco da tabela nao foi aplicado (espessura 0.5mm x 0.50 mm)");
   await setNumberByLabel("Metros", 10);
+  await page.type('[data-testid="installation-duration-hours"]','1.5');
   const fixture=path.resolve('.test-work',`medidas-internas-${RUN}.txt`);
   fs.mkdirSync(path.dirname(fixture),{recursive:true});fs.writeFileSync(fixture,'MEDIDAS INTERNAS DE TESTE: largura 10 m.');
   await (await page.$('input[name="quote_attachments"]')).uploadFile(fixture);
@@ -116,7 +117,8 @@ test("criar orcamento de calhas com preco automatico da tabela", async () => {
   await noProblem("salvar orcamento");
   assert.match(page.url(), /\/orcamentos\/[0-9a-f-]{36}$/);
   state.quoteId = page.url().split("/").pop();
-  const { rows } = await db.query("select total, status from quotes where id=$1", [state.quoteId]);
+  const { rows } = await db.query("select total, status, installation_duration_minutes from quotes where id=$1", [state.quoteId]);
+  assert.equal(rows[0].installation_duration_minutes,90,'duração interna deve ser salva junto com o orçamento');
   assert.equal(Number(rows[0].total), 950);
   const files=(await db.query('select original_name,file_path from quote_internal_attachments where quote_id=$1',[state.quoteId])).rows;
   assert.equal(files.length,1,'arquivo interno não ficou vinculado ao orçamento');

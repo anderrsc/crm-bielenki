@@ -272,7 +272,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-[10px] text-[var(--text-muted)] text-center">Enter para enviar · Shift+Enter para nova linha</p>
+        <p className="text-[11px] text-[var(--text-muted)] text-center">Enter para enviar · Shift+Enter para nova linha</p>
       </div>
     </div>
   );

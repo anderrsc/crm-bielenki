@@ -44,7 +44,7 @@ function ActionCard({
 }) {
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-3 text-sm">
-      <p className="text-amber-700 dark:text-amber-400 font-medium mb-2 text-xs uppercase tracking-wide">Confirmar ação</p>
+      <p className="text-amber-700 dark:text-amber-400 font-medium mb-2 text-xs">Confirmar ação</p>
       <p className="text-foreground mb-3">
         <MarkdownText text={card.preview} />
       </p>
@@ -186,7 +186,7 @@ export function LiaChatPanel({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">L</div>
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold">L</div>
           <div>
             <p className="text-sm font-semibold leading-none">Lia Interna</p>
             <p className="text-xs text-muted-foreground">Assistente do CRM</p>

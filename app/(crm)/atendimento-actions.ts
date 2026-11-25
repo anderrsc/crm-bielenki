@@ -1,5 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { scheduleReceipt } from "@/lib/receipts/process";
 import { channelById, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { waitingSince } from "@/lib/inbox-waiting";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
@@ -480,8 +481,9 @@ export async function receiveFromInbox(input: {
     if (error) return { error: error.message };
     if (p.accountId && paymentId) {
       const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: p.accountId });
-      if (accError) { revalidatePath("/financeiro"); return { error: `Pagamento lançado, mas a conta não foi gravada: ${accError.message}` }; }
+      if (accError) { await scheduleReceipt(String(paymentId)); revalidatePath("/financeiro"); return { error: `Pagamento lançado, mas a conta não foi gravada: ${accError.message}` }; }
     }
+    if (paymentId) await scheduleReceipt(String(paymentId));
     revalidatePath("/financeiro");
     return { ok: true };
   } catch (error) {

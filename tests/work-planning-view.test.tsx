@@ -3,6 +3,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {expect,test,vi} from 'vitest';
 vi.mock('@/app/(crm)/work-planning-actions',()=>({saveWorkPlanning:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>({getRequestClient:vi.fn()}));
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
 import {WorkPlanningView} from '@/components/work-planning-page';
 import {planningDate, type loadWorkPlanning} from '@/lib/work-planning';
 import {todayISO} from '@/lib/utils';

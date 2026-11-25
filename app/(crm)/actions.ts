@@ -1,4 +1,5 @@
 "use server";
+import { scheduleReceipt } from "@/lib/receipts/process";
 import { notifyInstalled } from "@/lib/whatsapp/notify-installed";
 import { validIsoDate } from "@/lib/valid-date";
 import { friendlyError } from "@/lib/friendly-error";
@@ -144,8 +145,9 @@ export async function registerPayment(formData: FormData) {
   // Em qual conta caiu (Pix/banco): o pagamento já está gravado; se falhar, avisa sem perder a baixa.
   if (accountId && z.string().uuid().safeParse(accountId).success && paymentId) {
     const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: accountId });
-    if (accError) { refreshPaymentViews(back); redirect(`${q(back)}erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
+    if (accError) { await scheduleReceipt(String(paymentId)); refreshPaymentViews(back); redirect(`${q(back)}erro=${encodeURIComponent("Pagamento registrado, mas a conta não foi gravada: " + accError.message)}`); }
   }
+  await scheduleReceipt(paymentId ? String(paymentId) : null);
   refreshPaymentViews(back); redirect(`${q(back)}recebido=1`);
 }
 
@@ -208,6 +210,7 @@ const specialItemSchema = z.object({
 });
 
 const gutterQuotePayloadSchema = z.object({
+  installation_duration_minutes:z.number().int().min(1).max(14400).nullable().optional(),
   client_id: z.string().uuid(),
   discount: z.number().nonnegative(),
   freight: z.number().nonnegative(),
@@ -432,7 +435,7 @@ export async function deleteGutterPrice(formData:FormData) {
 export async function createManualSale(formData:FormData) {
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/vendas/nova?erro=Dados da venda inválidos");}
-  const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}`);
+  const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);await scheduleReceipt(null);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}`);
 }
 
 export async function createManualPurchase(formData:FormData) {
@@ -444,7 +447,7 @@ export async function createManualPurchase(formData:FormData) {
 export async function createWindowQuote(formData:FormData){
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")||"{}"));}catch{redirect("/orcamentos/esquadrias?erro=Dados inválidos");}
-  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),hide_unit_prices:z.boolean().optional(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
+  const parsed=z.object({client_id:z.string().uuid(),discount:z.number().nonnegative(),freight:z.number().nonnegative(),notes:z.string(),valid_until:z.string(),installation_deadline:z.string(),installation_duration_minutes:z.number().int().min(1).max(14400).nullable().optional(),hide_unit_prices:z.boolean().optional(),items:z.array(z.object({product:text,line:z.string(),measurements:text,glass:z.string(),accessories:z.string(),color:z.string(),quantity:z.number().positive(),unit_price:z.number().nonnegative()})).min(1)}).safeParse(payload);
   if(!parsed.success)redirect("/orcamentos/esquadrias?erro=Revise os itens do orçamento");
   const {hide_unit_prices:hideUnitPrices,...windowPayload}=parsed.data;
   const {data,error}=await db.rpc("create_window_quote",{p_payload:windowPayload});if(error)redirect(`/orcamentos/esquadrias?erro=${encodeURIComponent(error.message)}`);

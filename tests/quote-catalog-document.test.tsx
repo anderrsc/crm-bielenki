@@ -8,7 +8,7 @@ const fixture=vi.hoisted(()=>({count:6,hidePrices:false,notes:''}));
 vi.mock("@/app/(crm)/actions",()=>({approveQuote:vi.fn(),deleteQuote:vi.fn(),duplicateQuote:vi.fn(),updateQuoteSeller:vi.fn(),updateQuotePaymentMethods:vi.fn()}));
 vi.mock("@/lib/supabase/server",()=>{const createClient=async()=>({from:(table:string)=>{
   let result: unknown;
-  if(table==='quotes') result={id:'00000000-0000-4000-8000-000000000123',quote_number:'EXEMPLO-001',status:'rascunho',subtotal:fixture.count*100,discount:0,freight:0,total:fixture.count*100,created_at:'2026-11-02',valid_until:'2026-12-02',installation_deadline:'A combinar',seller_name:'Equipe Marquinhos',hide_unit_prices:fixture.hidePrices,notes:fixture.notes||'EXEMPLO SEM VALIDADE COMERCIAL. Ilustrações de referência. Medidas e detalhes devem ser confirmados antes da fabricação.',client:{name:'CLIENTE DE EXEMPLO',city:'Jaraguá do Sul',state:'SC'},company:{name:'Calhas e Esquadrias Marquinhos',trade_name:'Calhas e Esquadrias Marquinhos'}};
+  if(table==='quotes') result={id:'00000000-0000-4000-8000-000000000123',quote_number:'EXEMPLO-001',status:'rascunho',subtotal:fixture.count*100,discount:0,freight:0,total:fixture.count*100,created_at:'2026-11-02',valid_until:'2026-12-02',installation_deadline:'A combinar',installation_duration_minutes:135,seller_name:'Equipe Marquinhos',hide_unit_prices:fixture.hidePrices,notes:fixture.notes||'EXEMPLO SEM VALIDADE COMERCIAL. Ilustrações de referência. Medidas e detalhes devem ser confirmados antes da fabricação.',client:{name:'CLIENTE DE EXEMPLO',city:'Jaraguá do Sul',state:'SC'},company:{name:'Calhas e Esquadrias Marquinhos',trade_name:'Calhas e Esquadrias Marquinhos'}};
   else if(table==='gutter_quotes')result={items:MARQUINHOS_CATALOG.pieces.slice(0,fixture.count).map(piece=>({product:piece.name,category:piece.category,thickness:'0.50 mm',cut:'300',color:'Aluminio Natural',quantity:1,meters:2,unit_price:50,total:100}))};
   else result=[];
   const query={select:()=>query,eq:()=>query,single:async()=>({data:result,error:null}),maybeSingle:async()=>({data:result,error:null}),then:(resolve:(value:unknown)=>unknown)=>Promise.resolve({data:result,error:null}).then(resolve)};
@@ -23,6 +23,8 @@ test.each([1,6,20])("printed quote embeds %i item drawings and QR codes",async c
   expect((html.match(/class="quote-piece-image"/g)||[]).length).toBe(count);
   expect((html.match(/class="quote-piece-qr"/g)||[]).length).toBe(count);
   expect(html).not.toContain('src="/catalogo/');
+  expect(html).not.toContain('Planejamento da instalação');
+  expect(html).not.toContain('Duração da instalação (horas da equipe)');
   expect(html).toContain('pecas-3d.html#platibanda');
   expect(html).not.toContain('api.qrserver.com');
   // So a peca e o QR code; a foto "na obra" aparece no modelo 3D (via QR).
