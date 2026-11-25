@@ -57,3 +57,33 @@ test("reenviar volta o recibo para a fila", async () => {
   expect(await row("select status,attempts from payment_receipts where payment_id=$1", [payment_id])).toEqual({ status: "pendente", attempts: 0 });
   expect((await db.query("select * from claim_payment_receipts(5,$1)", [payment_id])).rows.length).toBe(1);
 });
+
+test("reenviar: recusa recibo sendo enviado agora e esquece a mensagem anterior", async () => {
+  const entry = await receivable(300);
+  const p = (await row("select register_payment_with_adjustment($1,300,current_date,'pix') id", [entry])).id;
+  await db.query("update payment_receipts set status='processando', locked_at=now() where payment_id=$1", [p]);
+  await expect(row("select retry_payment_receipt($1)", [p])).rejects.toThrow(/sendo enviado agora/);
+  const msg = (await row("select gen_random_uuid() id")).id;
+  await db.query("update payment_receipts set status='enviado', locked_at=null, message_id=$2, sent_at=now() where payment_id=$1", [p, msg]);
+  await row("select retry_payment_receipt($1)", [p]);
+  expect(await row("select status,message_id from payment_receipts where payment_id=$1", [p])).toEqual({ status: "pendente", message_id: null });
+});
+
+test("estorno de recibo já enviado: cancela e avisa que o cliente recebeu", async () => {
+  const entry = await receivable(200);
+  const p = (await row("select register_payment_with_adjustment($1,200,current_date,'pix') id", [entry])).id;
+  await db.query("update payment_receipts set status='enviado', sent_at=now() where payment_id=$1", [p]);
+  await row("select reverse_payment($1,'Errado')", [p]);
+  const r = await row("select status,last_error,sent_at is not null enviado from payment_receipts where payment_id=$1", [p]);
+  expect(r.status).toBe("cancelado");
+  expect(r.enviado).toBe(true);
+  expect(r.last_error).toMatch(/Avise o cliente que o recibo nº \d{6} foi cancelado/);
+});
+
+test("baixa não gera mais a mensagem antiga de pagamento confirmado (o recibo substitui)", async () => {
+  // Mesmo com a regra antiga ligada (empresa nova), a baixa não enfileira o texto antigo.
+  await db.query("update automation_rules set enabled=true where automation_type='payment_confirmation'");
+  const entry = await receivable(100);
+  await row("select register_payment_with_adjustment($1,100,current_date,'pix') id", [entry]);
+  expect(await row("select count(*)::int n from outbound_messages where automation_type='payment_confirmation'")).toEqual({ n: 0 });
+});

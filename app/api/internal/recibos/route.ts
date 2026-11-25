@@ -21,7 +21,7 @@ async function handle(req: NextRequest) {
     ok = Boolean(cfg?.cron_secret && safeEqual(token, cfg.cron_secret));
   }
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  try { return NextResponse.json({ ok: true, recibos: await processReceiptQueue({ limit: 5, deadlineMs: 45000 }) }); }
+  try { return NextResponse.json({ ok: true, recibos: await processReceiptQueue({ limit: 5, startCutoffMs: 15000 }) }); }
   catch (e) {
     console.error("Recibos:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Falha ao processar recibos" }, { status: 500 });

@@ -8,7 +8,7 @@ import { shortDate } from "@/lib/utils";
 type Rule = { id:string;automation_type:string;enabled:boolean;days_before:number;send_time:string;template_id:string;template:{name:string;body:string} };
 const labels:Record<string,{title:string;description:string;icon:typeof Bot}> = {
   payment_reminder:{title:"Lembretes de cobrança",description:"Avisa antes do vencimento e repete diariamente enquanto houver saldo.",icon:WalletCards},
-  payment_confirmation:{title:"Confirmação de pagamento",description:"Confirma automaticamente cada pagamento total ou parcial registrado.",icon:CheckCircle2},
+  payment_confirmation:{title:"Confirmação de pagamento (antiga)",description:"Substituída pelo recibo automático em PDF, enviado no WhatsApp a cada baixa. Deixe desligada para o cliente não receber duas mensagens.",icon:CheckCircle2},
   appointment_reminder:{title:"Lembretes de agendamento",description:"Lembra visitas e instalações e permite confirmar ou solicitar reagendamento.",icon:Clock3},
 };
 

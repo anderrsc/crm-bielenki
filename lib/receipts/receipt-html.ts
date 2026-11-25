@@ -18,6 +18,7 @@ export type ReceiptData = {
   orderNumber: string | null;
   saleNumber: string | null;
   reference: string; // descrição da conta (quando não há pedido)
+  hasOrder: boolean; // false: conta avulsa (sem venda/pedido)
   company: { name: string; taxId: string; address: string; cityUf: string; phone: string; whatsapp: string; email: string; website: string; qrLabel: string };
   client: { name: string; document: string; documentLabel: string; phone: string; city: string };
   items: ReceiptItem[];
@@ -51,16 +52,17 @@ export function paymentMethodLabel(method: string | null | undefined) {
   return m ? m.charAt(0).toUpperCase() + m.slice(1) : "Não informado";
 }
 
-export function receiptStatus(balance: number) {
-  return balance <= 0.009 ? { label: "Pedido quitado", cls: "quitado" } : { label: "Parcialmente pago", cls: "parcial" };
+export function receiptStatus(balance: number, hasOrder = true) {
+  if (balance <= 0.009) return { label: hasOrder ? "Pedido quitado" : "Conta quitada", cls: "quitado" };
+  return { label: hasOrder ? "Parcialmente pago" : "Parcialmente paga", cls: "parcial" };
 }
 
 export function renderReceiptHtml(d: ReceiptData, a: ReceiptAssets): string {
-  const status = receiptStatus(d.balance);
+  const status = receiptStatus(d.balance, d.hasOrder);
   const paidPct = d.net > 0 ? Math.min(100, ((d.paidBefore + d.amount) / d.net) * 100) : 100;
   const prevPct = d.net > 0 ? Math.min(100, (d.paidBefore / d.net) * 100) : 0;
   const nowPct = Math.max(0, paidPct - prevPct);
-  const ref = d.orderNumber ? `pedido nº ${esc(d.orderNumber)}` : d.saleNumber ? `venda nº ${esc(d.saleNumber)}` : esc(d.reference);
+  const ref = d.orderNumber ? `à baixa do pedido nº ${esc(d.orderNumber)}` : d.saleNumber ? `à baixa da venda nº ${esc(d.saleNumber)}` : `a: ${esc(d.reference || "lançamento")}`;
   const refTail = d.quoteNumber ? `, vinculado ao orçamento ${esc(d.quoteNumber)}` : "";
   const itemsTotal = d.items.reduce((s, i) => s + i.total, 0);
   const rows = d.items.map((item, i) => `<tr><td class="n">${String(i + 1).padStart(2, "0")}</td><td class="d"><b>${esc(item.description)}</b>${item.detail ? `<small>${esc(item.detail)}</small>` : ""}</td><td class="c">${esc(item.unit)}</td><td class="c">${qty(item.quantity)}</td><td class="r sub">R$ ${brl(item.total)}</td></tr>`).join("");
@@ -69,7 +71,7 @@ export function renderReceiptHtml(d: ReceiptData, a: ReceiptAssets): string {
     ["Pagamento", date(d.paidAt)],
     ["Baixa", `${localDate(d.paymentCreatedAt)} ${localTime(d.paymentCreatedAt)}`],
     ...(d.quoteNumber ? [["Orçamento", d.quoteNumber] as [string, string]] : []),
-    [d.orderNumber ? "Pedido nº" : "Venda nº", d.orderNumber || d.saleNumber || "—"],
+    ...(d.orderNumber || d.saleNumber ? [[d.orderNumber ? "Pedido nº" : "Venda nº", d.orderNumber || d.saleNumber] as [string, string]] : []),
     ["Forma", d.method],
   ];
   const company = d.company;
@@ -113,7 +115,7 @@ table.items th{background:var(--ink);color:#fff;font-size:6.9pt;font-weight:600;
 table.items td{padding:1.7mm 2.5mm;border-bottom:1px solid var(--line);vertical-align:top}
 table.items tbody tr{break-inside:avoid;page-break-inside:avoid}
 table.items tbody tr:nth-child(even) td{background:#fafafa}
-td.n{color:var(--muted);font-weight:600;width:9mm} td.d b{font-weight:500} td.d small{display:block;color:var(--muted);font-size:7.2pt;margin-top:.3mm}
+td.n{color:var(--muted);font-weight:600;width:9mm} td.d{overflow-wrap:anywhere} td.d b{font-weight:500} td.d small{display:block;color:var(--muted);font-size:7.2pt;margin-top:.3mm}
 td.sub{font-weight:600}
 table.items tfoot td{padding:2.2mm 2.5mm;font-weight:700;font-size:8.8pt;border-bottom:none;border-top:1.5px solid var(--ink)}
 .c{text-align:center!important;width:16mm}.r{text-align:right!important;white-space:nowrap}
@@ -171,7 +173,7 @@ table.items tfoot td{padding:2.2mm 2.5mm;font-weight:700;font-size:8.8pt;border-
     ${d.operator ? `<span>Operador</span><b>${esc(d.operator)}</b>` : ""}
   </div></div>
 </section>
-<div class="sec"><h3>Itens do pedido</h3><em>${d.items.length} ${d.items.length === 1 ? "item" : "itens"}</em></div>
+<div class="sec"><h3>${d.hasOrder ? "Itens do pedido" : "Referente a"}</h3><em>${d.items.length} ${d.items.length === 1 ? "item" : "itens"}</em></div>
 <table class="items">
   <thead><tr><th>#</th><th>Descrição</th><th class="c">Un.</th><th class="c">Qtd.</th><th class="r">Valor</th></tr></thead>
   <tbody>${rows}</tbody>
@@ -182,11 +184,11 @@ table.items tfoot td{padding:2.2mm 2.5mm;font-weight:700;font-size:8.8pt;border-
   <div class="fin-grid">
     <div class="decl">
       <div class="lbl">Declaração</div>
-      <div>Recebemos de <b>${esc(d.client.name)}</b> a quantia de <b>R$ ${brl(d.amount)}</b> (${esc(d.amountInWords)}), referente à baixa do ${ref}${refTail}, pago via ${esc(d.method)}. Damos quitação exclusivamente sobre o valor deste recibo.</div>
-      <div class="status"><span>Situação do pedido</span><span class="badge ${status.cls}">${status.label}</span></div>
+      <div>Recebemos de <b>${esc(d.client.name)}</b> a quantia de <b>R$ ${brl(d.amount)}</b> (${esc(d.amountInWords)}), referente ${ref}${refTail}, pago via ${esc(d.method)}. Damos quitação exclusivamente sobre o valor deste recibo.</div>
+      <div class="status"><span>Situação ${d.hasOrder ? "do pedido" : "da conta"}</span><span class="badge ${status.cls}">${status.label}</span></div>
     </div>
     <div class="summary">
-      <div class="line"><span>Total do pedido</span><b>R$ ${brl(d.gross)}</b></div>
+      <div class="line"><span>Total ${d.hasOrder ? "do pedido" : "da conta"}</span><b>R$ ${brl(d.gross)}</b></div>
       <div class="line ${d.discount > 0 ? "minus" : ""}"><span>Desconto</span><b>${d.discount > 0 ? "- " : ""}R$ ${brl(d.discount)}</b></div>
       ${d.interest > 0 ? `<div class="line"><span>Juros / acréscimo</span><b>+ R$ ${brl(d.interest)}</b></div>` : ""}
       <div class="line"><span>Valor líquido</span><b>R$ ${brl(d.net)}</b></div>

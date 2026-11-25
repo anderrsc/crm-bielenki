@@ -9,6 +9,7 @@ import { money, shortDate } from "@/lib/utils";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { RescheduleDialog } from "@/components/reschedule-dialog";
 import { ConfirmButton } from "@/components/confirm-button";
+import { SubmitButton } from "@/components/submit-button";
 import { reversePayment } from "@/app/(crm)/actions";
 import { cancelFinancialEntry, editFinancialEntry, resendPaymentReceipt } from "@/app/(crm)/financial-actions";
 
@@ -23,7 +24,7 @@ type Payment = { id: string; amount: number; paid_at: string; payment_method: st
 type Receipt = { payment_id: string; receipt_number: number; status: string; sent_at: string | null; last_error: string | null; pdf_path: string | null };
 const RECEIPT_STATUS: Record<string, [string, string]> = {
   pendente: ["Recibo na fila", "bg-amber-50 text-amber-800"], processando: ["Gerando recibo…", "bg-amber-50 text-amber-800"],
-  enviado: ["Recibo enviado no WhatsApp", "bg-emerald-50 text-emerald-700"], sem_whatsapp: ["Recibo gerado · cliente sem WhatsApp", "bg-orange-50 text-orange-700"],
+  enviado: ["Recibo enviado no WhatsApp", "bg-emerald-50 text-emerald-700"], sem_confirmacao: ["Recibo sem confirmação do WhatsApp", "bg-amber-50 text-amber-800"], sem_whatsapp: ["Recibo gerado · cliente sem WhatsApp", "bg-orange-50 text-orange-700"],
   falhou: ["Recibo não enviado", "bg-red-50 text-red-700"], cancelado: ["Recibo cancelado", "bg-cream text-ink/60"], historico: ["Recibo não enviado (baixa antiga)", "bg-cream text-ink/60"],
 };
 
@@ -127,12 +128,13 @@ export default async function FinancialEntryPage({ params, searchParams }: { par
           {p.reversed_at ? <span className="rounded-lg bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">Estornado em {shortDate(p.reversed_at)}</span> : <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Válido</span>}
         </div>
         <p className="text-sm text-ink/60">{METHOD[p.payment_method ?? ""] ?? (p.payment_method ?? "—").replaceAll("_", " ")}{p.receiving_account_name ? ` · ${p.receiving_account_name}` : ""}{p.notes ? ` · ${p.notes}` : ""}</p>
-        {(() => { const r = receipts.get(p.id); if (!r) return null; const [label, cls] = RECEIPT_STATUS[r.status] ?? [r.status, "bg-cream"];
+        {(() => { const r = receipts.get(p.id); if (!r) return null; const [baseLabel, cls] = RECEIPT_STATUS[r.status] ?? [r.status, "bg-cream"];
+          const label = r.status === "cancelado" && r.sent_at ? "Recibo cancelado · já tinha sido enviado ao cliente" : baseLabel;
           return <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span className={`rounded-lg px-2 py-0.5 text-xs font-semibold ${cls}`}>Nº {String(r.receipt_number).padStart(6, "0")} · {label}{r.status === "enviado" && r.sent_at ? ` em ${new Date(r.sent_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-            {r.pdf_path && <a className="font-semibold underline" href={`/api/recibos/${p.id}`} target="_blank" rel="noopener noreferrer">Abrir recibo</a>}
-            {!p.reversed_at && canPay === true && r.status !== "processando" && r.status !== "cancelado" && <form action={resendPaymentReceipt}><input type="hidden" name="payment_id" value={p.id} /><input type="hidden" name="_back" value={self} /><button className="font-semibold text-forest underline">{r.status === "enviado" ? "Reenviar ao cliente" : "Enviar ao cliente"}</button></form>}
-            {r.last_error && r.status !== "historico" && r.status !== "enviado" && <span className="w-full text-xs text-ink/50">{r.last_error}</span>}
+            {r.pdf_path && <a className="inline-flex min-h-9 items-center px-1 font-semibold underline" href={`/api/recibos/${p.id}`} target="_blank" rel="noopener noreferrer">Abrir recibo</a>}
+            {!p.reversed_at && canPay === true && r.status !== "processando" && r.status !== "cancelado" && <form action={resendPaymentReceipt}><input type="hidden" name="payment_id" value={p.id} /><input type="hidden" name="_back" value={self} /><SubmitButton className="min-h-9 px-1 font-semibold text-forest underline disabled:opacity-50" pendingText="Enviando…">{r.status === "enviado" || r.status === "sem_confirmacao" ? "Reenviar ao cliente" : "Enviar ao cliente"}</SubmitButton></form>}
+            {r.last_error && r.status !== "historico" && r.status !== "enviado" && <span className={`w-full text-xs ${r.status === "cancelado" && r.sent_at ? "font-semibold text-red-700" : "text-ink/55"}`}>{r.last_error}</span>}
           </div>; })()}
         {!p.reversed_at && canReverse === true && <details className="mt-2"><summary className="cursor-pointer text-sm font-semibold text-red-700">Estornar este pagamento</summary>
           <form action={reversePayment} className="mt-2">
