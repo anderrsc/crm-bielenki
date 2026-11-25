@@ -16,9 +16,14 @@ export async function getBrowser() {
     browserPromise = null;
   }
   browserPromise = (async () => {
-    const executablePath = await chromium.executablePath(CHROMIUM_PACK_URL);
+    // Servidor comum (Railway/Docker): usa o Chromium instalado no sistema.
+    // Vercel (lambda): baixa o pack do @sparticuz/chromium-min.
+    const systemChromium = process.env.CHROMIUM_PATH;
+    const executablePath = systemChromium || await chromium.executablePath(CHROMIUM_PACK_URL);
     return puppeteer.launch({
-      args: chromium.args,
+      args: systemChromium
+        ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--font-render-hinting=none"]
+        : chromium.args,
       // A4 (210mm x 297mm) a 96 CSS DPI = 794 x 1123 px. Um viewport fora
       // dessa proporcao faz o Chromium renderizar o conteudo em outra
       // escala antes de encaixar na folha A4 do PDF, distorcendo qualquer
