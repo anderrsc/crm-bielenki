@@ -10,7 +10,7 @@ import { AiError, aiChat, aiErrorMessage, aiKeyAvailable, aiProviderKey, parseAi
 import { sendOutcomeUnknown, sendWhatsAppText, whatsappCredentials } from "@/lib/whatsapp/send";
 import { rulesForPrompt, rulesWithoutLearned } from "@/lib/ai/ana-rules";
 import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
-import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction } from "@/lib/whatsapp/message-text";
+import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction, extractSignature } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
 import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
@@ -176,7 +176,7 @@ function evolutionPhone(key: Record<string, unknown> | undefined): string | null
   return null;
 }
 
-const SIGNATURE = /^\*([^*\n]{1,40}):\*\s*\n?/;
+
 
 const secretValue = (value?: string | null) => value ? decryptSecret(value) : "";
 
@@ -969,8 +969,9 @@ async function recordOwnMessage(supabase: ReturnType<typeof getSupabase>, compan
     const { data: same } = await supabase.from("messages").select("id")
       .eq("conversation_id", conversation.id).eq("direction", "outbound").eq("body", body).gte("sent_at", since).limit(1);
     if (same?.length) return;
-    const name = body.match(SIGNATURE)?.[1]?.trim() || "Equipe (celular)";
-    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body, author: "equipe", senderName: name, externalId: externalId || null, sentAt });
+    const sig = extractSignature(body);
+    const name = sig.name ?? "Equipe (celular)";
+    await recordOutbound(supabase, { companyId, conversationId: conversation.id, body: sig.body, author: "equipe", senderName: name, externalId: externalId || null, sentAt });
     await supabase.from("conversations").update({ ai_paused: true }).eq("id", conversation.id);
   } catch (error) {
     console.error("Atendimento: falha ao gravar mensagem da equipe:", error instanceof Error ? error.message : error);

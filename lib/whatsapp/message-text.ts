@@ -106,3 +106,19 @@ export function evolutionContact(key: Record<string, unknown> | undefined | null
 
 /** Conversa identificada so pelo "@lid" (sem numero de telefone conhecido). */
 export const isLidContact = (value: string | null | undefined) => /@lid$/.test(String(value ?? ""));
+
+const SIG_START = /^\*([^*\n]{1,40}):\*[ \t]*\n?/;
+const SIG_END   = /\n?\*([^*\n]{1,40}):\*[ \t]*$/;
+
+/**
+ * Extrai a assinatura de operador de uma mensagem outbound.
+ * Suporta assinatura no início (*Nome:*\n) e no final (\n*Nome:*).
+ * Retorna o nome extraído e o corpo sem a assinatura.
+ */
+export function extractSignature(text: string): { name: string | null; body: string } {
+  let m = SIG_START.exec(text);
+  if (m) return { name: m[1].trim(), body: text.slice(m[0].length) };
+  m = SIG_END.exec(text);
+  if (m) return { name: m[1].trim(), body: text.slice(0, text.length - m[0].length) };
+  return { name: null, body: text };
+}
