@@ -494,11 +494,45 @@ export async function executeConfirmedAction(
         .maybeSingle();
       if (entryErr || !entry) return { ok: false, error: "Conta não encontrada." };
       if (entry.status !== "pago") return { ok: false, error: "Conta ainda não está paga." };
+
+      // Busca o último pagamento para obter data e forma
+      const { data: payment } = await db.from("payments")
+        .select("paid_at,payment_method,created_at")
+        .eq("financial_entry_id", entry_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Número sequencial do recibo (total de pagamentos da empresa até este)
+      let receiptNumber = "—";
+      if (payment?.created_at) {
+        const { count } = await db.from("payments")
+          .select("*", { count: "exact", head: true })
+          .eq("company_id", context.companyId)
+          .lte("created_at", payment.created_at);
+        receiptNumber = String(count ?? 1).padStart(6, "0");
+      }
+
+      const clientName = String(params.client_name ?? "").split(" ")[0] || "Cliente";
+      const valor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(entry.total_amount));
+      const paidAtStr = payment?.paid_at
+        ? new Date(payment.paid_at + "T00:00:00").toLocaleDateString("pt-BR")
+        : new Date().toLocaleDateString("pt-BR");
+      const METHOD_LABEL: Record<string, string> = {
+        pix: "Pix", dinheiro: "Dinheiro", cartao_credito: "Cartão de crédito",
+        cartao_debito: "Cartão de débito", boleto: "Boleto",
+        transferencia: "Transferência", cheque: "Cheque",
+      };
+      const metodo = METHOD_LABEL[payment?.payment_method ?? ""] ?? (payment?.payment_method ?? "Pix");
+
+      const { data: company } = await db.from("companies").select("name").eq("id", context.companyId).maybeSingle();
+      const companyName = company?.name ?? "Marquinhos Calhas e Esquadrias";
+
+      const reciboUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/orcamentos/${entry_id}/pdf?tipo=recibo`;
+      const msg = `Olá, ${clientName}! Aqui é da ${companyName}.\n\nConfirmamos o recebimento de *${valor}* via ${metodo} em ${paidAtStr} referente a: ${entry.description}.\n\nSegue o seu recibo nº ${receiptNumber}. Conta quitada. Agradecemos pela confiança! 🙏\n\n${reciboUrl}`;
+
       const { data: cfg } = await db.from("ai_agent_config").select("*").maybeSingle();
       const creds = whatsappCredentials(cfg as Record<string, unknown> | null);
-      const valor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(entry.total_amount));
-      const reciboUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/orcamentos/${entry_id}/pdf?tipo=recibo`;
-      const msg = `Olá! Segue o recibo referente ao pagamento de ${valor} (${entry.description}).\n\n${reciboUrl}`;
       const whatsappId = await sendWhatsAppText(creds, phone, msg);
       if (!whatsappId) return { ok: false, error: "Erro ao enviar WhatsApp. Verifique a conexão." };
       const { data: action } = await db.from("lia_actions").insert({
