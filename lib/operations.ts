@@ -166,11 +166,14 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
   return { checked: agents?.length ?? 0, reconciled, reminders, pushed };
 }
 
+const PROCESS_STARTED_AT = Date.now();
+
 async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: WhatsappChannel, c: { evolutionUrl: string; evolutionKey: string; evolutionInstance: string }) {
   const { data: last } = await db.from('whatsapp_connection_history').select('created_at,event_type').eq('channel_id', ch.id)
     .in('event_type', ['webhook_ok', 'webhook_invalid', 'webhook_check_failed']).order('created_at', { ascending: false }).limit(1).maybeSingle();
   // Só pula a verificação se o último resultado foi OK há menos de 1h; se foi inválido ou falhou, tenta de novo.
-  if (last?.created_at && last.event_type === 'webhook_ok' && Date.now() - Date.parse(last.created_at) < 60 * 60_000) return;
+  // Depois de uma publicação nova (ex.: troca de hospedagem) confere de novo, mesmo com OK recente.
+  if (last?.created_at && last.event_type === 'webhook_ok' && Date.now() - Date.parse(last.created_at) < 60 * 60_000 && Date.parse(last.created_at) > PROCESS_STARTED_AT) return;
   let problems: string[];
   try { problems = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance), process.env.NEXT_PUBLIC_SITE_URL); }
   catch (e) {
