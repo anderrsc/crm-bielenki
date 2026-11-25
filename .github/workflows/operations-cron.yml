@@ -23,3 +23,16 @@ jobs:
             echo "Endpoint retornou $STATUS"
             exit 1
           fi
+      - name: Recibos automáticos (reserva)
+        if: always()
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/internal/recibos")
+          echo "HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Endpoint de recibos retornou $STATUS"
+            exit 1
+          fi

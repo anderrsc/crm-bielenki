@@ -9,7 +9,7 @@ const CHROMIUM_PACK_URL = "https://github.com/Sparticuz/chromium/releases/downlo
 // subir o processo) e o maior custo de tempo na geracao do PDF.
 let browserPromise: Promise<import("puppeteer-core").Browser> | null = null;
 
-async function getBrowser() {
+export async function getBrowser() {
   if (browserPromise) {
     const existing = await browserPromise;
     if (existing.connected) return existing;

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { selectOwnProfile } from "@/lib/own-profile";
 import { createClient } from "@/lib/supabase/server";
 import { q } from "@/lib/back-url";
+import { scheduleReceipt } from "@/lib/receipts/process";
 
 export async function createFinancialEntry(formData: FormData) {
   const type = z.enum(["pagar", "receber"]).safeParse(formData.get("entry_type"));
@@ -88,4 +89,16 @@ export async function cancelFinancialEntry(formData: FormData) {
   if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
   for (const r of ["/financeiro", "/financeiro/pagar", "/financeiro/receber", "/financeiro/caixa", back]) revalidatePath(r);
   redirect(`${q(back)}ok=${encodeURIComponent("Conta cancelada")}`);
+}
+
+// Reenviar o recibo da baixa ao cliente (gera de novo se ainda não existir).
+export async function resendPaymentReceipt(formData: FormData) {
+  const p = z.object({ payment_id: z.uuid(), _back: z.string().regex(/^\/financeiro\/lancamento\/[0-9a-f-]{36}$/i) }).safeParse(Object.fromEntries(formData));
+  if (!p.success) redirect("/financeiro?erro=Recibo+inválido");
+  const db = await createClient();
+  const { error } = await db.rpc("retry_payment_receipt", { p_payment: p.data.payment_id });
+  if (error) redirect(`${q(p.data._back)}erro=${encodeURIComponent(error.message)}`);
+  await scheduleReceipt(p.data.payment_id);
+  revalidatePath(p.data._back);
+  redirect(`${q(p.data._back)}ok=${encodeURIComponent("Recibo na fila de envio")}`);
 }
