@@ -138,7 +138,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-surface)] shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-[var(--color-brand)] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[var(--brand)] flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div>
@@ -156,8 +156,8 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
         {msgs.length === 0 && (
           <div className="space-y-4">
             <div className="text-center pt-6">
-              <div className="w-12 h-12 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-6 h-6 text-[var(--color-brand)]" />
+              <div className="w-12 h-12 rounded-full bg-[var(--brand)]/10 flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-6 h-6 text-[var(--brand)]" />
               </div>
               <p className="font-semibold">Olá! Sou a Lia.</p>
               <p className="text-sm text-[var(--text-muted)] mt-1">Como posso ajudar a equipe hoje?</p>
@@ -175,7 +175,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
         {msgs.map(msg => (
           <div key={msg.id} className={cn("flex gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
             {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-full bg-[var(--color-brand)] flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-7 h-7 rounded-full bg-[var(--brand)] flex items-center justify-center shrink-0 mt-0.5">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
             )}
@@ -184,7 +184,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
                 <div className={cn(
                   "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                   msg.role === "user"
-                    ? "bg-[var(--color-brand)] text-white rounded-tr-sm"
+                    ? "bg-[var(--brand)] text-white rounded-tr-sm"
                     : msg.error
                       ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-tl-sm"
                       : "bg-[var(--bg-surface)] border border-[var(--border)] rounded-tl-sm",
@@ -218,7 +218,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={() => confirm(msg.id, msg.action_card!)}
                       disabled={confirming}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-brand)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       {confirming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                       {msg.action_card.confirmLabel ?? "Confirmar"}
@@ -258,7 +258,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
               onKeyDown={handleKeyDown}
               placeholder="Pergunte ou peça uma ação…"
               rows={1}
-              className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/30 focus:border-[var(--color-brand)]/50 max-h-32 overflow-y-auto leading-relaxed"
+              className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30 focus:border-[var(--brand)]/50 max-h-32 overflow-y-auto leading-relaxed"
               style={{ height: "auto", minHeight: "42px" }}
               onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 128) + "px"; }}
               disabled={sending}
@@ -267,7 +267,7 @@ export function LiaChat({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => send()}
             disabled={sending || !input.trim()}
-            className="p-2.5 rounded-xl bg-[var(--color-brand)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
+            className="p-2.5 rounded-xl bg-[var(--brand)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
@@ -289,10 +289,11 @@ export function LiaInterna() {
         className={cn(
           "fixed bottom-20 right-4 z-40 md:bottom-6 md:right-6",
           "flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg",
-          "bg-[var(--color-brand)] text-white font-medium text-sm",
+          "font-medium text-sm",
           "hover:opacity-90 active:scale-95 transition-all duration-150",
           open && "opacity-0 pointer-events-none",
         )}
+        style={{ background: "var(--brand)", color: "var(--on-brand, #fff)" }}
         aria-label="Abrir Lia Interna"
       >
         <Sparkles className="w-4 h-4" />
