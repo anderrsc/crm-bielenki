@@ -9,7 +9,14 @@ import { formaLabel, parseStatement, statementPeriod } from "@/lib/account-state
 import { AccountPixCharges } from "@/components/account-pix-charges";
 import type { PixChargeRow } from "@/app/(crm)/pix-charge-actions";
 
-export const metadata: Metadata = { title: { absolute: "Extrato por conta – Marquinhos Calhas e Esquadrias" } };
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ conta?: string }> }): Promise<Metadata> {
+  const search = await searchParams;
+  if (!search.conta) return { title: { absolute: "Extrato – Marquinhos Calhas e Esquadrias" } };
+  const db = await getRequestClient();
+  const { data } = await db.from("receiving_accounts").select("name").eq("id", search.conta).maybeSingle();
+  const nome = data?.name ?? "";
+  return { title: { absolute: nome ? `Extrato ${nome} – Marquinhos Calhas e Esquadrias` : "Extrato – Marquinhos Calhas e Esquadrias" } };
+}
 
 type Company = { trade_name?: string | null; name?: string | null; tax_id?: string | null; phone?: string | null; whatsapp?: string | null; address?: string | null; neighborhood?: string | null; city?: string | null; state?: string | null };
 
