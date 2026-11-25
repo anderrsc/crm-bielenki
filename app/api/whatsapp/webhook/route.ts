@@ -20,6 +20,7 @@ import { wantsNoMessages } from "@/lib/ai/lia-rules";
 import { transcribeAudio, type Transcription } from "@/lib/ai/transcribe";
 import { evolutionMediaBase64 } from "@/lib/whatsapp/evolution";
 import { liaDecision, parseLiaHours, parseLiaMode, startOfBrasiliaDay } from "@/lib/ai/lia-mode";
+import { evaluatePolicy, classifyMessage } from "@/lib/ai/lia-policy";
 
 // A IA pode levar alguns segundos: sem isso a Vercel corta a funcao antes da resposta.
 export const maxDuration = 60;
@@ -490,6 +491,41 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       conversation = await recordInbound(supabase, { companyId: company.id, phone: from, contactName, body: clientText, externalId: eventId || null, at: timing.at, historical: !timing.live, channelId: messageChannelId });
       if (!conversation) return NextResponse.json({ status: "duplicate" });
       await saveQuote(supabase, company.id, eventId, quote,messageChannelId);
+      // Armazena áudio no Storage e transcreve após responder para que o player e o texto funcionem indefinidamente.
+      if (isEvolution && mediaInfo === "audio" && eventId && timing.live) {
+        const cacheCId = company.id, cacheEId = eventId;
+        const cacheCreds = channel
+          ? channelCredentials(agentConfig, channel)
+          : whatsappCredentials(agentConfig, { provider: "evolution", phoneNumberId });
+        if (cacheCreds.evolutionUrl && cacheCreds.evolutionKey && cacheCreds.evolutionInstance) {
+          const eu = cacheCreds.evolutionUrl, ek = cacheCreds.evolutionKey, ei = cacheCreds.evolutionInstance;
+          const cacheGeminiKey = agentConfig?.gemini_api_key ? decryptSecret(agentConfig.gemini_api_key) : null;
+          try {
+            after(async () => {
+              try {
+                const db = getSupabase();
+                const { data: m } = await db.from("messages").select("id,conversation_id,media_url,body")
+                  .eq("company_id", cacheCId).eq("external_id", cacheEId).eq("direction", "inbound").maybeSingle();
+                if (!m) return;
+                const needCache = !m.media_url;
+                const needTranscription = !!cacheGeminiKey && m.body === "[áudio]";
+                if (!needCache && !needTranscription) return;
+                const { base64 } = await evolutionMediaBase64(eu, ek, ei, cacheEId, { convertToMp4: true });
+                if (needCache) {
+                  const bytes = Buffer.from(base64, "base64");
+                  const storagePath = `${cacheCId}/${m.conversation_id}/${m.id}`;
+                  const { error: upErr } = await db.storage.from("atendimento-files").upload(storagePath, bytes, { contentType: "audio/mp4", upsert: false });
+                  if (!upErr) await db.from("messages").update({ media_url: storagePath, media_type: "audio/mp4" }).eq("id", m.id).is("media_url", null);
+                }
+                if (needTranscription) {
+                  const tr = await transcribeAudio({ base64, mimetype: "audio/mp4" }, cacheGeminiKey);
+                  if (tr.ok) await db.from("messages").update({ body: `[áudio] ${tr.text}` }).eq("id", m.id).eq("body", "[áudio]");
+                }
+              } catch (e) { console.error("Áudio: falha ao armazenar/transcrever mídia:", e); }
+            });
+          } catch { /* fora de requisição (testes) */ }
+        }
+      }
     } catch (error) {
       throw error;
     }
@@ -729,6 +765,32 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
     }
 
     const resposta = guardCustomerGreeting(aiResult.mensagem || "Como posso ajudar?", updatedMessages);
+
+    // LIA V2 — auditoria de políticas (modo passivo: classifica e registra, nunca bloqueia o atendimento)
+    (async () => {
+      try {
+        const policyCategory = classifyMessage(clientText);
+        const policyDecision = await evaluatePolicy(supabase, company.id, policyCategory);
+        await supabase.from("lia_audit_events").insert({
+          company_id: company.id,
+          event_type: "lia_action",
+          actor_id: null,
+          actor_role: "system",
+          target_type: "system",
+          outcome: "allowed",
+          details: {
+            mode: "audit",
+            message_preview: clientText.slice(0, 200),
+            category: policyCategory,
+            policy_level: policyDecision.level,
+            policy_allowed: policyDecision.allowed,
+            policy_message: policyDecision.message,
+            rule_id: policyDecision.rule?.id ?? null,
+            rule_title: policyDecision.rule?.title ?? null,
+          },
+        });
+      } catch { /* auditoria nunca trava o atendimento */ }
+    })();
 
     // Adiciona resposta da IA ao histórico
     const finalMessages = [

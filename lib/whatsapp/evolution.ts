@@ -82,7 +82,12 @@ export async function evolutionPing(base: string, apiKey: string) {
   return call<{ version?: string }>(base, apiKey, "/");
 }
 
-/** Cria a instância (se não existir) e aponta o webhook para o CRM com o segredo no cabeçalho. */
+/** Reconfigura o webhook da instância sem mexer nos outros parâmetros. */
+export async function evolutionSetWebhook(base: string, apiKey: string, instance: string, webhookUrl: string, webhookSecret: string) {
+  const webhook = { enabled: true, url: webhookUrl, byEvents: false, base64: false, headers: { "x-webhook-secret": webhookSecret }, events: WEBHOOK_EVENTS };
+  await call(base, apiKey, `/webhook/set/${encodeURIComponent(instance)}`, { method: "POST", body: { webhook } });
+}
+
 export async function ensureEvolutionInstance(base: string, apiKey: string, instance: string, webhookUrl: string, webhookSecret: string) {
   const webhook = { enabled: true, url: webhookUrl, byEvents: false, base64: false, headers: { "x-webhook-secret": webhookSecret }, events: WEBHOOK_EVENTS };
   const list = await call<Array<{ name?: string; instance?: { instanceName?: string } }>>(base, apiKey, "/instance/fetchInstances").catch(() => []);
@@ -395,9 +400,9 @@ export async function evolutionOwnerPhone(base: string, apiKey: string, instance
 }
 
 /** Baixa o arquivo (áudio, foto, PDF) de uma mensagem recebida, já em base64. */
-export async function evolutionMediaBase64(base: string, apiKey: string, instance: string, messageId: string): Promise<{ base64: string; mimetype: string | null }> {
+export async function evolutionMediaBase64(base: string, apiKey: string, instance: string, messageId: string, opts: { convertToMp4?: boolean } = {}): Promise<{ base64: string; mimetype: string | null }> {
   const data = await call<{ base64?: string; mimetype?: string; media?: string }>(base, apiKey, `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`, {
-    method: "POST", body: { message: { key: { id: messageId } }, convertToMp4: false },
+    method: "POST", body: { message: { key: { id: messageId } }, convertToMp4: opts.convertToMp4 ?? false },
   });
   const raw = data?.base64 ?? data?.media ?? "";
   if (!raw) throw new EvolutionError("A Evolution não devolveu o arquivo da mensagem.");

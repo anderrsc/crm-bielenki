@@ -138,7 +138,7 @@ describe('importa o histórico', () => {
       expect(t.conversations[0]).toMatchObject({ ai_paused: false, assigned_to: 'vendedor', unread_count: 3, last_message_preview: 'nova' });
     } finally { vi.unstubAllGlobals(); }
   });
-  test('depois de ficar fora do ar, recupera página por página até alcançar o que já tem', async () => {
+  test('recupera do fim para o início, respeita o limite e não para numa página já conhecida', async () => {
     const { t, db } = fakeDb();
     const page1 = Array.from({ length: 400 }, (_, i) => rec(`p1-${i}`, 1700100000 - i, `m${i}`));
     const page2 = [rec('p2-0', 1700000000, 'mais antiga')];
@@ -148,10 +148,18 @@ describe('importa o histórico', () => {
     });
     vi.stubGlobal('fetch', fetcher);
     try {
-      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 401, pages: 2 });
+      await importHistoryPage(db as never, 'c1', page1);
+      // Lê a âncora e a última página, mesmo vazia; não importa além do limite.
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 1 })).toMatchObject({ inserted: 0, pages: 1 });
+      expect(fetcher.mock.calls.map(([,init]) => JSON.parse(init.body as string).page)).toEqual([1,3]);
+      expect(t.messages).toHaveLength(400);
+      fetcher.mockClear();
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 1, pages: 3 });
+      expect(fetcher.mock.calls.map(([,init]) => JSON.parse(init.body as string).page)).toEqual([1,3,2]);
       expect(t.messages).toHaveLength(401);
-      // Em dia: lê só a primeira página.
-      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 0, pages: 1 });
+      // Repetir percorre a mesma janela sem duplicar mensagens.
+      expect(await syncRecentEvolutionMessages(db as never, 'c1', 'https://evolution.example.com', 'k', 'crm', null, { maxPages: 5 })).toMatchObject({ inserted: 0, pages: 3 });
+      expect(t.messages).toHaveLength(401);
     } finally { vi.unstubAllGlobals(); }
   });
   test('reimportar corrige data de mensagem enviada sem duplicar nem alterar conteúdo ou atribuição', async () => {

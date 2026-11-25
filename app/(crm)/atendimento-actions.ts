@@ -1,5 +1,6 @@
 "use server";
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
+import { scheduleReceipt } from "@/lib/receipts/process";
 import { channelById, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { waitingSince } from "@/lib/inbox-waiting";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
@@ -112,7 +113,7 @@ async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"
     if (cfg?.wpp_provider !== "evolution") return 0;
     const key = cfg.evolution_api_key ? decryptSecret(cfg.evolution_api_key) : "";
     if (!cfg.evolution_api_url || !key) throw new Error("Configure a conexão do WhatsApp na Central de IA.");
-    try { return (await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm", null, { maxPages: 3 })).inserted; }
+    try { return (await syncRecentEvolutionMessages(db, companyId, cfg.evolution_api_url, key, cfg.evolution_instance || "crm", null, { maxPages: 10 })).inserted; }
     catch (e) { throw new Error(evolutionErrorMessage(e)); }
   }
   let inserted = 0; const errors: string[] = [];
@@ -120,7 +121,7 @@ async function refreshInboxMessages(db: Awaited<ReturnType<typeof context>>["db"
     const c = channelCredentials(cfg, ch);
     if (!c.evolutionUrl || !c.evolutionKey || !c.evolutionInstance) { errors.push(`${ch.name}: configure a conexão na Central de IA.`); continue; }
     try {
-      inserted += (await syncRecentEvolutionMessages(admin, companyId, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 3 })).inserted;
+      inserted += (await syncRecentEvolutionMessages(admin, companyId, c.evolutionUrl, c.evolutionKey, c.evolutionInstance, ch.id, { maxPages: 10 })).inserted;
       await admin.from("whatsapp_channels").update({ last_sync_at: new Date().toISOString() }).eq("id", ch.id);
     } catch (e) { errors.push(`${ch.name}: ${evolutionErrorMessage(e)}`); }
   }
@@ -480,8 +481,9 @@ export async function receiveFromInbox(input: {
     if (error) return { error: error.message };
     if (p.accountId && paymentId) {
       const { error: accError } = await db.rpc("set_payment_account", { p_payment_id: paymentId, p_account_id: p.accountId });
-      if (accError) { revalidatePath("/financeiro"); return { error: `Pagamento lançado, mas a conta não foi gravada: ${accError.message}` }; }
+      if (accError) { await scheduleReceipt(String(paymentId)); revalidatePath("/financeiro"); return { error: `Pagamento lançado, mas a conta não foi gravada: ${accError.message}` }; }
     }
+    if (paymentId) await scheduleReceipt(String(paymentId));
     revalidatePath("/financeiro");
     return { ok: true };
   } catch (error) {

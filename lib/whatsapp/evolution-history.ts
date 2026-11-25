@@ -29,17 +29,20 @@ const preview = (body: string) => body.replace(SIGNATURE, "").replace(/\s+/g, " 
 
 /** Recuperação curta para a abertura/atualização do Atendimento; nunca executa a IA. */
 export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId: string, base: string, key: string, instance: string, channelId?: string | null, opts: { maxPages?: number } = {}) {
-  // Recupera da mais nova para a mais antiga até chegar no que o CRM já tem: depois de
-  // o servidor ficar fora do ar, nada fica para trás (e não lê o histórico inteiro à toa).
   const maxPages = Math.max(1, Math.min(opts.maxPages ?? 1, 20));
   let inserted = 0, conversations = 0, pages = 0;
-  for (let n = 1; n <= maxPages; n++) {
-    const page = await fetchEvolutionMessages(base, key, instance, n);
+  // Descobre o total de páginas buscando a primeira (mais usada como âncora).
+  const firstFetch = await fetchEvolutionMessages(base, key, instance, 1);
+  const totalPages = Number(firstFetch.messages?.pages ?? 1);
+  // Lê da última página (mais nova) para a primeira (mais antiga), até maxPages.
+  for (let i = 0; i < maxPages; i++) {
+    const n = totalPages - i;
+    if (n < 1) break;
+    const page = n === 1 ? firstFetch : await fetchEvolutionMessages(base, key, instance, n);
     const records = page.messages?.records ?? [];
     const r = await importHistoryPage(db, companyId, records, channelId);
-    inserted += r.inserted; conversations += r.conversations; pages = n;
-    const total = Number(page.messages?.pages ?? 1);
-    if (!r.inserted || records.length < HISTORY_PAGE_SIZE || n >= total) break;
+    inserted += r.inserted; conversations += r.conversations; pages++;
+    if (n <= 1) break;
   }
   return { inserted, conversations, pages };
 }

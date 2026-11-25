@@ -12,14 +12,15 @@ import {
 } from "@/lib/gutters";
 import { automaticPaintItems, automaticPaintPrefix, fabricatedMeterPrice, paintMeterPrice, type GutterQuoteRates } from "@/lib/gutter-quote-pricing";
 import { money, addDaysISO, todayISO, DEFAULT_QUOTE_VALIDITY_DAYS } from "@/lib/utils";
-import { Copy, Database, Plus, Save, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Copy, Database, FileUp, Plus, Save, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { useErrorDraft } from "@/lib/form-draft";
 import { GutterPiecePreview } from "@/components/gutter-piece-preview";
 import { SubmitButton } from "@/components/submit-button";
 import { uniqueProductNames, normalizeProductName, isBeiralProduct, isTwoFloors, withFloors, withoutFloors } from "@/lib/gutter-catalog";
 import { gutterCategoryForProduct, PRODUCT_RENAMES } from "@/lib/gutters";
 import { confirmAction } from "@/components/ui-feedback/confirm";
+import { readQuotePdf } from "@/app/(crm)/quote-reader-actions";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type GutterQuoteItem = {
@@ -279,6 +280,31 @@ export function GutterQuote({
   );
   const [installationDuration,setInstallationDuration]=useState<number|null>(initial?.installation_duration_minutes??null);
 
+  // Importação de PDF de orçamento antigo
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const handleImportPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportLoading(true);
+    setImportError(null);
+    setImportSuccess(null);
+    const form = new FormData();
+    form.append("file", file);
+    const result = await readQuotePdf(form);
+    setImportLoading(false);
+    if (!result.ok) { setImportError(result.error); if (fileRef.current) fileRef.current.value = ""; return; }
+    if (result.items.length) setItems(result.items as unknown as GutterQuoteItem[]);
+    if (result.specialItems.length) setSpecialItems(result.specialItems as unknown as SpecialItem[]);
+    if (result.clientId) setClientId(result.clientId);
+    if (result.validUntil) setValidUntil(result.validUntil);
+    const count = result.items.length + result.specialItems.length;
+    setImportSuccess(`${count} ${count === 1 ? "item importado" : "itens importados"}${result.clientName ? ` para ${result.clientName}` : ""}. Revise os valores antes de salvar.`);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   // Erro ao salvar volta com tudo o que foi digitado.
   const rememberDraft = useErrorDraft(`quote-draft:calhas:${initial?.id ?? "novo"}`,
     { items, specialItems, discount, freight, hideUnitPrices, hideTravelPrice, clientId, notes, pickup, validUntil, installationDeadline, installationDuration },
@@ -406,6 +432,26 @@ export function GutterQuote({
       </div>
 
       {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+      {!initial && (
+        <div className="mb-4">
+          <input ref={fileRef} type="file" accept=".pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={handleImportPdf} />
+          {importSuccess ? (
+            <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+              <span className="flex-1">{importSuccess}</span>
+              <button type="button" className="shrink-0 text-xs text-green-600 underline hover:text-green-800" onClick={() => { setImportSuccess(null); setImportError(null); setItems([blankFabricated("Calhas", prices, rates)]); setSpecialItems([]); setClientId(""); }}>
+                Limpar
+              </button>
+            </div>
+          ) : (
+            <button type="button" disabled={importLoading} onClick={() => fileRef.current?.click()} className="flex items-center gap-2 rounded-xl border border-dashed border-sand bg-surface px-4 py-2.5 text-sm text-ink/60 transition-colors hover:border-forest/40 hover:text-ink/80 disabled:opacity-50">
+              <FileUp className="h-4 w-4" />
+              {importLoading ? "Lendo orçamento…" : "Importar orçamento antigo (PDF)"}
+            </button>
+          )}
+          {importError && <p className="mt-2 text-sm text-red-600">{importError}</p>}
+        </div>
+      )}
 
       <nav className="quote-steps" aria-label="Etapas do orçamento"><a href="#quote-client">1. Cliente</a><a href="#quote-items">2. Itens</a><a href="#quote-attachments">3. Anexos internos</a><a href="#quote-conditions">4. Condições e revisão</a></nav>
       <form data-warn-unsaved action={initial ? updateGutterQuote : saveGutterQuote} onSubmit={rememberDraft} className="grid gap-5 xl:grid-cols-[1fr_340px]">

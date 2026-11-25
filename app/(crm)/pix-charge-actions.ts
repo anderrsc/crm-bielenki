@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/utils";
+import { scheduleReceipt } from "@/lib/receipts/process";
 
 export type PixChargeRow = {
   id: string; account_name: string; receiving_account_id: string; description: string; amount: number;
@@ -46,8 +47,9 @@ export async function confirmPixCharge(id: string, paidAt?: string): Promise<{ o
   const date = paidAt && /^\d{4}-\d{2}-\d{2}$/.test(paidAt) ? paidAt : todayISO();
   if (!uuid.safeParse(id).success) return { ok: false, error: "Cobrança inválida." };
   const db = await createClient();
-  const { error } = await db.rpc("confirm_pix_charge", { p_charge: id, p_paid_at: date });
+  const { data: paymentId, error } = await db.rpc("confirm_pix_charge", { p_charge: id, p_paid_at: date });
   if (error) return { ok: false, error: /permiss/i.test(error.message) ? "Só quem dá baixa no financeiro pode confirmar o recebimento." : error.message };
+  await scheduleReceipt(paymentId ? String(paymentId) : null);
   refresh();
   return { ok: true };
 }
