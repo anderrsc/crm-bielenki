@@ -1,0 +1,30 @@
+# CRM Bielenki na VPS (São Paulo), ao lado da Evolution. O Caddy da Evolution faz o HTTPS.
+# Arquivos em /opt/crm-bielenki: este compose, o .env (chaves) e a pasta app (código do GitHub).
+services:
+  crm:
+    build:
+      context: ./app
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        DEPLOY_ID: ${DEPLOY_ID:-local}
+    image: crm-bielenki:latest
+    container_name: crm-bielenki
+    restart: always
+    env_file: .env
+    environment:
+      PORT: "3000"
+    mem_limit: 1500m
+    networks: [evolution]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  evolution:
+    external: true
+    name: ${EVOLUTION_NETWORK:-evolution_default}

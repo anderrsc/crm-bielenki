@@ -12,7 +12,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
       poweredByHeader: false,
       // Versão de cada publicação: uma aba aberta com a versão antiga recarrega ao navegar em vez de quebrar.
-      deploymentId: process.env.RAILWAY_GIT_COMMIT_SHA || undefined,
+      deploymentId: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.DEPLOY_ID || undefined,
       async headers() { return [{ source: "/:path*", headers: securityHeaders }]; },
       experimental: { serverActions: { bodySizeLimit: "12mb" } },
       outputFileTracingIncludes: { "/*": ["./public/catalogo/pecas/*.png", "./public/catalogo/obra/*.png", "./public/brand/*.svg", "./public/fonts/*"] },

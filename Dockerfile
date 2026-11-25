@@ -13,10 +13,12 @@ ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SITE_URL
 ARG RAILWAY_GIT_COMMIT_SHA
+ARG DEPLOY_ID
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA
+    RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
+    DEPLOY_ID=$DEPLOY_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
@@ -29,6 +31,8 @@ ENV NODE_ENV=production \
 RUN apt-get update && apt-get install -y --no-install-recommends \
       chromium fonts-liberation fonts-noto-color-emoji fonts-dejavu-core ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
+ARG DEPLOY_ID
+ENV DEPLOY_ID=$DEPLOY_ID
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
