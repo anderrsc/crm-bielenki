@@ -65,7 +65,6 @@ export default async function PurchasePage({ params, searchParams }: { params: P
       {po.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-cream p-3 text-sm">{po.notes}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
         {fe && <Link className="button" href={`/financeiro/lancamento/${fe.id}`}>{Number(fe.open_amount) > 0 && !cancelled ? "Pagar / ver conta" : "Ver conta"}</Link>}
-        {pending && !cancelled && <Link className="button-ghost border border-sand" href="/producao/materiais-do-pedido">Receber material</Link>}
       </div>
     </section>
     <section className="card p-5"><h2 className="mb-3 font-semibold">Itens</h2>
