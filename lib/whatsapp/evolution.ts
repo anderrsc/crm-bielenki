@@ -53,14 +53,19 @@ export async function evolutionWebhookConfig(base: string, apiKey: string, insta
   return { enabled: w.enabled === true, url: typeof w.url === "string" ? w.url : "", events: Array.isArray(w.events) ? w.events.map(String) : [] };
 }
 
-/** O que está errado na configuração do webhook (vazio = ok). Só o caminho do endereço é conferido. */
-export function webhookConfigProblems(cfg: EvolutionWebhookConfig | null): string[] {
+/**
+ * O que está errado na configuração do webhook (vazio = ok). Confere o caminho e, quando
+ * informado o endereço atual do CRM (ex.: mudança de hospedagem), também o domínio.
+ */
+export function webhookConfigProblems(cfg: EvolutionWebhookConfig | null, siteUrl?: string | null): string[] {
   if (!cfg) return ["webhook não configurado"];
   const problems: string[] = [];
   if (!cfg.enabled) problems.push("webhook desligado");
-  let path = "";
-  try { path = new URL(cfg.url).pathname.replace(/\/+$/, ""); } catch { /* endereço inválido */ }
-  if (path !== "/api/whatsapp/webhook") problems.push("endereço do webhook não aponta para o CRM");
+  let path = ""; let host = "";
+  try { const u = new URL(cfg.url); path = u.pathname.replace(/\/+$/, ""); host = u.host.toLowerCase(); } catch { /* endereço inválido */ }
+  let expectedHost = "";
+  try { expectedHost = siteUrl ? new URL(siteUrl).host.toLowerCase() : ""; } catch { /* ignora */ }
+  if (path !== "/api/whatsapp/webhook" || (expectedHost && host !== expectedHost)) problems.push("endereço do webhook não aponta para o CRM");
   const events = new Set(cfg.events.map((e) => e.toUpperCase().replace(/\./g, "_")));
   const missing = REQUIRED_WEBHOOK_EVENTS.filter((e) => !events.has(e));
   if (missing.length) problems.push(`eventos faltando: ${missing.join(", ")}`);

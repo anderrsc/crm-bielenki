@@ -172,7 +172,7 @@ async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: Whats
   // Só pula a verificação se o último resultado foi OK há menos de 1h; se foi inválido ou falhou, tenta de novo.
   if (last?.created_at && last.event_type === 'webhook_ok' && Date.now() - Date.parse(last.created_at) < 60 * 60_000) return;
   let problems: string[];
-  try { problems = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance)); }
+  try { problems = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance), process.env.NEXT_PUBLIC_SITE_URL); }
   catch (e) {
     await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_check_failed', p_status: 'error', p_error_message: (e instanceof Error ? e.message : String(e)).slice(0, 300) });
     return;
@@ -185,7 +185,7 @@ async function checkWebhookConfig(db: ReturnType<typeof operationsDb>, ch: Whats
       try {
         await evolutionSetWebhook(c.evolutionUrl, c.evolutionKey, c.evolutionInstance, `${siteUrl}/api/whatsapp/webhook`, secret);
         // Verifica de novo após a correção.
-        const after = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance));
+        const after = webhookConfigProblems(await evolutionWebhookConfig(c.evolutionUrl, c.evolutionKey, c.evolutionInstance), process.env.NEXT_PUBLIC_SITE_URL);
         if (!after.length) {
           await db.rpc('record_whatsapp_connection_event', { p_company_id: ch.company_id, p_channel_id: ch.id, p_provider: 'evolution', p_event_type: 'webhook_ok', p_status: 'ok', p_error_message: null });
           await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-webhook-fixed:${ch.id}:${new Date().toISOString().slice(0, 10)}`, p_title: 'WhatsApp: webhook reconfigurado automaticamente',

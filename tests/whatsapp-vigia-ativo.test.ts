@@ -13,6 +13,9 @@ test("configuração do webhook: só o caminho do endereço importa; desligado o
   expect(webhookConfigProblems({ ...ok, url: "https://outro-sistema.com/hook" })).toEqual(["endereço do webhook não aponta para o CRM"]);
   expect(webhookConfigProblems({ ...ok, events: ["CONNECTION_UPDATE"] })).toEqual(["eventos faltando: MESSAGES_UPSERT, MESSAGES_UPDATE"]);
   expect(webhookConfigProblems(null)).toEqual(["webhook não configurado"]);
+  // Mudança de hospedagem: webhook ainda no endereço antigo é corrigido.
+  expect(webhookConfigProblems(ok, "https://crm-bielenki-production.up.railway.app")).toEqual(["endereço do webhook não aponta para o CRM"]);
+  expect(webhookConfigProblems({ ...ok, url: "https://crm-bielenki-production.up.railway.app/api/whatsapp/webhook" }, "https://crm-bielenki-production.up.railway.app")).toEqual([]);
 });
 
 test("lê a configuração do webhook da Evolution (com ou sem envelope 'webhook') e nunca expõe o segredo", async () => {
