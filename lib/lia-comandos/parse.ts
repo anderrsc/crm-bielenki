@@ -34,8 +34,43 @@ export function parseCommand(text: string): { op: CommandOp; rest: string } | { 
   return op ? { op, rest: m[2].trim() } : { unknown: m[1] };
 }
 
-export const isYes = (t: string) => /^(sim|s|ok|confirmo|confirma|confirmar|pode|pode lan[cç]ar|isso|certo|yes|👍|✅)[.! ]*$/i.test(t.trim());
-export const isNo = (t: string) => /^(n[aã]o|n|cancela|cancelar|\/cancelar|deixa|esquece|para)[.! ]*$/i.test(t.trim());
+/**
+ * Comando falado ou escrito sem barra, começando por "Lia": "Lia, lança 30 reais na conta do Anderson".
+ * Devolve o texto sem o "Lia" quando é um chamado, ou null.
+ */
+export function stripLiaCall(text: string): string | null {
+  const t = text.replace(/^\[áudio\]\s*/i, "").trim();
+  const m = t.match(/^(?:ei|oi|olá|ola|ô|o)?[\s,]*l[ií]a\b[\s,:!.\-–]*([\s\S]*)$/i);
+  return m ? m[1].trim() : null;
+}
+
+/** Descobre o comando pelo que foi dito (sem barra). null = não deu para saber. */
+export function detectOp(text: string): CommandOp | null {
+  const t = fold(text);
+  const rules: Array<[RegExp, CommandOp]> = [
+    [/\b(desfaz|desfazer|estorna|estornar|estorno)/, "desfazer"],
+    [/\b(cancela|cancelar|esquece)\b/, "cancelar"],
+    [/\b(ajuda|comandos|o que voce faz)\b/, "ajuda"],
+    [/\b(corrig|edita|editar|altera|alterar|muda o|muda a|troca o|troca a)/, "editar"],
+    [/\btransfer/, "transferir"],
+    [/\bextrato\b/, "extrato"],
+    [/\bsaldo/, "saldo"],
+    [/\brelatorio/, "relatorio"],
+    [/\bcaixa (de )?hoje|\bcaixa do dia|\bcomo (esta|ta) o caixa/, "caixa"],
+    [/\b(da|dar|de) baixa|\bbaixa\b|\bcliente .*(pagou|pago)|\bpagou\b/, "baixa"],
+    [/\b(devendo|devedores|quem deve|em aberto)/, "devendo"],
+    [/\brecibo/, "recibo"],
+    [/\b(compra|comprei|comprar)\b/, "compra"],
+    [/\b(ficha|como esta o cliente|dados do cliente)\b/, "cliente"],
+    [/\b(saida|paguei|gastei|despesa|gasto)\b/, "saida"],
+    [/\b(entrada|recebi|recebeu|recebemos|entrou|lanca|lancar|adiciona|adicionar|vendi|vendemos)\b/, "entrada"],
+  ];
+  for (const [re, op] of rules) if (re.test(t)) return op;
+  return null;
+}
+
+export const isYes = (t: string) => /^(?:l[ií]a[\s,]*)?(sim|s|ok|confirmo|confirma|confirmar|pode|pode lan[cç]ar|isso|certo|yes|👍|✅)[.! ]*$/i.test(t.trim());
+export const isNo = (t: string) => /^(?:l[ií]a[\s,]*)?(n[aã]o|n|cancela|cancelar|\/cancelar|deixa|esquece|para)[.! ]*$/i.test(t.trim());
 
 /** Primeiro valor em reais do texto: "30,00", "R$ 1.250,50", "2.000", "35". */
 export function parseMoney(text: string): number | null {

@@ -34,3 +34,28 @@ describe("comandos da Lia: leitura", () => {
     expect(bestMatch("marquinhos", contas)).toBeNull();
   });
 });
+
+import { detectOp, stripLiaCall } from "@/lib/lia-comandos/parse";
+
+describe("comandos falados (áudio) ou escritos começando por Lia", () => {
+  it("reconhece o chamado da Lia", () => {
+    expect(stripLiaCall("[áudio] Lia, lança uma entrada de 30 reais na conta do Anderson.")).toBe("lança uma entrada de 30 reais na conta do Anderson.");
+    expect(stripLiaCall("Lía faz a baixa do Jonata")).toBe("faz a baixa do Jonata");
+    expect(stripLiaCall("Oi Lia, qual o saldo?")).toBe("qual o saldo?");
+    expect(stripLiaCall("Liane mandou o orçamento")).toBeNull();
+    expect(stripLiaCall("bom dia")).toBeNull();
+  });
+  it("descobre o comando pelo que foi dito", () => {
+    expect(detectOp("lança uma entrada de 30 reais na conta do Anderson")).toBe("entrada");
+    expect(detectOp("o Anderson recebeu 30 reais, calha vendida na hora")).toBe("entrada");
+    expect(detectOp("paguei 85 de gasolina no pix da Marquinhos")).toBe("saida");
+    expect(detectOp("dá baixa no Jonata, 2 mil no pix")).toBe("baixa");
+    expect(detectOp("qual o saldo da conta do Anderson")).toBe("saldo");
+    expect(detectOp("quem está devendo")).toBe("devendo");
+    expect(detectOp("registra uma compra da Figueira de 1250")).toBe("compra");
+    expect(detectOp("desfaz o último")).toBe("desfazer");
+    expect(detectOp("transfere 500 da conta do Anderson pro caixa")).toBe("transferir");
+    expect(detectOp("manda o relatório do mês pro financeiro")).toBe("relatorio");
+    expect(detectOp("como está o tempo")).toBeNull();
+  });
+});

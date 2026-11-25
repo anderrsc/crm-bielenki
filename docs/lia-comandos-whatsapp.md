@@ -26,6 +26,10 @@ Um resumo pendente vence em 30 minutos.
 | /cancelar | Cancela o resumo pendente | `/cancelar` |
 | /ajuda | Lista dos comandos | `/ajuda` |
 
+## Falando ou escrevendo sem barra
+Comece com **"Lia"**, por texto ou **áudio**: "Lia, lança uma entrada de 30 reais na conta do Anderson, calha vendida na hora".
+A Lia transcreve o áudio, descobre o comando e manda o mesmo resumo para confirmar. Para confirmar por áudio, diga "sim" (ou "Lia, sim").
+
 ## Como funciona
 - Webhook do WhatsApp (`app/api/whatsapp/webhook/route.ts`) chama `lib/lia-comandos/handler.ts` para os números liberados.
 - A IA configurada na Central de IA só lê o texto e devolve os campos. Os nomes de conta, categoria, cliente e fornecedor são conferidos no cadastro.

@@ -551,8 +551,24 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
           deliveryStatus: failure ? "falhou" : "enviada", error: failure }).catch(() => undefined);
         if (failure) throw new Error(failure);
       };
-      const handled = await handleLiaCommand({
-        db: supabase, companyId: company.id, phone: from, text: clientText,
+      // Comando por áudio ("Lia, lança..."): transcreve antes de decidir se é comando.
+      let cmdText = clientText;
+      if (isEvolution && mediaInfo === "audio" && eventId && !/^\[áudio\]\s*\S/i.test(cmdText)) {
+        try {
+          const geminiKey = agentConfig?.gemini_api_key ? decryptSecret(agentConfig.gemini_api_key) : "";
+          if (geminiKey && cmdCredentials.evolutionUrl && cmdCredentials.evolutionKey && cmdCredentials.evolutionInstance) {
+            const media = await evolutionMediaBase64(cmdCredentials.evolutionUrl, cmdCredentials.evolutionKey, cmdCredentials.evolutionInstance, eventId);
+            const tr = await transcribeAudio(media, geminiKey);
+            if (tr.ok) {
+              cmdText = `[áudio] ${tr.text}`;
+              await scopeMessages(supabase.from("messages").update({ body: cmdText }).eq("company_id", company.id).eq("external_id", eventId).eq("direction", "inbound"), messageChannelId)
+                .then(() => undefined, () => undefined);
+            }
+          }
+        } catch (error) { console.error("Lia comandos: áudio não transcrito:", error instanceof Error ? error.message : error); }
+      }
+      const handled = /^\[áudio\]\s*$/i.test(cmdText) ? false : await handleLiaCommand({
+        db: supabase, companyId: company.id, phone: from, text: cmdText,
         reply: (text) => say(from, text, true),
         sendTo: (to, text) => say(to, text, false),
         ai: aiKeyAvailable(cmdProvider, cmdKey) ? { provider: cmdProvider, apiKey: secretValue(cmdKey), model: agentConfig?.openai_model as string | null } : null,

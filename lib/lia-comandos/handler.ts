@@ -8,7 +8,7 @@ import { phoneKey } from "@/lib/whatsapp/phone";
 import { todayISO, addDaysISO } from "@/lib/utils";
 import {
   HELP_TEXT, METHOD_LABEL, bestMatch, brDate, brl, fold, isNo, isYes, optionsText,
-  parseCommand, parseMoney, pickedOption, type CommandOp,
+  detectOp, parseCommand, parseMoney, pickedOption, stripLiaCall, type CommandOp,
 } from "./parse";
 
 const PENDING_MINUTES = 30;
@@ -131,6 +131,24 @@ async function extractFields(ctx: CommandContext, op: WriteOp, text: string, cur
 const FIELD_KEYS: Record<string, true> = { valor: true, conta: true, conta_destino: true, categoria: true, descricao: true, data: true, metodo: true, cliente: true, fornecedor: true, orcamento: true, vencimento: true };
 const ID_OF: Record<string, string> = { conta: "conta_id", conta_destino: "conta_destino_id", categoria: "categoria_id", cliente: "client_id", fornecedor: "supplier_id" };
 const stripIds = (f: Fields) => Object.fromEntries(Object.entries(f).filter(([k]) => k in FIELD_KEYS));
+
+const ALL_OPS: CommandOp[] = ["entrada", "saida", "transferir", "saldo", "extrato", "baixa", "cliente", "devendo", "recibo", "compra", "relatorio", "caixa", "desfazer", "cancelar", "ajuda", "editar"];
+
+/** Quando as palavras-chave não bastam, a IA escolhe o comando (só escolhe; nada é executado sem confirmação). */
+async function classifyOp(ctx: CommandContext, text: string): Promise<CommandOp | null> {
+  if (!ctx.ai?.apiKey && ctx.ai?.provider !== "ollama") return null;
+  try {
+    const raw = await aiChat({
+      provider: ctx.ai!.provider, model: ctx.ai!.model ?? null, apiKey: ctx.ai!.apiKey, json: true, temperature: 0, maxTokens: 60,
+      messages: [
+        { role: "system", content: "Classifique o pedido em um comando de um CRM financeiro. Responda só JSON {\"op\": \"...\"}." },
+        { role: "user", content: `Comandos: entrada (recebimento numa conta), saida (despesa), transferir (entre contas), saldo, extrato, baixa (pagamento de cliente), cliente (ficha), devendo (saldos em aberto), recibo (reenviar), compra (conta a pagar de fornecedor), relatorio, caixa (caixa do dia), desfazer, cancelar, ajuda, editar. Se não for nenhum, op = null.\nPedido: """${text}"""` },
+      ],
+    });
+    const op = (JSON.parse(raw) as { op?: string | null }).op;
+    return op && (ALL_OPS as string[]).includes(op) ? (op as CommandOp) : null;
+  } catch { return null; }
+}
 
 // ── Resolve nomes → cadastros e diz o que falta ───────────────────────────────
 
@@ -485,10 +503,25 @@ async function buildReport(ctx: CommandContext, rest: string) {
  * Trata a mensagem se for comando (ou resposta a um comando pendente).
  * Devolve false quando não é comando: a mensagem segue o fluxo normal do Atendimento.
  */
-export async function handleLiaCommand(ctx: CommandContext, sender: CommandSender): Promise<boolean> {
-  const text = ctx.text.trim();
-  const cmd = parseCommand(text);
+export async function handleLiaCommand(ctxIn: CommandContext, sender: CommandSender): Promise<boolean> {
+  let ctx = ctxIn;
+  // Áudio transcrito chega como "[áudio] ..."; o que vale é o que foi dito.
+  let text = ctx.text.trim().replace(/^\[áudio\]\s*/i, "").replace(/[.!]+$/, "").trim();
+  let cmd = parseCommand(text);
   const pending = await pendingOf(ctx);
+  // Sem barra, começando por "Lia" (escrito ou falado): descobre o comando pelo que foi dito.
+  if (!cmd) {
+    const called = stripLiaCall(text);
+    if (called !== null) {
+      if (pending && (isYes(called) || isNo(called) || pickedOption(called, pending.choose?.options.length ?? 0) !== null)) text = called;
+      else {
+        const op = detectOp(called) ?? await classifyOp(ctx, called);
+        if (op) cmd = { op, rest: op === "editar" && pending ? called.replace(/^(corrig\S*|edit\S*|alter\S*|mud\S*|troc\S*)\s*/i, "") : called };
+        else { await ctx.reply("Não entendi o que fazer. Fale começando com \"Lia\" e o que quer, por exemplo: \"Lia, lança entrada de 30 reais na conta do Anderson\". Mande /ajuda para ver a lista."); return true; }
+      }
+    }
+  }
+  ctx = { ...ctx, text };
 
   if (!cmd) {
     if (!pending) return false;
