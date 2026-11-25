@@ -567,6 +567,8 @@ Assistente interno da gerência, em **aplicativo separado** (link no menu, aba "
 
 ## 12. Histórico de desenvolvimento
 
+- **25/11 — validação das políticas herdadas:** migração aditiva `20261125110519` envolve `auth.uid()` em subconsulta nas políticas `lia_requests_update` e `lia_sessions_own`, preservando os predicados e permissões existentes. Corrige a verificação RLS da suíte completa após atualizar com a main. Teste de isolamento das sessões por dono e verificação de produção regenerada.
+
 - **25/11 — integração da entrega de duração com a main atual:** PR #152 atualizado com as entregas já publicadas por outras sessões. Verificação de banco regenerada incluindo o novo recibo (a confirmação legada foi desativada por essa entrega). Corrigidas regressões herdadas que impediam o CI: contexto de permissões consulta perfil ativo e `current_user_roles`, sem a coluna inexistente `profiles.role`; tipografia da interface alinhada aos testes existentes; teste de histórico cobre leitura reversa, limite e recuperação sem duplicação. Sem novos recursos da Lia.
 
 > Fonte: `git log` da `main` (321 commits, de 04/11/2026 a 19/11/2026), PRs #46–#115, `CONTINUIDADE.md` e documentos em `docs/`. As datas são as dos merges.
