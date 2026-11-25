@@ -75,7 +75,7 @@ export function renderReceiptHtml(d: ReceiptData, a: ReceiptAssets): string {
   const company = d.company;
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo ${esc(d.receiptNumber)}</title><style>
 ${a.fontFaces}
-@page { size:A4; margin:10mm 11mm 14mm; }
+@page { size:A4 portrait; margin:10mm 12mm 14mm; }
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--red:#d71920;--red-soft:#fdecec;--ink:#16181d;--mid:#4a4f57;--muted:#8a9099;--line:#e3e5e8;--soft:#f5f6f7;--green:#15803d;--amber:#b45309}
 body{font-family:'Inter','Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -207,5 +207,5 @@ table.items tfoot td{padding:2.2mm 2.5mm;font-weight:700;font-size:8.8pt;border-
 }
 
 export function receiptFooterTemplate(company: string, receiptNumber: string) {
-  return `<div style="width:100%;margin:0 11mm;padding-top:1.5mm;border-top:1px solid #e3e5e8;display:flex;justify-content:space-between;font-family:Inter,Arial,sans-serif;font-size:6.8pt;color:#8a9099;-webkit-print-color-adjust:exact"><span>${esc(company)} · Recibo nº ${esc(receiptNumber)}</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span> · by Anderson Bielenki</span></div>`;
+  return `<div style="width:100%;margin:0 12mm;padding-top:1.5mm;border-top:1px solid #e3e5e8;display:flex;justify-content:space-between;font-family:Inter,Arial,sans-serif;font-size:6.8pt;color:#8a9099;-webkit-print-color-adjust:exact"><span>${esc(company)} · Recibo nº ${esc(receiptNumber)}</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span> · by Anderson Bielenki</span></div>`;
 }
