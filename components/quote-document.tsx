@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { QuoteAttachments } from "./quote-attachments";
 import { QuoteAluminumCost } from "./aluminum-cost-summary";
 import { QuoteTeamFields } from "./quote-team-fields";
+import {QuoteInstallationDuration} from '@/components/quote-installation-duration';
 import { brCity, formatBrPhone } from "@/lib/whatsapp/phone";
 import type { InternalAttachment } from "@/lib/quote-attachments";
 import { AuthorSignature } from "./brand-logo";
@@ -59,6 +60,7 @@ type QuoteData = {
   total: number;
   valid_until: string | null;
   installation_deadline: string | null;
+  installation_duration_minutes?: number|null;
   notes: string | null;
   client_notes: string | null;
   seller_id: string | null;
@@ -363,7 +365,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
       {!printOnly && error && <p className="no-print mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {!printOnly && isGutter && quote.status !== "aprovado" && <QuoteAluminumCost quoteId={id} />}
 
-      {!printOnly && <QuoteTeamFields quoteId={id} people={team} measurerId={quote.measurer_id ?? null} measurerName={quote.measurer_name ?? null} outsideMeasurers={outsideMeasurers} attendantId={quote.attendant_id ?? null} />}
+      {!printOnly && <><QuoteInstallationDuration quoteId={id} minutes={quote.installation_duration_minutes??null}/><QuoteTeamFields quoteId={id} people={team} measurerId={quote.measurer_id ?? null} measurerName={quote.measurer_name ?? null} outsideMeasurers={outsideMeasurers} attendantId={quote.attendant_id ?? null} /></>}
       {!printOnly && <QuoteAttachments quoteId={id} attachments={attachments} canManage={canManageAttachments} />}
       <div className={printOnly?undefined:"quote-paper-scroll"}><article
         className={`quote-sheet print-sheet relative bg-white${hasPieceMedia ? " quote-with-pieces" : ""}`}

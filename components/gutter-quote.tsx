@@ -1,4 +1,5 @@
 "use client";
+import {InstallationDurationInput} from '@/components/installation-duration-input';
 import { ClientSelect } from "./client-select";
 import { DraftQuoteAttachments } from "./quote-attachments";
 
@@ -56,6 +57,7 @@ export type GutterQuoteInitial = {
   notes: string;
   valid_until: string;
   installation_deadline: string;
+  installation_duration_minutes?: number|null;
   hide_unit_prices: boolean;
   hide_travel_price: boolean;
   items: GutterQuoteItem[];
@@ -276,6 +278,7 @@ export function GutterQuote({
   const [installationDeadline, setInstallationDeadline] = useState(
     initial?.installation_deadline ?? "Até 15 dias"
   );
+  const [installationDuration,setInstallationDuration]=useState<number|null>(initial?.installation_duration_minutes??null);
 
   // Importação de PDF de orçamento antigo
   const [importLoading, setImportLoading] = useState(false);
@@ -304,9 +307,9 @@ export function GutterQuote({
 
   // Erro ao salvar volta com tudo o que foi digitado.
   const rememberDraft = useErrorDraft(`quote-draft:calhas:${initial?.id ?? "novo"}`,
-    { items, specialItems, discount, freight, hideUnitPrices, hideTravelPrice, clientId, notes, pickup, validUntil, installationDeadline },
+    { items, specialItems, discount, freight, hideUnitPrices, hideTravelPrice, clientId, notes, pickup, validUntil, installationDeadline, installationDuration },
     (d) => { setItems(d.items); setSpecialItems(d.specialItems); setDiscount(d.discount); setFreight(d.freight); setHideUnitPrices(d.hideUnitPrices);
-      setHideTravelPrice(d.hideTravelPrice); setClientId(d.clientId); setNotes(d.notes); setPickup(d.pickup); setValidUntil(d.validUntil); setInstallationDeadline(d.installationDeadline); });
+      setHideTravelPrice(d.hideTravelPrice); setClientId(d.clientId); setNotes(d.notes); setPickup(d.pickup); setValidUntil(d.validUntil); setInstallationDeadline(d.installationDeadline); setInstallationDuration(d.installationDuration??null); });
 
   /* ── Cálculos ── */
   const subtotalFab = useMemo(
@@ -390,6 +393,7 @@ export function GutterQuote({
 
   const payload = JSON.stringify({
     client_id: clientId,
+    installation_duration_minutes: installationDuration,
     discount,
     freight,
     notes,
@@ -639,6 +643,7 @@ export function GutterQuote({
                 onChange={e => setInstallationDeadline(e.target.value)}
                 placeholder="Ex: Até 15 dias após aprovação" />
             </div>
+            <InstallationDurationInput value={installationDuration} onChange={setInstallationDuration}/>
             {saveProblem && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveProblem}</p>}
             <div className="quote-save-bar border-t pt-4">
               <div className="quote-save-total">
