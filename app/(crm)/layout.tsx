@@ -13,15 +13,17 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const supabase = await getRequestClient();
   const user = await getAuthUser(supabase);
   if (!user) redirect("/login");
-  const [{ data: profile }, { data: roleValues }] = await Promise.all([
+  // Tudo de uma vez: o banco fica longe do servidor e cada consulta em fila soma uma ida e volta.
+  // Selo de não lidas na barra do celular: só quem enxerga o Atendimento recebe linhas (RLS), então a soma não vaza.
+  const [{ data: profile }, { data: roleValues }, modules, unreadChats] = await Promise.all([
     supabase.from("profiles").select("full_name, companies(name)").eq("id", user.id).single(),
     supabase.rpc("current_user_roles"),
+    viewableModules(supabase),
+    unreadConversations(supabase),
   ]);
   const roles = (roleValues as string[] | null) ?? [];
-  const viewable = isManagement(roles) ? moduleResources : await viewableModules(supabase);
+  const viewable = isManagement(roles) ? moduleResources : modules;
   const company = profile?.companies as unknown as { name?: string } | null;
-  // Selo de não lidas na barra do celular: só quem enxerga o Atendimento recebe linhas (RLS), então a soma não vaza.
-  const unreadChats = await unreadConversations(supabase);
   return (
     <AppShell userName={profile?.full_name?.split(" ")[0] ?? "Usuário"} companyName={company?.name ?? "Marquinhos Calhas e Esquadrias"} roles={roles} viewable={viewable} unreadChats={unreadChats}>
       {children}

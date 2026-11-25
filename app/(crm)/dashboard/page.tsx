@@ -55,9 +55,22 @@ const ALERTA_LABEL:Record<string,string>  = { critical:"CRÍTICO", high:"ALTO", 
 export default async function Dashboard({ searchParams }: { searchParams?: Promise<{ aba?: string }> }) {
   const sp   = searchParams ? await searchParams : {};
   const financialDb = await getRequestClient();
-  const canViewFinancial = (await financialDb.rpc("has_table_access", {resource:"financial_entries",action:"select"})).data === true;
-  const aba = sp.aba === "financeiro" && !canViewFinancial ? "geral" : sp.aba ?? "geral";
-  const [data, sources] = await Promise.all([loadDashboard(aba), loadLeadSources()]);
+  // Consultas em paralelo (o banco fica longe do servidor: cada uma em fila soma uma ida e volta).
+  const wanted = sp.aba ?? "geral";
+  const loadProfile = async () => {
+    const u = await getAuthUser(financialDb);
+    return u ? ((await financialDb.from("profiles").select("full_name").eq("id", u.id).maybeSingle()).data?.full_name as string | undefined) : undefined;
+  };
+  const [accessRes, firstData, sources, firstName] = await Promise.all([
+    financialDb.rpc("has_table_access", {resource:"financial_entries",action:"select"}),
+    loadDashboard(wanted),
+    loadLeadSources(),
+    loadProfile(),
+  ]);
+  const canViewFinancial = accessRes.data === true;
+  const aba = wanted === "financeiro" && !canViewFinancial ? "geral" : wanted;
+  // Sem permissão para a aba Financeiro: os números dela não são mostrados; carrega a geral.
+  const data = aba === wanted ? firstData : await loadDashboard(aba);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d    = data as any;
 
@@ -67,8 +80,7 @@ export default async function Dashboard({ searchParams }: { searchParams?: Promi
   const saldo    = receitas - despesas;
 
   // Início no celular (referências): saudação, indicadores, agenda de hoje e etapas dos pedidos.
-  const authUser = aba === "geral" ? await getAuthUser(financialDb) : null;
-  const profileName = authUser ? ((await financialDb.from("profiles").select("full_name").eq("id", authUser.id).maybeSingle()).data?.full_name as string | undefined) : undefined;
+  const profileName = aba === "geral" ? firstName : undefined;
   const hour = Number(new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const dateRaw = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" });
