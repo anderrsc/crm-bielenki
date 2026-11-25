@@ -11,6 +11,7 @@ import "./components.css";
 import "./forms.css";
 import "./glass.css";
 import "./typography.css";
+import { StaleBuildReload } from "@/components/stale-build-reload";
 
 // Plus Jakarta Sans: família única da interface (variável 200–800; o sistema usa só 400, 500, 600 e 700). Hospedada no próprio app.
 const jakarta = localFont({
@@ -26,5 +27,5 @@ const jakarta = localFont({
 export const metadata: Metadata = { title: { default: "Marquinhos Calhas e Esquadrias", template: "%s · Marquinhos" }, description: "Gestão, orçamentos e operação da Marquinhos Calhas e Esquadrias — by Anderson Bielenki", applicationName: "Marquinhos Gestão", icons: { icon: "/icon.svg?v=marquinhos-oficial", apple: "/apple-touch-icon.png" } };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR" data-theme="light" className={jakarta.variable} suppressHydrationWarning><head><meta name="color-scheme" content="light" /></head><body className="min-h-screen antialiased">{children}</body></html>;
+  return <html lang="pt-BR" data-theme="light" className={jakarta.variable} suppressHydrationWarning><head><meta name="color-scheme" content="light" /></head><body className="min-h-screen antialiased"><StaleBuildReload />{children}</body></html>;
 }
