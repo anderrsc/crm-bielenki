@@ -33,17 +33,26 @@ export async function syncRecentEvolutionMessages(db: SupabaseClient, companyId:
   // Descobre o total de páginas buscando a primeira (mais usada como âncora).
   const firstFetch = await fetchEvolutionMessages(base, key, instance, 1);
   const totalPages = Number(firstFetch.messages?.pages ?? 1);
-  // Lê da última página (mais nova) para a primeira (mais antiga), até maxPages.
+  // A ordem das páginas muda conforme a versão da Evolution: na 2.3 a página 1 traz as mais
+  // novas. Descobre pela própria página 1 e lê sempre a partir das mais novas.
+  const newestFirst = pageIsNewestFirst(firstFetch.messages?.records ?? []);
   for (let i = 0; i < maxPages; i++) {
-    const n = totalPages - i;
-    if (n < 1) break;
+    const n = newestFirst ? 1 + i : totalPages - i;
+    if (n < 1 || n > totalPages) break;
     const page = n === 1 ? firstFetch : await fetchEvolutionMessages(base, key, instance, n);
     const records = page.messages?.records ?? [];
     const r = await importHistoryPage(db, companyId, records, channelId);
     inserted += r.inserted; conversations += r.conversations; pages++;
-    if (n <= 1) break;
+    if (!newestFirst && n <= 1) break;
   }
   return { inserted, conversations, pages };
+}
+
+/** A página vem da mais nova para a mais antiga? (compara a primeira e a última mensagem) */
+export function pageIsNewestFirst(records: EvoRecord[]): boolean {
+  const ts = records.map((r) => Number(r.messageTimestamp)).filter((t) => Number.isFinite(t) && t > 0);
+  if (ts.length < 2) return false;
+  return ts[0] > ts[ts.length - 1];
 }
 
 /** Mensagem clara para os erros mais comuns do servidor do WhatsApp. */

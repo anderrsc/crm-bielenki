@@ -17,7 +17,7 @@ jobs:
             -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/internal/operations")
+            "https://crm-bielenki-production.up.railway.app/api/internal/operations")
           echo "HTTP $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Endpoint retornou $STATUS"
@@ -30,7 +30,7 @@ jobs:
             -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/internal/recibos")
+            "https://crm-bielenki-production.up.railway.app/api/internal/recibos")
           echo "HTTP $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Endpoint de recibos retornou $STATUS"

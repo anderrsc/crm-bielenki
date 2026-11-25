@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { operationsDb, runOperations } from '@/lib/operations';
+import { processReceiptQueue } from '@/lib/receipts/process';
 export const maxDuration = 60;
 
 function safeEqual(a: string, b: string): boolean {
@@ -22,7 +23,12 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!cfg) return NextResponse.json({ error: 'Config não encontrada' }, { status: 500 });
-  try { return NextResponse.json(await runOperations(db, cfg)); }
+  try {
+    const result = await runOperations(db, cfg);
+    // Recibos que ficaram na fila (reserva do envio automático), no mesmo agendador de 1 minuto.
+    const recibos = await processReceiptQueue({ limit: 3, startCutoffMs: 10000 }).catch((e) => { console.error('Recibos:', e instanceof Error ? e.message : e); return null; });
+    return NextResponse.json({ ...result, recibos });
+  }
   catch (e) {
     const detail = e instanceof Error ? e.message : 'Falha nas operações';
     await db.from('crm_operations_config').update({ last_error: detail }).eq('id', true);
