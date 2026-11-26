@@ -59,3 +59,12 @@ describe("comandos falados (áudio) ou escritos começando por Lia", () => {
     expect(detectOp("como está o tempo")).toBeNull();
   });
 });
+
+describe("variações do nome na transcrição", () => {
+  it("aceita Léa, Lía, Lya", () => {
+    expect(stripLiaCall("[áudio] Léa, qual o saldo?")).toBe("qual o saldo?");
+    expect(stripLiaCall("Lya lança 30 reais")).toBe("lança 30 reais");
+    expect(stripLiaCall("E aí Lia, quem está devendo?")).toBe("quem está devendo?");
+    expect(stripLiaCall("Leandro mandou a nota")).toBeNull();
+  });
+});

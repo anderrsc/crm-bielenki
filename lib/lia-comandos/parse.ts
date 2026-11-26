@@ -40,7 +40,8 @@ export function parseCommand(text: string): { op: CommandOp; rest: string } | { 
  */
 export function stripLiaCall(text: string): string | null {
   const t = text.replace(/^\[áudio\]\s*/i, "").trim();
-  const m = t.match(/^(?:ei|oi|olá|ola|ô|o)?[\s,]*l[ií]a\b[\s,:!.\-–]*([\s\S]*)$/i);
+  // A transcrição às vezes escreve o nome como "Léa", "Lía", "Lya" ou "Lia." no começo.
+  const m = t.match(/^(?:ei|oi|olá|ola|ô|o|e aí|e ai|alô|alo)?[\s,]*(?:l[iíeéy]a|lia+h?)\b[\s,:!.\-–]*([\s\S]*)$/i);
   return m ? m[1].trim() : null;
 }
 

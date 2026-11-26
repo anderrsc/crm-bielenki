@@ -563,9 +563,14 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       if (isEvolution && mediaInfo === "audio" && eventId && !/^\[áudio\]\s*\S/i.test(cmdText)) {
         try {
           const geminiKey = agentConfig?.gemini_api_key ? decryptSecret(agentConfig.gemini_api_key) : "";
+          if (!geminiKey) console.log("Lia comandos: áudio sem chave do Gemini configurada");
           if (geminiKey && cmdCredentials.evolutionUrl && cmdCredentials.evolutionKey && cmdCredentials.evolutionInstance) {
             const media = await evolutionMediaBase64(cmdCredentials.evolutionUrl, cmdCredentials.evolutionKey, cmdCredentials.evolutionInstance, eventId);
             const tr = await transcribeAudio(media, geminiKey);
+            console.log("Lia comandos: áudio", tr.ok ? `transcrito: ${tr.text.slice(0, 80)}` : `não transcrito: ${tr.reason}`);
+            if (!tr.ok && (tr.reason === "sem_chave" || tr.reason === "chave_invalida")) {
+              await sendWhatsAppText(cmdCredentials, from, "Não consegui ouvir o áudio: a chave de transcrição (Google Gemini) está faltando ou inválida na Central de IA. Se era um comando, escreva começando com \"Lia\".").catch(() => undefined);
+            }
             if (tr.ok) {
               cmdText = `[áudio] ${tr.text}`;
               await scopeMessages(supabase.from("messages").update({ body: cmdText }).eq("company_id", company.id).eq("external_id", eventId).eq("direction", "inbound"), messageChannelId)
