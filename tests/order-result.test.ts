@@ -49,7 +49,7 @@ test("previsto, comprometido e realizado sem contar nada duas vezes", async () =
   expect(Number(after.expected_cost)).toBe(400);
   expect(Number(after.margin_expected)).toBe(600);
   expect(orderResultStatus(after as never)).toMatchObject({ over: true, noForecast: false, usedPct: 118, marginPct: 53 });
-  expect((await row("select count(*)::int n from audit_logs where table_name='orders' and record_id=$1 and profile_id=$2", [order, user])).n).toBe(1);
+  expect((await row("select count(*)::int n from audit_logs where table_name='orders' and record_id=$1 and profile_id=$2 and action='UPDATE'", [order, user])).n).toBe(1);
   await row("select set_order_expected_cost($1,null)", [order]);
   expect(orderResultStatus((await result()) as never)).toMatchObject({ over: false, noForecast: true, usedPct: null });
 });

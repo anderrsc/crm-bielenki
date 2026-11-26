@@ -61,7 +61,7 @@ import { loadLiaV2Data } from "@/lib/ai/lia-v2-data";
 import type { PromptVersionRow } from "@/app/(crm)/lia-prompt-actions";
 import { ProductionFlowPage } from "@/components/production-flow-page";
 import { WorkPlanningPage } from "@/components/work-planning-page";
-import { AuditLogPage } from "@/components/audit-log-page";
+import { AuditLogPage, type HistoryFilters } from "@/components/audit-log-page";
 import { PendingCenter } from "@/components/pending-center";
 const WindowQuote = dynamic(() => import("@/components/window-quote").then((m) => m.WindowQuote));
 import { encryptSecret, maskSecret } from "@/lib/encrypt";
@@ -202,7 +202,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
     const tab = (search as { aba?: string }).aba ?? "fluxos";
     return <AutomationsHub tab={tab} saved={(search as { salvo?: string }).salvo === "1"} error={search.erro}/>;
   }
-  if (path[0] === "auditoria") return <AuditLogPage tableFilter={(search as { tabela?: string }).tabela} />;
+  if (path[0] === "auditoria") { const h = search as HistoryFilters; return <AuditLogPage tabela={h.tabela} usuario={h.usuario} acao={h.acao} de={h.de} ate={h.ate} busca={h.busca} pagina={h.pagina} />; }
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
     try { return <div className="agenda-stack"><div className="agenda-after mb-4"><OperationalIndicators /></div><div className="agenda-after"><OperationalPending /></div><AgendaPage initialEvents={await getAgendaEvents()} /></div>; }
