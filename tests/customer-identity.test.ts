@@ -27,3 +27,24 @@ describe('identidade do cliente', () => {
     expect(guardCustomerGreeting('Olá! Sou a Lia. Qual seu nome?', [])).toBe('Olá! Sou a Lia. Qual seu nome?');
   });
 });
+
+describe('vocativo com nome do atendente no meio da resposta', () => {
+
+  test('não chama o cliente pelo nome do atendente', () => {
+    const msgs = [user('Anderson, tudo bem?')];
+    expect(guardCustomerGreeting('Tudo bem sim, Anderson! Você já tem ideia de quantos metros?', msgs)).toBe('Tudo bem sim! Você já tem ideia de quantos metros?');
+    expect(guardCustomerGreeting('Sem problema, Anderson! Se puder mandar uma foto.', msgs)).toBe('Sem problema! Se puder mandar uma foto.');
+  });
+  test('mantém o nome que o próprio cliente informou', () => {
+    const msgs = [user('Meu nome é Junior')];
+    expect(guardCustomerGreeting('Perfeito, Junior! Qual a cidade?', msgs)).toBe('Perfeito, Junior! Qual a cidade?');
+  });
+  test('não mexe em frases sem vocativo', () => {
+    expect(guardCustomerGreeting('Atendemos São Bento do Sul, sim. Qual o bairro?', [])).toBe('Atendemos São Bento do Sul, sim. Qual o bairro?');
+  });
+});
+
+
+test.each(['Anderson, tudo bem?', 'Anderson, bom dia', 'Anderson, pode me ajudar?', 'Anderson?'])('chamar o atendente pelo nome não é se identificar: %s', content => {
+  expect(isConfirmedCustomerName('Anderson', [user(content)])).toBe(false);
+});

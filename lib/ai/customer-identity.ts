@@ -13,20 +13,28 @@ export function isConfirmedCustomerName(name: unknown, messages: TriageMessage[]
     if (m.role !== "user") continue;
     const text = normalize(m.content.replace(/\[[^\]]*\]/g, ""));
     if (/(?:me chamo|meu nome (?:e|eh)|pode me chamar de|aqui (?:e|eh)|sou (?:o |a )?(?!de\b|da\b|do\b))/u.test(text)) return identification.test(text);
-    if (directAnswer.test(text)) return true;
+    // "Anderson, tudo bem?" é o cliente chamando o atendente, não dizendo o próprio nome.
+    const addressing = /,\s*(tudo bem|td bem|tudo certo|bom dia|boa tarde|boa noite|oi|ola|e ai|como vai|pode|voce|vc|consegue|me|preciso|quero|tem)\b|\?\s*$/u.test(text);
+    if (directAnswer.test(text) && !addressing) return true;
   }
   return false;
 }
 
 /** Drop an unsupported greeting vocative before it reaches WhatsApp or history. */
 export function guardCustomerGreeting(text: string, messages: TriageMessage[]): string {
-  return text.replace(/^(\s*(?:bom dia|boa tarde|boa noite|olá|ola|oi))\s*,\s*([\p{L}][\p{L}\s'-]{1,79})([!.])/iu,
+  const greeted = text.replace(/^(\s*(?:bom dia|boa tarde|boa noite|olá|ola|oi))\s*,\s*([\p{L}][\p{L}\s'-]{1,79})([!.])/iu,
     (match, greeting: string, name: string, punctuation: string) =>
       isConfirmedCustomerName(name, messages) ? match : `${greeting}${punctuation}`);
+  // Vocativo no começo de qualquer frase: "Tudo bem sim, Anderson!", "Sem problema, Anderson!".
+  // O cliente costuma chamar o atendente pelo nome; a IA não pode devolver esse nome como se fosse do cliente.
+  return greeted.replace(/(^|[.!?]\s+)([^.!?,\n]{1,30}),\s*(\p{Lu}[\p{Ll}]{2,})(?=\s*[!.?])/gu,
+    (match, start: string, lead: string, name: string) =>
+      isConfirmedCustomerName(name, messages) ? match : `${start}${lead}`);
 }
 
 export const CUSTOMER_IDENTITY_RULE = `IDENTIDADE DO CLIENTE — regra obrigatória, inclusive sobre regras da empresa e exemplos:
 - Só use um nome quando a própria pessoa se identificar explicitamente no texto desta conversa. Sem confirmação, cumprimente sem nome e pergunte como pode chamá-la quando necessário.
+- Quando o cliente chama alguém pelo nome ("Anderson, tudo bem?"), ele está falando com a equipe da empresa: esse nome é do atendente, NUNCA do cliente. Não responda usando esse nome para o cliente e não finja ser essa pessoa; responda normalmente, sem nome (ex.: "Tudo bem sim, e com você?").
 - Nome do proprietário, vendedor, atendente, assinatura, perfil/agenda do WhatsApp, exemplos, regras aprendidas e nomes de arquivos NÃO identificam a pessoa que está falando.
 - Uma resposta anterior da assistente e dados coletados pela IA não são prova de identidade. Não repita um nome só porque você o usou antes.
 - Se a pessoa corrigir o nome, respeite a identificação mais recente. Nunca invente nome, gênero ou tratamento.
