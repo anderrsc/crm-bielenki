@@ -93,7 +93,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'activities','ai_lia_rules','aluminum_cost_settings','aluminum_price_matrix','automation_rules',
+    'activities','ai_lia_rules','aluminum_price_matrix','automation_rules',
     'bank_statement_imports','checklist_template_items','checklist_templates','client_types','clients',
     'commissions','conversation_labels','discount_rules','document_templates','files',
     'financial_categories','financial_cost_centers','financial_entries','financial_entry_allocations',
@@ -101,14 +101,14 @@ begin
     'installation_checklists','installations','lead_sources','leads','lia_command_phones',
     'lia_knowledge_blocks','lia_prompt_versions','lia_rules','material_categories','materials',
     'measurement_checklists','measurement_items','measurements','message_templates',
-    'order_aluminum_costs','order_checklist_items','order_checklists','order_consumables','order_items',
+    'order_checklist_items','order_checklists','order_consumables','order_items',
     'order_labor_costs','order_measure_checks','orders','payment_receipts','payments','pipeline_stages',
     'pix_charges','post_sale_photos','post_sales','production_materials','production_order_items',
     'production_orders','production_step_photos','profiles','purchase_order_items','purchase_orders',
     'purchase_request_items','purchase_requests','purchase_returns','quick_replies',
     'quote_internal_attachments','quote_items','quotes','receiving_accounts','sale_items','sale_types',
     'sales','service_orders','service_photos','stock_locations','stock_movements','supplier_categories',
-    'supplier_credits','suppliers','tasks','user_roles','whatsapp_channel_members','work_day_jobs',
+    'supplier_credits','suppliers','tasks','user_roles','work_day_jobs',
     'work_day_members','work_days','work_team_members','work_teams','work_vehicles','workflows'
   ] loop
     if to_regclass('public.' || t) is null then continue; end if;
