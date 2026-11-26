@@ -13,7 +13,7 @@ import { LIA_RULES_LIMIT, liaRulesForPrompt } from "@/lib/ai/lia-learned-rules";
 import { evolutionContact, evolutionMessageText, evolutionQuote, evolutionReaction, extractSignature } from "@/lib/whatsapp/message-text";
 import { getOrCreateConversation, recordInbound, recordOutbound, type InboxConversation } from "@/lib/whatsapp/inbox-store";
 import { isExistingQuoteConversation, quoteHandoff } from "@/lib/ai/triage-context";
-import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
+import { CUSTOMER_IDENTITY_RULE, guardCustomerGreeting, guardRepeatedThanks, isConfirmedCustomerName } from "@/lib/ai/customer-identity";
 import { AI_FAILURE_TAG } from "@/lib/ai/central-data";
 import { liaFactsPrompt } from "@/lib/ai/lia-knowledge";
 import { wantsNoMessages } from "@/lib/ai/lia-rules";
@@ -71,8 +71,9 @@ COMO ESCREVER (o cliente não pode sentir que fala com um robô nem que está pr
 - Nunca pergunte o que ele já disse ou o que dá para deduzir. Nunca repita a mesma pergunta duas vezes; se ele não respondeu, siga com outra coisa ou pergunte de outro jeito.
 - Não repita o que o cliente disse de volta ("Você está em Jaraguá do Sul", "Você gostaria de...").
 - Nunca mostre a lista de serviços nem dê exemplos entre parênteses ("calha, rufo, esquadria ou outro"); pergunte aberto: "Me conta o que você precisa?". Nunca dê opções numeradas, nunca peça "responda sim ou não".
+- Agradeça no máximo UMA vez na conversa (por exemplo, quando ele passar o nome) e no encerramento. Nas outras mensagens, não comece com "Obrigada!": vá direto ("Certo!", "Anotado.", "Perfeito.", ou direto na pergunta). Varie o começo; nunca repita a mesma abertura duas mensagens seguidas.
 - Uma pergunta por mensagem. Só junte duas quando forem do mesmo assunto (ex.: largura e espessura).
-- Se o cliente mandou foto, áudio ou documento ("[foto]", "[áudio]", "[documento]"), agradeça; não peça foto de novo. Áudio transcrito chega como "[áudio] texto falado": responda ao conteúdo normalmente, sem dizer que ouviu um áudio a menos que faça sentido. Se chegar só "[áudio]" (sem texto), a transcrição falhou: diga com simpatia que não conseguiu ouvir o áudio, peça para escrever e avise que a equipe também poderá ouvir. Nunca finja ter entendido um áudio.
+- Se o cliente mandou foto, áudio ou documento ("[foto]", "[áudio]", "[documento]"), comente em poucas palavras ("Recebi a foto!"); não peça foto de novo. Áudio transcrito chega como "[áudio] texto falado": responda ao conteúdo normalmente, sem dizer que ouviu um áudio a menos que faça sentido. Se chegar só "[áudio]" (sem texto), a transcrição falhou: diga com simpatia que não conseguiu ouvir o áudio, peça para escrever e avise que a equipe também poderá ouvir. Nunca finja ter entendido um áudio.
 - Peça foto de forma leve: "se puder, me manda uma foto do local que ajuda bastante".
 - Se perguntarem prazo, forma de pagamento, garantia, endereço ou horário, responda com os FATOS OFICIAIS DA EMPRESA (no fim destas instruções), de forma animada e sem prometer data exata. Preço continua sendo só no orçamento.
 - Se aparecer "conserto", "reparo", "ajuste", "garantia", "vazamento" ou "manutenção" → tipo_atendimento: "pos_venda" e diga que alguém da equipe já vai chamar.
@@ -817,7 +818,7 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       aiResult = { mensagem: "Desculpe, ocorreu um erro. Pode repetir?", dados_coletados: {}, triagem_concluida: false, tipo_atendimento: "comercial", resumo_executivo: null, prioridade: null, score: null, proxima_acao: null };
     }
 
-    const resposta = guardCustomerGreeting(aiResult.mensagem || "Como posso ajudar?", updatedMessages);
+    const resposta = guardRepeatedThanks(guardCustomerGreeting(aiResult.mensagem || "Como posso ajudar?", updatedMessages), updatedMessages, aiResult.triagem_concluida === true);
 
     // LIA V2 — auditoria de políticas (modo passivo: classifica e registra, nunca bloqueia o atendimento)
     (async () => {

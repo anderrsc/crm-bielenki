@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { guardCustomerGreeting, isConfirmedCustomerName } from '@/lib/ai/customer-identity';
+import { guardCustomerGreeting, guardRepeatedThanks, isConfirmedCustomerName } from '@/lib/ai/customer-identity';
+import type { TriageMessage } from '@/lib/ai/triage-context';
 const user = (content: string) => ({ role: 'user', content });
 describe('identidade do cliente', () => {
   test('remove o nome inventado do cumprimento da captura', () => {
@@ -47,4 +48,22 @@ describe('vocativo com nome do atendente no meio da resposta', () => {
 
 test.each(['Anderson, tudo bem?', 'Anderson, bom dia', 'Anderson, pode me ajudar?', 'Anderson?'])('chamar o atendente pelo nome não é se identificar: %s', content => {
   expect(isConfirmedCustomerName('Anderson', [user(content)])).toBe(false);
+});
+
+
+test("Lia não agradece em toda mensagem", () => {
+  const msgs = [
+    { role: "assistant", content: "Olá! Aqui é a Lia... qual seu nome completo?" },
+    { role: "user", content: "Rute Clara Valentim de Miranda" },
+    { role: "assistant", content: "Obrigada! Você é de qual cidade e bairro?" },
+    { role: "user", content: "Santa Luzia, Jaraguá do Sul" },
+  ] as TriageMessage[];
+  expect(guardRepeatedThanks("Obrigada! Pra equipe montar o orçamento, qual a largura?", msgs)).toBe("Pra equipe montar o orçamento, qual a largura?");
+  expect(guardRepeatedThanks("Obrigada pelas medidas, Rute! Seria de correr?", msgs)).toBe("Seria de correr?");
+  expect(guardRepeatedThanks("Obrigada! A equipe vai montar o orçamento.", msgs, true)).toBe("Obrigada! A equipe vai montar o orçamento.");
+  // primeira vez pode agradecer
+  expect(guardRepeatedThanks("Obrigada! Você é de qual cidade?", msgs.slice(0, 2))).toBe("Obrigada! Você é de qual cidade?");
+  // depois de foto pode agradecer
+  const foto = [...msgs, { role: "user", content: "[foto]" }] as TriageMessage[];
+  expect(guardRepeatedThanks("Obrigada pela foto! É de correr?", foto)).toBe("Obrigada pela foto! É de correr?");
 });
