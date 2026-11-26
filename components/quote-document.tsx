@@ -18,6 +18,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { diluteTravel } from "@/lib/quote-travel-dilution";
 import { QuotePdfButton } from "@/components/quote-pdf-button";
 import { QuoteSellerField } from "@/components/quote-seller-field";
+import { QuoteObraField } from "@/components/quote-obra-field";
 import { QuotePaymentMethods } from "@/components/quote-payment-methods";
 import { getAuthUser, getRequestClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/seller-name";
@@ -476,10 +477,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                 {[brCity(client.city as string | null), client.state || (brCity(client.city as string | null) === "Jaraguá do Sul" ? "SC" : "")].filter(Boolean).join(" - ") || "—"}
               </span>
             </div>
-            {quote.obra && (
+            {(quote.obra || !printOnly) && (
               <>
                 <span className="quote-client-lbl">OBRA:</span>
-                <span className="quote-client-val">{quote.obra}</span>
+                {printOnly
+                  ? <span className="quote-client-val">{quote.obra}</span>
+                  : <QuoteObraField quoteId={quote.id} obra={quote.obra ?? ""} />}
               </>
             )}
             {quote.client_notes && (

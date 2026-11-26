@@ -633,6 +633,16 @@ export async function updateQuoteSeller(formData: FormData) {
   revalidatePath(`/orcamentos/${quoteId}`);
 }
 
+export async function updateQuoteObra(formData: FormData) {
+  const db = await createClient();
+  const quoteId = String(formData.get("quote_id") || "");
+  const obra = String(formData.get("obra") || "").trim();
+  if (!quoteId) redirect("/orcamentos?erro=Orçamento inválido");
+  const { error } = await db.from("quotes").update({ obra: obra || null }).eq("id", quoteId);
+  if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/orcamentos/${quoteId}`);
+}
+
 export async function updateQuoteTeam(formData: FormData) {
   const db = await createClient();
   const quoteId = String(formData.get("quote_id") || "");
