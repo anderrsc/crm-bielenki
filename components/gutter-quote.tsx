@@ -60,6 +60,7 @@ export type GutterQuoteInitial = {
   installation_duration_minutes?: number|null;
   hide_unit_prices: boolean;
   hide_travel_price: boolean;
+  obra?: string | null;
   items: GutterQuoteItem[];
   special_items?: SpecialItem[];
 };
@@ -279,6 +280,7 @@ export function GutterQuote({
     initial?.installation_deadline ?? "Até 15 dias"
   );
   const [installationDuration,setInstallationDuration]=useState<number|null>(initial?.installation_duration_minutes??null);
+  const [obra, setObra] = useState(initial?.obra ?? "");
 
   // Importação de PDF de orçamento antigo
   const [importLoading, setImportLoading] = useState(false);
@@ -459,12 +461,20 @@ export function GutterQuote({
         <input type="hidden" name="payload" value={payload} />
         <input type="hidden" name="valid_until" value={validUntil} />
         <input type="hidden" name="installation_deadline" value={installationDeadline} />
+        <input type="hidden" name="obra" value={obra} />
 
         <div className="space-y-4">
           {/* Cliente */}
-          <div id="quote-client" className="card p-5">
-            <label className="label">Cliente</label>
-            <ClientSelect items={clients} value={clientId} onChange={setClientId} />
+          <div id="quote-client" className="card p-5 space-y-3">
+            <div>
+              <label className="label">Cliente</label>
+              <ClientSelect items={clients} value={clientId} onChange={setClientId} />
+            </div>
+            <div>
+              <label className="label">Obra / Referência</label>
+              <input type="text" className="field" value={obra} onChange={e => setObra(e.target.value)}
+                placeholder="Ex: Rua das Flores 123, bloco B — referência interna" maxLength={200} />
+            </div>
           </div>
 
           {/* ── Itens Fabricados agrupados ── */}

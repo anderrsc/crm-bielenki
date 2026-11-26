@@ -72,6 +72,7 @@ type QuoteData = {
   measurer_name?: string | null;
   attendant_id?: string | null;
   triage_session_id?: string | null;
+  obra?: string | null;
   created_at: string;
   client: Row;
   company: CompanyData;
@@ -475,6 +476,12 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
                 {[brCity(client.city as string | null), client.state || (brCity(client.city as string | null) === "Jaraguá do Sul" ? "SC" : "")].filter(Boolean).join(" - ") || "—"}
               </span>
             </div>
+            {quote.obra && (
+              <>
+                <span className="quote-client-lbl">OBRA:</span>
+                <span className="quote-client-val">{quote.obra}</span>
+              </>
+            )}
             {quote.client_notes && (
               <div className="quote-client-obs">
                 <span className="quote-client-lbl">OBSERVAÇÕES DO CLIENTE:</span>
