@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/notification-center";
 import { isManagement, moduleAccess } from "@/lib/module-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House,LayoutGrid,Calculator,Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
+import { House,LayoutGrid,Calculator,Smartphone,Workflow,ChevronDown,Star,ReceiptText,Wrench,History,AlertCircle,BarChart3,Bell,Bot,Boxes,Building2,CalendarCheck,ChevronLeft,ChevronRight,CircleDollarSign,ClipboardCheck,Factory,FileText,HandCoins,LayoutDashboard,Menu,MessageCircle,Plus,Ruler,Search,Settings,Shield,Sparkles,UserCog,Users,WalletCards,X } from "lucide-react";
 import { Suspense,useEffect,useRef,useState } from "react";
 import { NavProgress } from "./nav-progress";
 import { InputHelpers } from "./input-helpers";
@@ -28,7 +28,7 @@ const groups=[
  {title:"Compras e estoque",items:[["Compras", "/compras",HandCoins],["Fornecedores", "/fornecedores",Building2],["Estoque", "/estoque",Boxes],["Produtos e peças", "/tabela-calhas",Boxes]]},
  {title:"Financeiro",items:[["Financeiro", "/financeiro",CircleDollarSign],["A receber", "/financeiro/receber",WalletCards],["A pagar", "/financeiro/pagar",HandCoins],["Conciliação", "/financeiro/conciliacao",ClipboardCheck],["Extrato por conta", "/financeiro/extrato",ReceiptText],["Recorrências", "/financeiro/recorrencias",CalendarCheck],["Relatórios financeiros", "/financeiro/relatorios",BarChart3],["Tributos (calculadora)", "/fiscal",Calculator],["Relatórios", "/relatorios",BarChart3]]},
  // IA num lugar só: a Central de IA abre conversas e configurações da Lia (antes "Agente IA" era outro item).
- {title:"Sistema",items:[["Central de IA", "/central-ia",Bot],["Automações", "/automacoes",Workflow],["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Auditoria", "/auditoria",Shield],["Guia visual", "/design-system",Boxes]]},
+ {title:"Sistema",items:[["Central de IA", "/central-ia",Bot],["Automações", "/automacoes",Workflow],["Funcionários", "/configuracoes/funcionarios",UserCog],["Cargos", "/configuracoes/cargos",Shield],["Configurações", "/configuracoes",Settings],["Histórico", "/auditoria",History],["Guia visual", "/design-system",Boxes]]},
 ] as const;
 // Painel do Jarvis (fila de tarefas de IA na VPS). Projeto separado: anderrsc/JARVIS-AI-CRM-Bielenki.
 // Atalhos de criação da paleta Ctrl+K (cada um só aparece para quem vê o módulo).
