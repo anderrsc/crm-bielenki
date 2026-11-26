@@ -33,11 +33,12 @@ begin
     insert into public.checklist_templates(company_id,sale_type_id,name,is_default) values(c,st,'Checklist - '||sale_name,true) returning id into tpl;
     n:=0;
     for template_item in select x from unnest(case
-      when sale_name='Calhas instaladas' then array['Orçamento aprovado','Entrada recebida','Medidas conferidas','Chapa separada','Calhas dobradas','Instalação agendada','Instalação realizada','Cobrança final','Pós-venda realizado','Pedido finalizado']
+      when sale_name='Calhas instaladas' then array['Confirmar medida','Produção iniciada','Cortado','Dobrado','Instalação agendada','Instalado','Cobrança','Valor pago','Pós-venda']
       when sale_name='Venda avulsa de acessórios' then array['Pedido confirmado','Pagamento confirmado','Produto separado','Entrega/retirada','Finalizado']
       when sale_name='Venda avulsa de janelas online' then array['Pedido recebido','Pagamento confirmado','Produto conferido','Embalagem','Envio/retirada','Código de rastreio','Finalizado']
-      when sale_name='Venda de calhas dobradas na hora' then array['Produto escolhido','Espessura definida','Corte definido','Metragem definida','Dobra realizada','Pagamento recebido','Produto entregue']
-      else array['Contrato feito','Contrato assinado','Entrada recebida','Medidas conferidas','Projeto/desenho conferido','Acessórios conferidos','Compra solicitada','Compra aprovada','Compra realizada','Compra conferida','Material recebido','Material separado','Liberado para produção','Produção iniciada','Produção conferida','Instalação agendada','Instalação realizada','Instalação conferida','Cliente cobrado','Pagamento final recebido','Pós-venda realizado','Pedido finalizado'] end) x loop
+      when sale_name='Venda de calhas dobradas na hora' then array['Espessura definida','Metragem definida','Cortado','Dobrado','Pagamento recebido','Produto entregue']
+      when sale_name='Manutenção' then array['Confirmar medida','Instalação agendada','Instalado','Cobrança','Valor pago','Pós-venda']
+      else array['Confirmar medida','Produção iniciada','Cortado','Dobrado','Instalação agendada','Instalado','Cobrança','Valor pago','Pós-venda'] end) x loop
       n:=n+1; insert into public.checklist_template_items(company_id,template_id,title,required,sort_order,due_days) values(c,tpl,template_item,true,n,n);
     end loop;
   end loop;

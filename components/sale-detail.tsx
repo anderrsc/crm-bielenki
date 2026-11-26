@@ -26,7 +26,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
   const back = `/vendas/${sale.id}`;
   const pendingEntries = entries.filter(entry => Number(entry.open_amount) > 0 && entry.status !== "cancelado");
   const canPay = access["financial_entries:select"] && access["financial_entries:update"] && access["payments:insert"];
-  const measurementStep = checklist.find(item => /medidas?\s+conferid[ao]s?/i.test(item.title));
+  const measurementStep = checklist.find(item => /medidas?\s+conferid[ao]s?|confirmar\s+medidas?/i.test(item.title));
   const hasMeasurements = Boolean(measurementStep || measurements.length);
   const payment = (entry: SaleEntry, primary = false) => <PaymentDialog entryId={entry.id} openAmount={Number(entry.open_amount)}
     interestAmount={Number(entry.interest_amount ?? 0)} discountAmount={Number(entry.discount_amount ?? 0)}
