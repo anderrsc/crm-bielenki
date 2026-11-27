@@ -165,7 +165,7 @@ export async function loadReceiptData(db: SupabaseClient, receipt: { payment_id:
     amountInWords: valorPorExtenso(amount),
     notes: null,
   };
-  const qr = /^https?:\/\//i.test(String(c.qr_code_url || "")) ? String(c.qr_code_url) : "https://marquinhos-calhas.vercel.app/";
+  const qr = /^https?:\/\//i.test(String(c.qr_code_url || "")) ? String(c.qr_code_url) : "https://3d.bielenki.com.br/";
   const phone = whatsappNumber(client?.whatsapp, client?.phone);
   return {
     data, companyId: String(p.company_id), clientName: data.client.name, companyQrUrl: qr,
