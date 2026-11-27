@@ -2,13 +2,13 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AgendaPage, type AgendaEvent } from '@/components/agenda-page';
-import { getAgendaEvents, moveAgendaEvent } from '@/app/(crm)/agenda-actions';
+import { getAgendaEvents, moveAgendaEvent, schedulePendingService } from '@/app/(crm)/agenda-actions';
 import {
   EMPTY_FILTERS, NOBODY, dayRange, filterEvents, filterOptions, matchesProduction, movedStart, overdueEvents,
 } from '@/lib/service-board';
 
 vi.mock('@/lib/use-mobile', () => ({ useMobile: () => false }));
-vi.mock('@/app/(crm)/agenda-actions', () => ({ getAgendaEvents: vi.fn(), updateAgendaEventStatus: vi.fn(), createAgendaEvent: vi.fn(), getAgendaEventDetails: vi.fn(async () => ({})), moveAgendaEvent: vi.fn() }));
+vi.mock('@/app/(crm)/agenda-actions', () => ({ getAgendaEvents: vi.fn(), updateAgendaEventStatus: vi.fn(), createAgendaEvent: vi.fn(), getAgendaEventDetails: vi.fn(async () => ({})), moveAgendaEvent: vi.fn(), getPendingServices: vi.fn(async () => []), schedulePendingService: vi.fn() }));
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.mocked(moveAgendaEvent).mockReset(); });
 
 /** DataTransfer mínimo (o jsdom não tem). */
@@ -180,4 +180,37 @@ test('o detalhe permite reagendar sem arrastar (teclado)', async () => {
   fireEvent.change(form.getByLabelText('Nova data'), { target: { value: '2026-12-02' } });
   await act(async () => { fireEvent.click(form.getByRole('button', { name: /Salvar mudança/ })); });
   expect(moveAgendaEvent).toHaveBeenCalledWith({ id: 'hoje', source: 'operational_events', day: '2026-12-02' });
+});
+
+const undated = {
+  id: 'srv', type: 'manutencao', kind_label: 'Manutenção de calhas', title: 'Vedar emenda', status: 'solicitacao_recebida',
+  priority: 'urgente', expected_date: null, starts_at: '', client_name: 'Francisco', responsible_name: 'Rosa',
+};
+
+test('serviço sem data aparece no quadro e, arrastado para um dia, pede confirmação e agenda', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-27T12:00:00-03:00'));
+  vi.mocked(getAgendaEvents).mockImplementation(() => new Promise(() => {}));
+  vi.mocked(schedulePendingService).mockResolvedValue({});
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  render(<AgendaPage initialEvents={[]} initialPending={[undated]} />);
+  const card = within(region('Sem data')).getByText('Francisco').closest('a')!;
+  expect(card.getAttribute('href')).toBe('/servicos/srv');
+  await dragTo('Francisco', region('Sábado 28/11'));
+  expect(confirm.mock.calls[0][0]).toContain('28/11/2026 às 08:00');
+  expect(schedulePendingService).toHaveBeenCalledWith({ id: 'srv', day: '2026-11-28', person: undefined });
+  expect(screen.queryByRole('region', { name: 'Sem data' })).toBeNull();
+});
+
+test('serviço sem data continua no lugar se desistir ou se o banco recusar', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-27T12:00:00-03:00'));
+  vi.mocked(schedulePendingService).mockReset().mockResolvedValue({ error: 'Sem permissão.' });
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  render(<AgendaPage initialEvents={[]} initialPending={[undated]} />);
+  await dragTo('Francisco', region('Sábado 28/11'));
+  expect(schedulePendingService).not.toHaveBeenCalled();
+  confirm.mockReturnValue(true);
+  await dragTo('Francisco', region('Sábado 28/11'));
+  expect(alert.mock.calls[0][0]).toContain('Sem permissão.');
+  expect(within(region('Sem data')).getByText('Francisco')).toBeTruthy();
 });

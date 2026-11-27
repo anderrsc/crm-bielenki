@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { AgendaEvent } from "@/components/agenda-page";
 
 import { agendaTypes, agendaStatus, agendaTimestamp, type AgendaSource } from "@/lib/agenda";
-import { canMoveEvent, movedStart } from "@/lib/service-board";
+import { DEFAULT_VISIT_TIME, canMoveEvent, movedStart, type PendingService } from "@/lib/service-board";
+import { SERVICE_KINDS, serviceOpen } from "@/lib/service-orders";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -39,6 +40,37 @@ export async function getAgendaEvents(): Promise<AgendaEvent[]> {
     ends_at: e.ends_at ? String(e.ends_at) : null,
     status: String(e.status ?? "agendado"),
     responsible_name: e.responsible_name ? String(e.responsible_name) : null,
+  }));
+}
+
+/** Serviços em aberto sem visita marcada: a view da agenda não os traz porque não têm data. */
+export async function getPendingServices(): Promise<PendingService[]> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
+  const db = await createClient();
+  const { data, error } = await db
+    .from("service_orders")
+    .select("id,kind,status,priority,description,expected_date,client:clients(name),responsible:profiles!service_orders_responsible_id_fkey(full_name)")
+    .is("agenda_event_id", null)
+    .not("status", "in", "(concluido,cancelado)")
+    .order("created_at", { ascending: true })
+    .limit(200);
+  // Sem acesso a Serviços (ou falha), a agenda continua com o que tem data.
+  if (error) { console.error("agenda: serviços sem data indisponíveis", error.message); return []; }
+  type Row = {
+    id: string; kind: string; status: string; priority: string; description: string; expected_date: string | null;
+    client: { name: string } | null; responsible: { full_name: string } | null;
+  };
+  return ((data ?? []) as unknown as Row[]).map((s) => ({
+    id: s.id,
+    type: s.kind.startsWith("instalacao") ? "instalacao" : s.kind === "visita_tecnica" ? "outro" : "manutencao",
+    kind_label: SERVICE_KINDS[s.kind] ?? s.kind,
+    title: s.description,
+    status: s.status,
+    priority: s.priority,
+    expected_date: s.expected_date,
+    starts_at: "",
+    client_name: s.client?.name ?? null,
+    responsible_name: s.responsible?.full_name ?? null,
   }));
 }
 
@@ -194,11 +226,9 @@ export async function moveAgendaEvent(input: {
   if (person !== undefined) {
     personId = null;
     if (person !== null) {
-      const { data: matches, error } = await db.from("profiles").select("id")
-        .eq("company_id", companyId).eq("status", "ativo").eq("full_name", person).limit(2);
-      if (error) return { error: "Não foi possível conferir o funcionário. Tente de novo." };
-      if ((matches?.length ?? 0) > 1) return { error: `Há mais de um funcionário chamado "${person}".` };
-      personId = matches?.[0]?.id ?? null;
+      const found = await findPerson(db, companyId, person);
+      if (found.error) return { error: found.error };
+      personId = found.id;
       // Compromissos avulsos aceitam nome livre (ex.: dupla); os demais exigem cadastro.
       if (!personId && !isEvent) return { error: `"${person}" não é um funcionário ativo cadastrado; este serviço exige um.` };
     }
@@ -238,6 +268,51 @@ export async function moveAgendaEvent(input: {
   }
   const { data, error } = await db.from(source).update(values).eq("id", id).eq("company_id", companyId).select("id").single();
   if (error || !data) return { error: NO_MOVE_PERMISSION };
+  return revalidateMove();
+}
+
+/** Funcionário ativo pelo nome exibido no quadro; `id` nulo quando o nome não é de um cadastro. */
+async function findPerson(db: Awaited<ReturnType<typeof createClient>>, companyId: string, name: string): Promise<{ id: string | null; error?: string }> {
+  const { data, error } = await db.from("profiles").select("id")
+    .eq("company_id", companyId).eq("status", "ativo").eq("full_name", name).limit(2);
+  if (error) return { id: null, error: "Não foi possível conferir o funcionário. Tente de novo." };
+  if ((data?.length ?? 0) > 1) return { id: null, error: `Há mais de um funcionário chamado "${name}".` };
+  return { id: data?.[0]?.id ?? null };
+}
+
+const scheduleSchema = z.object({ id: z.uuid(), day: z.iso.date(), person: z.string().trim().min(1).max(200).optional() });
+
+/** Marca a visita de um serviço sem data (cartão arrastado para um dia), pela mesma função de Serviços. */
+export async function schedulePendingService(input: { id: string; day: string; person?: string }): Promise<{ error?: string }> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
+  const parsed = scheduleSchema.safeParse(input);
+  if (!parsed.success) return { error: "Mudança inválida." };
+  const { id, day, person } = parsed.data;
+  const db = await createClient();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
+  if (!profile?.company_id) return { error: "Sessão expirada. Entre novamente." };
+  const companyId = String(profile.company_id);
+
+  const { data: service, error: readError } = await db.from("service_orders")
+    .select("id,status,agenda_event_id,responsible_id").eq("id", id).eq("company_id", companyId).single();
+  if (readError || !service) return { error: NO_MOVE_PERMISSION };
+  if (!serviceOpen(String(service.status))) return { error: "Serviço concluído ou cancelado não pode ser agendado. Atualize a agenda." };
+  // Outra pessoa marcou enquanto o quadro estava aberto: não sobrescreve o horário combinado.
+  if (service.agenda_event_id) return { error: "Este serviço já foi agendado. Atualize a agenda." };
+
+  // Vai junto o responsável atual: sem ele o compromisso nasceria sem funcionário.
+  let personId: string | null = service.responsible_id;
+  if (person) {
+    const found = await findPerson(db, companyId, person);
+    if (found.error) return { error: found.error };
+    if (!found.id) return { error: `"${person}" não é um funcionário ativo cadastrado; este serviço exige um.` };
+    personId = found.id;
+  }
+  const { error } = await db.rpc("service_schedule", {
+    p_id: id, p_at: agendaTimestamp(day, DEFAULT_VISIT_TIME), p_responsible: personId, p_notes: null,
+  });
+  if (error) return { error: error.code === "42501" ? NO_MOVE_PERMISSION : error.message };
+  revalidatePath("/servicos", "layout");
   return revalidateMove();
 }
 

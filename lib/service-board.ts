@@ -73,6 +73,12 @@ export const eventTime = (iso: string) =>
 /** O mesmo horário em outro dia. */
 export const movedStart = (startsAt: string, day: string) => agendaTimestamp(day, eventTime(startsAt));
 
+/** Serviço (manutenção, reparo, garantia…) ainda sem visita marcada: não tem `starts_at`. */
+export type PendingService = BoardEvent & { id: string; kind_label: string; priority: string; expected_date: string | null };
+export const pendingKey = (s: Pick<PendingService, 'id'>) => `service:${s.id}`;
+/** Horário usado quando a visita é marcada arrastando o cartão para um dia. */
+export const DEFAULT_VISIT_TIME = '08:00';
+
 export const MAX_BOARD_DAYS = 62;
 /** Dias (AAAA-MM-DD) entre as duas datas, inclusive; aceita invertidas e limita o tamanho. */
 export function dayRange(from: string, to: string): string[] {
