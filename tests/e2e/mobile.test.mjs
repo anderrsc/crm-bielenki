@@ -57,7 +57,7 @@ test('mobile: quote cards open the quote directly and tables expose labeled reco
 });
 test('desktop: original calendar, quote detail panel, tables and 4-column dashboard remain',async()=>{
  await page.setViewport({width:1366,height:900,isMobile:false,hasTouch:false});
- await page.goto(`${BASE}/agenda`,{waitUntil:'networkidle0'});assert.equal(await page.$('[data-testid="mobile-agenda"]'),null);assert.ok(await page.$('.grid.grid-cols-7'));await capture('agenda-desktop');
+ await page.goto(`${BASE}/agenda`,{waitUntil:'networkidle0'});assert.equal(await page.$('[data-testid="mobile-agenda"]'),null);assert.ok(await page.$('[data-testid="agenda-board"]'));await capture('agenda-desktop');
  await page.goto(`${BASE}/clientes`,{waitUntil:'networkidle0'});assert.equal(await page.$eval('.mobile-record-table',e=>getComputedStyle(e).display),'table');
  await page.goto(`${BASE}/orcamentos`,{waitUntil:'networkidle0'});assert.notEqual(await page.$eval('.quote-list-detail',e=>getComputedStyle(e).display),'none');
  await page.goto(`${BASE}/dashboard`,{waitUntil:'networkidle0'});assert.equal(await page.$eval('.mobile-kpis',e=>getComputedStyle(e).gridTemplateColumns.split(' ').length),4);await capture('dashboard-desktop');
