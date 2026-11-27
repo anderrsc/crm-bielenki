@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, CheckCircle2, ListChecks, Printer, RotateCcw } from "lucide-react";
 import { setOrderInstaller, setOsPrint } from "@/app/(crm)/service-order-actions";
-import type { ServiceOrderSheet as Data } from "@/lib/service-order";
-import { OS_CSS, OsCard, OsSheets } from "./os-card";
+import type { ServiceCallSheet, ServiceOrderSheet as Data } from "@/lib/service-order";
+import { OS_CSS, OsCard, OsSheets, ServiceCallCard } from "./os-card";
 
 const OUT = "nome:";
 const NEW = "__novo";
@@ -128,10 +128,11 @@ export function ServiceOrderSheet({ data, fresh = false }: { data: Data; fresh?:
   </main>;
 }
 
-/** Várias ordens de serviço: 4 por folha A4. Depois de imprimir, tira da fila. */
-export function ServiceOrderBatch({ list }: { list: Data[] }) {
+/** Várias ordens de serviço: 4 por folha A4. Depois de imprimir, os pedidos saem da fila. */
+export function ServiceOrderBatch({ list, services = [] }: { list: Data[]; services?: ServiceCallSheet[] }) {
   const router = useRouter();
-  const sheets = Math.ceil(list.length / 4);
+  const total = list.length + services.length;
+  const sheets = Math.ceil(total / 4);
   const ids = list.filter(d => d.orderId && !d.printedAt).map(d => d.orderId!);
   const unconfirmed = list.some(d => d.printSentAt && !d.printedAt);
   const { print, dialog, pending, msg } = usePrintConfirm(ids, unconfirmed, count =>
@@ -141,14 +142,14 @@ export function ServiceOrderBatch({ list }: { list: Data[] }) {
     <style>{OS_CSS}</style>
     <div className="os-toolbar no-print">
       <Link href="/ordens-servico" className="button-ghost self-start"><ArrowLeft size={16} /> Voltar à fila</Link>
-      <p className="os-fresh">{list.length} {list.length === 1 ? "ordem de serviço" : "ordens de serviço"} · {sheets} {sheets === 1 ? "folha A4" : "folhas A4"} (4 por folha)</p>
-      <details><summary className="cursor-pointer text-sm font-semibold">Definir instaladores antes de imprimir</summary>
+      <p className="os-fresh">{total} {total === 1 ? "ordem de serviço" : "ordens de serviço"} · {sheets} {sheets === 1 ? "folha A4" : "folhas A4"} (4 por folha)</p>
+      {list.length > 0 && <details><summary className="cursor-pointer text-sm font-semibold">Definir instaladores antes de imprimir</summary>
         <div className="mt-3 flex flex-col gap-3">{list.map(d => <InstallerPicker key={d.saleId} data={d} />)}</div>
-      </details>
+      </details>}
       <div className="os-controls"><button type="button" className="button" disabled={pending} onClick={print}><Printer size={16} /> Imprimir / salvar PDF</button></div>
       {msg && <p className="os-warn">{msg}</p>}
     </div>
     {dialog}
-    <OsSheets cards={list.map(d => <OsCard key={d.saleId} data={d} />)} />
+    <OsSheets cards={[...list.map(d => <OsCard key={d.saleId} data={d} />), ...services.map(s => <ServiceCallCard key={s.serviceId} data={s} />)]} />
   </main>;
 }
