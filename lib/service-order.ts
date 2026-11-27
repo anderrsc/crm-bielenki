@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { SERVICE_KINDS, SERVICE_PRIORITY } from "@/lib/service-orders";
+import { money } from "@/lib/utils";
 
 /** Ordem de serviço: cópia resumida do pedido para a equipe (1/4 de A4). */
 export type ServiceOrderSheet = {
@@ -25,6 +27,57 @@ export type ServiceOrderSheet = {
   printedAt: string | null;
   printSentAt: string | null;
 };
+
+/** OS de manutenção, reparo, garantia ou visita (módulo Serviços): mesmo 1/4 de A4. */
+export type ServiceCallSheet = {
+  serviceId: string;
+  number: string;
+  companyName: string;
+  client: ServiceOrderSheet["client"];
+  serviceType: string;
+  description: string;
+  responsible: string | null;
+  openedAt: string;
+  scheduledAt: string | null;
+  expectedDate: string | null;
+  priority: string;
+  billing: string;
+};
+
+export async function loadServiceCalls(db: SupabaseClient, ids: string[]): Promise<ServiceCallSheet[]> {
+  if (!ids.length) return [];
+  const { data, error } = await db.from("service_orders")
+    .select("id,company_id,service_number,kind,priority,description,opened_at,scheduled_at,expected_date,team,phone,address,neighborhood,city,billing,expected_amount,final_amount,client:clients(name,phone,whatsapp,address,neighborhood,city,state,postal_code),responsible:profiles!service_orders_responsible_id_fkey(full_name)")
+    .in("id", ids);
+  if (error || !data?.length) return [];
+  const rows = data as unknown as Row[];
+  const { data: company } = await db.from("companies").select("name,trade_name").eq("id", String(rows[0].company_id)).maybeSingle();
+  const companyName = String((company as Row | null)?.trade_name || (company as Row | null)?.name || "Marquinhos Calhas e Esquadrias");
+  const text = (v: unknown) => (v ? String(v) : null);
+  const sheets = rows.map((s): ServiceCallSheet => {
+    const c = (s.client ?? {}) as Row;
+    // Endereço próprio do serviço (obra diferente do cadastro): não mistura bairro, cidade e CEP do cliente.
+    const own = text(s.address);
+    const from = own && own !== text(c.address) ? s : c;
+    const amount = Number(s.final_amount ?? s.expected_amount ?? 0);
+    return {
+      serviceId: String(s.id), number: String(s.service_number), companyName,
+      client: {
+        name: String(c.name ?? "Cliente"), phone: text(s.phone) ?? text(c.whatsapp) ?? text(c.phone),
+        address: own ?? text(c.address), neighborhood: text(s.neighborhood) ?? text(from.neighborhood),
+        city: text(s.city) ?? text(from.city), state: text(from.state), postal_code: text(from.postal_code),
+      },
+      serviceType: SERVICE_KINDS[String(s.kind)] ?? String(s.kind),
+      description: String(s.description ?? ""),
+      responsible: [(s.responsible as Row | null)?.full_name, s.team].filter(Boolean).join(" · ") || null,
+      openedAt: String(s.opened_at), scheduledAt: text(s.scheduled_at), expectedDate: text(s.expected_date),
+      priority: SERVICE_PRIORITY[String(s.priority)] ?? "Normal",
+      billing: s.billing === "gratuito" ? "Gratuito" : amount > 0 ? `A cobrar ${money(amount)}` : "A cobrar",
+    };
+  });
+  // Mantém a ordem pedida na tela (a consulta não garante).
+  return sheets.sort((a, b) => ids.indexOf(a.serviceId) - ids.indexOf(b.serviceId));
+}
 
 const ISO = (d: Date) => d.toISOString().slice(0, 10);
 

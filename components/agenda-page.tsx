@@ -156,7 +156,7 @@ export function AgendaPage({ initialEvents, initialPending = [], initialError = 
       if (view === "mes") { d.setDate(1); d.setMonth(d.getMonth() + n); }
       if (view === "semana") d.setDate(d.getDate() + n * 7);
       if (view === "dia")    d.setDate(d.getDate() + n);
-      if (view === "quadro") d.setDate(d.getDate() + n * (period === "quinzena" ? 14 : 7));
+      if (view === "quadro") d.setDate(d.getDate() + n * (period === "quinzena" ? 15 : 7));
       return d;
     });
     // No período por datas, as setas andam um intervalo inteiro.
@@ -167,10 +167,9 @@ export function AgendaPage({ initialEvents, initialPending = [], initialError = 
     }
   };
 
-  // Semana de segunda a domingo; "15 dias" são duas semanas seguidas.
-  const monday = addDays(cursor, -((cursor.getDay() + 6) % 7));
-  const weekRange = { from: ymd(monday), to: ymd(addDays(monday, period === "quinzena" ? 13 : 6)) };
-  const chosen = period === "datas" && range.from && range.to ? range : weekRange;
+  // O quadro começa hoje: o que passou e está pendente fica em Atrasados.
+  const rolling = { from: ymd(cursor), to: ymd(addDays(cursor, period === "quinzena" ? 14 : 6)) };
+  const chosen = period === "datas" && range.from && range.to ? range : rolling;
   const boardDays = dayRange(chosen.from, chosen.to);
   const choosePeriod = (next: Period) => {
     if (next === "datas") setRange({ from: boardDays[0], to: boardDays[boardDays.length - 1] });

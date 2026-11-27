@@ -1,4 +1,4 @@
-import type { ServiceOrderSheet as Data } from "@/lib/service-order";
+import type { ServiceCallSheet as ServiceCall, ServiceOrderSheet as Data } from "@/lib/service-order";
 
 const br = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
 const qty = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 3 }));
@@ -47,6 +47,45 @@ export function OsCard({ data, via }: { data: Data; via?: number }) {
   </article>;
 }
 
+const visit = (iso: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+
+/** OS de manutenção ou serviço avulso em 1/4 de A4. Observações internas não saem: o cliente assina a folha. */
+export function ServiceCallCard({ data }: { data: ServiceCall }) {
+  const c = data.client;
+  const place = [c.neighborhood, [c.city, c.state].filter(Boolean).join("/")].filter(Boolean).join(" · ");
+  return <article className="os-card">
+    <header className="os-head">
+      <img src="/brand/marquinhos-logo.svg" alt={data.companyName} className="os-logo" />
+      <div className="os-title"><b>ORDEM DE SERVIÇO</b><span className="os-num">{data.number}</span><small>Prioridade {data.priority.toLowerCase()}</small></div>
+    </header>
+    <section className="os-block">
+      <p className="os-label">Cliente</p>
+      <p className="os-strong">{c.name}</p>
+      {c.phone && <p>Fone: {c.phone}</p>}
+    </section>
+    <section className="os-block">
+      <p className="os-label">Endereço da obra</p>
+      <p>{c.address || "______________________________________"}</p>
+      <p>{place}{c.postal_code ? ` · CEP ${c.postal_code}` : ""}</p>
+    </section>
+    <section className="os-block os-grow">
+      <p className="os-label">Serviço · {data.serviceType}</p>
+      <p className="os-desc">{data.description}</p>
+    </section>
+    <section className="os-grid">
+      <div><p className="os-label">Responsável</p><p className="os-strong">{data.responsible || "________________"}</p></div>
+      <div><p className="os-label">Cobrança</p><p className="os-strong">{data.billing}</p></div>
+      <div><p className="os-label">Aberto em</p><p className="os-strong">{br(data.openedAt)}</p></div>
+      <div className="os-deadline"><p className="os-label">{data.scheduledAt ? "Visita" : "Previsto"}</p><p className="os-strong">{data.scheduledAt ? visit(data.scheduledAt) : br(data.expectedDate) || "___/___/______"}</p></div>
+    </section>
+    <section className="os-block os-obs"><p className="os-label">O que foi feito</p><div className="os-line" /><div className="os-line" /></section>
+    <footer className="os-sign">
+      <div><div className="os-line" /><small>Executado em ___/___/______</small></div>
+      <div><div className="os-line" /><small>Assinatura do cliente</small></div>
+    </footer>
+  </article>;
+}
+
 /** Folhas A4 com até 4 ordens cada (2 × 2), com linha de corte. */
 export function OsSheets({ cards }: { cards: React.ReactNode[] }) {
   const pages: React.ReactNode[][] = [];
@@ -82,6 +121,7 @@ export const OS_CSS = `
 .os-q{flex:0 0 13mm;font-weight:700;white-space:nowrap}
 .os-p{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .os-more{color:#555;font-style:italic}
+.os-card .os-desc{margin-top:.8mm;white-space:pre-line;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical}
 .os-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4mm 3mm;border-bottom:.2mm solid #ccc;padding-bottom:1.4mm}
 .os-deadline{background:#f1f1f1;border-radius:1mm;padding:.8mm 1.4mm;margin:-.8mm -1.4mm}
 .os-deadline small{font-size:6.6pt;color:#444}

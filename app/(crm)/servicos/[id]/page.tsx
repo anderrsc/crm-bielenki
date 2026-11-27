@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, Phone, Printer } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
 import { money, shortDate, todayISO } from "@/lib/utils";
 import { friendlyError } from "@/lib/friendly-error";
@@ -66,6 +66,7 @@ export default async function ServiceDetailPage({ params, searchParams }: { para
         {digits && <a className="button-ghost" href={`tel:${digits}`}><Phone className="h-4 w-4" /> {phone}</a>}
         {digits.length >= 10 && <a className="button-ghost" target="_blank" rel="noreferrer" href={`https://wa.me/${digits.length <= 11 ? `55${digits}` : digits}`}><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
         {map && <a className="button-ghost" target="_blank" rel="noreferrer" href={map}><MapPin className="h-4 w-4" /> {address.filter(Boolean).join(", ") || "Abrir localização"}</a>}
+        <Link className="button-ghost" href={`/ordens-servico/imprimir?servicos=${id}`}><Printer className="h-4 w-4" /> Imprimir OS</Link>
         {client && <Link className="button-ghost" href={`/clientes/${client.id}`}>Cliente</Link>}
         {order?.sale_id && <Link className="button-ghost" href={`/vendas/${order.sale_id}`}>Pedido {order.order_number}</Link>}
       </div>

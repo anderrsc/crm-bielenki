@@ -101,13 +101,21 @@ test('quadro abre na semana, separa atrasados, filtra e agrupa por funcionário'
 test('quadro permite escolher as datas', () => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-27T12:00:00-03:00'));
   render(<AgendaPage initialEvents={[]} />);
-  expect(screen.getByText('23/11/2026 — 29/11/2026')).toBeTruthy();
+  expect(screen.getByText('27/11/2026 — 03/12/2026')).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Período'), { target: { value: 'datas' } });
   fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-12-01' } });
   fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-12-03' } });
   expect(screen.getByText('01/12/2026 — 03/12/2026')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Próximo período' }));
   expect(screen.getByText('04/12/2026 — 06/12/2026')).toBeTruthy();
+});
+
+test('quadro começa hoje: dias que passaram ficam só em Atrasados', () => {
+  openBoard(events);
+  expect(screen.queryByRole('region', { name: 'Quinta 26/11' })).toBeNull();
+  expect(region('Sexta 27/11')).toBeTruthy();
+  expect(region('Quinta 03/12')).toBeTruthy();
+  expect(within(region('Atrasados')).getByText('Serviço atrasado')).toBeTruthy();
 });
 
 test('mover mantém o horário de Brasília', () => {
@@ -146,10 +154,13 @@ test('data passada pede confirmação; concluído não arrasta', async () => {
   vi.mocked(moveAgendaEvent).mockResolvedValue({});
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
   openBoard(events);
-  await dragTo('João Silva', region('Segunda 23/11'));
+  // Dias que passaram só aparecem voltando o período.
+  fireEvent.click(screen.getByRole('button', { name: 'Período anterior' }));
+  await dragTo('Serviço atrasado', region('Segunda 23/11'));
   expect(confirm).toHaveBeenCalled();
   expect(moveAgendaEvent).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText('Situação'), { target: { value: 'concluido' } });
+  // 'Serviço feito' é de ontem: continua visível no período anterior.
   expect(screen.getByText('Serviço feito').closest('[draggable]')!.getAttribute('draggable')).toBe('false');
 });
 
