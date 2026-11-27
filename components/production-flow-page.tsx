@@ -10,6 +10,7 @@ import { shortDate, todayISO } from "@/lib/utils";
 import { OP_STAGE_LABEL } from "@/components/order-operation-card";
 import { ProductionStepPhotos } from "@/components/production-step-photos";
 import { loadProductionStepPhotos } from "@/lib/production-photos";
+import { NOBODY, isLate, matchesProduction, type ProductionItem } from "@/lib/service-board";
 
 const STEPS_CALHAS = [
   "Medição",
@@ -78,18 +79,31 @@ type StepLog = {
   responsible: { full_name: string } | null;
 };
 
+const PHASE_COLOR: Record<string, string> = {
+  medidas: "bg-amber-600", novo: "bg-gray-600", fabricacao: "bg-orange-600", agendar: "bg-blue-600",
+  instalar: "bg-green-600", posvenda: "bg-teal-600", concluido: "bg-emerald-600",
+};
+
 export async function ProductionFlowPage({
   id,
   filter,
   error,
   search,
   aviso,
+  person,
+  from,
+  to,
+  late: onlyLate,
 }: {
   id?: string;
   filter?: string;
   error?: string;
   search?: string;
   aviso?: string;
+  person?: string;
+  from?: string;
+  to?: string;
+  late?: boolean;
 }) {
   const db = await createClient();
 
@@ -313,31 +327,60 @@ export async function ProductionFlowPage({
     .limit(150);
 
   const { data: orders } = filter ? await q.eq("flow_type", filter) : await q;
-  const term = (search ?? "").trim().toLowerCase();
-  const all = ((orders ?? []) as unknown as Order[]).filter((o) => !term
-    || o.production_number.toLowerCase().includes(term)
-    || (o.order?.order_number ?? "").toLowerCase().includes(term)
-    || (o.order?.client?.name ?? "").toLowerCase().includes(term));
+  const rows = (orders ?? []) as unknown as Order[];
+  // Quem trabalhou em cada ordem: o responsável dela e os responsáveis das etapas.
+  const stepPeople = rows.length
+    ? await db
+        .from("production_step_logs")
+        .select("production_order_id,responsible:profiles!production_step_logs_responsible_id_fkey(full_name)")
+        .in("production_order_id", rows.map((o) => o.id))
+        .not("responsible_id", "is", null)
+    : null;
+  const workers = new Map<string, string[]>();
+  for (const log of (stepPeople?.data ?? []) as unknown as { production_order_id: string; responsible: { full_name: string } | null }[]) {
+    if (log.responsible) workers.set(log.production_order_id, [...(workers.get(log.production_order_id) ?? []), log.responsible.full_name]);
+  }
   const today = todayISO();
-  const groups = PHASES.map((phase) => ({ ...phase, items: all.filter((o) => phaseOf(o) === phase.key) }));
-  const open = all.filter((o) => phaseOf(o) !== "concluido");
-  const late = open.filter((o) => o.planned_end && o.planned_end < today).length;
+  const items = rows.map((order) => {
+    const item: ProductionItem = {
+      number: order.production_number,
+      orderNumber: order.order?.order_number ?? "",
+      client: order.order?.client?.name ?? "",
+      people: [...new Set([order.responsible?.full_name, ...(workers.get(order.id) ?? [])].filter((n): n is string => !!n))],
+      deadline: order.planned_end,
+      finished: phaseOf(order) === "concluido",
+    };
+    return { order, item };
+  });
+  const peopleOptions = [...new Set(items.flatMap((i) => i.item.people))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const term = (search ?? "").trim();
+  const filters = { search: term, person, from, to, late: onlyLate };
+  const filtering = !!(term || person || from || to || onlyLate);
+  const shown = items.filter((i) => matchesProduction(i.item, filters, today));
+  const groups = PHASES.map((phase) => ({ ...phase, items: shown.filter((i) => phaseOf(i.order) === phase.key) }));
+  const open = shown.filter((i) => !i.item.finished);
+  const late = open.filter((i) => isLate(i.item, today)).length;
   const tabs: Array<[string, string]> = [["", "Todas"], ["calhas", "Calhas"], ["esquadrias", "Esquadrias"]];
+  // Trocar de aba mantém os demais filtros.
+  const tabHref = (tipo: string) => {
+    const query = new URLSearchParams(Object.entries({ tipo, q: term, funcionario: person ?? "", de: from ?? "", ate: to ?? "", atrasados: onlyLate ? "1" : "" }).filter(([, v]) => v)).toString();
+    return query ? `/producao?${query}` : "/producao";
+  };
   const notice = aviso === "sent" ? "Cliente avisado pelo WhatsApp de que a instalação foi concluída."
     : aviso === "failed" ? "Etapa concluída, mas o aviso ao cliente não foi enviado. Confira o WhatsApp no Atendimento."
     : aviso === "skipped" ? "Etapa concluída. O aviso ao cliente não foi enviado (já avisado, sem telefone ou WhatsApp não configurado)." : "";
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto w-full">
       <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-semibold text-forest">Produção</p>
           <h1 className="mt-2 text-3xl font-semibold">Pedidos em produção</h1>
-          <p className="mt-1 text-sm text-ink/50">Todo pedido fechado entra aqui sozinho e segue até o pós-venda.</p>
+          <p className="mt-1 text-sm text-ink/50">Todo pedido fechado entra aqui sozinho e anda de uma coluna para a outra até o pós-venda.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {tabs.map(([key, label]) => (
-            <Link key={key} href={key ? `/producao?tipo=${key}` : "/producao"}
+            <Link key={key} href={tabHref(key)}
               className={`rounded-xl border px-4 py-2 text-sm font-semibold ${(filter ?? "") === key ? "border-forest bg-brand-strong text-white" : "border-sand hover:bg-sand/50"}`}>
               {label}
             </Link>
@@ -355,80 +398,96 @@ export async function ProductionFlowPage({
         <div className={`card p-4 ${late ? "border-red-200" : ""}`}><p className={`text-xs font-semibold ${late ? "text-red-600" : "text-ink/45"}`}>Atrasados</p><p className={`mt-1 text-2xl font-semibold ${late ? "text-red-700" : ""}`}>{late}</p></div>
       </div>
 
-      <form method="get" className="mb-5 flex flex-wrap gap-2">
+      <form method="get" aria-label="Filtros da produção" key={[term, person, from, to, onlyLate].join("|")} className="card mb-5 grid items-end gap-3 p-3 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr_1fr_auto]">
         {filter && <input type="hidden" name="tipo" value={filter} />}
-        <input className="field max-w-sm" name="q" defaultValue={search ?? ""} placeholder="Buscar por cliente, pedido ou ordem" aria-label="Buscar pedido" />
-        <button className="button-ghost">Buscar</button>
-        {term && <Link href={filter ? `/producao?tipo=${filter}` : "/producao"} className="self-center text-sm font-semibold text-ink/55 underline">Limpar</Link>}
+        <label className="block"><span className="label">Buscar</span><input className="field" name="q" defaultValue={term} placeholder="Cliente, pedido ou ordem" aria-label="Buscar pedido" /></label>
+        <label className="block"><span className="label">Funcionário</span>
+          <select className="field" name="funcionario" defaultValue={person ?? ""}>
+            <option value="">Todos os funcionários</option>
+            {peopleOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+            <option value={NOBODY}>Sem funcionário definido</option>
+          </select>
+        </label>
+        <label className="block"><span className="label">Prazo de</span><input className="field" type="date" name="de" defaultValue={from ?? ""} /></label>
+        <label className="block"><span className="label">Prazo até</span><input className="field" type="date" name="ate" defaultValue={to ?? ""} /></label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" name="atrasados" value="1" defaultChecked={!!onlyLate} /> Só atrasados</label>
+          <button className="button">Filtrar</button>
+          {filtering && <Link href={filter ? `/producao?tipo=${filter}` : "/producao"} className="text-sm font-semibold text-ink/55 underline">Limpar</Link>}
+        </div>
       </form>
 
-      {all.length === 0 && <div className="card p-10 text-center text-sm text-ink/40">Nenhum pedido em produção.</div>}
+      {shown.length === 0 && <div className="card p-10 text-center text-sm text-ink/40">{filtering ? "Nenhum pedido com esses filtros." : "Nenhum pedido em produção."}</div>}
 
-      <div className="space-y-6">
-        {groups.filter((g) => g.items.length).map((group) => {
-          const body = (
-            <div className="grid gap-3 md:grid-cols-2">
-              {group.items.map((order) => {
-                const steps = stepList(order.flow_type);
-                const finished = order.current_step > steps.length;
-                const stepName = finished ? "Concluído" : steps[order.current_step - 1];
-                const pct = finished ? 100 : Math.round(((order.current_step - 1) / steps.length) * 100);
-                const overdue = !finished && !!order.planned_end && order.planned_end < today;
-                const client = order.order?.client;
-                const place = [client?.neighborhood, client?.city].filter(Boolean).join(" · ");
-                const installing = order.flow_type !== "esquadrias" && order.current_step === 6;
-                const waiting = group.key === "medidas";
-                return (
-                  <div key={order.id} className={`card p-4 ${overdue ? "border-red-200 bg-red-50/30" : ""}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold">{client?.name ?? "Cliente não informado"}</p>
-                        <p className="mt-0.5 text-xs text-ink/55">
-                          {order.order?.order_number ? `Pedido ${order.order.order_number} · ` : ""}{order.production_number}{place ? ` · ${place}` : ""}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-semibold ${order.flow_type === "esquadrias" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
-                        {order.flow_type === "esquadrias" ? "Esquadrias" : "Calhas"}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm font-semibold">{waiting ? OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas" : finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sand">
-                      <div className={`h-full rounded-full ${finished ? "bg-emerald-500" : overdue ? "bg-red-500" : "bg-brand-strong"}`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="mt-2 text-xs text-ink/55">
-                      {order.planned_end ? <span className={overdue ? "font-semibold text-red-700" : ""}>Prazo {shortDate(order.planned_end)}{overdue ? " · atrasado" : ""}</span> : "Sem prazo definido"}
-                      {order.responsible?.full_name ? ` · ${order.responsible.full_name}` : ""}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {waiting && order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}#etapa-operacional`} className="button">Resolver etapa</Link>}
-                      {!finished && !waiting && (
-                        <form action={advanceProductionStep}>
-                          <input type="hidden" name="production_order_id" value={order.id} />
-                          <input type="hidden" name="_list" value="1" />
-                          <SubmitButton className="button" pendingText="Salvando…">{installing ? "✓ Já foi instalado" : `✓ Concluir ${stepName}`}</SubmitButton>
-                        </form>
-                      )}
-                      <Link href={`/producao/${order.id}`} className="button-ghost">Detalhes</Link>
-                      {order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}`} className="button-ghost">Venda</Link>}
-                    </div>
-                    {installing && <p className="mt-2 text-xs text-ink/55">Ao marcar como instalado, o cliente recebe um aviso pelo WhatsApp.</p>}
-                  </div>
-                );
-              })}
-            </div>
-          );
-          const title = (
-            <span className="flex items-center gap-2">
-              <span className="text-lg font-semibold">{group.title}</span>
-              <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-semibold">{group.items.length}</span>
-              <span className="text-xs font-normal text-ink/50">{group.hint}</span>
+      {shown.length > 0 && <div data-testid="production-board" className="flex flex-col gap-3 md:flex-row md:items-start md:overflow-x-auto md:pb-3">
+        {groups.map((group) => {
+          const header = (
+            <span className="block">
+              <span className="flex items-center gap-2">
+                <i aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${PHASE_COLOR[group.key]}`} />
+                <span className="text-sm font-semibold">{group.title}</span>
+                <span className="ml-auto rounded-full bg-sand px-2 py-0.5 text-xs font-semibold">{group.items.length}</span>
+              </span>
+              <span className="mt-1 block text-xs font-normal text-ink/50">{group.hint}</span>
             </span>
           );
+          const body = (
+            <div className="space-y-2 p-2 md:max-h-[70vh] md:overflow-y-auto">
+              {group.items.map(({ order, item }) => <ProductionCard key={order.id} order={order} people={item.people} overdue={isLate(item, today)} waiting={group.key === "medidas"} />)}
+              {!group.items.length && <p className="py-4 text-center text-xs text-ink/35">Vazio</p>}
+            </div>
+          );
+          // No celular as colunas empilham, então as vazias somem.
+          const box = `min-w-0 flex-1 rounded-2xl border bg-cream/40 md:min-w-[210px] ${group.items.length ? "" : "hidden md:block"}`;
           return group.key === "concluido"
-            ? <details key={group.key}><summary className="mb-3 cursor-pointer list-none">{title}</summary>{body}</details>
-            : <section key={group.key}><h2 className="mb-3">{title}</h2>{body}</section>;
+            ? <details key={group.key} className={box}><summary className="cursor-pointer list-none rounded-t-2xl bg-surface p-3">{header}</summary>{body}</details>
+            : <section key={group.key} aria-label={group.title} className={box}><h2 className="rounded-t-2xl border-b bg-surface p-3">{header}</h2>{body}</section>;
         })}
-      </div>
+      </div>}
     </div>
+  );
+}
+
+function ProductionCard({ order, people, overdue, waiting }: { order: Order; people: string[]; overdue: boolean; waiting: boolean }) {
+  const steps = stepList(order.flow_type);
+  const finished = order.current_step > steps.length;
+  const stepName = finished ? "Concluído" : steps[order.current_step - 1];
+  const pct = finished ? 100 : Math.round(((order.current_step - 1) / steps.length) * 100);
+  const client = order.order?.client;
+  const place = [client?.neighborhood, client?.city].filter(Boolean).join(" · ");
+  const installing = order.flow_type !== "esquadrias" && order.current_step === 6;
+  return (
+    <article className={`rounded-xl border bg-surface p-3 shadow-sm ${overdue ? "border-red-400" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 break-words text-sm font-semibold leading-snug">{client?.name ?? "Cliente não informado"}</p>
+        <span className={`shrink-0 rounded-lg px-1.5 py-0.5 text-[11px] font-semibold ${order.flow_type === "esquadrias" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
+          {order.flow_type === "esquadrias" ? "Esquadrias" : "Calhas"}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-ink/55">
+        {order.order?.order_number ? `Pedido ${order.order.order_number} · ` : ""}{order.production_number}{place ? ` · ${place}` : ""}
+      </p>
+      <p className="mt-2 text-xs font-semibold">{waiting ? OP_STAGE_LABEL[order.order?.op_stage ?? ""] ?? "Aguardando medidas" : finished ? "✓ Concluído" : `Etapa ${order.current_step}/${steps.length}: ${stepName}`}</p>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sand">
+        <div className={`h-full rounded-full ${finished ? "bg-emerald-600" : overdue ? "bg-red-500" : "bg-brand-strong"}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className={`mt-2 text-xs ${overdue ? "font-semibold text-red-700" : "text-ink/55"}`}>
+        {order.planned_end ? `Prazo ${shortDate(order.planned_end)}${overdue ? " · atrasado" : ""}` : "Sem prazo definido"}
+      </p>
+      <p className={`mt-0.5 text-xs text-ink/55 ${people.length ? "" : "italic"}`}>{people.join(", ") || "Sem funcionário"}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {waiting && order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}#etapa-operacional`} className="button w-full justify-center">Resolver etapa</Link>}
+        {!finished && !waiting && (
+          <form action={advanceProductionStep} className="w-full">
+            <input type="hidden" name="production_order_id" value={order.id} />
+            <input type="hidden" name="_list" value="1" />
+            <SubmitButton className="button w-full justify-center" pendingText="Salvando…">{installing ? "✓ Já foi instalado" : `✓ Concluir ${stepName}`}</SubmitButton>
+          </form>
+        )}
+        <Link href={`/producao/${order.id}`} className="text-xs font-semibold text-forest underline">Detalhes</Link>
+        {order.order?.sale_id && <Link href={`/vendas/${order.order.sale_id}`} className="text-xs font-semibold text-forest underline">Venda</Link>}
+      </div>
+      {installing && <p className="mt-2 text-xs text-ink/55">Ao marcar como instalado, o cliente recebe um aviso pelo WhatsApp.</p>}
+    </article>
   );
 }

@@ -9,6 +9,10 @@ import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCi
 import Link from "next/link";
 import { agendaContactLinks, agendaMapLinks, type AgendaDetails } from "@/lib/agenda-location";
 import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails } from "@/app/(crm)/agenda-actions";
+import { AgendaBoard } from "@/components/agenda-board";
+import { AgendaFilterBar } from "@/components/agenda-filter-bar";
+import { TYPE_CONFIG, STATUS_CONFIG, statusConfig } from "@/components/agenda-event-style";
+import { EMPTY_FILTERS, dayRange, filterEvents, filterOptions, hasFilters, type AgendaFilters } from "@/lib/service-board";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type AgendaEvent = {
@@ -23,31 +27,14 @@ export type AgendaEvent = {
   status: string;
   responsible_name?: string | null;
   description?: string | null;
+  team_name?: string | null;
+  vehicle_name?: string | null;
+  crew?: string[] | null;
 };
 
 type View = "mes" | "semana" | "dia";
-
-/* ─── Config de tipos ────────────────────────────────────────────────────── */
-const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  medicao:    { label: "Medição",        color: "text-blue-700",   bg: "bg-blue-100 border-blue-300" },
-  instalacao: { label: "Instalação",     color: "text-green-700",  bg: "bg-green-100 border-green-300" },
-  producao:   { label: "Produção",       color: "text-orange-700", bg: "bg-orange-100 border-orange-300" },
-  compra:     { label: "Compra",         color: "text-amber-700",  bg: "bg-amber-100 border-amber-300" },
-  reuniao:    { label: "Reunião",        color: "text-purple-700", bg: "bg-purple-100 border-purple-300" },
-  venda:      { label: "Venda",          color: "text-emerald-700",bg: "bg-emerald-100 border-emerald-300" },
-  pos_venda:  { label: "Pós-venda",      color: "text-teal-700",   bg: "bg-teal-100 border-teal-300" },
-  tarefa:     { label: "Tarefa",         color: "text-gray-700",   bg: "bg-gray-100 border-gray-300" },
-  lembrete:   { label: "Lembrete",       color: "text-pink-700",   bg: "bg-pink-100 border-pink-300" },
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  agendado:     { label: "Agendado",    color: "bg-blue-50 text-blue-700" },
-  confirmado:   { label: "Confirmado",  color: "bg-green-50 text-green-700" },
-  em_andamento: { label: "Em andamento",color: "bg-amber-50 text-amber-700" },
-  concluido:    { label: "Concluído",   color: "bg-emerald-50 text-emerald-700" },
-  reagendado:   { label: "Reagendado",  color: "bg-orange-50 text-orange-700" },
-  cancelado:    { label: "Cancelado",   color: "bg-red-50 text-red-700" },
-};
+type DesktopView = "quadro" | View;
+type Period = "semana" | "quinzena" | "datas";
 
 const DAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -65,7 +52,10 @@ function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.get
 /* ─── Componente principal ───────────────────────────────────────────────── */
 export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents: AgendaEvent[]; initialError?: string }) {
   const mobile=useMobile();
-  const [view, setView] = useState<View>("mes");
+  const [view, setView] = useState<DesktopView>("quadro");
+  const [period, setPeriod] = useState<Period>("semana");
+  const [range, setRange] = useState({ from: "", to: "" });
+  const [filters, setFilters] = useState<AgendaFilters>(EMPTY_FILTERS);
   const [mobileView,setMobileView]=useState<View>("dia");
   const [cursor, setCursor] = useState(new Date());
   const [events, setEvents] = useState<AgendaEvent[]>(initialEvents);
@@ -103,11 +93,42 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
       if (view === "mes") { d.setDate(1); d.setMonth(d.getMonth() + n); }
       if (view === "semana") d.setDate(d.getDate() + n * 7);
       if (view === "dia")    d.setDate(d.getDate() + n);
+      if (view === "quadro") d.setDate(d.getDate() + n * (period === "quinzena" ? 14 : 7));
       return d;
     });
+    // No período por datas, as setas andam um intervalo inteiro.
+    if (view === "quadro" && period === "datas") {
+      const size = boardDays.length;
+      const shift = (day: string) => ymd(addDays(new Date(`${day}T12:00:00`), n * size));
+      setRange({ from: shift(boardDays[0]), to: shift(boardDays[size - 1]) });
+    }
   };
 
+  // Semana de segunda a domingo; "15 dias" são duas semanas seguidas.
+  const monday = addDays(cursor, -((cursor.getDay() + 6) % 7));
+  const weekRange = { from: ymd(monday), to: ymd(addDays(monday, period === "quinzena" ? 13 : 6)) };
+  const chosen = period === "datas" && range.from && range.to ? range : weekRange;
+  const boardDays = dayRange(chosen.from, chosen.to);
+  const choosePeriod = (next: Period) => {
+    if (next === "datas") setRange({ from: boardDays[0], to: boardDays[boardDays.length - 1] });
+    setPeriod(next);
+  };
+  const goToday = () => { setCursor(new Date()); if (period === "datas") setPeriod("semana"); };
+
+  const options = filterOptions(events);
+  const typeCounts = new Map<string, number>();
+  for (const e of filterEvents(events, { ...filters, types: [] })) typeCounts.set(e.type, (typeCounts.get(e.type) ?? 0) + 1);
+  for (const type of filters.types) if (!typeCounts.has(type)) typeCounts.set(type, 0);
+  const shown = filterEvents(events, filters);
+  // Calendário e celular continuam mostrando os concluídos quando a situação é a padrão.
+  const calendarEvents = filters.status === "ativos" ? filterEvents(events, { ...filters, status: "todos" }) : shown;
+  const filterBar = <AgendaFilterBar filters={filters} options={options} types={[...typeCounts]} onChange={setFilters} />;
+
   const titleLabel = () => {
+    if (view === "quadro") {
+      const br = (day: string) => day.split("-").reverse().join("/");
+      return `${br(boardDays[0])} — ${br(boardDays[boardDays.length - 1])}`;
+    }
     if (view === "mes") return `${MONTHS_PT[cursor.getMonth()]} ${cursor.getFullYear()}`;
     if (view === "semana") {
       const start = startOfWeek(cursor);
@@ -126,9 +147,9 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   );
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className={`mx-auto ${view === "quadro" && !mobile ? "w-full max-w-none" : "max-w-[1400px]"}`}>
       <Link href={`/equipes?dia=${ymd(cursor)}`} className="agenda-equipes-link mb-4 inline-block text-sm font-semibold underline">Equipes, veículos e carregamento</Link>
-      {mobile ? <><MobileAgenda cursor={cursor} view={mobileView} events={events} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
+      {mobile ? <><details className="mb-3"><summary className="cursor-pointer py-2 text-sm font-semibold">Filtrar por funcionário, equipe ou tipo{hasFilters(filters) ? " · filtro ativo" : ""}</summary>{filterBar}</details><MobileAgenda cursor={cursor} view={mobileView} events={calendarEvents} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
         {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-semibold text-ink/50">Carregando agenda…</p>}
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -140,37 +161,56 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
         <div className="flex flex-wrap items-center gap-2">
           {/* View selector */}
           <div className="flex rounded-xl border bg-surface">
-            {(["mes","semana","dia"] as View[]).map(v => (
+            {(["quadro","mes","semana","dia"] as DesktopView[]).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={`px-4 py-2 text-sm font-semibold transition-colors first:rounded-l-xl last:rounded-r-xl ${view===v?"bg-brand-strong text-white":"text-ink/60 hover:bg-cream"}`}>
-                {v === "mes" ? "Mês" : v === "semana" ? "Semana" : "Dia"}
+                {v === "quadro" ? "Quadro" : v === "mes" ? "Mês" : v === "semana" ? "Semana" : "Dia"}
               </button>
             ))}
           </div>
           {/* Navigation */}
           <div className="flex items-center gap-1 rounded-xl border bg-surface">
             <button aria-label="Período anterior" onClick={() => navigate(-1)} className="p-2 hover:bg-cream rounded-l-xl"><ChevronLeft className="h-4 w-4" /></button>
-            <button onClick={() => setCursor(new Date())} className="px-3 py-2 text-sm font-semibold hover:bg-cream">Hoje</button>
+            <button onClick={goToday} className="px-3 py-2 text-sm font-semibold hover:bg-cream">Hoje</button>
             <button aria-label="Próximo período" onClick={() => navigate(1)} className="p-2 hover:bg-cream rounded-r-xl"><ChevronRight className="h-4 w-4" /></button>
           </div>
           <button onClick={() => setCreateFor(ymd(cursor))}
             className="flex items-center gap-2 rounded-xl bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-[#18221e]">
             <Plus className="h-4 w-4" /> Novo evento
           </button>
-          <button onClick={reload} className={`p-2 rounded-xl border bg-surface hover:bg-cream ${loading?"opacity-50":""}`}>
+          <button aria-label="Atualizar agenda" onClick={reload} className={`p-2 rounded-xl border bg-surface hover:bg-cream ${loading?"opacity-50":""}`}>
             <RefreshCw className={`h-4 w-4 ${loading?"animate-spin":""}`} />
           </button>
         </div>
       </div>
 
       {/* ── Título do período ── */}
-      <p className="mb-4 text-lg font-semibold text-ink">{titleLabel()}</p>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <p className="text-lg font-semibold text-ink">{titleLabel()}</p>
+        {view === "quadro" && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block"><span className="label">Período</span>
+              <select className="field" value={period} onChange={e => choosePeriod(e.target.value as Period)}>
+                <option value="semana">Uma semana</option>
+                <option value="quinzena">15 dias</option>
+                <option value="datas">Escolher datas</option>
+              </select>
+            </label>
+            {period === "datas" && <>
+              <label className="block"><span className="label">De</span><input type="date" className="field" value={range.from} onChange={e => setRange(r => ({ ...r, from: e.target.value }))} /></label>
+              <label className="block"><span className="label">Até</span><input type="date" className="field" value={range.to} onChange={e => setRange(r => ({ ...r, to: e.target.value }))} /></label>
+            </>}
+          </div>
+        )}
+      </div>
+      {filterBar}
 
       {loadError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{loadError}</p>}
       {/* ── Grid ── */}
-      {view === "mes"    && <MonthView    cursor={cursor} events={events} onDayClick={setCreateFor} onEventClick={setSelected} />}
-      {view === "semana" && <WeekView     cursor={cursor} events={events} onDayClick={setCreateFor} onEventClick={setSelected} />}
-      {view === "dia"    && <DayView      cursor={cursor} events={events} onEventClick={setSelected} onNewEvent={setCreateFor} />}
+      {view === "quadro" && <AgendaBoard events={shown} days={boardDays} today={ymd(new Date())} onSelect={setSelected} onNew={setCreateFor} />}
+      {view === "mes"    && <MonthView    cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
+      {view === "semana" && <WeekView     cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
+      {view === "dia"    && <DayView      cursor={cursor} events={calendarEvents} onEventClick={setSelected} onNewEvent={setCreateFor} />}
 
       </>}
       {/* ── Modais ── */}
@@ -347,7 +387,7 @@ function EventChip({ event, onClick }: { event: AgendaEvent; onClick?: (e: React
 function EventModal({ event, onClose, onStatusChange }:
   { event: AgendaEvent; onClose: () => void; onStatusChange: (id: string, status: string) => void }) {
   const cfg = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.tarefa;
-  const statusCfg = STATUS_CONFIG[event.status] ?? { label: event.status, color: "bg-gray-100 text-gray-700" };
+  const statusCfg = statusConfig(event.status);
   // Endereço, telefone e observações vêm da medição/instalação/cliente ao abrir.
   const [details, setDetails] = useState<AgendaDetails | null>(null);
   const [detailsError, setDetailsError] = useState("");

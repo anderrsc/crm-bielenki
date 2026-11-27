@@ -24,8 +24,10 @@ export async function getAgendaEvents(): Promise<AgendaEvent[]> {
 
   if (error) throw new Error("Não foi possível carregar a agenda. Verifique a conexão e as migrações.");
   if (!data) return [];
+  const crews = await agendaCrews(db);
 
   return data.map((e: Record<string, unknown>) => ({
+    ...crews.get(`${e.source}:${e.id}`),
     id: String(e.id ?? ""),
     source: e.source as AgendaSource,
     type: (e.event_type as AgendaEvent["type"]) ?? "tarefa",
@@ -37,6 +39,35 @@ export async function getAgendaEvents(): Promise<AgendaEvent[]> {
     status: String(e.status ?? "agendado"),
     responsible_name: e.responsible_name ? String(e.responsible_name) : null,
   }));
+}
+
+/** Equipe, veículo e pessoas escaladas (módulo Equipes) para cada compromisso. */
+async function agendaCrews(db: Awaited<ReturnType<typeof createClient>>) {
+  type Row = {
+    event_id: string | null; measurement_id: string | null; installation_id: string | null;
+    day: { team_name: string; vehicle_name: string; members: { profile_name: string; released_at: string | null }[] } | null;
+  };
+  const crews = new Map<string, Pick<AgendaEvent, "team_name" | "vehicle_name" | "crew">>();
+  const { data, error } = await db
+    .from("work_day_jobs")
+    .select("event_id,measurement_id,installation_id,day:work_days(team_name,vehicle_name,members:work_day_members(profile_name,released_at))")
+    .eq("active", true)
+    .gte("scheduled_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .order("scheduled_at", { ascending: false })
+    .limit(1000);
+  // Sem a escala (falha ou perfil sem acesso), a agenda continua com o responsável.
+  if (error) { console.error("agenda: escala indisponível", error.message); return crews; }
+  for (const job of (data ?? []) as unknown as Row[]) {
+    if (!job.day) continue;
+    const key = job.installation_id ? `installations:${job.installation_id}`
+      : job.measurement_id ? `measurements:${job.measurement_id}` : `operational_events:${job.event_id}`;
+    crews.set(key, {
+      team_name: job.day.team_name,
+      vehicle_name: job.day.vehicle_name,
+      crew: (job.day.members ?? []).filter((m) => !m.released_at).map((m) => m.profile_name),
+    });
+  }
+  return crews;
 }
 
 export async function createAgendaEvent(
