@@ -55,7 +55,8 @@ export function InstallerPicker({ data, onSaved }: { data: Data; onSaved?: () =>
  * não fecha até responder. Se sair da página sem responder, a OS aparece como "impressão não confirmada"
  * na fila e no painel, até alguém confirmar.
  */
-function usePrintConfirm(ids: string[], startOpen: boolean, onDone: (count: number) => void) {
+function usePrintConfirm(ids: string[], startOpen: boolean, onDone: (count: number) => void, serviceIds: string[] = []) {
+  const total = ids.length + serviceIds.length;
   const [open, setOpen] = useState(startOpen);
   const [msg, setMsg] = useState("");
   const [pending, start] = useTransition();
@@ -67,21 +68,21 @@ function usePrintConfirm(ids: string[], startOpen: boolean, onDone: (count: numb
   }, [open]);
   function print() {
     setMsg("");
-    if (!ids.length) { window.print(); return; }
+    if (!total) { window.print(); return; }
     start(async () => {
-      const r = await setOsPrint(ids, "enviada");
+      const r = await setOsPrint(ids, "enviada", serviceIds);
       if (r.error) { setMsg(r.error); return; }
       setOpen(true);
       window.print();
     });
   }
   function confirm() {
-    start(async () => { const r = await setOsPrint(ids, "impressa"); if (r.error) setMsg(r.error); else { setOpen(false); onDone(r.count); } });
+    start(async () => { const r = await setOsPrint(ids, "impressa", serviceIds); if (r.error) setMsg(r.error); else { setOpen(false); onDone(r.count); } });
   }
   const dialog = open && <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="os-confirm-title">
     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
       <h2 id="os-confirm-title" className="text-lg font-semibold">A impressão saiu certinha?</h2>
-      <p className="mt-2 text-sm text-ink/70">{ids.length === 1 ? "Esta ordem de serviço" : `Estas ${ids.length} ordens de serviço`} só saem da fila depois que você confirmar. Até lá, ficam marcadas como <b>impressão não confirmada</b>.</p>
+      <p className="mt-2 text-sm text-ink/70">{total === 1 ? "Esta ordem de serviço" : `Estas ${total} ordens de serviço`} só saem da fila depois que você confirmar. Até lá, ficam marcadas como <b>impressão não confirmada</b>.</p>
       <div className="mt-5 flex flex-col gap-2">
         <button type="button" className="button justify-center" disabled={pending} onClick={confirm}><CheckCircle2 size={16} /> Sim, saiu impressa</button>
         <button type="button" className="button-ghost justify-center" disabled={pending} onClick={() => window.print()}><RotateCcw size={16} /> Não saiu — imprimir de novo</button>
@@ -128,15 +129,17 @@ export function ServiceOrderSheet({ data, fresh = false }: { data: Data; fresh?:
   </main>;
 }
 
-/** Várias ordens de serviço: 4 por folha A4. Depois de imprimir, os pedidos saem da fila. */
+/** Várias ordens de serviço: 4 por folha A4. Depois de imprimir e confirmar, saem da fila. */
 export function ServiceOrderBatch({ list, services = [] }: { list: Data[]; services?: ServiceCallSheet[] }) {
   const router = useRouter();
   const total = list.length + services.length;
   const sheets = Math.ceil(total / 4);
   const ids = list.filter(d => d.orderId && !d.printedAt).map(d => d.orderId!);
-  const unconfirmed = list.some(d => d.printSentAt && !d.printedAt);
+  // Reimprimir uma manutenção já confirmada não mexe na fila.
+  const serviceIds = services.filter(s => !s.printedAt).map(s => s.serviceId);
+  const unconfirmed = [...list, ...services].some(d => d.printSentAt && !d.printedAt);
   const { print, dialog, pending, msg } = usePrintConfirm(ids, unconfirmed, count =>
-    router.push(`/ordens-servico?ok=${encodeURIComponent(`Impressão confirmada: ${count} ordem(ns) de serviço saíram da fila.`)}`));
+    router.push(`/ordens-servico?ok=${encodeURIComponent(`Impressão confirmada: ${count} ordem(ns) de serviço saíram da fila.`)}`), serviceIds);
 
   return <main className="os-page">
     <style>{OS_CSS}</style>

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { OsQueue, type OsRow } from '@/components/os-queue';
 import { ServiceOrderBatch } from '@/components/service-order-sheet';
 import { loadServiceCalls } from '@/lib/service-order';
+import { setOsPrint } from '@/app/(crm)/service-order-actions';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock('@/app/(crm)/service-order-actions', () => ({ setOsPrint: vi.fn(), setOrderInstaller: vi.fn() }));
@@ -45,4 +46,22 @@ test('OS de manutenção usa o endereço da obra e sai na folha', async () => {
   render(<ServiceOrderBatch list={[]} services={[sheet]} />);
   expect(screen.getByText('Calha retornando água')).toBeTruthy();
   expect(screen.getByText(/1 ordem de serviço · 1 folha A4/)).toBeTruthy();
+});
+
+test('confirmar a impressão envia pedidos e manutenções separados', async () => {
+  vi.mocked(setOsPrint).mockResolvedValue({ error: null, count: 2 });
+  render(<OsQueue rows={[{ ...service, unconfirmed: true }, { ...order, unconfirmed: true }]} filtro="fila" />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Saíram impressas/ })); });
+  expect(setOsPrint).toHaveBeenCalledWith(['o1'], 'impressa', ['s1']);
+});
+
+test('imprimir manutenção marca como enviada e pede confirmação', async () => {
+  vi.mocked(setOsPrint).mockResolvedValue({ error: null, count: 1 });
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const [sheet] = await loadServiceCalls(db, ['s1']);
+  render(<ServiceOrderBatch list={[]} services={[sheet]} />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Imprimir \/ salvar PDF/ })); });
+  expect(setOsPrint).toHaveBeenCalledWith([], 'enviada', ['s1']);
+  expect(print).toHaveBeenCalled();
+  expect(screen.getByRole('dialog', { name: /A impressão saiu/ })).toBeTruthy();
 });

@@ -18,12 +18,23 @@ export async function setOrderInstaller(input: { saleId: string; orderId: string
 }
 
 /** Etapa da impressão: "enviada" (mandou imprimir, falta confirmar), "impressa" (confirmou) ou "fila" (volta para a fila). */
-export async function setOsPrint(orderIds: string[], step: "enviada" | "impressa" | "fila") {
-  const ids = [...new Set(orderIds)].filter(id => z.string().uuid().safeParse(id).success).slice(0, 200);
-  if (!ids.length) return { error: "Nenhuma ordem selecionada", count: 0 };
+export async function setOsPrint(orderIds: string[], step: "enviada" | "impressa" | "fila", serviceIds: string[] = []) {
+  const clean = (list: string[]) => [...new Set(list)].filter(id => z.string().uuid().safeParse(id).success).slice(0, 200);
+  const ids = clean(orderIds), services = clean(serviceIds);
+  if (!ids.length && !services.length) return { error: "Nenhuma ordem selecionada", count: 0 };
   const db = await createClient();
-  const { data, error } = await db.rpc("set_orders_os_print", { p_order_ids: ids, p_step: step });
-  if (error) return { error: /set_orders_os_print|function/.test(error.message) ? "Falta aplicar a atualização do banco 20261127120000_fila_ordens_servico.sql." : error.message, count: 0 };
+  let count = 0;
+  // Manutenções primeiro: se a atualização do banco delas faltar, nada dos pedidos fica pela metade.
+  if (services.length) {
+    const { data, error } = await db.rpc("set_services_os_print", { p_service_ids: services, p_step: step });
+    if (error) return { error: /set_services_os_print|function/.test(error.message) ? "Falta aplicar a atualização do banco 20261127130000_fila_os_servicos.sql." : error.message, count };
+    count += Number(data ?? 0);
+  }
+  if (ids.length) {
+    const { data, error } = await db.rpc("set_orders_os_print", { p_order_ids: ids, p_step: step });
+    if (error) return { error: /set_orders_os_print|function/.test(error.message) ? "Falta aplicar a atualização do banco 20261127120000_fila_ordens_servico.sql." : error.message, count };
+    count += Number(data ?? 0);
+  }
   revalidatePath("/ordens-servico"); revalidatePath("/dashboard");
-  return { error: null, count: Number(data ?? 0) };
+  return { error: null, count };
 }
