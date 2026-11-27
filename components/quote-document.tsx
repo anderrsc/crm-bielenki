@@ -251,7 +251,7 @@ export async function QuoteDocument({ id, error, printOnly = false }: { id: stri
   const whatsapp = formatCompanyPhone(company.whatsapp);
   const taxId = formatCompanyTaxId(company.tax_id);
   const neighborhood = /^rau$/i.test(company.neighborhood?.trim() ?? "") ? "Rau" : company.neighborhood;
-  const portfolio = /^https?:\/\//i.test(company.qr_code_url||'') ? company.qr_code_url! : "https://marquinhos-calhas.vercel.app/";
+  const portfolio = /^https?:\/\//i.test(company.qr_code_url||'') ? company.qr_code_url! : "https://3d.bielenki.com.br/";
   const [qrImgSrc, logoBuffer] = await Promise.all([
     QRCode.toDataURL(portfolio,{errorCorrectionLevel:"M",width:240,margin:4}),
     printOnly ? readFile(path.join(process.cwd(),"public/brand/original/marquinhos-logo.svg")) : null,

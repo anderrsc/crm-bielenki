@@ -41,11 +41,11 @@ test("all documented profiles have original drawings and distinct model links", 
   const media = await quotePieceMedia("Rufo de Cumeeira", true);
   expect(media?.image.startsWith("data:image/png;base64,")).toBe(true);
   expect(media?.qr.startsWith("data:image/png;base64,")).toBe(true);
-  expect(media?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#cumeeira");
+  expect(media?.url).toBe("https://3d.bielenki.com.br/pecas-3d.html#cumeeira");
   expect(await quotePieceMedia("Peça exclusiva", true)).toBeNull();
-  expect((await quotePieceMedia("Rufo Sobre Calha", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#sobrecalha");
-  expect((await quotePieceMedia("Rufo colarinho", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#rufo-colarinho");
-  expect((await quotePieceMedia("Calha platibanda com pingadeira", true))?.url).toBe("https://marquinhos-calhas.vercel.app/pecas-3d.html#calha-platibanda-pingadeira");
+  expect((await quotePieceMedia("Rufo Sobre Calha", true))?.url).toBe("https://3d.bielenki.com.br/pecas-3d.html#sobrecalha");
+  expect((await quotePieceMedia("Rufo colarinho", true))?.url).toBe("https://3d.bielenki.com.br/pecas-3d.html#rufo-colarinho");
+  expect((await quotePieceMedia("Calha platibanda com pingadeira", true))?.url).toBe("https://3d.bielenki.com.br/pecas-3d.html#calha-platibanda-pingadeira");
 });
 
 test("catalog import updates reference prices, preserves extras and other tenants, and can be repeated", async () => {
