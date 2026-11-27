@@ -1,5 +1,6 @@
 import { channelByProviderId, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
 import { updateDelivery, updateIncomingRead } from "@/lib/whatsapp/delivery";
+import { isMessageEvent } from "@/lib/whatsapp/watchdog";
 import { resolveMessageChannel, scopeMessages, webhookEventKey } from '@/lib/whatsapp/message-scope';
 import { applyAgendaNames, agendaNameMap, importHistoryPage } from "@/lib/whatsapp/evolution-history";
 import { inboundTiming } from "@/lib/whatsapp/inbound-safety";
@@ -264,10 +265,9 @@ async function handleWebhook(req: NextRequest, body: string, payload: any, trust
       }
       if (channel && channel.active === false) return NextResponse.json({ status: "channel_inactive" });
       if (channel) {
-        // Evento de conexão não prova que as mensagens estão chegando: o vigia olha só os de mensagem.
+        // Só mensagem prova que o número está recebendo: o vigia olha apenas esses eventos.
         const now = new Date().toISOString();
-        const isConnection = /connection/i.test(String(payload?.event ?? ""));
-        await getSupabase().from("whatsapp_channels").update(isConnection ? { last_event_at: now } : { last_event_at: now, last_message_event_at: now })
+        await getSupabase().from("whatsapp_channels").update(isMessageEvent(payload?.event) ? { last_event_at: now, last_message_event_at: now } : { last_event_at: now })
           .eq("id", channel.id).then(() => undefined, () => undefined);
       }
     }

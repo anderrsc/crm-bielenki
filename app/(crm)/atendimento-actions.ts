@@ -2,6 +2,7 @@
 // Tela de Atendimento (estilo Octadesk): conversas do WhatsApp + ficha do cliente.
 import { scheduleReceipt } from "@/lib/receipts/process";
 import { channelById, channelCredentials, type WhatsappChannel } from "@/lib/whatsapp/channels";
+import { channelAlert, latestIso } from "@/lib/whatsapp/watchdog";
 import { waitingSince } from "@/lib/inbox-waiting";
 import { whatsappTarget } from "@/lib/whatsapp/phone";
 import { validIsoDate } from "@/lib/valid-date";
@@ -27,6 +28,8 @@ export type InboxItem = {
   /** Número de WhatsApp da conversa (calha, esquadrias…). */
   channelId?: string | null; channelName?: string | null; channelPhone?: string | null;
   labels?: Array<{ id: string; name: string; color: string }>;
+  /** Número desconectado ou conectado sem receber (texto do aviso); null = normal. */
+  channelAlert?: string | null;
   /** false = número sem Lia (só o principal tem IA por enquanto). */
   channelAi?: boolean;
   /** Cliente falou por último e ainda espera resposta desde este horário. */
@@ -166,7 +169,17 @@ export async function loadInbox(): Promise<{ items: InboxItem[]; error?: string;
     const admin = createAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: cfg } = await admin.from("ai_agent_config").select("active,wpp_provider,evolution_api_url,evolution_instance").eq("company_id", companyId).maybeSingle();
     const provider = cfg?.wpp_provider === "evolution" || (!cfg?.wpp_provider && cfg?.evolution_api_url && cfg?.evolution_instance) ? "evolution" : "meta";
-    return { items: ((data ?? []) as unknown as ConvRow[]).map(toItem), companyId, aiActive: cfg?.active === true, provider };
+    const rows = (data ?? []) as unknown as ConvRow[];
+    // Saúde de cada número, para a lista não mostrar "tudo verde" com um número mudo. As datas do
+    // vigia não são liberadas ao usuário no banco: lê pelo servidor, só desta empresa.
+    const { data: chans } = await admin.from("whatsapp_channels").select("id,provider,status,is_default,last_event_at,last_message_event_at,last_restart_at")
+      .eq("company_id", companyId).eq("active", true).is("deleted_at", null);
+    const alerts = new Map((chans ?? []).filter((ch) => ch.provider === "evolution").map((ch) => [ch.id as string, channelAlert({
+      state: ch.status as string | null, isDefault: !!ch.is_default, lastRestartAt: ch.last_restart_at as string | null,
+      lastMessageAt: latestIso(ch.last_message_event_at ?? ch.last_event_at, ...rows.filter((r) => r.channel_id === ch.id).map((r) => r.last_inbound_at)),
+      now: new Date(),
+    })]));
+    return { items: rows.map((r) => ({ ...toItem(r), channelAlert: alerts.get(r.channel_id ?? "") ?? null })), companyId, aiActive: cfg?.active === true, provider };
   } catch (error) {
     return { items: [], error: error instanceof Error ? error.message : String(error) };
   }
