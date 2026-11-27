@@ -2,26 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
-import { setOrderInstaller } from "@/app/(crm)/service-order-actions";
+import { useEffect, useState, useTransition } from "react";
+import { ArrowLeft, CheckCircle2, ListChecks, Printer, RotateCcw } from "lucide-react";
+import { setOrderInstaller, setOsPrint } from "@/app/(crm)/service-order-actions";
 import type { ServiceOrderSheet as Data } from "@/lib/service-order";
+import { OS_CSS, OsCard, OsSheets } from "./os-card";
 
-const br = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
-const qty = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 3 }));
-const MAX_ITEMS = 7;
 const OUT = "nome:";
 const NEW = "__novo";
+const when = (v: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(v));
 
-/** Ordem de serviço em 1/4 de A4 (105 × 148 mm). Imprime 1, 2 ou 4 vias na mesma folha A4, com linha de corte. */
-export function ServiceOrderSheet({ data, fresh = false }: { data: Data; fresh?: boolean }) {
+/** Escolhe o instalador de uma OS (usuário do CRM ou nome de fora). */
+export function InstallerPicker({ data, onSaved }: { data: Data; onSaved?: () => void }) {
   const router = useRouter();
-  const [copies, setCopies] = useState(1);
   const [installer, setInstaller] = useState(data.installerName ? OUT + data.installerName : data.installerId ?? "");
   const [typing, setTyping] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [pending, start] = useTransition();
-
   function save(value: string) {
     if (!data.orderId) return;
     const prev = installer;
@@ -29,134 +26,129 @@ export function ServiceOrderSheet({ data, fresh = false }: { data: Data; fresh?:
     const external = value.startsWith(OUT);
     start(async () => {
       const r = await setOrderInstaller({ saleId: data.saleId, orderId: data.orderId!, profileId: external ? null : value || null, name: external ? value.slice(OUT.length) : null });
-      if (r.error) { setInstaller(prev); setMsg(r.error); } else { setMsg("Instalador salvo."); router.refresh(); }
+      if (r.error) { setInstaller(prev); setMsg(r.error); } else { setMsg("Salvo."); onSaved?.(); router.refresh(); }
     });
   }
-
-  const c = data.client;
-  const street = c.address || "";
-  const place = [c.neighborhood, [c.city, c.state].filter(Boolean).join("/")].filter(Boolean).join(" · ");
-  const shown = data.items.slice(0, MAX_ITEMS);
-  const extra = data.items.length - shown.length;
-
-  const sheet = (via: number) => <article className="os-card" key={via}>
-    <header className="os-head">
-      <img src="/brand/marquinhos-logo.svg" alt={data.companyName} className="os-logo" />
-      <div className="os-title"><b>ORDEM DE SERVIÇO</b><span className="os-num">{data.number}</span><small>Venda {data.saleNumber}{copies > 1 ? ` · via ${via}` : ""}</small></div>
-    </header>
-
-    <section className="os-block">
-      <p className="os-label">Cliente</p>
-      <p className="os-strong">{c.name}</p>
-      {c.phone && <p>Fone: {c.phone}</p>}
-    </section>
-
-    <section className="os-block">
-      <p className="os-label">Endereço da obra</p>
-      <p>{street || "______________________________________"}</p>
-      <p>{place}{c.postal_code ? ` · CEP ${c.postal_code}` : ""}</p>
-    </section>
-
-    <section className="os-block os-grow">
-      <p className="os-label">Serviço · {data.serviceType}</p>
-      <ul className="os-items">
-        {shown.map((i, k) => <li key={k}><span className="os-q">{qty(i.quantity)} {i.unit}</span><span className="os-p">{i.product}{i.description ? ` — ${i.description}` : ""}</span></li>)}
-        {extra > 0 && <li className="os-more">+ {extra} {extra === 1 ? "item" : "itens"} — ver pedido</li>}
-        {!shown.length && <li className="os-more">Itens conforme pedido</li>}
-      </ul>
-    </section>
-
-    <section className="os-grid">
-      <div><p className="os-label">Medido por</p><p className="os-strong">{data.measurer || "________________"}</p></div>
-      <div><p className="os-label">Instalador</p><p className="os-strong">{data.installer || "________________"}</p></div>
-      <div><p className="os-label">Fechado em</p><p className="os-strong">{br(data.closedAt)}</p></div>
-      <div className="os-deadline"><p className="os-label">Prazo máx. instalação</p><p className="os-strong">{data.deadlineDate ? br(data.deadlineDate) : (data.deadlineText || "A combinar")}</p>{data.deadlineDate && data.deadlineText && <small>({data.deadlineText})</small>}</div>
-    </section>
-
-    <section className="os-block os-obs"><p className="os-label">Observações</p><div className="os-line" /><div className="os-line" /></section>
-
-    <footer className="os-sign">
-      <div><div className="os-line" /><small>Instalado em ___/___/______</small></div>
-      <div><div className="os-line" /><small>Assinatura do cliente</small></div>
-    </footer>
-  </article>;
-
   const options = data.people.some(p => p.id === installer) || !installer || installer.startsWith(OUT) ? data.people : [{ id: installer, full_name: data.installer ?? "(inativo)" }, ...data.people];
+  const finish = () => { const n = (typing ?? "").trim(); setTyping(null); if (n) save(OUT + n); };
+  return <span className="flex flex-wrap items-end gap-2">
+    <label className="flex flex-col gap-1"><span className="label">Instalador{data.number ? ` · ${data.number}` : ""}</span>
+      <select className="field p-2 text-sm" value={installer} disabled={pending || !data.canEdit || !data.installerColumn} onChange={e => e.target.value === NEW ? setTyping("") : save(e.target.value)}>
+        <option value="">Não definido (preencher à mão)</option>
+        {options.map(p => <option key={p.id} value={p.id}>{p.full_name || "Sem nome"}</option>)}
+        {data.installerName && <option value={OUT + data.installerName}>{data.installerName} (de fora)</option>}
+        <option value={NEW}>+ Outro instalador (sem usuário)…</option>
+      </select>
+    </label>
+    {typing !== null && <>
+      <input autoFocus value={typing} onChange={e => setTyping(e.target.value)} placeholder="Nome do instalador" className="field p-2 text-sm"
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); finish(); } if (e.key === "Escape") setTyping(null); }} />
+      <button type="button" className="button" onClick={finish}>Salvar</button>
+    </>}
+    {msg && <span className="os-msg">{msg}</span>}
+  </span>;
+}
+
+
+/**
+ * Impressão com confirmação obrigatória: ao mandar imprimir, a OS fica "enviada" no banco e esta janela
+ * não fecha até responder. Se sair da página sem responder, a OS aparece como "impressão não confirmada"
+ * na fila e no painel, até alguém confirmar.
+ */
+function usePrintConfirm(ids: string[], startOpen: boolean, onDone: (count: number) => void) {
+  const [open, setOpen] = useState(startOpen);
+  const [msg, setMsg] = useState("");
+  const [pending, start] = useTransition();
+  useEffect(() => {
+    if (!open) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [open]);
+  function print() {
+    setMsg("");
+    if (!ids.length) { window.print(); return; }
+    start(async () => {
+      const r = await setOsPrint(ids, "enviada");
+      if (r.error) { setMsg(r.error); return; }
+      setOpen(true);
+      window.print();
+    });
+  }
+  function confirm() {
+    start(async () => { const r = await setOsPrint(ids, "impressa"); if (r.error) setMsg(r.error); else { setOpen(false); onDone(r.count); } });
+  }
+  const dialog = open && <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="os-confirm-title">
+    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <h2 id="os-confirm-title" className="text-lg font-semibold">A impressão saiu certinha?</h2>
+      <p className="mt-2 text-sm text-ink/70">{ids.length === 1 ? "Esta ordem de serviço" : `Estas ${ids.length} ordens de serviço`} só saem da fila depois que você confirmar. Até lá, ficam marcadas como <b>impressão não confirmada</b>.</p>
+      <div className="mt-5 flex flex-col gap-2">
+        <button type="button" className="button justify-center" disabled={pending} onClick={confirm}><CheckCircle2 size={16} /> Sim, saiu impressa</button>
+        <button type="button" className="button-ghost justify-center" disabled={pending} onClick={() => window.print()}><RotateCcw size={16} /> Não saiu — imprimir de novo</button>
+      </div>
+      {msg && <p className="mt-3 text-sm text-red-700">{msg}</p>}
+    </div>
+  </div>;
+  return { print, dialog, pending, msg };
+}
+
+/** Ordem de serviço de um pedido. Imprime 1, 2 ou 4 vias na mesma folha A4. */
+export function ServiceOrderSheet({ data, fresh = false }: { data: Data; fresh?: boolean }) {
+  const router = useRouter();
+  const [copies, setCopies] = useState(1);
+  const [done, setDone] = useState("");
+  const pendingConfirm = Boolean(data.orderId && data.printSentAt && !data.printedAt);
+  const ids = data.orderId && !data.printedAt ? [data.orderId] : [];
+  const { print, dialog, pending, msg } = usePrintConfirm(ids, pendingConfirm, () => { setDone("Impressão confirmada. A OS saiu da fila."); router.refresh(); });
 
   return <main className="os-page">
-    <style>{CSS}</style>
+    <style>{OS_CSS}</style>
     <div className="os-toolbar no-print">
-      <Link href={`/vendas/${data.saleId}`} className="button-ghost"><ArrowLeft size={16} /> Voltar à venda</Link>
-      {fresh && <p className="os-fresh">Pedido fechado. Ordem de serviço gerada — confira o instalador e imprima.</p>}
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/vendas/${data.saleId}`} className="button-ghost"><ArrowLeft size={16} /> Voltar à venda</Link>
+        <Link href="/ordens-servico" className="button-ghost"><ListChecks size={16} /> Fila de ordens de serviço</Link>
+      </div>
+      {fresh && <p className="os-fresh">Pedido fechado. A ordem de serviço entrou na fila de impressão.</p>}
+      {done && <p className="os-fresh">{done}</p>}
+      <p className="os-msg">{data.printedAt ? `Impressa em ${when(data.printedAt)}.` : data.queuedAt ? "Na fila de impressão." : ""}</p>
       <div className="os-controls">
-        <label><span className="label">Instalador</span>
-          <select className="field p-2 text-sm" value={installer} disabled={pending || !data.canEdit || !data.installerColumn} onChange={e => e.target.value === NEW ? setTyping("") : save(e.target.value)}>
-            <option value="">Não definido (preencher à mão)</option>
-            {options.map(p => <option key={p.id} value={p.id}>{p.full_name || "Sem nome"}</option>)}
-            {data.installerName && <option value={OUT + data.installerName}>{data.installerName} (de fora)</option>}
-            <option value={NEW}>+ Outro instalador (sem usuário)…</option>
-          </select>
-        </label>
-        {typing !== null && <span className="flex items-end gap-2">
-          <input autoFocus value={typing} onChange={e => setTyping(e.target.value)} placeholder="Nome do instalador" className="field p-2 text-sm"
-            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const n = typing.trim(); setTyping(null); if (n) save(OUT + n); } if (e.key === "Escape") setTyping(null); }} />
-          <button type="button" className="button" onClick={() => { const n = (typing ?? "").trim(); setTyping(null); if (n) save(OUT + n); }}>Salvar</button>
-        </span>}
+        <InstallerPicker data={data} />
         <label><span className="label">Vias na folha A4</span>
           <select className="field p-2 text-sm" value={copies} onChange={e => setCopies(Number(e.target.value))}>
             <option value={1}>1 via</option><option value={2}>2 vias (escritório + equipe)</option><option value={4}>4 vias</option>
           </select>
         </label>
-        <button type="button" className="button" onClick={() => window.print()}><Printer size={16} /> Imprimir / salvar PDF</button>
+        <button type="button" className="button" disabled={pending} onClick={print}><Printer size={16} /> Imprimir só esta</button>
       </div>
-      {!data.installerColumn && <p className="os-warn">Para salvar o instalador falta aplicar a atualização do banco 20261127100000_ordem_servico.sql. A OS já pode ser impressa e o instalador preenchido à mão.</p>}
-      {msg && <p className="os-msg">{msg}</p>}
+      {!data.installerColumn && <p className="os-warn">Para salvar o instalador falta aplicar a atualização do banco. A OS já pode ser impressa e o instalador preenchido à mão.</p>}
+      {msg && <p className="os-warn">{msg}</p>}
     </div>
-    <div className="os-a4" data-copies={copies}>{Array.from({ length: copies }, (_, i) => sheet(i + 1))}</div>
+    {dialog}
+    <OsSheets cards={Array.from({ length: copies }, (_, i) => <OsCard key={i} data={data} via={copies > 1 ? i + 1 : undefined} />)} />
   </main>;
 }
 
-const CSS = `
-@page{size:A4 portrait;margin:0}
-.os-page{min-height:100vh;background:#e9ece8;padding:16px;color:#111}
-.os-toolbar{max-width:210mm;margin:0 auto 14px;display:flex;flex-direction:column;gap:10px}
-.os-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
-.os-controls label{display:flex;flex-direction:column;gap:4px}
-.os-fresh{background:#ecfdf5;color:#065f46;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600}
-.os-warn{background:#fffbeb;color:#92400e;border-radius:12px;padding:10px 12px;font-size:13px}
-.os-msg{font-size:13px;color:#555}
-.os-a4{width:210mm;height:297mm;margin:0 auto;background:#fff;display:grid;grid-template-columns:105mm 105mm;grid-template-rows:148.5mm 148.5mm;box-shadow:0 2px 12px rgba(0,0,0,.12)}
-.os-card{box-sizing:border-box;width:105mm;height:148.5mm;padding:5mm 5.5mm;display:flex;flex-direction:column;gap:1.8mm;font:8.4pt/1.25 Arial,Helvetica,sans-serif;border-right:.3mm dashed #999;border-bottom:.3mm dashed #999;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.os-card p{margin:0}
-.os-head{display:flex;align-items:center;justify-content:space-between;gap:3mm;border-bottom:.5mm solid #111;padding-bottom:1.8mm}
-.os-logo{height:11mm;width:auto;max-width:42mm;object-fit:contain}
-.os-title{display:flex;flex-direction:column;align-items:flex-end;text-align:right;line-height:1.15}
-.os-title b{font-size:10.5pt;letter-spacing:.02em}
-.os-num{font-size:12pt;font-weight:800}
-.os-title small{font-size:7pt;color:#444}
-.os-label{font-size:6.6pt;text-transform:uppercase;letter-spacing:.05em;color:#555;font-weight:700}
-.os-strong{font-weight:700;font-size:9pt}
-.os-block{border-bottom:.2mm solid #ccc;padding-bottom:1.4mm}
-.os-grow{flex:1;min-height:0;overflow:hidden}
-.os-items{list-style:none;margin:.8mm 0 0;padding:0}
-.os-items li{display:flex;gap:2mm;padding:.35mm 0;border-bottom:.1mm dotted #ddd}
-.os-q{flex:0 0 13mm;font-weight:700;white-space:nowrap}
-.os-p{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.os-more{color:#555;font-style:italic}
-.os-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4mm 3mm;border-bottom:.2mm solid #ccc;padding-bottom:1.4mm}
-.os-deadline{background:#f1f1f1;border-radius:1mm;padding:.8mm 1.4mm;margin:-.8mm -1.4mm}
-.os-deadline small{font-size:6.6pt;color:#444}
-.os-line{border-bottom:.2mm solid #777;height:4.6mm}
-.os-sign{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
-.os-sign small{font-size:6.6pt;color:#444}
-@media print{
-  html,body{background:#fff!important;margin:0!important;padding:0!important;width:auto!important;min-height:0!important}
-  .no-print{display:none!important}
-  .os-page{padding:0;background:#fff;min-height:0}
-  .os-a4{box-shadow:none;margin:0}
+/** Várias ordens de serviço: 4 por folha A4. Depois de imprimir, tira da fila. */
+export function ServiceOrderBatch({ list }: { list: Data[] }) {
+  const router = useRouter();
+  const sheets = Math.ceil(list.length / 4);
+  const ids = list.filter(d => d.orderId && !d.printedAt).map(d => d.orderId!);
+  const unconfirmed = list.some(d => d.printSentAt && !d.printedAt);
+  const { print, dialog, pending, msg } = usePrintConfirm(ids, unconfirmed, count =>
+    router.push(`/ordens-servico?ok=${encodeURIComponent(`Impressão confirmada: ${count} ordem(ns) de serviço saíram da fila.`)}`));
+
+  return <main className="os-page">
+    <style>{OS_CSS}</style>
+    <div className="os-toolbar no-print">
+      <Link href="/ordens-servico" className="button-ghost self-start"><ArrowLeft size={16} /> Voltar à fila</Link>
+      <p className="os-fresh">{list.length} {list.length === 1 ? "ordem de serviço" : "ordens de serviço"} · {sheets} {sheets === 1 ? "folha A4" : "folhas A4"} (4 por folha)</p>
+      <details><summary className="cursor-pointer text-sm font-semibold">Definir instaladores antes de imprimir</summary>
+        <div className="mt-3 flex flex-col gap-3">{list.map(d => <InstallerPicker key={d.saleId} data={d} />)}</div>
+      </details>
+      <div className="os-controls"><button type="button" className="button" disabled={pending} onClick={print}><Printer size={16} /> Imprimir / salvar PDF</button></div>
+      {msg && <p className="os-warn">{msg}</p>}
+    </div>
+    {dialog}
+    <OsSheets cards={list.map(d => <OsCard key={d.saleId} data={d} />)} />
+  </main>;
 }
-@media screen and (max-width:820px){
-  .os-a4{width:105mm;height:auto;grid-template-columns:105mm;grid-template-rows:none}
-  .os-card{border:.3mm dashed #999}
-}
-`;

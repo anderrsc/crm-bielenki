@@ -16,3 +16,14 @@ export async function setOrderInstaller(input: { saleId: string; orderId: string
   revalidatePath(`/vendas/${ids.data.saleId}`);
   return { error: null };
 }
+
+/** Etapa da impressão: "enviada" (mandou imprimir, falta confirmar), "impressa" (confirmou) ou "fila" (volta para a fila). */
+export async function setOsPrint(orderIds: string[], step: "enviada" | "impressa" | "fila") {
+  const ids = [...new Set(orderIds)].filter(id => z.string().uuid().safeParse(id).success).slice(0, 200);
+  if (!ids.length) return { error: "Nenhuma ordem selecionada", count: 0 };
+  const db = await createClient();
+  const { data, error } = await db.rpc("set_orders_os_print", { p_order_ids: ids, p_step: step });
+  if (error) return { error: /set_orders_os_print|function/.test(error.message) ? "Falta aplicar a atualização do banco 20261127120000_fila_ordens_servico.sql." : error.message, count: 0 };
+  revalidatePath("/ordens-servico"); revalidatePath("/dashboard");
+  return { error: null, count: Number(data ?? 0) };
+}

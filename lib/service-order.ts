@@ -21,6 +21,9 @@ export type ServiceOrderSheet = {
   people: { id: string; full_name: string | null }[];
   canEdit: boolean;
   installerColumn: boolean;
+  queuedAt: string | null;
+  printedAt: string | null;
+  printSentAt: string | null;
 };
 
 const ISO = (d: Date) => d.toISOString().slice(0, 10);
@@ -61,7 +64,10 @@ export async function loadServiceOrder(db: SupabaseClient, saleId: string): Prom
   const company = String(s.company_id);
 
   let installerColumn = true;
-  let orderRes = await db.from("orders").select("id,order_number,installer_id,installer_name").eq("sale_id", saleId).eq("company_id", company).maybeSingle();
+  let orderRes = await db.from("orders").select("id,order_number,installer_id,installer_name,os_queued_at,os_printed_at,os_print_sent_at").eq("sale_id", saleId).eq("company_id", company).maybeSingle();
+  if (orderRes.error && /os_|installer/.test(orderRes.error.message)) {
+    orderRes = await db.from("orders").select("id,order_number,installer_id,installer_name").eq("sale_id", saleId).eq("company_id", company).maybeSingle() as typeof orderRes;
+  }
   if (orderRes.error && /installer/.test(orderRes.error.message)) {
     installerColumn = false; // migration 20261127100000 ainda não aplicada
     orderRes = await db.from("orders").select("id,order_number").eq("sale_id", saleId).eq("company_id", company).maybeSingle() as typeof orderRes;
@@ -115,5 +121,6 @@ export async function loadServiceOrder(db: SupabaseClient, saleId: string): Prom
     closedAt, deadlineText, deadlineDate: deadlineFrom(closedAt, deadlineText),
     notes: ((quote?.notes ?? s.notes) as string | null) || null,
     people, canEdit: canEditRes.data === true && Boolean(order), installerColumn,
+    queuedAt: (order?.os_queued_at as string | null) ?? null, printedAt: (order?.os_printed_at as string | null) ?? null, printSentAt: (order?.os_print_sent_at as string | null) ?? null,
   };
 }
