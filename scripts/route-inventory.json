@@ -28,6 +28,7 @@
     "/instalacoes",
     "/servicos/novo",
     "/servicos",
+    "/ordens-servico",
     "/financeiro",
     "/financeiro/caixa",
     "/fiscal",
