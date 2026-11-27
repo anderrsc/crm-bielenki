@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { AgendaEvent } from "@/components/agenda-page";
 
 import { agendaTypes, agendaStatus, agendaTimestamp, type AgendaSource } from "@/lib/agenda";
+import { canMoveEvent, movedStart } from "@/lib/service-board";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -144,6 +145,106 @@ export async function updateAgendaEventStatus(id: string, status: string, source
   if (error || !data) throw new Error(error?.message ?? "Evento não encontrado ou sem permissão");
   revalidatePath("/agenda");
   revalidatePath("/pendencias");
+}
+
+const MOVE_COLUMNS = {
+  operational_events: { date: "starts_at", person: "responsible_id" },
+  measurements: { date: "scheduled_at", person: "responsible_id" },
+  installations: { date: "scheduled_at", person: "responsible_id" },
+  tasks: { date: "due_at", person: "assigned_to" },
+} as const;
+
+const moveSchema = z.object({
+  id: z.uuid(),
+  source: z.enum(["operational_events", "measurements", "installations", "tasks"]),
+  day: z.iso.date().optional(),
+  person: z.string().trim().min(1).max(200).nullable().optional(),
+}).refine((m) => m.day !== undefined || m.person !== undefined);
+
+const NO_MOVE_PERMISSION = "Sem permissão para alterar este serviço, ou ele não existe mais.";
+
+/**
+ * Reagenda (mantendo o horário) e/ou troca o responsável de um compromisso.
+ * Usa o RLS de quem está logado e devolve o erro como texto: mensagens lançadas
+ * por Server Actions são escondidas em produção.
+ */
+export async function moveAgendaEvent(input: {
+  id: string; source: AgendaSource; day?: string; person?: string | null;
+}): Promise<{ error?: string }> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { error: "Supabase não configurado" };
+  const parsed = moveSchema.safeParse(input);
+  if (!parsed.success) return { error: "Mudança inválida." };
+  const { id, source, day, person } = parsed.data;
+  const db = await createClient();
+  const { data: profile } = await selectOwnProfile(db, "company_id");
+  if (!profile?.company_id) return { error: "Sessão expirada. Entre novamente." };
+  const companyId = String(profile.company_id);
+  const columns = MOVE_COLUMNS[source];
+  const isEvent = source === "operational_events";
+
+  const fields: string = `id,status,${columns.date},${columns.person}${isEvent ? ",ends_at,notes" : ""}`;
+  const { data: found, error: readError } = await db.from(source).select(fields).eq("id", id).eq("company_id", companyId).single();
+  if (readError || !found) return { error: NO_MOVE_PERMISSION };
+  const row = found as unknown as Record<string, string | null>;
+  if (!canMoveEvent({ status: String(row.status) })) return { error: "Serviço concluído ou cancelado não pode ser movido. Atualize a agenda." };
+  const current = row[columns.date];
+  if (!current) return { error: "Serviço sem data. Abra o cadastro para agendar." };
+
+  let personId: string | null = row[columns.person];
+  if (person !== undefined) {
+    personId = null;
+    if (person !== null) {
+      const { data: matches, error } = await db.from("profiles").select("id")
+        .eq("company_id", companyId).eq("status", "ativo").eq("full_name", person).limit(2);
+      if (error) return { error: "Não foi possível conferir o funcionário. Tente de novo." };
+      if ((matches?.length ?? 0) > 1) return { error: `Há mais de um funcionário chamado "${person}".` };
+      personId = matches?.[0]?.id ?? null;
+      // Compromissos avulsos aceitam nome livre (ex.: dupla); os demais exigem cadastro.
+      if (!personId && !isEvent) return { error: `"${person}" não é um funcionário ativo cadastrado; este serviço exige um.` };
+    }
+  }
+
+  const startsAt = day ? movedStart(current, day) : current;
+
+  if (isEvent) {
+    // Visitas criadas por Serviços ou pela conferência de medidas têm a data
+    // guardada também lá: usa a mesma função dessas telas para não divergir.
+    const [service, check] = await Promise.all([
+      db.from("service_orders").select("id").eq("agenda_event_id", id).eq("company_id", companyId).maybeSingle(),
+      db.from("order_measure_checks").select("order_id").eq("agenda_event_id", id).eq("company_id", companyId).eq("status", "agendada").maybeSingle(),
+    ]);
+    if (service.error || check.error) return { error: "Não foi possível conferir os vínculos deste serviço. Tente de novo." };
+    if (service.data || check.data) {
+      if (person && !personId) return { error: `"${person}" não é um funcionário ativo cadastrado; este serviço exige um.` };
+      // O cadastro do serviço preserva o responsável quando recebe vazio.
+      if (service.data && person === null) return { error: "Para deixar este serviço sem responsável, altere em Serviços." };
+      const args = { p_at: startsAt, p_responsible: personId, p_notes: row.notes };
+      const { error } = service.data
+        ? await db.rpc("service_schedule", { p_id: service.data.id, ...args })
+        : await db.rpc("order_schedule_measure_check", { p_order_id: check.data!.order_id, ...args });
+      if (error) return { error: error.code === "42501" ? NO_MOVE_PERMISSION : error.message };
+      return revalidateMove();
+    }
+  }
+
+  const values: Record<string, unknown> = {};
+  if (day) {
+    values[columns.date] = startsAt;
+    if (isEvent && row.ends_at) values.ends_at = new Date(Date.parse(row.ends_at) + Date.parse(startsAt) - Date.parse(current)).toISOString();
+  }
+  if (person !== undefined) {
+    values[columns.person] = personId;
+    if (isEvent) values.responsible_name = person;
+  }
+  const { data, error } = await db.from(source).update(values).eq("id", id).eq("company_id", companyId).select("id").single();
+  if (error || !data) return { error: NO_MOVE_PERMISSION };
+  return revalidateMove();
+}
+
+function revalidateMove() {
+  revalidatePath("/agenda");
+  revalidatePath("/pendencias");
+  return {};
 }
 
 /** Details are loaded only when a commitment opens, using the signed-in user's RLS. */

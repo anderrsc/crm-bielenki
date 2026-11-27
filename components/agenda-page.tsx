@@ -8,11 +8,13 @@ import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw, MapPin, Navigation, Phone, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { agendaContactLinks, agendaMapLinks, type AgendaDetails } from "@/lib/agenda-location";
-import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails } from "@/app/(crm)/agenda-actions";
-import { AgendaBoard } from "@/components/agenda-board";
+import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails, moveAgendaEvent } from "@/app/(crm)/agenda-actions";
+import { AgendaBoard, eventKey } from "@/components/agenda-board";
+import { AgendaMoveForm } from "@/components/agenda-move-form";
+import { confirmAction } from "@/components/ui-feedback/confirm";
 import { AgendaFilterBar } from "@/components/agenda-filter-bar";
 import { TYPE_CONFIG, STATUS_CONFIG, statusConfig } from "@/components/agenda-event-style";
-import { EMPTY_FILTERS, dayRange, filterEvents, filterOptions, hasFilters, type AgendaFilters } from "@/lib/service-board";
+import { EMPTY_FILTERS, NO_PERSON, WEEKDAYS, canMoveEvent, dayRange, eventDay, eventTime, filterEvents, filterOptions, hasFilters, movedStart, type AgendaFilters, type AgendaMove } from "@/lib/service-board";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type AgendaEvent = {
@@ -87,6 +89,41 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
     });
   }, []);
 
+  const [saving, setSaving] = useState<string[]>([]);
+  const savingRef = useRef(new Set<string>());
+  const [notice, setNotice] = useState("");
+  // Arrastar no quadro ou salvar no detalhe: muda na tela na hora e volta se o banco recusar.
+  const move = async (event: AgendaEvent, change: AgendaMove) => {
+    const key = eventKey(event);
+    if (savingRef.current.has(key) || !canMoveEvent(event)) return;
+    if (change.day && change.day < ymd(new Date()) && !(await confirmAction({
+      title: "Data que já passou", confirmLabel: "Mover mesmo assim", danger: false,
+      message: `${change.day.split("-").reverse().join("/")} já passou: o serviço vai ficar em Atrasados.`,
+    }))) return;
+    const moved: AgendaEvent = {
+      ...event,
+      ...(change.day && { starts_at: movedStart(event.starts_at, change.day) }),
+      ...(change.person !== undefined && { responsible_name: change.person }),
+    };
+    const swap = (next: AgendaEvent) => setEvents(items => items.map(x => eventKey(x) === key ? next : x));
+    savingRef.current.add(key); setSaving([...savingRef.current]); setNotice(""); swap(moved);
+    let error = "";
+    try {
+      error = (await moveAgendaEvent({ id: event.id, source: event.source, ...change })).error ?? "";
+    } catch { error = "Verifique a internet e tente de novo."; }
+    savingRef.current.delete(key); setSaving([...savingRef.current]);
+    const name = event.client_name || event.title;
+    if (error) { swap(event); window.alert(`Não foi possível mover "${name}". ${error}`); return; }
+    const day = eventDay(moved);
+    setNotice([
+      `${name}: ${WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()].toLowerCase()} ${day.split("-").reverse().join("/")} às ${eventTime(moved.starts_at)}`,
+      change.person !== undefined ? `, responsável ${change.person ?? NO_PERSON.toLowerCase()}` : "",
+      ".",
+      event.team_name ? " Este serviço estava numa saída de equipe: revise em Equipes e veículos." : "",
+    ].join(""));
+    reload();
+  };
+
   const navigate = (n: number) => {
     setCursor(prev => {
       const d = new Date(prev);
@@ -116,6 +153,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   const goToday = () => { setCursor(new Date()); if (period === "datas") setPeriod("semana"); };
 
   const options = filterOptions(events);
+  const responsibles = [...new Set(events.map(e => e.responsible_name?.trim()).filter((n): n is string => !!n))];
   const typeCounts = new Map<string, number>();
   for (const e of filterEvents(events, { ...filters, types: [] })) typeCounts.set(e.type, (typeCounts.get(e.type) ?? 0) + 1);
   for (const type of filters.types) if (!typeCounts.has(type)) typeCounts.set(type, 0);
@@ -206,17 +244,19 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
       {filterBar}
 
       {loadError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{loadError}</p>}
+      {notice && <p role="status" className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-emerald-500/15 p-3 text-sm text-ink">{notice}<button type="button" aria-label="Fechar aviso" onClick={() => setNotice("")}><X className="h-4 w-4" /></button></p>}
       {/* ── Grid ── */}
-      {view === "quadro" && <AgendaBoard events={shown} days={boardDays} today={ymd(new Date())} onSelect={setSelected} onNew={setCreateFor} />}
+      {view === "quadro" && <AgendaBoard events={shown} days={boardDays} today={ymd(new Date())} saving={saving} onSelect={setSelected} onNew={setCreateFor} onMove={move} />}
       {view === "mes"    && <MonthView    cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "semana" && <WeekView     cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "dia"    && <DayView      cursor={cursor} events={calendarEvents} onEventClick={setSelected} onNewEvent={setCreateFor} />}
 
       </>}
       {/* ── Modais ── */}
-      {selected && mobile && <MobileEventSheet event={selected} onClose={()=>setSelected(null)} onStatusChange={async(id,status)=>{await updateAgendaEventStatus(id,status,selected.source);reload();setSelected(null)}}/>}
+      {selected && mobile && <MobileEventSheet event={selected} people={responsibles} onMove={change=>{setSelected(null);void move(selected,change)}} onClose={()=>setSelected(null)} onStatusChange={async(id,status)=>{await updateAgendaEventStatus(id,status,selected.source);reload();setSelected(null)}}/>}
       {selected && !mobile && (
-        <EventModal event={selected} onClose={() => setSelected(null)}
+        <EventModal event={selected} people={responsibles} onClose={() => setSelected(null)}
+          onMove={change => { setSelected(null); void move(selected, change); }}
           onStatusChange={async (id, status) => {
             try {
               await updateAgendaEventStatus(id, status, selected.source);
@@ -384,8 +424,8 @@ function EventChip({ event, onClick }: { event: AgendaEvent; onClick?: (e: React
 }
 
 /* ─── Modal: Visualizar evento ───────────────────────────────────────────── */
-function EventModal({ event, onClose, onStatusChange }:
-  { event: AgendaEvent; onClose: () => void; onStatusChange: (id: string, status: string) => void }) {
+function EventModal({ event, people, onClose, onMove, onStatusChange }:
+  { event: AgendaEvent; people: string[]; onClose: () => void; onMove: (change: AgendaMove) => void; onStatusChange: (id: string, status: string) => void }) {
   const cfg = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.tarefa;
   const statusCfg = statusConfig(event.status);
   // Endereço, telefone e observações vêm da medição/instalação/cliente ao abrir.
@@ -404,7 +444,7 @@ function EventModal({ event, onClose, onStatusChange }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
+      <div className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-surface shadow-xl" onClick={e => e.stopPropagation()}>
         <div className={`rounded-t-2xl px-6 py-4 ${cfg.bg}`}>
           <div className="flex items-start justify-between">
             <div>
@@ -456,6 +496,7 @@ function EventModal({ event, onClose, onStatusChange }:
             <Tag className="h-4 w-4 text-ink/40" />
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusCfg.color}`}>{statusCfg.label}</span>
           </div>
+          {canMoveEvent(event) && <div className="border-t pt-3"><AgendaMoveForm event={event} people={people} onMove={onMove} /></div>}
         </div>
         {/* Ações rápidas */}
         <div className="flex flex-wrap gap-2 border-t px-6 py-4">
