@@ -43,12 +43,22 @@ export async function DetailPage({ config, id, error: actionError, base }: { con
       <div className="border-b p-5"><h2 className="font-semibold">Checklist operacional</h2><p className="text-xs text-ink/45">{checklist.filter((x) => x.status === "concluido").length} de {checklist.length} etapas concluídas</p></div>
       <div className="divide-y">{checklist.length ? checklist.map((item) => <form action={toggleChecklistItem} className="flex items-center gap-4 p-4" key={String(item.id)}>
         <input type="hidden" name="id" value={String(item.id)} /><input type="hidden" name="order_id" value={id} /><input type="hidden" name="status" value={String(item.status)} />
-        <button className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${item.status === "concluido" ? "bg-brand-strong text-white" : "border bg-surface"}`}>{item.status === "concluido" ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4 text-ink/25" />}</button>
+        <ChecklistToggle done={item.status === "concluido"} title={String(item.title)} earlier={checklist.filter((x) => x.status !== "concluido" && Number(x.sort_order) < Number(item.sort_order)).length} />
         <div className="min-w-0 flex-1"><p className="font-semibold">{String(item.title)}</p><p className="text-xs text-ink/40">{String((item.responsible as { full_name?: string })?.full_name ?? "Sem responsável")}</p></div>
         <span className="flex items-center gap-1 text-xs text-ink/45"><Clock3 className="h-3.5 w-3.5" />{shortDate(item.due_date as string)}</span>
       </form>) : <p className="p-8 text-center text-sm text-ink/45">Checklist ainda não gerado.</p>}</div>
     </div>}
   </div>;
+}
+
+/** Pede confirmação só quando o toque vai dar baixa em outras etapas junto. */
+function ChecklistToggle({ done, title, earlier }: { done: boolean; title: string; earlier: number }) {
+  const className = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${done ? "bg-brand-strong text-white" : "border bg-surface"}`;
+  const label = `${done ? "Reabrir" : "Concluir"} etapa: ${title}`;
+  const icon = done ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4 text-ink/25" />;
+  if (done || !earlier) return <button aria-label={label} className={className}>{icon}</button>;
+  return <ConfirmButton title={label} className={className}
+    message={`Concluir "${title}" e dar baixa também ${earlier === 1 ? "na etapa anterior ainda aberta" : `nas ${earlier} etapas anteriores ainda abertas`}?`}>{icon}</ConfirmButton>;
 }
 
 const get = (row: Record<string, unknown>, path: string) => path.split(".").reduce<unknown>((value, key) => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, row);

@@ -74,7 +74,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
       {measurementStep && order && (access["order_checklist_items:update"] ? <form className="mt-5 border-t pt-5">
         <input type="hidden" name="id" value={measurementStep.id} /><input type="hidden" name="order_id" value={order.id} /><input type="hidden" name="status" value={measurementStep.status} /><input type="hidden" name="_back" value={back} />
         <ConfirmButton formAction={toggleChecklistItem} className={measurementStep.status === "concluido" ? "button-ghost" : "button"}
-          message={measurementStep.status === "concluido" ? "Reabrir a conferência de medidas deste pedido?" : "Você conferiu as medidas da obra com o orçamento? Confirmar esta etapa do pedido?"}>
+          message={measurementStep.status === "concluido" ? "Reabrir a conferência de medidas deste pedido?" : "Você conferiu as medidas da obra com o orçamento? Confirmar esta etapa do pedido? As etapas anteriores ainda abertas também serão concluídas."}>
           <CheckCircle2 size={16} />{measurementStep.status === "concluido" ? "Reabrir conferência" : "Confirmar medidas conferidas"}
         </ConfirmButton>
       </form> : <p className="mt-5 text-sm text-ink/55">Seu acesso permite consultar esta etapa, mas não alterá-la.</p>)}

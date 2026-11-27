@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { agendaTypes } from '@/lib/agenda';
 
-const state=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn(),insert:vi.fn(),update:vi.fn(),result:{data:{id:'00000000-0000-4000-8000-000000000010',company_id:'company'},error:null} as {data:any;error:any},revalidate:vi.fn()}));
+const state=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn(),insert:vi.fn(),update:vi.fn(),or:vi.fn(),result:{data:{id:'00000000-0000-4000-8000-000000000010',company_id:'company'},error:null} as {data:any;error:any},revalidate:vi.fn()}));
 vi.mock('next/navigation',()=>({redirect:(path:string)=>{throw new Error(`REDIRECT:${path}`)}}));
 vi.mock('next/cache',()=>({revalidatePath:state.revalidate}));
 vi.mock('next/server',()=>({after:vi.fn()}));
@@ -19,6 +19,7 @@ beforeEach(()=>{
   state.from.mockImplementation(()=>{
     const q:any={then:(resolve:any)=>Promise.resolve(state.result).then(resolve),single:async()=>state.result};
     for(const method of ['select','eq','neq','order','limit'])q[method]=()=>q;
+    q.or=(filter:string)=>{state.or(filter);return q};
     q.insert=(values:any)=>{state.insert(values);return q};q.upsert=(values:any)=>{state.insert(values);return q};q.update=(values:any)=>{state.update(values);return q};return q;
   });
 });
@@ -70,6 +71,24 @@ test('retorno inválido de venda é rejeitado', async () => {
 test('conferência salva no checklist e volta à seção da venda', async () => {
   await expect(toggleChecklistItem(form({ id:'00000000-0000-4000-8000-000000000010', order_id:'00000000-0000-4000-8000-000000000020', status:'pendente', _back:saleReturn }))).rejects.toThrow(`REDIRECT:${saleReturn}#conferencia-medidas`);
   expect(state.update).toHaveBeenCalledWith(expect.objectContaining({status:'concluido'}));
+});
+
+const step = { id:'00000000-0000-4000-8000-000000000010', order_id:'00000000-0000-4000-8000-000000000020' };
+test('concluir uma etapa dá baixa nas anteriores', async () => {
+  state.result={data:{sort_order:10},error:null};
+  await toggleChecklistItem(form({ ...step, status:'pendente' }));
+  expect(state.or).toHaveBeenCalledWith(`id.eq.${step.id},sort_order.lt.10`);
+  expect(state.update).toHaveBeenCalledWith(expect.objectContaining({status:'concluido'}));
+});
+test('reabrir uma etapa não mexe nas outras', async () => {
+  await toggleChecklistItem(form({ ...step, status:'concluido' }));
+  expect(state.or).not.toHaveBeenCalled();
+  expect(state.update).toHaveBeenCalledWith({status:'pendente',completed_at:null});
+});
+test('etapa não encontrada não grava nada', async () => {
+  state.result={data:null,error:{message:'x'}};
+  await expect(toggleChecklistItem(form({ ...step, status:'pendente' }))).rejects.toThrow('Etapa+não+encontrada');
+  expect(state.update).not.toHaveBeenCalled();
 });
 
 test('saving AI settings never overwrites stored keys with the masked value',async()=>{

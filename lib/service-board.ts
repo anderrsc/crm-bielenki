@@ -1,4 +1,5 @@
 /** Regras puras do quadro de serviços (agenda e produção): filtros e períodos. */
+import { agendaTimestamp } from '@/lib/agenda';
 import { isAgendaDone } from '@/lib/agenda-location';
 import { localISODate } from '@/lib/utils';
 
@@ -54,6 +55,23 @@ export const eventDay = (e: BoardEvent) => localISODate(new Date(e.starts_at));
 export function overdueEvents<T extends BoardEvent>(events: T[], today: string): T[] {
   return events.filter((e) => !isAgendaDone(e.status) && !isAgendaCancelled(e.status) && eventDay(e) < today);
 }
+
+/** Linha e filtro de quem não tem ninguém definido. */
+export const NO_PERSON = 'Sem funcionário';
+export const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+/** Mudança pedida ao arrastar um cartão: dia (AAAA-MM-DD) e/ou responsável (null = ninguém). */
+export type AgendaMove = { day?: string; person?: string | null };
+
+/** Só o que ainda está pendente pode ser reagendado ou trocar de responsável. */
+export const canMoveEvent = (e: Pick<BoardEvent, 'status'>) => !isAgendaDone(e.status) && !isAgendaCancelled(e.status);
+
+/** Horário (HH:MM) no fuso de Brasília. */
+export const eventTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+/** O mesmo horário em outro dia. */
+export const movedStart = (startsAt: string, day: string) => agendaTimestamp(day, eventTime(startsAt));
 
 export const MAX_BOARD_DAYS = 62;
 /** Dias (AAAA-MM-DD) entre as duas datas, inclusive; aceita invertidas e limita o tamanho. */
