@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { moveAgendaEvent } from '@/app/(crm)/agenda-actions';
+import { moveAgendaEvent, schedulePendingService } from '@/app/(crm)/agenda-actions';
 
 type Reply = { data: unknown; error: unknown };
 const state = vi.hoisted(() => ({
@@ -96,4 +96,22 @@ test('conferência de medidas é reagendada pelo pedido', async () => {
   };
   expect(await moveAgendaEvent({ id, source: 'operational_events', day: '2026-12-01' })).toEqual({});
   expect(state.rpc).toHaveBeenCalledWith('order_schedule_measure_check', { p_order_id: 'pedido', p_at: '2026-12-01T08:00:00-03:00', p_responsible: null, p_notes: null });
+});
+
+const service = (extra: object = {}) => ok({ id, status: 'solicitacao_recebida', agenda_event_id: null, responsible_id: 'rosa', ...extra });
+
+test('serviço sem data é agendado às 08:00 mantendo o responsável', async () => {
+  state.replies = { service_orders: service() };
+  expect(await schedulePendingService({ id, day: '2026-12-01' })).toEqual({});
+  expect(state.rpc).toHaveBeenCalledWith('service_schedule', { p_id: id, p_at: '2026-12-01T08:00:00-03:00', p_responsible: 'rosa', p_notes: null });
+});
+
+test('não agenda serviço encerrado, já agendado ou com responsável sem cadastro', async () => {
+  for (const extra of [{ status: 'concluido' }, { agenda_event_id: 'evento' }]) {
+    state.replies = { service_orders: service(extra) };
+    expect((await schedulePendingService({ id, day: '2026-12-01' })).error).toBeTruthy();
+  }
+  state.replies = { service_orders: service(), profiles: ok([]) };
+  expect((await schedulePendingService({ id, day: '2026-12-01', person: 'Fulano' })).error).toContain('cadastrado');
+  expect(state.rpc).not.toHaveBeenCalled();
 });

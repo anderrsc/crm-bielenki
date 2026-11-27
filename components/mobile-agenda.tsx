@@ -8,7 +8,7 @@ import {agendaMapLinks,agendaContactLinks,isAgendaDone,type AgendaDetails} from 
 import {localISODate,sentence} from '@/lib/utils';
 import { confirmAction } from "@/components/ui-feedback/confirm";
 import { AgendaMoveForm } from "@/components/agenda-move-form";
-import { canMoveEvent, type AgendaMove } from "@/lib/service-board";
+import { canMoveEvent, type AgendaMove, type PendingService } from "@/lib/service-board";
 const days=['D','S','T','Q','Q','S','S'];
 const typeLabels:Record<string,string>={medicao:'Medição',instalacao:'Instalação',reuniao:'Reunião',tarefa:'Tarefa',producao:'Produção',compra:'Compra',pos_venda:'Pós-venda',lembrete:'Lembrete',orcamento:'Orçamento',manutencao:'Manutenção',outro:'Compromisso'};
 const statuses:Record<string,string>={agendado:'Agendado',agendada:'Agendada',confirmado:'Confirmado',reagendado:'Reagendado',pendente:'Pendente',em_andamento:'Em andamento',em_medicao:'Em medição',em_deslocamento:'Em deslocamento',concluido:'Concluído',concluida:'Concluída',medicao_concluida:'Medição concluída',cancelado:'Cancelado'};
@@ -19,7 +19,7 @@ const dateLabel=(d:Date)=>sentence(rawLabel(d));
 const startWeek=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay());
 const add=(d:Date,n:number)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
 type View='mes'|'semana'|'dia';
-export function MobileAgenda({cursor,view,events,loading,onCursor,onView,onNew,onSelect,onReload}:{cursor:Date;view:View;events:AgendaEvent[];loading:boolean;onCursor:(d:Date)=>void;onView:(v:View)=>void;onNew:(date:string)=>void;onSelect:(e:AgendaEvent)=>void;onReload:()=>void}){
+export function MobileAgenda({cursor,view,events,pending=[],loading,onCursor,onView,onNew,onSelect,onReload}:{pending?:PendingService[];cursor:Date;view:View;events:AgendaEvent[];loading:boolean;onCursor:(d:Date)=>void;onView:(v:View)=>void;onNew:(date:string)=>void;onSelect:(e:AgendaEvent)=>void;onReload:()=>void}){
  const [filter,setFilter]=useState<'ativos'|'todos'|'concluidos'>('ativos');
  const key=dateKey(cursor),today=dateKey(new Date());
  const byDay=useMemo(()=>{const map=new Map<string,AgendaEvent[]>();for(const e of events){const date=new Date(e.starts_at);if(Number.isNaN(date.getTime()))continue;const k=dateKey(date);map.set(k,[...(map.get(k)??[]),e])}for(const list of map.values())list.sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());return map},[events]);
@@ -42,6 +42,7 @@ export function MobileAgenda({cursor,view,events,loading,onCursor,onView,onNew,o
   <div className="mobile-day-heading"><div><p>{key===today?'Hoje':sentence(cursor.toLocaleDateString('pt-BR',{weekday:'long'}))}</p><h2>{cursor.toLocaleDateString('pt-BR',{day:'numeric',month:'long'})}</h2></div><button onClick={()=>onNew(key)} className="mobile-inline-button"><Plus size={16}/>Agendar</button></div>
   <div className="mobile-agenda-filters" aria-label="Filtrar compromissos">{([['ativos','Pendentes'],['todos','Todos'],['concluidos','Concluídos']] as const).map(([v,label])=><button key={v} aria-pressed={filter===v} onClick={()=>setFilter(v)}>{label}</button>)}</div>
   <div className="mobile-appointments">{visible.map(e=><div key={`${e.source}-${e.id}`} className="mobile-appointment" data-type={e.type}><button className="mobile-appointment-open" onClick={()=>onSelect(e)} aria-label={`Abrir compromisso: ${e.title}`}><span className="mobile-appointment-time">{time(e.starts_at)}</span><span className="mobile-appointment-info"><strong>{typeLabels[e.type]??'Compromisso'}</strong>{e.client_name&&<span><User size={14}/>{e.client_name}</span>}{e.title&&e.title!==(typeLabels[e.type]??'')&&e.title!==e.client_name&&<small>{e.title}</small>}<em>{statuses[e.status]??e.status.replaceAll('_',' ')}</em></span></button><button className="mobile-appointment-pin" onClick={()=>onSelect(e)} aria-label={`Ver local e contato: ${e.title}`}><MapPin size={20}/></button></div>)}{!visible.length&&<div className="mobile-agenda-empty"><CalendarDays size={26}/><h3>{all.length?'Nenhum compromisso neste filtro':'Seu dia está livre'}</h3><p>{all.length?'Toque em Todos para ver os outros compromissos.':'Agende uma medição, instalação ou tarefa para este dia.'}</p><button className="mobile-inline-button" onClick={()=>all.length?setFilter('todos'):onNew(key)}>{all.length?'Ver todos':'Agendar compromisso'}</button></div>}</div>
+  {pending.length>0&&<section className="mt-4 space-y-2" aria-label="Serviços sem data"><h2 className="text-sm font-semibold">Serviços sem data ({pending.length})</h2>{pending.map(s=><Link key={s.id} href={`/servicos/${s.id}`} className="card block p-3"><strong className="block text-sm">{s.client_name||s.title}</strong><span className="block text-xs text-ink/55">{s.kind_label}{s.priority==='urgente'?' · Urgente':''} · toque para agendar</span><span className="mt-1 line-clamp-2 text-sm">{s.title}</span></Link>)}</section>}
  </div>
 }
 export function MobileEventSheet({event,people=[],onClose,onMove,onStatusChange}:{event:AgendaEvent;people?:string[];onClose:()=>void;onMove?:(change:AgendaMove)=>void;onStatusChange:(id:string,status:string)=>Promise<void>}){

@@ -8,13 +8,13 @@ import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, User, Tag, CheckCircle2, XCircle, RefreshCw, MapPin, Navigation, Phone, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { agendaContactLinks, agendaMapLinks, type AgendaDetails } from "@/lib/agenda-location";
-import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails, moveAgendaEvent } from "@/app/(crm)/agenda-actions";
+import { createAgendaEvent, updateAgendaEventStatus, getAgendaEvents, getAgendaEventDetails, moveAgendaEvent, getPendingServices, schedulePendingService } from "@/app/(crm)/agenda-actions";
 import { AgendaBoard, eventKey } from "@/components/agenda-board";
 import { AgendaMoveForm } from "@/components/agenda-move-form";
 import { confirmAction } from "@/components/ui-feedback/confirm";
 import { AgendaFilterBar } from "@/components/agenda-filter-bar";
 import { TYPE_CONFIG, STATUS_CONFIG, statusConfig } from "@/components/agenda-event-style";
-import { EMPTY_FILTERS, NO_PERSON, WEEKDAYS, canMoveEvent, dayRange, eventDay, eventTime, filterEvents, filterOptions, hasFilters, movedStart, type AgendaFilters, type AgendaMove } from "@/lib/service-board";
+import { DEFAULT_VISIT_TIME, EMPTY_FILTERS, NO_PERSON, WEEKDAYS, pendingKey, canMoveEvent, dayRange, eventDay, eventTime, filterEvents, filterOptions, hasFilters, movedStart, type AgendaFilters, type AgendaMove, type PendingService } from "@/lib/service-board";
 
 /* ─── Tipos ──────────────────────────────────────────────────────────────── */
 export type AgendaEvent = {
@@ -52,7 +52,8 @@ function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString("pt-BR",
 function fmtDate(iso: string) { const d = new Date(iso); return `${DAYS_PT[d.getDay()]}, ${d.getDate()} ${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`; }
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
-export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents: AgendaEvent[]; initialError?: string }) {
+export function AgendaPage({ initialEvents, initialPending = [], initialError = "" }: { initialEvents: AgendaEvent[]; initialPending?: PendingService[]; initialError?: string }) {
+  const [pending, setPending] = useState<PendingService[]>(initialPending);
   const mobile=useMobile();
   const [view, setView] = useState<DesktopView>("quadro");
   const [period, setPeriod] = useState<Period>("semana");
@@ -83,7 +84,10 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   const reload = useCallback(() => {
     setLoading(true);
     startTransition(async () => {
-      try { setEvents(await getAgendaEvents()); setLoadError(""); }
+      try {
+        const [next, services] = await Promise.all([getAgendaEvents(), getPendingServices()]);
+        setEvents(next); setPending(services); setLoadError("");
+      }
       catch (error) { setLoadError(error instanceof Error ? error.message : "Falha ao carregar agenda"); }
       finally { setLoading(false); }
     });
@@ -124,6 +128,28 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
     reload();
   };
 
+  // Serviço sem data solto num dia: confirma, porque cria a visita na agenda.
+  const schedule = async (service: PendingService, change: AgendaMove) => {
+    const key = pendingKey(service), day = change.day;
+    if (!day || savingRef.current.has(key)) return;
+    const name = service.client_name || service.title;
+    const br = day.split("-").reverse().join("/");
+    if (!(await confirmAction({
+      title: "Agendar visita", confirmLabel: "Agendar", danger: false,
+      message: `Agendar a visita de ${name} em ${br} às ${DEFAULT_VISIT_TIME}?${day < ymd(new Date()) ? " Essa data já passou: vai ficar em Atrasados." : ""} Para mudar o horário, abra o serviço.`,
+    }))) return;
+    savingRef.current.add(key); setSaving([...savingRef.current]); setNotice("");
+    let error = "";
+    try {
+      error = (await schedulePendingService({ id: service.id, day, person: change.person ?? undefined })).error ?? "";
+    } catch { error = "Verifique a internet e tente de novo."; }
+    savingRef.current.delete(key); setSaving([...savingRef.current]);
+    if (error) { window.alert(`Não foi possível agendar "${name}". ${error}`); return; }
+    setPending(items => items.filter(x => x.id !== service.id));
+    setNotice(`${name}: visita agendada para ${br} às ${DEFAULT_VISIT_TIME}.`);
+    reload();
+  };
+
   const navigate = (n: number) => {
     setCursor(prev => {
       const d = new Date(prev);
@@ -152,12 +178,13 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   };
   const goToday = () => { setCursor(new Date()); if (period === "datas") setPeriod("semana"); };
 
-  const options = filterOptions(events);
+  const options = filterOptions([...events, ...pending]);
   const responsibles = [...new Set(events.map(e => e.responsible_name?.trim()).filter((n): n is string => !!n))];
   const typeCounts = new Map<string, number>();
-  for (const e of filterEvents(events, { ...filters, types: [] })) typeCounts.set(e.type, (typeCounts.get(e.type) ?? 0) + 1);
+  for (const e of filterEvents([...events, ...pending], { ...filters, types: [] })) typeCounts.set(e.type, (typeCounts.get(e.type) ?? 0) + 1);
   for (const type of filters.types) if (!typeCounts.has(type)) typeCounts.set(type, 0);
   const shown = filterEvents(events, filters);
+  const shownPending = filterEvents(pending, filters);
   // Calendário e celular continuam mostrando os concluídos quando a situação é a padrão.
   const calendarEvents = filters.status === "ativos" ? filterEvents(events, { ...filters, status: "todos" }) : shown;
   const filterBar = <AgendaFilterBar filters={filters} options={options} types={[...typeCounts]} onChange={setFilters} />;
@@ -187,7 +214,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
   return (
     <div className={`mx-auto ${view === "quadro" && !mobile ? "w-full max-w-none" : "max-w-[1400px]"}`}>
       <Link href={`/equipes?dia=${ymd(cursor)}`} className="agenda-equipes-link mb-4 inline-block text-sm font-semibold underline">Equipes, veículos e carregamento</Link>
-      {mobile ? <><details className="mb-3"><summary className="cursor-pointer py-2 text-sm font-semibold">Filtrar por funcionário, equipe ou tipo{hasFilters(filters) ? " · filtro ativo" : ""}</summary>{filterBar}</details><MobileAgenda cursor={cursor} view={mobileView} events={calendarEvents} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
+      {mobile ? <><details className="mb-3"><summary className="cursor-pointer py-2 text-sm font-semibold">Filtrar por funcionário, equipe ou tipo{hasFilters(filters) ? " · filtro ativo" : ""}</summary>{filterBar}</details><MobileAgenda pending={shownPending} cursor={cursor} view={mobileView} events={calendarEvents} loading={loading} onCursor={setCursor} onView={setMobileView} onNew={setCreateFor} onSelect={setSelected} onReload={reload}/>{loadError&&<p role="alert" className="mt-4 text-sm text-red-600">{loadError}</p>}</> : <>
         {loading&&!events.length&&<p role="status" className="mb-2 text-sm font-semibold text-ink/50">Carregando agenda…</p>}
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -246,7 +273,7 @@ export function AgendaPage({ initialEvents, initialError = "" }: { initialEvents
       {loadError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{loadError}</p>}
       {notice && <p role="status" className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-emerald-500/15 p-3 text-sm text-ink">{notice}<button type="button" aria-label="Fechar aviso" onClick={() => setNotice("")}><X className="h-4 w-4" /></button></p>}
       {/* ── Grid ── */}
-      {view === "quadro" && <AgendaBoard events={shown} days={boardDays} today={ymd(new Date())} saving={saving} onSelect={setSelected} onNew={setCreateFor} onMove={move} />}
+      {view === "quadro" && <AgendaBoard events={shown} pending={shownPending} onSchedule={schedule} days={boardDays} today={ymd(new Date())} saving={saving} onSelect={setSelected} onNew={setCreateFor} onMove={move} />}
       {view === "mes"    && <MonthView    cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "semana" && <WeekView     cursor={cursor} events={calendarEvents} onDayClick={setCreateFor} onEventClick={setSelected} />}
       {view === "dia"    && <DayView      cursor={cursor} events={calendarEvents} onEventClick={setSelected} onNewEvent={setCreateFor} />}

@@ -66,7 +66,7 @@ import { PendingCenter } from "@/components/pending-center";
 const WindowQuote = dynamic(() => import("@/components/window-quote").then((m) => m.WindowQuote));
 import { encryptSecret, maskSecret } from "@/lib/encrypt";
 const AgendaPage = dynamic(() => import("@/components/agenda-page").then((m) => m.AgendaPage));
-import { getAgendaEvents } from "@/app/(crm)/agenda-actions";
+import { getAgendaEvents, getPendingServices } from "@/app/(crm)/agenda-actions";
 import { type LogoConfig } from "@/components/company-identity";
 const CompanyIdentityEditor = dynamic(() => import("@/components/company-identity").then((m) => m.CompanyIdentityEditor));
 import { type DocumentTemplate } from "@/components/templates-page";
@@ -205,7 +205,7 @@ export default async function CatchAll({ params, searchParams }: { params: Promi
   if (path[0] === "auditoria") { const h = search as HistoryFilters; return <AuditLogPage tabela={h.tabela} usuario={h.usuario} acao={h.acao} de={h.de} ate={h.ate} busca={h.busca} pagina={h.pagina} />; }
   if (path[0] === "pendencias") return <PendingCenter category={(search as { categoria?: string }).categoria} />;
   if (path[0] === "agenda") {
-    try { return <div className="agenda-stack"><div className="agenda-after mb-4"><OperationalIndicators /></div><div className="agenda-after"><OperationalPending /></div><AgendaPage initialEvents={await getAgendaEvents()} /></div>; }
+    try { const [events, services] = await Promise.all([getAgendaEvents(), getPendingServices()]); return <div className="agenda-stack"><div className="agenda-after mb-4"><OperationalIndicators /></div><div className="agenda-after"><OperationalPending /></div><AgendaPage initialEvents={events} initialPending={services} /></div>; }
     catch { return <AgendaPage initialEvents={[]} initialError="Não foi possível carregar a agenda. Verifique a conexão e as migrações." />; }
   }
   if (path[0] === "busca") return <GlobalSearch query={search.q} />;
