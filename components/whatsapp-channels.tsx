@@ -12,6 +12,7 @@ import {
   type ChannelRow, type WhatsappHealthSummary,
 } from "@/app/(crm)/whatsapp-channel-actions";
 import { cn } from "@/lib/utils";
+import { deafSince, latestIso } from "@/lib/whatsapp/watchdog";
 
 const WhatsappConnect = dynamic(() => import("@/components/whatsapp-connect").then((m) => m.WhatsappConnect), { loading: () => <p role="status" className="text-sm text-ink/55">Carregando conexão…</p> });
 import { confirmAction } from "@/components/ui-feedback/confirm";
@@ -248,7 +249,8 @@ function Saude({ c }: { c: ChannelRow }) {
   const sync = idade(c.lastSyncAt);
   const aberto = c.status === "open";
   // A rotina confere o servidor a cada poucos minutos: sem conferência recente = sem resposta.
-  const servidor = !c.active ? { ok: false, t: "Desconectado" } : !c.lastSyncAt ? { ok: false, t: "Ainda não conferido pela rotina (aguarde alguns minutos)" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
+  const mudo = !!deafSince({ state: c.status ?? "", lastMessageAt: latestIso(c.lastEventAt, c.lastInboundAt), lastRestartAt: c.lastRestartAt, isDefault: c.isDefault, now: new Date() });
+  const servidor = !c.active ? { ok: false, t: "Desconectado" } : mudo ? { ok: false, t: "Conectado, mas sem receber mensagens: desconecte e leia o QR de novo" } :!c.lastSyncAt ? { ok: false, t: "Ainda não conferido pela rotina (aguarde alguns minutos)" } : !aberto ? { ok: false, t: "Servidor sem conexão com o WhatsApp" } : sync !== null && sync > 30 ? { ok: false, t: `Sem conferência há ${sync >= 60 ? `${Math.floor(sync / 60)} h` : `${sync} min`}` } : { ok: true, t: "Servidor respondendo" };
   const ultima = idade(c.lastInboundAt);
   const tempo = ultima === null ? "nenhuma nos últimos 7 dias" : ultima < 60 ? `há ${ultima} min` : ultima < 1440 ? `há ${Math.floor(ultima / 60)} h` : `há ${Math.floor(ultima / 1440)} dia(s)`;
   const item = "rounded-lg bg-cream px-2.5 py-1.5";

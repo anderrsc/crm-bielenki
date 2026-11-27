@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 import { whatsappCredentials } from '@/lib/whatsapp/send';
 import { evolutionOwnerPhone, evolutionProbe, evolutionRestart, evolutionSetWebhook, evolutionState, evolutionWebhookConfig, webhookConfigProblems } from '@/lib/whatsapp/evolution';
-import { BUSY_QUIET_FALLBACK_MINUTES, looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
+import { BUSY_QUIET_FALLBACK_MINUTES, deafSince, latestIso, looksStale, shouldRestart, type ProbeResult } from '@/lib/whatsapp/watchdog';
 import { syncRecentEvolutionMessages } from '@/lib/whatsapp/evolution-history';
 import { channelCredentials, type WhatsappChannel } from '@/lib/whatsapp/channels';
 import { decryptSecret } from '@/lib/encrypt';
@@ -68,7 +68,20 @@ export async function runOperations(db: ReturnType<typeof operationsDb>, cfg: { 
     // expediente. Reinicia (sem pedir QR); o WhatsApp entrega o que ficou parado e a próxima
     // reconciliação grava no Atendimento.
     const row = ch as WhatsappChannel & { last_event_at?: string | null; last_message_event_at?: string | null; last_restart_at?: string | null; restart_count?: number };
-    const watch = { state, lastMessageEventAt: row.last_message_event_at ?? row.last_event_at ?? null, lastRestartAt: row.last_restart_at ?? null, now: new Date() };
+    // Mensagem recuperada pela reconciliação (webhook falhando) também prova que está recebendo.
+    const { data: inbound } = await db.from('conversations').select('last_inbound_at').eq('channel_id', ch.id)
+      .not('last_inbound_at', 'is', null).order('last_inbound_at', { ascending: false }).limit(1).maybeSingle();
+    const lastMessageAt = latestIso(row.last_message_event_at ?? row.last_event_at, inbound?.last_inbound_at as string | null | undefined);
+    const watch = { state, lastMessageEventAt: lastMessageAt, lastRestartAt: row.last_restart_at ?? null, now: new Date() };
+    // Reiniciou e não voltou: só um novo QR resolve. Avisa a equipe uma vez por período mudo.
+    const mudoDesde = deafSince({ state, lastMessageAt, lastRestartAt: watch.lastRestartAt, isDefault: !!ch.is_default, now: watch.now });
+    if (mudoDesde) {
+      const hora = new Date(mudoDesde).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const { error: alertError } = await db.rpc('notify_team_service', { p_company_id: ch.company_id, p_event: `wa-deaf:${ch.id}:${mudoDesde.slice(0, 16)}`,
+        p_title: 'URGENTE: WhatsApp não está recebendo mensagens',
+        p_body: `O número ${ch.name} não recebe mensagens desde ${hora} e reiniciar não resolveu. Abra WhatsApp no CRM, desconecte este número e leia o QR de novo com o celular.`, p_link: '/atendimento/canais' });
+      if (alertError) console.error('Aviso de WhatsApp sem receber:', ch.id, alertError.message);
+    }
     // Silêncio não prova que travou: antes de reiniciar, testa a conexão com o WhatsApp de verdade.
     let probe: ProbeResult | undefined;
     let ownPhone = ch.phone_display;

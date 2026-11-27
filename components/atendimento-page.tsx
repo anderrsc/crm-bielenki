@@ -264,7 +264,7 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
   const etiquetas = useMemo(() => [...new Map(items.flatMap((c) => c.labels ?? []).map((l) => [l.id, l])).values()].sort((a, b) => a.name.localeCompare(b.name)), [items]);
   // Números de WhatsApp presentes na lista (só mostra o filtro quando há mais de um).
   const numeros = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, c.channelName ?? "WhatsApp"])).entries()], [items]);
-  const numeroCards = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, { name: c.channelName ?? "WhatsApp", phone: c.channelPhone ?? "" }])).entries()], [items]);
+  const numeroCards = useMemo(() => [...new Map(items.filter((c) => c.channelId).map((c) => [c.channelId as string, { name: c.channelName ?? "WhatsApp", phone: c.channelPhone ?? "", alert: c.channelAlert ?? null }])).entries()], [items]);
   const arquivadas = useMemo(() => items.filter((c) => c.archived), [items]);
 
   const abrir = (id: string) => {
@@ -341,12 +341,17 @@ export function AtendimentoPage({ initial, initialError, initialOpen, initialNum
               {numeroCards.map(([k, n]) => (
                 <button key={k} type="button" onClick={() => setNumero(numero === k ? "" : k)} aria-pressed={numero === k} className="wa-number">
                   <span className="wa-number-name">{n.name}</span>
-                  <span className="wa-number-phone"><span className="truncate">{n.phone || "Conectado"}</span><i className="wa-dot" data-state="ok" aria-hidden /></span>
+                  <span className="wa-number-phone"><span className="truncate">{n.phone || "Conectado"}</span><i className="wa-dot" data-state={n.alert ? "off" : "ok"} aria-hidden />{n.alert && <span className="sr-only">{n.alert}</span>}</span>
                 </button>
               ))}
               <Link href="/atendimento/canais" aria-label="Adicionar ou gerenciar números" title="Gerenciar números" className="wa-number wa-number-add"><Plus className="h-5 w-5" /></Link>
             </div>
           )}
+          {numeroCards.filter(([, n]) => n.alert).map(([k, n]) => (
+            <Link key={k} href="/atendimento/canais" role="alert" className="mx-3 mb-2 block rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600">
+              {n.name}: {n.alert}. As mensagens podem não estar entrando. Toque para reconectar.
+            </Link>
+          ))}
           <div className="wa-chips">
             {([["todas", "Todas", items.filter((c) => !c.archived).length], ["naolidas", "Não lidas", totalNaoLidas], ["semresposta", "Sem resposta", totalSemResposta], ["ana", "LIA", 0], ["equipe", "Equipe", 0], ["lidas", "Lidas", 0]] as const).map(([k, l, n]) => (
               <button key={k} onClick={() => setFiltro(k)} aria-pressed={filtro === k} className="wa-chip">{l}{n > 0 && " "}{n > 0 && <span className="wa-chip-count">{n}</span>}</button>
