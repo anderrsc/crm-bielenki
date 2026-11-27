@@ -55,7 +55,7 @@
     "/configuracoes/tabela-calhas",
     "/design-system"
   ],
-  "dynamicRoutes": ["/equipes/[id]/ordem-do-dia"],
+  "dynamicRoutes": ["/equipes/[id]/ordem-do-dia", "/vendas/[id]/os"],
   "errorSignatures": [
     "Application error",
     "a server-side exception has occurred",

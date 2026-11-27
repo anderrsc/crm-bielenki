@@ -328,7 +328,7 @@ export async function approveQuote(formData: FormData) {
   if (dueDate && !validIsoDate(dueDate)) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent("Data de vencimento inválida")}`);
   const { data, error } = await db.rpc("approve_quote", { p_quote_id: quoteId, p_due_date: dueDate });
   if (error) redirect(`/orcamentos/${quoteId}?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/orcamentos"); redirect(`/vendas/${data}`);
+  revalidatePath("/orcamentos"); redirect(`/vendas/${data}/os?novo=1`);
 }
 
 export async function markQuoteSent(formData: FormData) {
@@ -435,7 +435,7 @@ export async function deleteGutterPrice(formData:FormData) {
 export async function createManualSale(formData:FormData) {
   normalizeRegistrationForm(formData);
   const db=await createClient();let payload:unknown;try{payload=JSON.parse(String(formData.get("payload")))}catch{redirect("/vendas/nova?erro=Dados da venda inválidos");}
-  const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);await scheduleReceipt(null);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}`);
+  const {data,error}=await db.rpc("create_manual_sale",{p_payload:payload});if(error)redirect(`/vendas/nova?erro=${encodeURIComponent(error.message)}`);await scheduleReceipt(null);revalidatePath("/vendas");revalidatePath("/financeiro");redirect(`/vendas/${data}/os?novo=1`);
 }
 
 export async function createManualPurchase(formData:FormData) {

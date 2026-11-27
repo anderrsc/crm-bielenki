@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Timeline } from "./timeline";
-import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, Ruler } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, Printer, Ruler } from "lucide-react";
 import { getRequestClient } from "@/lib/supabase/server";
 import { loadSaleWorkspace, type SaleWorkspaceData, type SaleEntry } from "@/lib/sales/workspace";
 import { money, shortDate } from "@/lib/utils";
@@ -45,6 +45,7 @@ export function SaleWorkspace({ data, error, received, notice, operation }: { da
         {canPay && pendingEntries.length === 1 && payment(pendingEntries[0], true)}
         {canPay && pendingEntries.length > 1 && <a className="button" href="#contas-da-venda">Registrar pagamento</a>}
         {hasMeasurements && <a className="button-ghost" href="#conferencia-medidas"><Ruler size={16} /> Conferir medidas</a>}
+        {order && <Link className="button-ghost" href={`/vendas/${sale.id}/os`}><Printer size={16} /> Ordem de serviço</Link>}
         {order && <Link className="button-ghost" href={`/pedidos/${order.id}`}><ClipboardCheck size={16} /> Abrir pedido</Link>}
         {order && <Link className="button-ghost" href={`/servicos/novo?pedido=${order.id}`}>Abrir serviço ou manutenção</Link>}
         {quote && <Link className="button-ghost" href={`/orcamentos/${quote.id}`}><FileText size={16} /> Abrir orçamento</Link>}
