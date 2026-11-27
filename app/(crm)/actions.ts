@@ -182,8 +182,20 @@ export async function toggleChecklistItem(formData: FormData) {
   const saleReturn = requestedBack.match(/^\/vendas\/([^/?#]+)$/);
   const back = saleReturn && z.string().uuid().safeParse(saleReturn[1]).success ? requestedBack : `/pedidos/${orderId}/checklist`;
   const status = String(formData.get("status")) === "concluido" ? "pendente" : "concluido";
-  const { error } = await db.from("order_checklist_items").update({ status, completed_at: status === "concluido" ? new Date().toISOString() : null }).eq("id", id).eq("order_id", orderId);
-  if (error) redirect(`${q(back)}erro=${encodeURIComponent(error.message)}`);
+  const values = { status, completed_at: status === "concluido" ? new Date().toISOString() : null };
+  let failure: { message: string } | null;
+  if (status === "concluido") {
+    // Concluir uma etapa dá baixa também nas anteriores ainda abertas, numa única gravação.
+    if (!z.string().uuid().safeParse(id).success) redirect(`${q(back)}erro=Etapa+inválida`);
+    const { data: step, error: stepError } = await db.from("order_checklist_items").select("sort_order").eq("id", id).eq("order_id", orderId).single();
+    if (stepError || !step) redirect(`${q(back)}erro=Etapa+não+encontrada`);
+    ({ error: failure } = await db.from("order_checklist_items").update(values).eq("order_id", orderId)
+      .or(`id.eq.${id},sort_order.lt.${Number(step.sort_order)}`).neq("status", "concluido"));
+  } else {
+    // Reabrir vale só para a etapa escolhida.
+    ({ error: failure } = await db.from("order_checklist_items").update(values).eq("id", id).eq("order_id", orderId));
+  }
+  if (failure) redirect(`${q(back)}erro=${encodeURIComponent(failure.message)}`);
   revalidatePath(`/pedidos/${orderId}`);
   revalidatePath("/vendas", "layout");
   if (saleReturn && back === requestedBack) redirect(`${back}#conferencia-medidas`);
