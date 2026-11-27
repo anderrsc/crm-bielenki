@@ -42,6 +42,8 @@ export type ServiceCallSheet = {
   expectedDate: string | null;
   priority: string;
   billing: string;
+  printedAt: string | null;
+  printSentAt: string | null;
 };
 
 export async function loadServiceCalls(db: SupabaseClient, ids: string[]): Promise<ServiceCallSheet[]> {
@@ -51,6 +53,9 @@ export async function loadServiceCalls(db: SupabaseClient, ids: string[]): Promi
     .in("id", ids);
   if (error || !data?.length) return [];
   const rows = data as unknown as Row[];
+  // Consulta à parte: sem a atualização do banco a OS continua imprimindo, só não controla a fila.
+  const print = await db.from("service_orders").select("id,os_printed_at,os_print_sent_at").in("id", ids);
+  const state = new Map(((print.data ?? []) as Row[]).map(p => [String(p.id), p]));
   const { data: company } = await db.from("companies").select("name,trade_name").eq("id", String(rows[0].company_id)).maybeSingle();
   const companyName = String((company as Row | null)?.trade_name || (company as Row | null)?.name || "Marquinhos Calhas e Esquadrias");
   const text = (v: unknown) => (v ? String(v) : null);
@@ -73,6 +78,7 @@ export async function loadServiceCalls(db: SupabaseClient, ids: string[]): Promi
       openedAt: String(s.opened_at), scheduledAt: text(s.scheduled_at), expectedDate: text(s.expected_date),
       priority: SERVICE_PRIORITY[String(s.priority)] ?? "Normal",
       billing: s.billing === "gratuito" ? "Gratuito" : amount > 0 ? `A cobrar ${money(amount)}` : "A cobrar",
+      printedAt: text(state.get(String(s.id))?.os_printed_at), printSentAt: text(state.get(String(s.id))?.os_print_sent_at),
     };
   });
   // Mantém a ordem pedida na tela (a consulta não garante).

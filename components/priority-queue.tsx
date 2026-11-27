@@ -18,7 +18,7 @@ export async function PriorityQueue() {
   // Início e fim do dia de hoje em Brasília: medições e instalações marcadas para hoje.
   const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   const dayStart = new Date(`${ymd}T00:00:00-03:00`).toISOString(), dayEnd = new Date(`${ymd}T23:59:59-03:00`).toISOString();
-  const [convs, pending, quotes, measurements, installs, production, osQueue, osUnconfirmed] = await Promise.all([
+  const [convs, pending, quotes, measurements, installs, production, osQueue, osUnconfirmed, srvQueue, srvUnconfirmed] = await Promise.all([
     db.from("conversations").select("last_inbound_at,last_message_at,status,archived_at").eq("channel", "whatsapp").not("last_inbound_at", "is", null).gte("last_inbound_at", week).limit(1000),
     db.from("v_order_pending").select("order_id", { count: "exact", head: true }),
     db.from("quotes").select("id", { count: "exact", head: true }).eq("status", "enviado").is("sale_id", null).lte("sent_at", threeDays),
@@ -27,7 +27,12 @@ export async function PriorityQueue() {
     db.from("production_orders").select("id", { count: "exact", head: true }).eq("status", "aguardando_material"),
     db.from("orders").select("id", { count: "exact", head: true }).not("os_queued_at", "is", null).is("os_printed_at", null).is("os_print_sent_at", null),
     db.from("orders").select("id", { count: "exact", head: true }).not("os_print_sent_at", "is", null).is("os_printed_at", null),
+    db.from("service_orders").select("id", { count: "exact", head: true }).not("status", "in", "(concluido,cancelado)").is("os_printed_at", null).is("os_print_sent_at", null),
+    db.from("service_orders").select("id", { count: "exact", head: true }).not("status", "in", "(concluido,cancelado)").not("os_print_sent_at", "is", null).is("os_printed_at", null),
   ]);
+  // Pedidos e manutenções somam na mesma fila de impressão; sem acesso a um deles, conta só o outro.
+  const sum = (...results: { error: unknown; count: number | null }[]) => results.reduce((n, r) => n + (r.error ? 0 : r.count ?? 0), 0);
+  const toPrint = sum(osQueue, srvQueue), toConfirm = sum(osUnconfirmed, srvUnconfirmed);
   const items: Item[] = [];
   const waiting = ((convs.data ?? []) as Array<{ last_inbound_at: string; last_message_at: string | null; status: string | null; archived_at: string | null }>)
     .filter((c) => !c.archived_at && c.status !== "resolvida")
@@ -42,8 +47,8 @@ export async function PriorityQueue() {
   if (!measurements.error && (measurements.count ?? 0) > 0) items.push({ key: "hoje-med", icon: Ruler, n: measurements.count ?? 0, short: "Medições hoje", title: `${measurements.count} medição(ões) marcada(s) para hoje`, detail: "Confira endereço e horário antes de sair", href: "/medicoes" });
   if (!installs.error && (installs.count ?? 0) > 0) items.push({ key: "hoje-inst", icon: Wrench, n: installs.count ?? 0, short: "Instalações hoje", title: `${installs.count} instalação(ões) marcada(s) para hoje`, detail: "Veja checklist, fotos e endereço", href: "/instalacoes" });
   if (!production.error && (production.count ?? 0) > 0) items.push({ key: "prod", icon: Factory, n: production.count ?? 0, short: "Falta material", title: `${production.count} ordem(ns) de produção aguardando material`, detail: "Receber o material libera o corte", href: "/producao" });
-  if (!osUnconfirmed.error && (osUnconfirmed.count ?? 0) > 0) items.push({ key: "os-conf", icon: Printer, n: osUnconfirmed.count ?? 0, short: "Confirmar impressão", title: `${osUnconfirmed.count} ordem(ns) de serviço sem confirmar a impressão`, detail: "Confira se saíram da impressora e confirme", href: "/ordens-servico", urgent: true });
-  if (!osQueue.error && (osQueue.count ?? 0) > 0) items.push({ key: "os", icon: Printer, n: osQueue.count ?? 0, short: "OS para imprimir", title: `${osQueue.count} ordem(ns) de serviço para imprimir`, detail: (osQueue.count ?? 0) >= 4 ? "Já dá uma folha A4 completa (4 por folha)" : "Imprima 4 por folha A4", href: "/ordens-servico" });
+  if (toConfirm > 0) items.push({ key: "os-conf", icon: Printer, n: toConfirm, short: "Confirmar impressão", title: `${toConfirm} ordem(ns) de serviço sem confirmar a impressão`, detail: "Confira se saíram da impressora e confirme", href: "/ordens-servico", urgent: true });
+  if (toPrint > 0) items.push({ key: "os", icon: Printer, n: toPrint, short: "OS para imprimir", title: `${toPrint} ordem(ns) de serviço para imprimir`, detail: toPrint >= 4 ? "Já dá uma folha A4 completa (4 por folha)" : "Imprima 4 por folha A4", href: "/ordens-servico" });
   // Contas vencidas já aparecem nos avisos logo acima do painel: não repetir aqui.
   // Itens do dia e atrasos antes das demais pendências.
   const order = ["os-conf", "chat", "hoje-med", "hoje-inst", "prod", "med", "os", "orc"];

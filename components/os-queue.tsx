@@ -30,13 +30,14 @@ export function OsQueue({ rows, filtro }: { rows: OsRow[]; filtro: string }) {
   const sheets = Math.ceil(sel.length / 4);
   const ordered = rows.filter(r => sel.includes(keyOf(r)));
 
-  function step(ids: string[], s: "impressa" | "fila", ok: (n: number) => string) {
+  function step(list: OsRow[], s: "impressa" | "fila", ok: (n: number) => string) {
     start(async () => {
-      const r = await setOsPrint(ids, s);
+      const r = await setOsPrint(list.flatMap(o => o.orderId || []), s, list.flatMap(o => o.serviceId ?? []));
       setMsg(r.error ?? ok(r.count)); setSel([]); router.refresh();
     });
   }
-  const backToQueue = () => step(ordered.flatMap(o => o.orderId || []), "fila", n => `${n} ordem(ns) voltaram para a fila.`);
+  // Só volta para a fila o que já tinha saído dela.
+  const backToQueue = () => step(ordered.filter(o => o.printedAt), "fila", n => `${n} ordem(ns) voltaram para a fila.`);
   const unconfirmed = rows.filter(r => r.unconfirmed);
 
   if (!rows.length) return <div className="card p-8 text-center text-sm text-ink/60">{filtro === "fila" ? "Nenhuma ordem de serviço na fila. Quando um pedido for fechado ou um serviço for aberto, ele aparece aqui." : "Nenhuma ordem de serviço encontrada."}</div>;
@@ -46,7 +47,7 @@ export function OsQueue({ rows, filtro }: { rows: OsRow[]; filtro: string }) {
       <p className="flex items-center gap-2 font-semibold"><AlertTriangle size={18} /> {unconfirmed.length} ordem(ns) mandada(s) para impressão sem confirmação</p>
       <p className="mt-1">Confira se saíram da impressora. Enquanto não confirmar, elas continuam aqui e no painel.</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" className="button" disabled={pending} onClick={() => step(unconfirmed.map(r => r.orderId), "impressa", n => `Impressão confirmada: ${n} ordem(ns) saíram da fila.`)}><CheckCircle2 size={16} /> Saíram impressas — confirmar</button>
+        <button type="button" className="button" disabled={pending} onClick={() => step(unconfirmed, "impressa",n => `Impressão confirmada: ${n} ordem(ns) saíram da fila.`)}><CheckCircle2 size={16} /> Saíram impressas — confirmar</button>
         <Link className="button-ghost" href={printHref(unconfirmed)}><Printer size={16} /> Não saíram — imprimir de novo</Link>
       </div>
     </div>}
@@ -67,7 +68,8 @@ export function OsQueue({ rows, filtro }: { rows: OsRow[]; filtro: string }) {
         <input type="checkbox" className="mt-1 h-5 w-5" checked={sel.includes(keyOf(r))} onChange={() => toggle(keyOf(r))} aria-label={`Selecionar ${r.number}`} />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2"><b>{r.client}</b><span className="text-xs text-ink/55">{r.number}</span>
-            {r.serviceId ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Manutenção / serviço</span> : r.printedAt ? <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs">Impressa {when(r.printedAt)}</span> : r.unconfirmed ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Impressão não confirmada</span> : r.queued ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Na fila</span> : null}</p>
+            {r.serviceId && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Manutenção / serviço</span>}
+            {r.printedAt ?<span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs">Impressa {when(r.printedAt)}</span> : r.unconfirmed ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Impressão não confirmada</span> : r.queued ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Na fila</span> : null}</p>
           <p className="mt-1 line-clamp-2 text-sm text-ink/70">{r.service}{r.place ? ` · ${r.place}` : ""}</p>
           <p className="mt-1 text-xs text-ink/55">{r.serviceId
             ? <>Aberto {br(r.closedAt)} · {r.deadline ? `${r.scheduled ? "Visita" : "Previsto"} ${br(r.deadline)}` : "Sem data"} · Responsável: {r.installer || "não definido"}</>

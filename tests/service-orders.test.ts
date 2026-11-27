@@ -63,3 +63,22 @@ test("cliente de outra empresa e recusado; retorno desfaz o agendamento", async 
   expect(await get(s.id)).toMatchObject({ status: "necessita_retorno", agenda_event_id: null, scheduled_at: null });
   expect((await row("select operational_indicators() i")).i.manutencoes_abertas).toBe(1);
 });
+
+test("fila de impressao da manutencao: enviada, confirmada, volta; outra empresa nao e afetada", async () => {
+  const s = await service({ kind: "reparo" });
+  const print = async (step: string, ids = [s.id]) => (await row("select set_services_os_print($1,$2) n", [ids, step])).n;
+  const state = () => row("select status,os_printed_at,os_print_sent_at,os_printed_by from service_orders where id=$1", [s.id]);
+  expect(await print("enviada")).toBe(1);
+  expect(await state()).toMatchObject({ status: "solicitacao_recebida", os_printed_at: null });
+  expect((await state()).os_print_sent_at).toBeTruthy();
+  expect(await print("impressa")).toBe(1);
+  expect(await state()).toMatchObject({ os_print_sent_at: null, os_printed_by: user });
+  expect((await state()).os_printed_at).toBeTruthy();
+  expect(await print("enviada")).toBe(0); // reimprimir uma confirmada nao reabre a fila
+  await print("fila");
+  expect(await state()).toMatchObject({ os_printed_at: null, os_printed_by: null });
+  const foreignClient = (await row("insert into clients(company_id,name,phone) values($1,'Alheio 2','47999990555') returning id", [other])).id;
+  const foreign = (await row("insert into service_orders(company_id,client_id,kind,description) values($1,$2,'reparo','x') returning id", [other, foreignClient])).id;
+  expect(await print("impressa", [foreign])).toBe(0);
+  await expect(print("outra")).rejects.toThrow(/Etapa invalida/);
+});

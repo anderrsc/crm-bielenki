@@ -44,44 +44,46 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ f
       printedAt: x.os_printed_at, unconfirmed: Boolean(x.os_print_sent_at) && !x.os_printed_at, queued: Boolean(x.os_queued_at) && !x.os_printed_at,
     };
   });
-  // Manutenções e serviços avulsos em aberto: não têm controle de "impressa", saem ao serem concluídos.
-  let services: OsRow[] = [];
-  let servicesFailed = false;
-  if (filtro !== "impressas") {
-    let open = db.from("service_orders")
-      .select("id,service_number,kind,description,opened_at,scheduled_at,expected_date,client:clients(name,neighborhood,city),responsible:profiles!service_orders_responsible_id_fkey(full_name)")
-      .not("status", "in", "(concluido,cancelado)").order("created_at", { ascending: true }).limit(80);
-    if (term) {
-      const { data: found } = await db.from("clients").select("id").ilike("name", `%${term}%`).limit(200);
-      open = open.in("client_id", (found ?? []).map(c => c.id).concat("00000000-0000-0000-0000-000000000000"));
-    }
-    const result = await open;
-    servicesFailed = Boolean(result.error);
-    services = (result.data ?? []).map(r => {
-      const x = r as unknown as { id: string; service_number: string; kind: string; description: string; opened_at: string; scheduled_at: string | null; expected_date: string | null; client: { name: string; neighborhood: string | null; city: string | null } | null; responsible: { full_name: string | null } | null };
-      return {
-        serviceId: x.id, orderId: "", saleId: "", number: x.service_number, client: x.client?.name ?? "Cliente",
-        place: [x.client?.neighborhood, x.client?.city].filter(Boolean).join(" · "), service: `${SERVICE_KINDS[x.kind] ?? x.kind} — ${x.description}`,
-        installer: x.responsible?.full_name ?? null, closedAt: x.opened_at,
-        deadline: x.scheduled_at ? spDate(x.scheduled_at) : x.expected_date,
-        scheduled: Boolean(x.scheduled_at), printedAt: null, unconfirmed: false, queued: false,
-      };
-    });
+  // Manutenções e serviços avulsos seguem a mesma fila: em aberto até imprimir e confirmar.
+  let serviceQuery = db.from("service_orders")
+    .select("id,service_number,kind,description,opened_at,scheduled_at,expected_date,os_printed_at,os_print_sent_at,client:clients(name,neighborhood,city),responsible:profiles!service_orders_responsible_id_fkey(full_name)")
+    .limit(80);
+  if (filtro === "fila") serviceQuery = serviceQuery.not("status", "in", "(concluido,cancelado)").is("os_printed_at", null).order("created_at", { ascending: true });
+  else if (filtro === "impressas") serviceQuery = serviceQuery.neq("status", "cancelado").not("os_printed_at", "is", null).order("os_printed_at", { ascending: false });
+  else serviceQuery = serviceQuery.neq("status", "cancelado").order("created_at", { ascending: false });
+  if (term) {
+    const { data: found } = await db.from("clients").select("id").ilike("name", `%${term}%`).limit(200);
+    serviceQuery = serviceQuery.in("client_id", (found ?? []).map(c => c.id).concat("00000000-0000-0000-0000-000000000000"));
   }
+  const serviceResult = await serviceQuery;
+  const servicesError = serviceResult.error
+    ? /os_print/.test(serviceResult.error.message) ? "Falta aplicar a atualização do banco 20261127130000_fila_os_servicos.sql para as manutenções aparecerem." : "Não foi possível carregar as manutenções. Atualize a página."
+    : "";
+  const services: OsRow[] = (serviceResult.data ?? []).map(r => {
+    const x = r as unknown as { id: string; service_number: string; kind: string; description: string; opened_at: string; scheduled_at: string | null; expected_date: string | null; os_printed_at: string | null; os_print_sent_at: string | null; client: { name: string; neighborhood: string | null; city: string | null } | null; responsible: { full_name: string | null } | null };
+    return {
+      serviceId: x.id, orderId: "", saleId: "", number: x.service_number, client: x.client?.name ?? "Cliente",
+      place: [x.client?.neighborhood, x.client?.city].filter(Boolean).join(" · "), service: `${SERVICE_KINDS[x.kind] ?? x.kind} — ${x.description}`,
+      installer: x.responsible?.full_name ?? null, closedAt: x.opened_at,
+      deadline: x.scheduled_at ? spDate(x.scheduled_at) : x.expected_date, scheduled: Boolean(x.scheduled_at),
+      printedAt: x.os_printed_at, unconfirmed: Boolean(x.os_print_sent_at) && !x.os_printed_at, queued: !x.os_printed_at,
+    };
+  });
   // Impressão não confirmada sempre no topo.
-  const rows = [...mapped.filter(r => r.unconfirmed), ...services, ...mapped.filter(r => !r.unconfirmed)];
+  const all = [...services, ...mapped];
+  const rows = [...all.filter(r => r.unconfirmed), ...all.filter(r => !r.unconfirmed)];
 
   return <div className="mx-auto max-w-5xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div><p className="detail-kind">Operação</p><h1 className="text-2xl font-semibold">Ordens de serviço</h1>
-        <p className="mt-1 text-sm text-ink/60">Todo pedido fechado entra na fila, e as manutenções em aberto também aparecem aqui. Marque até 4 e imprima numa folha A4.</p></div>
+        <p className="mt-1 text-sm text-ink/60">Todo pedido fechado e toda manutenção aberta entram na fila. Marque até 4 e imprima numa folha A4.</p></div>
     </header>
     <nav className="flex flex-wrap gap-2" aria-label="Filtro">
       {Object.entries(FILTERS).map(([k, label]) => <Link key={k} href={`/ordens-servico?filtro=${k}${term ? `&q=${encodeURIComponent(term)}` : ""}`} className={k === filtro ? "button" : "button-ghost"}>{label}</Link>)}
       <form className="ml-auto flex gap-2" action="/ordens-servico"><input type="hidden" name="filtro" value={filtro} /><input name="q" defaultValue={term} placeholder="Buscar cliente" className="field p-2 text-sm" /><button className="button-ghost">Buscar</button></form>
     </nav>
     {search.ok && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{search.ok.slice(0, 200)}</p>}
-    {servicesFailed && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Não foi possível carregar as manutenções. Atualize a página.</p>}
+    {servicesError && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{servicesError}</p>}
     {missing ?<p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Falta aplicar a atualização do banco 20261127120000_fila_ordens_servico.sql para a fila funcionar.</p>
       : error ? <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar as ordens de serviço.</p>
       : <OsQueue rows={rows} filtro={filtro} />}
